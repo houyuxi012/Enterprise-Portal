@@ -81,3 +81,18 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+class UserBase(BaseModel):
+    username: str
+    email: str
+    role: str = "user" # Default role
+
+class UserCreate(UserBase):
+    password: str
+
+class UserResponse(UserBase):
+    id: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True

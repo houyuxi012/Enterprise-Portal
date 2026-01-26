@@ -69,3 +69,11 @@ export interface Announcement {
   color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple';
   isUrgent?: boolean;
 }
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: 'admin' | 'user';
+  is_active: boolean;
+}

@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-    LayoutDashboard, Newspaper, Users, LogOut, ArrowLeft
+    LayoutDashboard, Newspaper, Users, LogOut, ArrowLeft, Shield
 } from 'lucide-react';
 import AuthService from '../services/auth';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'employees';
-    onTabChange: (tab: 'dashboard' | 'news' | 'employees') => void;
+    activeTab: 'dashboard' | 'news' | 'employees' | 'users';
+    onTabChange: (tab: 'dashboard' | 'news' | 'employees' | 'users') => void;
     onExit: () => void;
 }
 
@@ -53,6 +53,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     >
                         <Users size={18} />
                         <span className="text-sm font-bold">员工档案</span>
+                    </button>
+
+                    <div className="pt-4 pb-2 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">系统管理</div>
+
+                    <button
+                        onClick={() => onTabChange('users')}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'users' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                    >
+                        <Shield size={18} />
+                        <span className="text-sm font-bold">用户权限</span>
                     </button>
                 </nav>
 

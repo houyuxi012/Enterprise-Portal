@@ -104,6 +104,30 @@ export const ApiClient = {
   chatAI: async (prompt: string): Promise<string> => {
     const response = await api.post<{ response: string }>('/ai/chat', { prompt });
     return response.data.response;
+  },
+
+  // Admin - Users
+  getUsers: async (): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/users/', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  createUser: async (data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/users/', data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  deleteUser: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/users/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
   }
 };
 
