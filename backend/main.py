@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import employees, news, tools, ai, announcements
+from routers import employees, news, tools, ai, announcements, auth
 
 app = FastAPI(title="ShiKu Portal API", version="1.0.0")
 
@@ -22,5 +22,6 @@ app.include_router(news.router)
 app.include_router(tools.router)
 app.include_router(announcements.router)
 app.include_router(ai.router)
+app.include_router(auth.router)
 
 

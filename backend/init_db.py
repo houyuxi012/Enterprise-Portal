@@ -76,34 +76,50 @@ async def init_db():
                 raise e
 
     async with SessionLocal() as db:
+
         # Check if initialized
         result = await db.execute(select(Employee))
-        if result.scalars().first():
-            print("Database already initialized.")
-            return
+        if not result.scalars().first():
+            print("Seeding data...")
+            
+            # Add Employees
+            for emp_data in EMPLOYEES:
+                db.add(Employee(**emp_data))
+                
+            # Add News
+            from datetime import datetime
+            for news_data in NEWS:
+                # simple date parsing
+                news_data['date'] = datetime.strptime(news_data['date'], '%Y-%m-%d').date()
+                db.add(NewsItem(**news_data))
+                
+            # Add Tools
+            for tool_data in TOOLS:
+                db.add(QuickTool(**tool_data))
+                
+            # Add Announcements
+            for ann_data in ANNOUNCEMENTS:
+                db.add(Announcement(**ann_data))
+        else:
+            print("Data already seeded.")
 
-        print("Seeding data...")
+        # Always check and add Admin User
+        from models import User
+        from auth import get_password_hash
         
-        # Add Employees
-        for emp_data in EMPLOYEES:
-            db.add(Employee(**emp_data))
-            
-        # Add News
-        from datetime import datetime
-        for news_data in NEWS:
-            # simple date parsing
-            news_data['date'] = datetime.strptime(news_data['date'], '%Y-%m-%d').date()
-            db.add(NewsItem(**news_data))
-            
-        # Add Tools
-        for tool_data in TOOLS:
-            db.add(QuickTool(**tool_data))
-            
-        # Add Announcements
-        for ann_data in ANNOUNCEMENTS:
-            db.add(Announcement(**ann_data))
+        result_user = await db.execute(select(User).where(User.username == "admin"))
+        if not result_user.scalars().first():
+            print("Creating default admin user...")
+            admin_user = User(
+                username="admin", 
+                email="admin@shiku.com",
+                hashed_password=get_password_hash("admin123"), # Default password
+                role="admin"
+            )
+            db.add(admin_user)
             
         await db.commit()
+        print("Done!")
         print("Done!")
 
 if __name__ == "__main__":

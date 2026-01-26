@@ -30,6 +30,9 @@ class EmployeeBase(BaseModel):
 class EmployeeCreate(EmployeeBase):
     pass
 
+class EmployeeUpdate(EmployeeBase):
+    pass
+
 class Employee(EmployeeBase):
     id: int
 
@@ -45,6 +48,9 @@ class NewsItemBase(BaseModel):
     image: str
 
 class NewsItemCreate(NewsItemBase):
+    pass
+
+class NewsItemUpdate(NewsItemBase):
     pass
 
 class NewsItem(NewsItemBase):

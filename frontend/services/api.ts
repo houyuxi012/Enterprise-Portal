@@ -47,10 +47,58 @@ export const ApiClient = {
     const response = await api.get<QuickToolDTO[]>('/tools/');
     return response.data;
   },
-  
+
   getAnnouncements: async (): Promise<Announcement[]> => {
     const response = await api.get<Announcement[]>('/announcements/');
     return response.data.map(a => ({ ...a, id: String(a.id) }));
+  },
+
+  // Admin - Employees
+  createEmployee: async (data: Partial<Employee>): Promise<Employee> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/employees/', data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  updateEmployee: async (id: number, data: Partial<Employee>): Promise<Employee> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/employees/${id}`, data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  deleteEmployee: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/employees/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+
+  // Admin - News
+  createNews: async (data: Partial<NewsItem>): Promise<NewsItem> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/news/', data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  updateNews: async (id: number, data: Partial<NewsItem>): Promise<NewsItem> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/news/${id}`, data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  deleteNews: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/news/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
   },
 
   chatAI: async (prompt: string): Promise<string> => {

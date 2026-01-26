@@ -44,3 +44,13 @@ class Announcement(Base):
     time = Column(String) # Keeping as string for "20 mins ago" etc for now, or timestamp later
     color = Column(String)
     is_urgent = Column(Boolean, default=False)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    role = Column(String, default="user") # "admin" or "user"

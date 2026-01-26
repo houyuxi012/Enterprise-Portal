@@ -15,9 +15,10 @@ interface NavbarProps {
   globalSearch: string;
   setGlobalSearch: (search: string) => void;
   onAskAI: (prompt: string) => void;
+  onLogout?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, setGlobalSearch, onAskAI }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showSearchPreview, setShowSearchPreview] = useState(false);
@@ -129,8 +130,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, set
                 key={item.id}
                 onClick={() => setView(item.id)}
                 className={`relative group flex items-center space-x-2 px-2.5 lg:px-3 py-1.5 rounded-full transition-all duration-500 text-[10px] font-black uppercase tracking-tight whitespace-nowrap ${currentView === item.id
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
               >
                 {React.cloneElement(item.icon as React.ReactElement, { size: 16 })}
@@ -145,10 +146,18 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, set
 
         {/* Utilities */}
         <div className="flex items-center space-x-1 lg:space-x-2 ml-2 flex-1 justify-end relative">
-          <div className={`transition-all duration-500 flex items-center ${isSearchVisible ? 'flex-1 max-w-xs' : 'w-9'}`}>
-            <button onClick={() => setIsSearchVisible(!isSearchVisible)} className="w-9 h-9 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+          <div className={`transition-all duration-500 flex items-center bg-slate-100 dark:bg-slate-800 rounded-full ${isSearchVisible ? 'flex-1 max-w-xs px-2' : 'w-9 bg-transparent'}`}>
+            <button onClick={() => setIsSearchVisible(!isSearchVisible)} className="w-9 h-9 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition-colors shrink-0">
               <Search size={16} />
             </button>
+            <input
+              ref={searchInputRef}
+              className={`bg-transparent outline-none text-xs font-bold text-slate-700 dark:text-slate-200 ml-2 w-full ${isSearchVisible ? 'block' : 'hidden'}`}
+              placeholder="搜索人、事、物..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleViewAllSearch()}
+            />
           </div>
 
           <div className="relative" ref={notificationRef}>
@@ -202,7 +211,14 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, set
                     ].map((item, idx) => (
                       <button
                         key={idx}
-                        onClick={() => { if (item.id !== 'logout') setView(item.id as AppView); setIsProfileOpen(false); }}
+                        onClick={() => {
+                          if (item.id === 'logout') {
+                            if (onLogout) onLogout();
+                          } else {
+                            setView(item.id as AppView);
+                          }
+                          setIsProfileOpen(false);
+                        }}
                         className="w-full flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
                       >
                         <div className="flex items-center space-x-4">
