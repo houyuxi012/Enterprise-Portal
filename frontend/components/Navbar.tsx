@@ -6,7 +6,7 @@ import {
   CheckCircle2, Info, AlertCircle, Clock, ChevronRight
 } from 'lucide-react';
 import { AppView, Notification } from '../types';
-import { QUICK_TOOLS, MOCK_NEWS, MOCK_EMPLOYEES, MOCK_NOTIFICATIONS } from '../constants';
+import { MOCK_NOTIFICATIONS } from '../constants';
 import ApiClient from '../services/api';
 
 interface NavbarProps {
@@ -16,9 +16,16 @@ interface NavbarProps {
   setGlobalSearch: (search: string) => void;
   onAskAI: (prompt: string) => void;
   onLogout?: () => void;
+  // Data for preview
+  tools: any[];
+  news: any[];
+  employees: any[];
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout }) => {
+const Navbar: React.FC<NavbarProps> = ({
+  currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout,
+  tools, news, employees
+}) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showSearchPreview, setShowSearchPreview] = useState(false);
@@ -69,11 +76,11 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, set
     if (!globalSearch.trim()) return null;
     const s = globalSearch.toLowerCase();
     return {
-      tools: QUICK_TOOLS.filter(t => t.name.toLowerCase().includes(s)).slice(0, 3),
-      news: MOCK_NEWS.filter(n => n.title.toLowerCase().includes(s)).slice(0, 2),
-      employees: MOCK_EMPLOYEES.filter(e => e.name.toLowerCase().includes(s)).slice(0, 3),
+      tools: tools.filter(t => t.name.toLowerCase().includes(s)).slice(0, 3),
+      news: news.filter(n => n.title.toLowerCase().includes(s)).slice(0, 2),
+      employees: employees.filter(e => e.name.toLowerCase().includes(s)).slice(0, 3),
     };
-  }, [globalSearch]);
+  }, [globalSearch, tools, news, employees]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

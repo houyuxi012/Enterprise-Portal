@@ -37,10 +37,7 @@ export const CAROUSEL_ITEMS = [
   }
 ];
 
-// Re-exporting empty/mock data for components that still rely on them for initial state or client-side filtering
-export const QUICK_TOOLS: any[] = [];
-export const MOCK_NEWS: any[] = [];
-export const MOCK_EMPLOYEES: any[] = [];
+
 export const MOCK_NOTIFICATIONS: any[] = [
   { id: '1', type: 'success', content: '您的报销申请已通过审批', time: '10分钟前', isRead: false },
   { id: '2', type: 'warning', content: '请在今日下班前提交周报', time: '2小时前', isRead: false },

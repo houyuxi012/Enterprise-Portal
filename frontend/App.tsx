@@ -471,6 +471,9 @@ const App: React.FC = () => {
         setGlobalSearch={setGlobalSearch}
         onAskAI={handleOpenAssistantWithPrompt}
         onLogout={handleLogout}
+        tools={tools}
+        news={newsList}
+        employees={employees}
       />      <main className="flex-1 mt-24 px-6 sm:px-8 pb-16">
         <div className="max-w-7xl mx-auto">
           {renderView()}
