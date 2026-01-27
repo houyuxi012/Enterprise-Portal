@@ -10,12 +10,24 @@ import { DAILY_QUOTES, CAROUSEL_ITEMS } from '../constants'; // Keeping these st
 
 interface DashboardProps {
   onViewAll: () => void;
+  currentUser?: any;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewAll }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 5) return '夜深了';
+    if (hour < 11) return '早上好';
+    if (hour < 13) return '中午好';
+    if (hour < 18) return '下午好';
+    return '晚上好';
+  }, []);
+
+  const username = currentUser?.username || '用户';
 
   // Data State
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
@@ -102,7 +114,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll }) => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tighter text-slate-900 dark:text-white leading-none">
-            早上好，Alex
+            {greeting}，{username}
           </h1>
           <div className="flex items-center mt-2 group">
             <Quote size={12} className="text-blue-500 mr-2 flex-shrink-0" />

@@ -23,10 +23,15 @@ export interface NewsItem {
 
 export interface Employee {
   id: string;
+  account: string;
+  job_number: string;
   name: string;
-  role: string;
+  gender: string;
   department: string;
+  role: string;
   email: string;
+  phone: string;
+  location: string;
   avatar: string;
   status: '在线' | '离线' | '会议中';
 }

@@ -1,58 +1,56 @@
-from fastapi import APIRouter, Depends
-import schemas
-from services.gemini_service import get_ai_response
-from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_db
-import models
-from sqlalchemy import select, or_
+from fastapi import APIRouter, HTTPException
+from schemas import AIChatRequest, AIChatResponse
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter(
     prefix="/ai",
     tags=["ai"]
 )
 
-@router.post("/chat", response_model=schemas.ChatResponse)
-async def chat(request: schemas.ChatRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Search Database for Context (RAG-lite)
-    search_term = f"%{request.prompt.split()[0]}%" # Simple first-word matching or full match
-    if len(request.prompt) > 2:
-        search_term = f"%{request.prompt}%"
+# Initialize Gemini
+# Expects GEMINI_API_KEY in .env
+api_key = os.getenv("GEMINI_API_KEY")
 
-    context_lines = []
+if api_key:
+    genai.configure(api_key=api_key)
+    # Using gemini-2.0-flash as observed in frontend code, falling back to gemini-pro if needed
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash')
+    except:
+        model = genai.GenerativeModel('gemini-pro')
+else:
+    model = None
 
-    # Search Employees
-    emp_result = await db.execute(
-        select(models.Employee).where(
-            or_(
-                models.Employee.name.ilike(search_term),
-                models.Employee.role.ilike(search_term),
-                models.Employee.department.ilike(search_term)
-            )
-        ).limit(3)
-    )
-    employees = emp_result.scalars().all()
-    if employees:
-        context_lines.append("【相关人员】")
-        for e in employees:
-            context_lines.append(f"- {e.name} (职位: {e.role}, 部门: {e.department}, 状态: {e.status})")
+SYSTEM_INSTRUCTION = """你是 ShiKu Assistant，ShiKu Home 公司内网的官方 AI 指南。
+你的任务是帮助员工查找公司政策、IT 支持和内部资源。
 
-    # Search News
-    news_result = await db.execute(
-        select(models.NewsItem).where(
-            or_(
-                models.NewsItem.title.ilike(search_term),
-                models.NewsItem.summary.ilike(search_term)
-            )
-        ).limit(3)
-    )
-    news = news_result.scalars().all()
-    if news:
-        context_lines.append("【相关资讯】")
-        for n in news:
-            context_lines.append(f"- {n.title} (日期: {n.date}): {n.summary}")
+公司信息：
+- 公司名称：ShiKu Home
+- 核心价值观：创新、透明、以人为本。
+- 常用工具：Slack, Jira, Confluence, ShiKu-Expenses。
 
-    context_str = "\n".join(context_lines)
+回复原则：
+1. 请使用中文回复。
+2. 使用 Markdown 格式优化排版（如使用列表、加粗关键信息）。
+3. 保持语气专业且亲切。
+4. 如果不知道答案，请直接告知“我找不到相关信息，建议您联系人事部或IT部”。
+"""
+
+@router.post("/chat", response_model=AIChatResponse)
+async def chat(request: AIChatRequest):
+    if not model:
+        raise HTTPException(status_code=500, detail="AI Service not configured (Missing API Key)")
     
-    # 2. Get AI Response with Context
-    response_text = await get_ai_response(request.prompt, context=context_str)
-    return schemas.ChatResponse(response=response_text)
+    try:
+        # Prepending system instruction for context
+        full_prompt = f"{SYSTEM_INSTRUCTION}\n\nUser Question: {request.prompt}"
+        
+        response = model.generate_content(full_prompt)
+        return AIChatResponse(response=response.text)
+    except Exception as e:
+        print(f"AI Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate response")

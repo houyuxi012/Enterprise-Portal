@@ -41,10 +41,15 @@ const EmployeeList: React.FC = () => {
     const handleAddNew = () => {
         setEditingEmployee(null);
         setFormData({
+            account: '',
+            job_number: '',
             name: '',
+            gender: '男',
             role: '',
             department: '',
             email: '',
+            phone: '',
+            location: '',
             avatar: 'https://i.pravatar.cc/150',
             status: '在线'
         });
@@ -96,49 +101,61 @@ const EmployeeList: React.FC = () => {
                     />
                 </div>
 
-                <table className="w-full text-left">
-                    <thead className="border-b border-slate-100 dark:border-slate-700">
-                        <tr>
-                            <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400">姓名</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">职位</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">部门</th>
-                            <th className="pb-4 text-right pr-4 text-xs font-black uppercase text-slate-400">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                        {filteredEmployees.map(emp => (
-                            <tr key={emp.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
-                                <td className="py-4 pl-4">
-                                    <div className="flex items-center space-x-3">
-                                        <img src={emp.avatar} className="w-8 h-8 rounded-full" />
-                                        <span className="font-bold text-slate-800 dark:text-slate-200">{emp.name}</span>
-                                    </div>
-                                </td>
-                                <td className="py-4 text-sm font-medium text-slate-500">{emp.role}</td>
-                                <td className="py-4 text-sm font-medium text-slate-500">
-                                    <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
-                                        {emp.department}
-                                    </span>
-                                </td>
-                                <td className="py-4 pr-4 text-right">
-                                    <div className="flex justify-end space-x-2">
-                                        <button onClick={() => handleEdit(emp)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                                            <Edit size={16} />
-                                        </button>
-                                        <button onClick={() => handleDelete(emp.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[800px]">
+                        <thead className="border-b border-slate-100 dark:border-slate-700">
+                            <tr>
+                                <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400">基本信息</th>
+                                <th className="pb-4 text-xs font-black uppercase text-slate-400">职位/部门</th>
+                                <th className="pb-4 text-xs font-black uppercase text-slate-400">联系方式</th>
+                                <th className="pb-4 text-xs font-black uppercase text-slate-400">位置</th>
+                                <th className="pb-4 text-right pr-4 text-xs font-black uppercase text-slate-400">操作</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                            {filteredEmployees.map(emp => (
+                                <tr key={emp.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                    <td className="py-4 pl-4">
+                                        <div className="flex items-center space-x-3">
+                                            <img src={emp.avatar} className="w-10 h-10 rounded-full" />
+                                            <div>
+                                                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                                                    {emp.name}
+                                                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{emp.gender}</span>
+                                                </div>
+                                                <div className="text-xs text-slate-400 font-medium tracking-tight">#{emp.job_number} · @{emp.account}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="py-4">
+                                        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{emp.role}</div>
+                                        <div className="text-xs font-medium text-slate-400">{emp.department}</div>
+                                    </td>
+                                    <td className="py-4">
+                                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{emp.email}</div>
+                                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{emp.phone}</div>
+                                    </td>
+                                    <td className="py-4 text-sm font-medium text-slate-500">{emp.location}</td>
+                                    <td className="py-4 pr-4 text-right">
+                                        <div className="flex justify-end space-x-2">
+                                            <button onClick={() => handleEdit(emp)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                                <Edit size={16} />
+                                            </button>
+                                            <button onClick={() => handleDelete(emp.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {isEditorOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-900 dark:text-white">{editingEmployee ? '编辑员工' : '新增员工'}</h3>
                             <button onClick={() => setIsEditorOpen(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -146,29 +163,59 @@ const EmployeeList: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">姓名</label>
-                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div className="grid grid-cols-3 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">工号</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.job_number || ''} onChange={e => setFormData({ ...formData, job_number: e.target.value })} placeholder="例如：1001" />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">部门</label>
-                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50" value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} />
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">账户</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.account || ''} onChange={e => setFormData({ ...formData, account: e.target.value })} placeholder="例如：zhangsan" />
                                 </div>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase">职位</label>
-                                <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase">邮箱</label>
-                                <input type="email" required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">姓名</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                </div>
                             </div>
 
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <button type="button" onClick={() => setIsEditorOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">取消</button>
-                                <button type="submit" className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30">保存</button>
+                            <div className="grid grid-cols-3 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">性别</label>
+                                    <select className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium appearance-none" value={formData.gender || '男'} onChange={e => setFormData({ ...formData, gender: e.target.value })}>
+                                        <option value="男">男</option>
+                                        <option value="女">女</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">部门</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.department || ''} onChange={e => setFormData({ ...formData, department: e.target.value })} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">职位</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.role || ''} onChange={e => setFormData({ ...formData, role: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">联系邮箱</label>
+                                    <input type="email" required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">手机号码</label>
+                                    <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.phone || ''} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider">办公地点</label>
+                                <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-blue-500/50 transition-all font-medium" value={formData.location || ''} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="例如：北京总部-3层-305" />
+                            </div>
+
+                            <div className="pt-6 flex justify-end space-x-3 border-t border-slate-100 dark:border-slate-700 mt-4">
+                                <button type="button" onClick={() => setIsEditorOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 dark:text-slate-400">取消</button>
+                                <button type="submit" className="px-8 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 ring-1 ring-blue-500">保存</button>
                             </div>
                         </form>
                     </div>

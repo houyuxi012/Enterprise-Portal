@@ -31,7 +31,7 @@ const App: React.FC = () => {
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'news' | 'employees'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'news' | 'employees' | 'users'>('dashboard');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -187,7 +187,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case AppView.DASHBOARD:
-        return <Dashboard onViewAll={() => setCurrentView(AppView.TOOLS)} />;
+        return <Dashboard onViewAll={() => setCurrentView(AppView.TOOLS)} currentUser={currentUser} />;
       case AppView.SETTINGS:
         return (
           <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">
@@ -464,17 +464,24 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-600 selection:text-white transition-colors">
-      <Navbar
-        currentView={currentView}
-        setView={setCurrentView}
-        globalSearch={globalSearch}
-        setGlobalSearch={setGlobalSearch}
-        onAskAI={handleOpenAssistantWithPrompt}
-        onLogout={handleLogout}
-        tools={tools}
-        news={newsList}
-        employees={employees}
-      />      <main className="flex-1 mt-24 px-6 sm:px-8 pb-16">
+      {isAuthenticated && (
+        <Navbar
+          currentView={currentView}
+          setView={setCurrentView}
+          globalSearch={globalSearch}
+          setGlobalSearch={setGlobalSearch}
+          onAskAI={(prompt) => {
+            setIsAssistantOpen(true);
+            setAssistantInitialPrompt(prompt);
+          }}
+          onLogout={handleLogout}
+          tools={tools}
+          news={newsList}
+          employees={employees}
+          currentUser={currentUser}
+        />
+      )}
+      <main className="flex-1 mt-24 px-6 sm:px-8 pb-16">
         <div className="max-w-7xl mx-auto">
           {renderView()}
         </div>

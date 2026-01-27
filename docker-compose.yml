@@ -18,7 +18,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/portal_db
-      API_KEY: ${API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       - db
 

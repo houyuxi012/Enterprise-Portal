@@ -20,11 +20,12 @@ interface NavbarProps {
   tools: any[];
   news: any[];
   employees: any[];
+  currentUser: any;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
   currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout,
-  tools, news, employees
+  tools, news, employees, currentUser
 }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -116,6 +117,11 @@ const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  // Default values if currentUser is unknown
+  const username = currentUser?.username || '用户';
+  const userRole = currentUser?.role === 'admin' ? '管理员' : '普通用户';
+  const userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-6 py-2 pointer-events-none">
       <nav className="mica pointer-events-auto h-14 max-w-7xl w-full rounded-full flex items-center px-4 justify-between shadow-[0_8px_30px_-10px_rgba(0,0,0,0.1)] transition-all">
@@ -186,7 +192,7 @@ const Navbar: React.FC<NavbarProps> = ({
               className="relative p-0.5 rounded-xl transition-all duration-500 hover:scale-105 active:scale-95 bg-transparent"
             >
               <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl overflow-hidden ring-2 ring-white/80 dark:ring-slate-900 shadow-sm relative z-10">
-                <img src="https://i.pravatar.cc/150?u=alex" alt="Alex" className="w-full h-full object-cover" />
+                <img src={userAvatar} alt={username} className="w-full h-full object-cover" />
               </div>
             </button>
 
@@ -201,13 +207,13 @@ const Navbar: React.FC<NavbarProps> = ({
                 <div className="px-6 pb-6 pt-0 relative">
                   <div className="relative -mt-10 mb-4 w-20 h-20">
                     <div className="w-20 h-20 rounded-[1.5rem] p-1 bg-white dark:bg-slate-900 shadow-2xl">
-                      <img src="https://i.pravatar.cc/150?u=alex" className="w-full h-full rounded-2xl object-cover" />
+                      <img src={userAvatar} className="w-full h-full rounded-2xl object-cover" />
                     </div>
                   </div>
 
                   <div className="mb-6">
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Alex Johnson</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Product Design Lead</p>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{username}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{userRole}</p>
                   </div>
 
                   {/* Standard Menu Actions */}

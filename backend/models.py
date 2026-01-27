@@ -5,10 +5,15 @@ class Employee(Base):
     __tablename__ = "employees"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    role = Column(String)
-    department = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
+    account = Column(String, unique=True, index=True) # 账户
+    job_number = Column(String, unique=True, index=True) # 工号
+    name = Column(String, index=True) # 姓名
+    gender = Column(String) # 性别
+    department = Column(String, index=True) # 部门
+    role = Column(String) # 职位
+    email = Column(String, unique=True, index=True) # 邮箱
+    phone = Column(String) # 手机号码
+    location = Column(String) # 办公地
     avatar = Column(String)
     status = Column(String)
 

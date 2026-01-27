@@ -37,7 +37,7 @@ class AuthService {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No token found');
 
-        const response = await axios.get<User>(`${API_URL}/auth/users/me`, {
+        const response = await axios.get<User>(`${API_URL}/users/me`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
