@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard, Newspaper, Users, FolderOpen, Settings, LogOut,
-  Search, Bell, Grid, X, ArrowRight, Globe, Sparkles, Loader2,
+  Search, Bell, Grid, Sparkles, Loader2,
   CheckCircle2, Info, AlertCircle, Clock, ChevronRight
 } from 'lucide-react';
 import { AppView, Notification } from '../types';
@@ -21,11 +21,14 @@ interface NavbarProps {
   news: any[];
   employees: any[];
   currentUser: any;
+  systemConfig?: Record<string, string>;
 }
+
+type SearchEngine = 'local' | 'google' | 'bing' | 'baidu';
 
 const Navbar: React.FC<NavbarProps> = ({
   currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout,
-  tools, news, employees, currentUser
+  tools, news, employees, currentUser, systemConfig
 }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -40,6 +43,27 @@ const Navbar: React.FC<NavbarProps> = ({
   const notificationRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchPreviewRef = useRef<HTMLDivElement>(null);
+  /* SEARCH PREVIEW REF */
+  // searchEngine state removed as we moved to distinct buttons in preview
+
+
+  const handleSearchAction = () => {
+    if (!globalSearch.trim()) return;
+    // Default Enter key behavior: Always Local Search
+    setView(AppView.SEARCH_RESULTS);
+    setShowSearchPreview(false);
+  };
+
+  const openExternalSearch = (engine: 'google' | 'bing' | 'baidu') => {
+    const urls = {
+      google: 'https://www.google.com/search?q=',
+      bing: 'https://www.bing.com/search?q=',
+      baidu: 'https://www.baidu.com/s?wd='
+    };
+    window.open(`${urls[engine]}${encodeURIComponent(globalSearch)}`, '_blank');
+    setShowSearchPreview(false);
+  };
+
   const aiSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
@@ -122,6 +146,8 @@ const Navbar: React.FC<NavbarProps> = ({
   const userRole = currentUser?.role === 'admin' ? '管理员' : '普通用户';
   const userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
 
+
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-6 py-2 pointer-events-none">
       <nav className="mica pointer-events-auto h-14 max-w-7xl w-full rounded-full flex items-center px-4 justify-between shadow-[0_8px_30px_-10px_rgba(0,0,0,0.1)] transition-all">
@@ -131,10 +157,16 @@ const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center space-x-3 cursor-pointer group pr-4 border-r border-slate-200/50 dark:border-slate-700/50 shrink-0"
             onClick={() => setView(AppView.DASHBOARD)}
           >
-            <div className="w-8 h-8 lg:w-9 lg:h-9 mesh-gradient rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/30 group-hover:rotate-12 transition-transform duration-500">
-              S
-            </div>
-            <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">ShiKu Home</span>
+            {systemConfig?.logo_url ? (
+              <img src={systemConfig.logo_url} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover shadow-lg shadow-blue-500/30 group-hover:rotate-12 transition-transform duration-500" />
+            ) : (
+              <div className="w-8 h-8 lg:w-9 lg:h-9 mesh-gradient rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/30 group-hover:rotate-12 transition-transform duration-500">
+                {(systemConfig?.app_name?.[0] || 'S').toUpperCase()}
+              </div>
+            )}
+            <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">
+              {systemConfig?.app_name || 'ShiKu Home'}
+            </span>
           </div>
 
           <div className="flex items-center space-x-1 lg:space-x-2 no-scrollbar">
@@ -159,8 +191,9 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* Utilities */}
         <div className="flex items-center space-x-1 lg:space-x-2 ml-2 flex-1 justify-end relative">
-          <div className={`transition-all duration-500 flex items-center bg-slate-100 dark:bg-slate-800 rounded-full ${isSearchVisible ? 'flex-1 max-w-xs px-2' : 'w-9 bg-transparent'}`}>
-            <button onClick={() => setIsSearchVisible(!isSearchVisible)} className="w-9 h-9 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition-colors shrink-0">
+          <div className={`transition-all duration-500 flex items-center bg-slate-100 dark:bg-slate-800 rounded-full ${isSearchVisible ? 'flex-1 max-w-xs px-1' : 'w-9 bg-transparent'}`}>
+
+            <button onClick={() => isSearchVisible ? handleSearchAction() : setIsSearchVisible(!isSearchVisible)} className="w-9 h-9 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition-colors shrink-0">
               <Search size={16} />
             </button>
             <input
@@ -168,9 +201,68 @@ const Navbar: React.FC<NavbarProps> = ({
               className={`bg-transparent outline-none text-xs font-bold text-slate-700 dark:text-slate-200 ml-2 w-full ${isSearchVisible ? 'block' : 'hidden'}`}
               placeholder="搜索人、事、物..."
               value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleViewAllSearch()}
+              onChange={(e) => {
+                setGlobalSearch(e.target.value);
+                setShowSearchPreview(true);
+              }}
+              onFocus={() => {
+                if (globalSearch.trim()) setShowSearchPreview(true);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearchAction()}
             />
+
+            {/* Search Preview Dropdown */}
+            {isSearchVisible && showSearchPreview && globalSearch.trim() && (
+              <div ref={searchPreviewRef} className="absolute top-12 left-0 right-0 w-80 mx-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden p-4 z-50 animate-in fade-in zoom-in-95">
+                {/* AI Preview */}
+                {isAiLoading ? (
+                  <div className="flex items-center space-x-2 text-slate-400 text-xs mb-3 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>AI 正在思考...</span>
+                  </div>
+                ) : aiPreviewAnswer && (
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+                    <div className="flex items-center space-x-2 mb-1 text-blue-600 dark:text-blue-400">
+                      <Sparkles size={12} />
+                      <span className="text-[10px] font-black uppercase tracking-wider">AI 助手</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{aiPreviewAnswer}</p>
+                  </div>
+                )}
+
+                {/* Local Results */}
+                {previewResults && (
+                  <div className="space-y-3 mb-3">
+                    {previewResults.tools.length > 0 && (
+                      <div>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">工具</h4>
+                        {previewResults.tools.map((t: any) => (
+                          <div key={t.id} className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+                            <div className="w-5 h-5 rounded bg-white shadow-sm flex items-center justify-center text-xs">{t.icon_name ? <span>{t.icon_name[0]}</span> : <Grid size={10} />}</div>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{t.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* External Engines */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">全网搜索</h4>
+                  <div className="space-y-1">
+                    <button onClick={() => openExternalSearch('google')} className="w-full text-left px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-xs font-bold text-slate-600 dark:text-slate-300">
+                      Google
+                    </button>
+                    <button onClick={() => openExternalSearch('bing')} className="w-full text-left px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-xs font-bold text-slate-600 dark:text-slate-300">
+                      Bing
+                    </button>
+                    <button onClick={() => openExternalSearch('baidu')} className="w-full text-left px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-xs font-bold text-slate-600 dark:text-slate-300">
+                      百度
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="relative" ref={notificationRef}>

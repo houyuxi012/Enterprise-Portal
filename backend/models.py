@@ -1,5 +1,36 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Date
+from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table
+from sqlalchemy.orm import relationship
 from database import Base
+
+# Association Tables
+role_permissions = Table(
+    'role_permissions',
+    Base.metadata,
+    Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True),
+    Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
+)
+
+user_roles = Table(
+    'user_roles',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True)
+)
+
+class Permission(Base):
+    __tablename__ = "permissions"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True) # e.g. "sys:user:edit"
+    description = Column(String)
+
+class Role(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True) # e.g. "admin"
+    name = Column(String)
+    limit_scope = Column(Boolean, default=False) # potentially for future scope limits
+    
+    permissions = relationship("Permission", secondary=role_permissions, backref="roles")
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -58,4 +89,12 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
-    role = Column(String, default="user") # "admin" or "user"
+    role = Column(String, default="user") # Deprecated, keeping for migration safety for now
+    
+    roles = relationship("Role", secondary=user_roles, backref="users")
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String)

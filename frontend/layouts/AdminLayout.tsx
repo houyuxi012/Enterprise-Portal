@@ -5,9 +5,12 @@ import {
     UserOutlined,
     TeamOutlined,
     FileTextOutlined,
+    NotificationOutlined,
     LogoutOutlined,
     HomeOutlined,
-    SafetyCertificateOutlined
+    SafetyCertificateOutlined,
+    AppstoreOutlined,
+    SettingOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 
@@ -15,8 +18,8 @@ const { Header, Sider, Content } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'employees' | 'users';
-    onTabChange: (tab: 'dashboard' | 'news' | 'employees' | 'users') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings') => void;
     onExit: () => void;
 }
 
@@ -58,9 +61,29 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     label: '新闻公告',
                 },
                 {
+                    key: 'announcements',
+                    icon: <NotificationOutlined />,
+                    label: '实时通知',
+                },
+                {
+                    key: 'tools',
+                    icon: <AppstoreOutlined />,
+                    label: '应用工具',
+                },
+                {
                     key: 'employees',
                     icon: <TeamOutlined />,
                     label: '用户管理',
+                },
+                {
+                    key: 'settings',
+                    icon: <SettingOutlined />,
+                    label: '系统设置',
+                },
+                {
+                    key: 'tools',
+                    icon: <AppstoreOutlined />,
+                    label: '应用工具',
                 },
             ],
         },

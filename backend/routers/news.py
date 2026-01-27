@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
@@ -16,7 +17,7 @@ async def read_news(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(
     news = result.scalars().all()
     return news
 
-@router.post("/", response_model=schemas.NewsItem, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas.NewsItem, status_code=status.HTTP_201_CREATED, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def create_news(news: schemas.NewsItemCreate, db: AsyncSession = Depends(get_db)):
     db_news = models.NewsItem(**news.dict())
     db.add(db_news)
@@ -24,7 +25,7 @@ async def create_news(news: schemas.NewsItemCreate, db: AsyncSession = Depends(g
     await db.refresh(db_news)
     return db_news
 
-@router.put("/{news_id}", response_model=schemas.NewsItem)
+@router.put("/{news_id}", response_model=schemas.NewsItem, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def update_news(news_id: int, news_update: schemas.NewsItemCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.NewsItem).filter(models.NewsItem.id == news_id))
     news = result.scalars().first()
@@ -38,7 +39,7 @@ async def update_news(news_id: int, news_update: schemas.NewsItemCreate, db: Asy
     await db.refresh(news)
     return news
 
-@router.delete("/{news_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{news_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def delete_news(news_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.NewsItem).filter(models.NewsItem.id == news_id))
     news = result.scalars().first()

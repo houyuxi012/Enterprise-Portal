@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X, Shield, Lock, Key } from 'lucide-react';
-import { User } from '../../types';
+import { User, Role } from '../../types';
 import ApiClient from '../../services/api';
-import { message } from 'antd'; // Using antd message for consistency
+import { message, Select, Tag } from 'antd'; // Importing Select for multi-choice
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [search, setSearch] = useState('');
@@ -16,19 +17,24 @@ const UserList: React.FC = () => {
         username: '',
         email: '',
         password: '',
-        role: 'user' as 'admin' | 'user'
+        role_ids: [] as number[],
     });
 
     useEffect(() => {
-        fetchUsers();
+        fetchData();
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
         try {
-            const data = await ApiClient.getUsers();
-            setUsers(data);
+            const [usersData, rolesData] = await Promise.all([
+                ApiClient.getUsers(),
+                ApiClient.getRoles()
+            ]);
+            setUsers(usersData);
+            setRoles(rolesData);
         } catch (error) {
             console.error(error);
+            message.error("Failed to load users or roles");
         }
     };
 
@@ -36,9 +42,10 @@ const UserList: React.FC = () => {
         if (confirm('Are you sure you want to delete this user?')) {
             try {
                 await ApiClient.deleteUser(id);
-                fetchUsers();
+                fetchData();
+                message.success('User deleted');
             } catch (e) {
-                alert('Failed to delete user');
+                message.error('Failed to delete user');
             }
         }
     };
@@ -60,7 +67,7 @@ const UserList: React.FC = () => {
             username: user.username,
             email: user.email,
             password: '',
-            role: user.role as 'admin' | 'user'
+            role_ids: user.roles?.map(r => r.id) || []
         });
         setErrorMessage('');
         setIsEditorOpen(true);
@@ -71,8 +78,8 @@ const UserList: React.FC = () => {
         setFormData({
             username: '',
             email: '',
-            password: '', // Required for new user
-            role: 'user'
+            password: '',
+            role_ids: [] // Default empty? Or default to user role if known
         });
         setErrorMessage('');
         setIsEditorOpen(true);
@@ -83,10 +90,9 @@ const UserList: React.FC = () => {
         setErrorMessage('');
         try {
             if (editingUser) {
-                // Determine what changed. Username/Password cannot be changed here typically
                 const updatePayload: any = {
                     email: formData.email,
-                    role: formData.role
+                    role_ids: formData.role_ids
                 };
                 await ApiClient.updateUser(editingUser.id, updatePayload);
                 message.success('User updated successfully');
@@ -95,7 +101,7 @@ const UserList: React.FC = () => {
                 message.success('User created successfully');
             }
             setIsEditorOpen(false);
-            fetchUsers();
+            fetchData();
         } catch (error: any) {
             setErrorMessage(error.response?.data?.detail || 'Failed to save');
         }
@@ -135,7 +141,7 @@ const UserList: React.FC = () => {
                     <thead className="border-b border-slate-100 dark:border-slate-700">
                         <tr>
                             <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400">用户名</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">角色权限</th>
+                            <th className="pb-4 text-xs font-black uppercase text-slate-400">角色 (Roles)</th>
                             <th className="pb-4 text-xs font-black uppercase text-slate-400">邮箱</th>
                             <th className="pb-4 text-right pr-4 text-xs font-black uppercase text-slate-400">操作</th>
                         </tr>
@@ -152,13 +158,15 @@ const UserList: React.FC = () => {
                                     </div>
                                 </td>
                                 <td className="py-4">
-                                    <span className={`px-2 py-1 rounded-md text-xs font-black uppercase tracking-widest ${user.role === 'admin'
-                                        ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
-                                        : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                                        }`}>
-                                        {user.role === 'admin' ? <Shield size={12} className="inline mr-1" /> : null}
-                                        {user.role}
-                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {user.roles && user.roles.length > 0 ? user.roles.map(role => (
+                                            <Tag key={role.id} color={role.code === 'admin' ? 'red' : 'blue'}>
+                                                {role.name}
+                                            </Tag>
+                                        )) : (
+                                            <Tag>No Roles</Tag>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
                                 <td className="py-4 pr-4 text-right">
@@ -184,7 +192,9 @@ const UserList: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white">新增账户</h3>
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                                {editingUser ? '编辑用户' : '新增账户'}
+                            </h3>
                             <button onClick={() => setIsEditorOpen(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
                                 <X size={20} />
                             </button>
@@ -213,17 +223,27 @@ const UserList: React.FC = () => {
                                     <input required type="password" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
                                 </div>
                             )}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">角色权限</label>
-                                    <select
-                                        className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50"
-                                        value={formData.role}
-                                        onChange={e => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                                    <label className="text-xs font-bold text-slate-500 uppercase">分配角色</label>
+                                    <Select
+                                        mode="multiple"
+                                        style={{ width: '100%' }}
+                                        placeholder="选择角色"
+                                        value={formData.role_ids}
+                                        onChange={(values) => setFormData({ ...formData, role_ids: values })}
+                                        optionLabelProp="label"
+                                        className="h-10"
                                     >
-                                        <option value="user">普通用户 (User)</option>
-                                        <option value="admin">管理员 (Admin)</option>
-                                    </select>
+                                        {roles.map(role => (
+                                            <Select.Option key={role.id} value={role.id} label={role.name}>
+                                                <div className="flex justify-between items-center">
+                                                    <span>{role.name}</span>
+                                                    <span className="text-slate-400 text-xs">{role.code}</span>
+                                                </div>
+                                            </Select.Option>
+                                        ))}
+                                    </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase">邮箱</label>

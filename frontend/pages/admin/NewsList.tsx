@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { List, Button, Modal, Form, Input, DatePicker, Select, Popconfirm, message, Card, Space, Tag, Upload } from 'antd';
+import { Table, Button, Modal, Form, Input, DatePicker, Select, Popconfirm, message, Tag, Upload, Space, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, PictureOutlined } from '@ant-design/icons';
 import { NewsItem } from '../../types';
 import ApiClient from '../../services/api';
@@ -90,52 +90,107 @@ const NewsList: React.FC = () => {
         n.title.toLowerCase().includes(textSearch.toLowerCase())
     );
 
+    const columns = [
+        {
+            title: '封面',
+            dataIndex: 'image',
+            key: 'image',
+            width: '10%',
+            render: (image: string) => (
+                <div className="w-16 h-10 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={image} alt="cover" className="w-full h-full object-cover" />
+                </div>
+            )
+        },
+        {
+            title: '标题',
+            dataIndex: 'title',
+            key: 'title',
+            width: '25%',
+            render: (text: string) => <span className="font-bold">{text}</span>
+        },
+        {
+            title: '摘要',
+            dataIndex: 'summary',
+            key: 'summary',
+            ellipsis: {
+                showTitle: false,
+            },
+            render: (summary: string) => (
+                <Tooltip placement="topLeft" title={summary}>
+                    {summary}
+                </Tooltip>
+            ),
+        },
+        {
+            title: '分类',
+            dataIndex: 'category',
+            key: 'category',
+            width: '10%',
+            render: (category: string) => (
+                <Tag color="cyan">{category}</Tag>
+            ),
+        },
+        {
+            title: '发布日期',
+            dataIndex: 'date',
+            key: 'date',
+            width: '15%',
+            render: (date: string) => <span className="text-gray-500">{date}</span>
+        },
+        {
+            title: '操作',
+            key: 'action',
+            width: '15%',
+            render: (_: any, record: NewsItem) => (
+                <Space size="middle">
+                    <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(record)}
+                        className="text-blue-600 hover:text-blue-700"
+                    >
+                        编辑
+                    </Button>
+                    <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                        >
+                            删除
+                        </Button>
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
     return (
-        <div className="site-card-wrapper">
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">新闻资讯管理</h2>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large">发布资讯</Button>
+                <div>
+                    <h2 className="text-2xl font-bold dark:text-white">资讯内容管理</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">发布和编辑企业新闻动态</p>
+                </div>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large" className="rounded-xl px-6">发布资讯</Button>
             </div>
-            <div className="mb-6">
+            <div className="mb-6 flex space-x-4">
                 <Input
                     placeholder="搜索标题..."
                     prefix={<SearchOutlined />}
                     onChange={e => setTextSearch(e.target.value)}
-                    style={{ width: 300 }}
+                    className="w-80 rounded-xl"
+                    size="large"
                 />
             </div>
 
-            <List
-                grid={{ gutter: 16, column: 3 }}
+            <Table
+                columns={columns}
                 dataSource={filteredNews}
+                rowKey="id"
                 loading={loading}
-                renderItem={item => (
-                    <List.Item>
-                        <Card
-                            cover={<img alt="example" src={item.image} style={{ height: 160, objectFit: 'cover' }} />}
-                            actions={[
-                                <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                                <Popconfirm title="确定删除?" onConfirm={() => handleDelete(item.id)}>
-                                    <DeleteOutlined key="delete" style={{ color: 'red' }} />
-                                </Popconfirm>,
-                            ]}
-                        >
-                            <Card.Meta
-                                className="h-32"
-                                title={<div className="truncate">{item.title}</div>}
-                                description={
-                                    <div>
-                                        <div className="mb-2">
-                                            <Tag color="blue">{item.category}</Tag>
-                                            <span className="text-xs text-gray-400">{item.date}</span>
-                                        </div>
-                                        <div className="line-clamp-2 text-xs text-gray-500 h-10">{item.summary}</div>
-                                    </div>
-                                }
-                            />
-                        </Card>
-                    </List.Item>
-                )}
+                pagination={{ pageSize: 8 }}
             />
 
             <Modal
@@ -143,15 +198,16 @@ const NewsList: React.FC = () => {
                 open={isModalOpen}
                 onOk={handleOk}
                 onCancel={() => setIsModalOpen(false)}
-                width={600}
+                width={700}
+                className="rounded-2xl overflow-hidden"
             >
-                <Form form={form} layout="vertical">
+                <Form form={form} layout="vertical" className="pt-4">
                     <Form.Item name="title" label="标题" rules={[{ required: true }]}>
-                        <Input />
+                        <Input className="rounded-lg" size="large" />
                     </Form.Item>
                     <div className="grid grid-cols-2 gap-4">
                         <Form.Item name="category" label="分类" rules={[{ required: true }]}>
-                            <Select>
+                            <Select size="large" className="rounded-lg">
                                 <Option value="公告">公告</Option>
                                 <Option value="活动">活动</Option>
                                 <Option value="政策">政策</Option>
@@ -159,19 +215,21 @@ const NewsList: React.FC = () => {
                             </Select>
                         </Form.Item>
                         <Form.Item name="date" label="日期" rules={[{ required: true }]}>
-                            <DatePicker style={{ width: '100%' }} />
+                            <DatePicker style={{ width: '100%' }} size="large" className="rounded-lg" />
                         </Form.Item>
                     </div>
                     <Form.Item name="summary" label="摘要" rules={[{ required: true }]}>
-                        <TextArea rows={4} />
+                        <TextArea rows={4} className="rounded-lg" />
                     </Form.Item>
                     <Form.Item label="封面图片" name="image">
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                             <Form.Item name="image" noStyle>
                                 <Input hidden />
                             </Form.Item>
                             {form.getFieldValue('image') && (
-                                <img src={form.getFieldValue('image')} alt="cover" className="w-full h-40 object-cover rounded-lg border" />
+                                <div className="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group">
+                                    <img src={form.getFieldValue('image')} alt="cover" className="w-full h-full object-cover" />
+                                </div>
                             )}
                             <Upload
                                 customRequest={async ({ file, onSuccess, onError }) => {
@@ -187,7 +245,7 @@ const NewsList: React.FC = () => {
                                 }}
                                 showUploadList={false}
                             >
-                                <Button icon={<UploadOutlined />}>上传封面图片</Button>
+                                <Button icon={<UploadOutlined />} size="large" className="rounded-xl w-full">点击上传封面图片</Button>
                             </Upload>
                         </div>
                     </Form.Item>

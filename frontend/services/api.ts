@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Employee, NewsItem, QuickTool, Announcement } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -48,6 +48,23 @@ export const ApiClient = {
     return response.data;
   },
 
+  createTool: async (data: any): Promise<QuickToolDTO> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/tools/', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateTool: async (id: number, data: any): Promise<QuickToolDTO> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/tools/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteTool: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/tools/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  },
+
   uploadImage: async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -62,6 +79,23 @@ export const ApiClient = {
   getAnnouncements: async (): Promise<Announcement[]> => {
     const response = await api.get<Announcement[]>('/announcements/');
     return response.data.map(a => ({ ...a, id: String(a.id) }));
+  },
+
+  createAnnouncement: async (data: any): Promise<Announcement> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/announcements/', data, { headers: { Authorization: `Bearer ${token}` } });
+    return { ...response.data, id: String(response.data.id) };
+  },
+
+  updateAnnouncement: async (id: number, data: any): Promise<Announcement> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/announcements/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return { ...response.data, id: String(response.data.id) };
+  },
+
+  deleteAnnouncement: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/announcements/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   },
 
   // Admin - Employees
@@ -134,6 +168,14 @@ export const ApiClient = {
     return response.data;
   },
 
+  updateUser: async (id: number, data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/users/${id}`, data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
   deleteUser: async (id: number): Promise<void> => {
     const token = localStorage.getItem('token');
     await api.delete(`/users/${id}`, {
@@ -146,6 +188,23 @@ export const ApiClient = {
     await api.post('/users/reset-password', { username }, {
       headers: { Authorization: `Bearer ${token}` }
     });
+  },
+
+  getRoles: async (): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/users/roles', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  getSystemConfig: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/system/config');
+    return response.data;
+  },
+
+  updateSystemConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/system/config', config, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
   }
 };
 

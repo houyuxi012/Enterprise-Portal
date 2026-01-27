@@ -22,6 +22,10 @@ import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import NewsList from './pages/admin/NewsList';
 import EmployeeList from './pages/admin/EmployeeList';
+import ToolList from './pages/admin/ToolList';
+import AnnouncementList from './pages/admin/AnnouncementList';
+import SystemSettings from './pages/admin/SystemSettings';
+import UserList from './pages/admin/UserList';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
@@ -30,7 +34,7 @@ const App: React.FC = () => {
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'news' | 'employees' | 'users'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings'>('dashboard');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -40,6 +44,7 @@ const App: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
+  const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
 
   // Team Filter State
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -87,14 +92,21 @@ const App: React.FC = () => {
 
     const fetchData = async () => {
       try {
-        const [fetchedEmployees, fetchedNews, fetchedTools] = await Promise.all([
+        const [fetchedEmployees, fetchedNews, fetchedTools, fetchedConfig] = await Promise.all([
           ApiClient.getEmployees(),
           ApiClient.getNews(),
-          ApiClient.getTools()
+          ApiClient.getTools(),
+          ApiClient.getSystemConfig()
         ]);
         setEmployees(fetchedEmployees);
         setNewsList(fetchedNews);
         setTools(fetchedTools);
+        setSystemConfig(fetchedConfig);
+
+        // Apply Config
+        if (fetchedConfig.browser_title) {
+          document.title = fetchedConfig.browser_title;
+        }
       } catch (error) {
         console.error("Error fetching app data:", error);
       }
@@ -445,16 +457,20 @@ const App: React.FC = () => {
   if (isAdminMode) {
     return (
       <AdminLayout
-        activeTab={adminTab}
-        onTabChange={setAdminTab}
+        activeTab={activeAdminTab}
+        onTabChange={(tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings') => setActiveAdminTab(tab)}
         onExit={() => {
           setIsAdminMode(false);
           window.history.pushState({}, '', '/');
         }}
       >
-        {adminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
-        {adminTab === 'news' && <NewsList />}
-        {adminTab === 'employees' && <EmployeeList />}
+        {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
+        {activeAdminTab === 'news' && <NewsList />}
+        {activeAdminTab === 'announcements' && <AnnouncementList />}
+        {activeAdminTab === 'employees' && <EmployeeList />}
+        {activeAdminTab === 'users' && <UserList />}
+        {activeAdminTab === 'tools' && <ToolList />}
+        {activeAdminTab === 'settings' && <SystemSettings />}
       </AdminLayout>
     );
   }
@@ -476,6 +492,7 @@ const App: React.FC = () => {
           news={newsList}
           employees={employees}
           currentUser={currentUser}
+          systemConfig={systemConfig}
         />
       )}
       <main className="flex-1 mt-24 px-6 sm:px-8 pb-16">

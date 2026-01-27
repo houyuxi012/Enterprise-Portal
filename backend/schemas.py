@@ -75,6 +75,26 @@ class Announcement(AnnouncementBase):
     class Config:
         from_attributes = True
 
+# Role/Permission Schemas
+class PermissionBase(BaseModel):
+    code: str
+    description: str
+
+class Permission(PermissionBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class RoleBase(BaseModel):
+    code: str
+    name: str
+
+class Role(RoleBase):
+    id: int
+    permissions: List[Permission] = []
+    class Config:
+        from_attributes = True
+
 # User Schemas
 class UserBase(BaseModel):
     username: str
@@ -85,14 +105,17 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    role_ids: Optional[List[int]] = []
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None
-    role: Optional[str] = None
+    role: Optional[str] = None # Deprecated
+    role_ids: Optional[List[int]] = None
     is_active: Optional[bool] = None
 
 class User(UserBase):
     id: int
+    roles: List[Role] = []
     class Config:
         from_attributes = True
 

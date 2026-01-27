@@ -74,10 +74,17 @@ export interface Announcement {
   isUrgent?: boolean;
 }
 
+export interface Role {
+  id: number;
+  code: string;
+  name: string;
+}
+
 export interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'user';
+  role: string; // Deprecated
+  roles: Role[];
   is_active: boolean;
 }
