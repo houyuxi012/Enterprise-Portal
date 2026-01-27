@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Layout, Menu, Button, theme, Avatar, Dropdown } from 'antd';
 import {
-    LayoutDashboard, Newspaper, Users, LogOut, ArrowLeft, Shield
-} from 'lucide-react';
+    DashboardOutlined,
+    UserOutlined,
+    TeamOutlined,
+    FileTextOutlined,
+    LogoutOutlined,
+    HomeOutlined,
+    SafetyCertificateOutlined
+} from '@ant-design/icons';
 import AuthService from '../services/auth';
+
+const { Header, Sider, Content } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
@@ -12,85 +21,112 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit }) => {
-    const handleLogout = () => {
-        AuthService.logout();
-        window.location.reload();
+    const [collapsed, setCollapsed] = useState(false);
+    const {
+        token: { colorBgContainer, borderRadiusLG },
+    } = theme.useToken();
+
+    const handleMenuClick = (e: { key: string }) => {
+        onTabChange(e.key as any);
     };
 
+    const handleUserMenuClick = (e: { key: string }) => {
+        if (e.key === 'exit') {
+            onExit();
+            return;
+        }
+        if (e.key === 'logout') {
+            AuthService.logout();
+            window.location.reload();
+            return;
+        }
+    };
+
+    const menuItems = [
+        {
+            key: 'dashboard',
+            icon: <DashboardOutlined />,
+            label: '概览面板',
+        },
+        {
+            type: 'group',
+            label: '内容管理',
+            children: [
+                {
+                    key: 'news',
+                    icon: <FileTextOutlined />,
+                    label: '新闻公告',
+                },
+                {
+                    key: 'employees',
+                    icon: <TeamOutlined />,
+                    label: '用户管理',
+                },
+            ],
+        },
+        {
+            type: 'group',
+            label: '系统管理',
+            children: [
+                {
+                    key: 'users',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '用户权限',
+                },
+            ],
+        },
+    ];
+
+    const userMenuItems = [
+        {
+            key: 'exit',
+            icon: <HomeOutlined />,
+            label: '返回前台',
+        },
+        {
+            type: 'divider',
+        },
+        {
+            key: 'logout',
+            icon: <LogoutOutlined />,
+            label: '退出登录',
+            danger: true,
+        },
+    ];
+
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
-            {/* Sidebar */}
-            <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col fixed inset-y-0 z-20">
-                <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-slate-700/50">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black mr-3">
-                        A
+        <Layout style={{ minHeight: '100vh' }}>
+            <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} theme="light" width={250}>
+                <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
+                    <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
+                        {!collapsed && <span className="font-bold text-lg text-slate-800">Admin Portal</span>}
                     </div>
-                    <span className="font-black text-slate-800 dark:text-white tracking-tight">Admin Portal</span>
                 </div>
-
-                <nav className="flex-1 p-4 space-y-1">
-                    <button
-                        onClick={() => onTabChange('dashboard')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
-                    >
-                        <LayoutDashboard size={18} />
-                        <span className="text-sm font-bold">概览面板</span>
-                    </button>
-
-                    <div className="pt-4 pb-2 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">内容管理</div>
-
-                    <button
-                        onClick={() => onTabChange('news')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'news' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
-                    >
-                        <Newspaper size={18} />
-                        <span className="text-sm font-bold">新闻公告</span>
-                    </button>
-
-                    <button
-                        onClick={() => onTabChange('employees')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'employees' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
-                    >
-                        <Users size={18} />
-                        <span className="text-sm font-bold">员工档案</span>
-                    </button>
-
-                    <div className="pt-4 pb-2 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">系统管理</div>
-
-                    <button
-                        onClick={() => onTabChange('users')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'users' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
-                    >
-                        <Shield size={18} />
-                        <span className="text-sm font-bold">用户权限</span>
-                    </button>
-                </nav>
-
-                <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
-                    <button
-                        onClick={onExit}
-                        className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                    >
-                        <ArrowLeft size={18} />
-                        <span className="text-sm font-bold">返回前台</span>
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                    >
-                        <LogOut size={18} />
-                        <span className="text-sm font-bold">退出登录</span>
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 ml-64 p-8">
-                <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <Menu
+                    theme="light"
+                    defaultSelectedKeys={[activeTab]}
+                    selectedKeys={[activeTab]}
+                    mode="inline"
+                    items={menuItems as any}
+                    onClick={handleMenuClick}
+                    style={{ borderRight: 0 }}
+                />
+            </Sider>
+            <Layout>
+                <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <div className="flex items-center space-x-4">
+                        <span className="text-slate-500">Welcome, Admin</span>
+                        <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight">
+                            <Avatar style={{ backgroundColor: '#1890ff', cursor: 'pointer' }} icon={<UserOutlined />} />
+                        </Dropdown>
+                    </div>
+                </Header>
+                <Content style={{ margin: '24px 16px', padding: 24, minHeight: 280, background: colorBgContainer, borderRadius: borderRadiusLG }}>
                     {children}
-                </div>
-            </main>
-        </div>
+                </Content>
+            </Layout>
+        </Layout>
     );
 };
 

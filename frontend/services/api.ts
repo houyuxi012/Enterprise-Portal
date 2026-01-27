@@ -48,6 +48,17 @@ export const ApiClient = {
     return response.data;
   },
 
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<{ url: string }>('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data.url;
+  },
+
   getAnnouncements: async (): Promise<Announcement[]> => {
     const response = await api.get<Announcement[]>('/announcements/');
     return response.data.map(a => ({ ...a, id: String(a.id) }));
@@ -126,6 +137,13 @@ export const ApiClient = {
   deleteUser: async (id: number): Promise<void> => {
     const token = localStorage.getItem('token');
     await api.delete(`/users/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+
+  resetPassword: async (username: string): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.post('/users/reset-password', { username }, {
       headers: { Authorization: `Bearer ${token}` }
     });
   }

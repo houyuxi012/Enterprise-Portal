@@ -33,7 +33,6 @@ export interface Employee {
   phone: string;
   location: string;
   avatar: string;
-  status: '在线' | '离线' | '会议中';
 }
 
 export interface QuickTool {

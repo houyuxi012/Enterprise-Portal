@@ -33,6 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,10 +180,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">深度探索</h2>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">资讯动态</h2>
             <div className="space-y-4">
               {newsList.slice(0, 2).map((news) => (
-                <div key={news.id} className="mica group p-4 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 flex flex-col sm:flex-row gap-6 transition-all duration-700 cursor-pointer shadow-sm">
+                <div
+                  key={news.id}
+                  onClick={() => setSelectedNews(news)}
+                  className="mica group p-4 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 flex flex-col sm:flex-row gap-6 transition-all duration-700 cursor-pointer shadow-sm"
+                >
                   <div className="sm:w-40 h-24 rounded-2xl overflow-hidden shrink-0">
                     <img src={news.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                   </div>
@@ -311,6 +316,48 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedNews && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+          <div
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+            onClick={() => setSelectedNews(null)}
+          />
+          <div className="mica w-full max-w-2xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20">
+            <div className="relative h-64 shrink-0">
+              <img src={selectedNews.image} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+              <button
+                onClick={() => setSelectedNews(null)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md transition"
+              >
+                <X size={24} />
+              </button>
+              <div className="absolute bottom-6 left-8 right-8">
+                <span className="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white px-2.5 py-1 rounded-full mb-3 inline-block shadow-lg shadow-blue-900/50">
+                  {selectedNews.category}
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">{selectedNews.title}</h2>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 bg-white dark:bg-slate-900">
+              <div className="flex items-center space-x-4 mb-6 text-xs text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center"><Calendar size={14} className="mr-2" /> {selectedNews.date}</div>
+                <div className="flex items-center"><UserCheck size={14} className="mr-2" /> {selectedNews.author}</div>
+              </div>
+              <div className="prose prose-slate dark:prose-invert max-w-none">
+                <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:float-left first-letter:mr-3 first-letter:mt-[-6px]">
+                  {selectedNews.summary}
+                </p>
+                <p className="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
+                  (此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段)
+                </p>
               </div>
             </div>
           </div>

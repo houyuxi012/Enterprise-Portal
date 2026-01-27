@@ -13,7 +13,6 @@ type ThemeMode = 'light' | 'dark' | 'system';
 
 interface FilterState {
   departments: string[];
-  statuses: string[];
 }
 
 import Login from './pages/Login';
@@ -46,7 +45,6 @@ const App: React.FC = () => {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     departments: [],
-    statuses: []
   });
 
   // Search AI Insights State
@@ -168,9 +166,8 @@ const App: React.FC = () => {
         emp.department.toLowerCase().includes(globalSearch.toLowerCase());
 
       const matchesDept = activeFilters.departments.length === 0 || activeFilters.departments.includes(emp.department);
-      const matchesStatus = activeFilters.statuses.length === 0 || activeFilters.statuses.includes(emp.status);
 
-      return matchesSearch && matchesDept && matchesStatus;
+      return matchesSearch && matchesDept;
     });
   }, [globalSearch, activeFilters, employees]);
 

@@ -12,9 +12,9 @@ class EmployeeBase(BaseModel):
     role: str
     email: str
     phone: str
-    location: str
-    avatar: str
-    status: str
+    location: Optional[str] = None
+    avatar: Optional[str] = None
+    # status field removed
 
 class EmployeeCreate(EmployeeBase):
     pass
@@ -82,8 +82,14 @@ class UserBase(BaseModel):
     is_active: Optional[bool] = True
     role: Optional[str] = "user"
 
+
 class UserCreate(UserBase):
     password: str
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class User(UserBase):
     id: int
@@ -97,3 +103,7 @@ class AIChatRequest(BaseModel):
 
 class AIChatResponse(BaseModel):
     response: str
+
+class PasswordResetRequest(BaseModel):
+    username: str
+    new_password: Optional[str] = "123456"

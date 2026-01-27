@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import employees, news, tools, announcements, ai, auth, users
+from fastapi.staticfiles import StaticFiles
+from routers import employees, news, tools, announcements, ai, auth, users, upload
+import os
 
 app = FastAPI(title="ShiKu Portal API", version="1.0.0")
+
+# Mount uploads directory to serve static files
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # CORS middleware to allow calls from frontend
 app.add_middleware(
@@ -25,3 +31,4 @@ app.include_router(announcements.router)
 app.include_router(ai.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(upload.router)

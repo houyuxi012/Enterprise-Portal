@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, X, Shield, Lock } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, X, Shield, Lock, Key } from 'lucide-react';
 import { User } from '../../types';
 import ApiClient from '../../services/api';
+import { message } from 'antd'; // Using antd message for consistency
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -42,6 +43,29 @@ const UserList: React.FC = () => {
         }
     };
 
+    const handleResetPassword = async (username: string) => {
+        if (confirm(`Are you sure you want to reset password for ${username} to '123456'?`)) {
+            try {
+                await ApiClient.resetPassword(username);
+                message.success(`Password for ${username} reset successfully`);
+            } catch (error) {
+                message.error('Failed to reset password');
+            }
+        }
+    };
+
+    const handleEdit = (user: User) => {
+        setEditingUser(user);
+        setFormData({
+            username: user.username,
+            email: user.email,
+            password: '',
+            role: user.role as 'admin' | 'user'
+        });
+        setErrorMessage('');
+        setIsEditorOpen(true);
+    };
+
     const handleAddNew = () => {
         setEditingUser(null);
         setFormData({
@@ -59,10 +83,16 @@ const UserList: React.FC = () => {
         setErrorMessage('');
         try {
             if (editingUser) {
-                // Update logic (not fully implemented in backend yet for password reset, but placeholders here)
-                alert("Edit user is not fully supported in this version (backend limitation). Delete and recreate to change details.");
+                // Determine what changed. Username/Password cannot be changed here typically
+                const updatePayload: any = {
+                    email: formData.email,
+                    role: formData.role
+                };
+                await ApiClient.updateUser(editingUser.id, updatePayload);
+                message.success('User updated successfully');
             } else {
                 await ApiClient.createUser(formData);
+                message.success('User created successfully');
             }
             setIsEditorOpen(false);
             fetchUsers();
@@ -123,8 +153,8 @@ const UserList: React.FC = () => {
                                 </td>
                                 <td className="py-4">
                                     <span className={`px-2 py-1 rounded-md text-xs font-black uppercase tracking-widest ${user.role === 'admin'
-                                            ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
-                                            : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                                        ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
+                                        : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                                         }`}>
                                         {user.role === 'admin' ? <Shield size={12} className="inline mr-1" /> : null}
                                         {user.role}
@@ -133,8 +163,14 @@ const UserList: React.FC = () => {
                                 <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
                                 <td className="py-4 pr-4 text-right">
                                     <div className="flex justify-end space-x-2">
+                                        <button onClick={() => handleEdit(user)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                            <Edit size={16} />
+                                        </button>
                                         <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">
                                             <Trash2 size={16} />
+                                        </button>
+                                        <button onClick={() => handleResetPassword(user.username)} className="p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20" title="Reset Password">
+                                            <Key size={16} />
                                         </button>
                                     </div>
                                 </td>
@@ -163,12 +199,20 @@ const UserList: React.FC = () => {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-500 uppercase">用户名</label>
-                                <input required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+                                <input
+                                    required
+                                    disabled={!!editingUser}
+                                    className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50 ${editingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    value={formData.username}
+                                    onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase">初始密码</label>
-                                <input required type="password" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-                            </div>
+                            {!editingUser && (
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">初始密码</label>
+                                    <input required type="password" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase">角色权限</label>
@@ -189,7 +233,9 @@ const UserList: React.FC = () => {
 
                             <div className="pt-4 flex justify-end space-x-3">
                                 <button type="button" onClick={() => setIsEditorOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">取消</button>
-                                <button type="submit" className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30">创建账户</button>
+                                <button type="submit" className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30">
+                                    {editingUser ? '保存修改' : '创建账户'}
+                                </button>
                             </div>
                         </form>
                     </div>

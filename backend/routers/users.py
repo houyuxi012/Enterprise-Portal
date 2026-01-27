@@ -55,3 +55,40 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_
          
      await db.delete(user)
      await db.commit()
+
+@router.put("/{user_id}", response_model=schemas.User)
+async def update_user(user_id: int, user_update: schemas.UserUpdate, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    update_data = user_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+        
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(request: schemas.PasswordResetRequest, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # Only admin can reset passwords
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    result = await db.execute(select(models.User).filter(models.User.username == request.username))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Reset password
+    new_pwd = request.new_password if request.new_password else "123456"
+    user.hashed_password = utils.get_password_hash(new_pwd)
+    
+    await db.commit()
+    return {"message": f"Password for {user.username} has been reset"}
