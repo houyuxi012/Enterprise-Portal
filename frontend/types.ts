@@ -74,10 +74,40 @@ export interface Announcement {
   isUrgent?: boolean;
 }
 
+export interface Permission {
+  id: number;
+  code: string;
+  description: string;
+}
+
 export interface Role {
   id: number;
   code: string;
   name: string;
+  description?: string;
+  permissions?: Permission[];
+}
+
+export interface Department {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  manager?: string;
+  description?: string;
+  children?: Department[];
+}
+
+export interface RoleCreate {
+  code: string;
+  name: string;
+  description?: string;
+  permission_ids: number[];
+}
+
+export interface RoleUpdate {
+  name?: string;
+  description?: string;
+  permission_ids?: number[];
 }
 
 export interface User {

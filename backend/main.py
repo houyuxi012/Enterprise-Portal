@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, users, upload, system
+from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments
 import os
 import database
 import models
@@ -53,3 +53,5 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(upload.router)
 app.include_router(system.router)
+app.include_router(roles.router)
+app.include_router(departments.router)

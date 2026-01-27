@@ -5,15 +5,15 @@ import utils
 
 # Define system permissions (Code: Description)
 SYSTEM_PERMISSIONS = {
-    "sys:settings:view": "View System Settings",
-    "sys:settings:edit": "Edit System Settings",
-    "sys:user:view": "View Users",
-    "sys:user:edit": "Edit Users",
-    "sys:user:reset_pwd": "Reset User Password",
-    "content:news:edit": "Manage News",
-    "content:announcement:edit": "Manage Announcements",
-    "content:tool:edit": "Manage Quick Tools",
-    "file:upload": "Upload Files",
+    "sys:settings:view": "查看偏好设置",
+    "sys:settings:edit": "管理偏好设置",
+    "sys:user:view": "查看用户及角色",
+    "sys:user:edit": "管理用户及角色",
+    "sys:user:reset_pwd": "重置用户密码",
+    "content:news:edit": "管理新闻资讯",
+    "content:announcement:edit": "管理通知公告",
+    "content:tool:edit": "管理应用工具",
+    "file:upload": "文件上传权限",
 }
 
 async def init_rbac(db: AsyncSession):
@@ -26,6 +26,10 @@ async def init_rbac(db: AsyncSession):
         if not perm:
             perm = models.Permission(code=code, description=desc)
             db.add(perm)
+        else:
+            # Update description if changed (e.g. localization)
+            if perm.description != desc:
+                perm.description = desc
         all_perms[code] = perm
     
     # 2. Sync Roles

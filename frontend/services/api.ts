@@ -192,8 +192,54 @@ export const ApiClient = {
 
   getRoles: async (): Promise<any[]> => {
     const token = localStorage.getItem('token');
-    const response = await api.get('/users/roles', { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.get('/roles/', { headers: { Authorization: `Bearer ${token}` } });
     return response.data;
+  },
+
+  createRole: async (data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/roles/', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateRole: async (id: number, data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/roles/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteRole: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/roles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  },
+
+  getPermissions: async (): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/roles/permissions', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  getDepartments: async (): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/departments/', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  createDepartment: async (data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/departments/', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateDepartment: async (id: number, data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/departments/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteDepartment: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/departments/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   },
 
   getSystemConfig: async (): Promise<Record<string, string>> => {

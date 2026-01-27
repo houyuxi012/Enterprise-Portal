@@ -50,7 +50,7 @@ const SystemSettings: React.FC = () => {
                 <Card title="品牌与显示" className="mb-6 shadow-sm">
                     <Form.Item
                         name="app_name"
-                        label="应用名称 (Navbar Logo Text)"
+                        label="站点名称"
                         help="显示在导航栏左侧的名称，默认为 'ShiKu Home'"
                     >
                         <Input placeholder="ShiKu Home" />

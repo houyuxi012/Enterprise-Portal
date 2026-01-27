@@ -8,6 +8,7 @@ import { getIcon } from './utils/iconMap';
 import {
   Mail, Monitor, Moon, Sun, Laptop, Sparkles
 } from 'lucide-react';
+import { TeamOutlined } from '@ant-design/icons';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -25,7 +26,11 @@ import EmployeeList from './pages/admin/EmployeeList';
 import ToolList from './pages/admin/ToolList';
 import AnnouncementList from './pages/admin/AnnouncementList';
 import SystemSettings from './pages/admin/SystemSettings';
+
 import UserList from './pages/admin/UserList';
+import RoleList from './pages/admin/RoleList';
+
+import OrganizationList from './pages/admin/OrganizationList';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
@@ -34,7 +39,7 @@ const App: React.FC = () => {
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles'>('dashboard');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -458,7 +463,7 @@ const App: React.FC = () => {
     return (
       <AdminLayout
         activeTab={activeAdminTab}
-        onTabChange={(tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings') => setActiveAdminTab(tab)}
+        onTabChange={(tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles') => setActiveAdminTab(tab)}
         onExit={() => {
           setIsAdminMode(false);
           window.history.pushState({}, '', '/');
@@ -469,8 +474,11 @@ const App: React.FC = () => {
         {activeAdminTab === 'announcements' && <AnnouncementList />}
         {activeAdminTab === 'employees' && <EmployeeList />}
         {activeAdminTab === 'users' && <UserList />}
+        {activeAdminTab === 'roles' && <RoleList />}
         {activeAdminTab === 'tools' && <ToolList />}
         {activeAdminTab === 'settings' && <SystemSettings />}
+        {activeAdminTab === 'settings' && <SystemSettings />}
+        {activeAdminTab === 'org' && <OrganizationList />}
       </AdminLayout>
     );
   }

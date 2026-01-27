@@ -2,6 +2,27 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date
 
+# Department Schemas
+class DepartmentBase(BaseModel):
+    name: str
+    parent_id: Optional[int] = None
+    manager: Optional[str] = None
+    description: Optional[str] = None
+    sort_order: Optional[int] = 0
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class DepartmentUpdate(DepartmentBase):
+    pass
+
+class Department(DepartmentBase):
+    id: int
+    children: List['Department'] = []
+
+    class Config:
+        from_attributes = True
+
 # Employee Schemas
 class EmployeeBase(BaseModel):
     account: str
@@ -88,6 +109,15 @@ class Permission(PermissionBase):
 class RoleBase(BaseModel):
     code: str
     name: str
+    description: Optional[str] = None
+
+class RoleCreate(RoleBase):
+    permission_ids: List[int] = []
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    permission_ids: Optional[List[int]] = None
 
 class Role(RoleBase):
     id: int

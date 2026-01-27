@@ -191,7 +191,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* Utilities */}
         <div className="flex items-center space-x-1 lg:space-x-2 ml-2 flex-1 justify-end relative">
-          <div className={`transition-all duration-500 flex items-center bg-slate-100 dark:bg-slate-800 rounded-full ${isSearchVisible ? 'flex-1 max-w-xs px-1' : 'w-9 bg-transparent'}`}>
+          <div className={`relative transition-all duration-500 flex items-center bg-slate-100 dark:bg-slate-800 rounded-full ${isSearchVisible ? 'flex-1 max-w-xs px-1' : 'w-9 bg-transparent'}`}>
 
             <button onClick={() => isSearchVisible ? handleSearchAction() : setIsSearchVisible(!isSearchVisible)} className="w-9 h-9 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full transition-colors shrink-0">
               <Search size={16} />
@@ -213,7 +213,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
             {/* Search Preview Dropdown */}
             {isSearchVisible && showSearchPreview && globalSearch.trim() && (
-              <div ref={searchPreviewRef} className="absolute top-12 left-0 right-0 w-80 mx-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden p-4 z-50 animate-in fade-in zoom-in-95">
+              <div ref={searchPreviewRef} className="absolute top-12 left-0 w-full bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden p-4 z-50 animate-in fade-in zoom-in-95">
                 {/* AI Preview */}
                 {isAiLoading ? (
                   <div className="flex items-center space-x-2 text-slate-400 text-xs mb-3 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">

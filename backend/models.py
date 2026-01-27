@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from database import Base
 
 # Association Tables
@@ -97,4 +97,19 @@ class SystemConfig(Base):
     __tablename__ = "system_config"
 
     key = Column(String, primary_key=True, index=True)
+    key = Column(String, primary_key=True, index=True)
     value = Column(String)
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    parent_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    manager = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    
+    # Self-referential relationship for tree structure
+    children = relationship("Department", back_populates="parent")
+    parent = relationship("Department", remote_side=[id], back_populates="children")

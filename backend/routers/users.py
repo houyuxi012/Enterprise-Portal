@@ -13,10 +13,7 @@ router = APIRouter(
     tags=["users"]
 )
 
-@router.get("/roles", response_model=List[schemas.Role], dependencies=[Depends(PermissionChecker("sys:user:view"))])
-async def read_roles(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.Role))
-    return result.scalars().all()
+
 
 @router.get("/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

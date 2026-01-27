@@ -18,8 +18,8 @@ const { Header, Sider, Content } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles') => void;
     onExit: () => void;
 }
 
@@ -53,37 +53,43 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         },
         {
             type: 'group',
-            label: '内容管理',
+            label: '内容管理', // Content Management
             children: [
                 {
                     key: 'news',
                     icon: <FileTextOutlined />,
-                    label: '新闻公告',
+                    label: '新闻资讯', // News Info
                 },
                 {
                     key: 'announcements',
                     icon: <NotificationOutlined />,
-                    label: '实时通知',
+                    label: '实时公告', // Real-time Announcements
                 },
                 {
                     key: 'tools',
                     icon: <AppstoreOutlined />,
-                    label: '应用工具',
+                    label: '应用管理', // App Management
                 },
+            ],
+        },
+        {
+            type: 'group',
+            label: '用户管理', // User Management
+            children: [
                 {
-                    key: 'employees',
+                    key: 'users',
                     icon: <TeamOutlined />,
-                    label: '用户管理',
+                    label: '账户管理', // Account Management
                 },
                 {
-                    key: 'settings',
-                    icon: <SettingOutlined />,
-                    label: '系统设置',
+                    key: 'roles',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '角色管理', // Role Management (Definitions)
                 },
                 {
-                    key: 'tools',
-                    icon: <AppstoreOutlined />,
-                    label: '应用工具',
+                    key: 'org',
+                    icon: <TeamOutlined />, // Reusing Team icon or similar
+                    label: '组织机构', // Organization (NEW)
                 },
             ],
         },
@@ -92,9 +98,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             label: '系统管理',
             children: [
                 {
-                    key: 'users',
-                    icon: <SafetyCertificateOutlined />,
-                    label: '用户权限',
+                    key: 'settings',
+                    icon: <SettingOutlined />,
+                    label: '系统设置',
                 },
             ],
         },

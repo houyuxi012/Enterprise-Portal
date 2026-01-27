@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X, Shield, Lock, Key } from 'lucide-react';
 import { User, Role } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Select, Tag } from 'antd'; // Importing Select for multi-choice
+import { message, Select, Tag, Switch } from 'antd'; // Importing Select for multi-choice
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -107,6 +107,16 @@ const UserList: React.FC = () => {
         }
     };
 
+    const handleStatusChange = async (user: User, isActive: boolean) => {
+        try {
+            await ApiClient.updateUser(user.id, { is_active: isActive });
+            message.success(`User ${isActive ? 'enabled' : 'disabled'}`);
+            fetchData();
+        } catch (error) {
+            message.error("Failed to update status");
+        }
+    };
+
     const filteredUsers = users.filter(u =>
         u.username.toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase())
@@ -115,7 +125,7 @@ const UserList: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">用户权限管理</h2>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">系统账户管理</h2>
                 <button
                     onClick={handleAddNew}
                     className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
@@ -142,6 +152,7 @@ const UserList: React.FC = () => {
                         <tr>
                             <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400">用户名</th>
                             <th className="pb-4 text-xs font-black uppercase text-slate-400">角色 (Roles)</th>
+                            <th className="pb-4 text-xs font-black uppercase text-slate-400">状态</th>
                             <th className="pb-4 text-xs font-black uppercase text-slate-400">邮箱</th>
                             <th className="pb-4 text-right pr-4 text-xs font-black uppercase text-slate-400">操作</th>
                         </tr>
@@ -167,6 +178,13 @@ const UserList: React.FC = () => {
                                             <Tag>No Roles</Tag>
                                         )}
                                     </div>
+                                </td>
+                                <td className="py-4">
+                                    <Switch
+                                        checked={user.is_active}
+                                        onChange={(checked) => handleStatusChange(user, checked)}
+                                        size="small"
+                                    />
                                 </td>
                                 <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
                                 <td className="py-4 pr-4 text-right">
