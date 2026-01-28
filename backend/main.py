@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs
+from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs, carousel
 import os
 import database
 import models
+import schemas
 
 app = FastAPI(title="ShiKu Portal API", version="1.0.0")
 
@@ -34,6 +35,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Logging Middleware
+from middleware.logging import SystemLoggingMiddleware
+app.add_middleware(SystemLoggingMiddleware)
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to ShiKu Portal API"}
@@ -51,3 +56,4 @@ app.include_router(system.router)
 app.include_router(roles.router)
 app.include_router(departments.router)
 app.include_router(logs.router)
+app.include_router(carousel.router)

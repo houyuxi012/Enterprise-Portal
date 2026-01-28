@@ -128,23 +128,27 @@ async def update_department(dept_id: int, dept: schemas.DepartmentUpdate, db: As
 
 @router.delete("/{dept_id}")
 async def delete_department(dept_id: int, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # Check existence
     result = await db.execute(select(models.Department).filter(models.Department.id == dept_id))
     db_dept = result.scalars().first()
     if not db_dept:
         raise HTTPException(status_code=404, detail="Department not found")
     
     # Check for children
-    # We need to check if there are any departments pointing to this as parent
     child_check = await db.execute(select(models.Department).filter(models.Department.parent_id == dept_id))
-    if child_check.scalars().first():
-        raise HTTPException(status_code=400, detail="Cannot delete department with sub-departments")
+    children = child_check.scalars().all()
+    if children:
+        raise HTTPException(status_code=400, detail=f"Cannot delete: Contains {len(children)} sub-departments")
         
-    # Check for employees (if linked later) - currently just string 'department' in Employee model, hard to check strict FK.
-    # Check by name matching?
+    # Check for employees
     emp_check = await db.execute(select(models.Employee).filter(models.Employee.department == db_dept.name))
-    if emp_check.scalars().first():
-         raise HTTPException(status_code=400, detail="Cannot delete department with assigned employees")
+    employees = emp_check.scalars().all()
+    if employees:
+         raise HTTPException(status_code=400, detail=f"Cannot delete: Department has {len(employees)} assigned employees")
 
-    await db.delete(db_dept)
+    # Use Core Delete to avoid potential async ORM relationship loading issues
+    from sqlalchemy import delete
+    await db.execute(delete(models.Department).where(models.Department.id == dept_id))
     await db.commit()
+    
     return {"message": "Department deleted"}

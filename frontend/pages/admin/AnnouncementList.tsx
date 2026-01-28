@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Popconfirm, message, Switch, Tag, Space, Tooltip } from 'antd';
+import { Table, Button, Modal, Form, Input, Select, Popconfirm, message, Switch, Tag, Space, Tooltip, AutoComplete } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Announcement } from '../../types';
 import ApiClient from '../../services/api';
@@ -60,7 +60,11 @@ const AnnouncementList: React.FC = () => {
 
     const handleOk = async () => {
         try {
+            // DEBUG: Check if function starts
+            // alert('Debug: Starting submission...'); 
             const values = await form.validateFields();
+            // alert('Debug: Validation passed. Values: ' + JSON.stringify(values));
+
             if (editingItem) {
                 await ApiClient.updateAnnouncement(Number(editingItem.id), values);
                 message.success('Updated successfully');
@@ -70,8 +74,20 @@ const AnnouncementList: React.FC = () => {
             }
             setIsModalOpen(false);
             fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+
+            // Check if it's a form validation error (Ant Design format)
+            if (error.errorFields) {
+                message.warning('请检查表单中标记红色的必填项');
+                return;
+            }
+
+            // Real API or System Error
+            // Show detailed error in alert to help debugging
+            const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+            alert('Debug Error: ' + errorMsg);
+            message.error('操作失败: ' + errorMsg);
         }
     };
 
@@ -175,22 +191,28 @@ const AnnouncementList: React.FC = () => {
                 className="rounded-2xl overflow-hidden"
             >
                 <Form form={form} layout="vertical" className="pt-4">
-                    <Form.Item name="title" label="标题" rules={[{ required: true }]}>
+                    <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
                         <Input className="rounded-lg" />
                     </Form.Item>
-                    <Form.Item name="content" label="内容" rules={[{ required: true }]}>
+                    <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
                         <TextArea rows={4} className="rounded-lg" />
                     </Form.Item>
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="tag" label="标签">
-                            <Select className="rounded-lg">
-                                <Option value="通知">通知</Option>
-                                <Option value="维护">维护</Option>
-                                <Option value="警告">警告</Option>
-                                <Option value="更新">更新</Option>
-                            </Select>
+                        <Form.Item name="tag" label="标签" rules={[{ required: true, message: '请选择或输入标签' }]}>
+                            <AutoComplete
+                                options={[
+                                    { value: '通知' },
+                                    { value: '维护' },
+                                    { value: '警告' },
+                                    { value: '更新' },
+                                    { value: '活动' },
+                                    { value: '招聘' }
+                                ]}
+                                placeholder="选择或输入新标签"
+                                className="rounded-lg"
+                            />
                         </Form.Item>
-                        <Form.Item name="color" label="颜色主题">
+                        <Form.Item name="color" label="颜色主题" rules={[{ required: true, message: '请选择颜色' }]}>
                             <Select>
                                 <Option value="blue">Blue</Option>
                                 <Option value="yellow">Yellow</Option>
@@ -200,7 +222,7 @@ const AnnouncementList: React.FC = () => {
                         </Form.Item>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="time" label="显示时间">
+                        <Form.Item name="time" label="显示时间" rules={[{ required: true, message: '请输入显示时间' }]}>
                             <Input placeholder="例如: 10分钟前" />
                         </Form.Item>
                         <Form.Item name="is_urgent" label="紧急提醒" valuePropName="checked">

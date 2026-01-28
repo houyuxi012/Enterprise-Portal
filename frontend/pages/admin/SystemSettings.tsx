@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, message, Card } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Card, Upload } from 'antd';
+import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 
 const SystemSettings: React.FC = () => {
@@ -64,13 +64,36 @@ const SystemSettings: React.FC = () => {
                         <Input placeholder="ShiKu Home | Next-Gen Enterprise Portal" />
                     </Form.Item>
 
-                    <Form.Item
-                        name="logo_url"
-                        label="Logo 图片地址 (可选)"
-                        help="如果不填则使用默认的纯CSS Logo。输入图片URL可替换默认Logo。"
-                    >
-                        <Input placeholder="https://example.com/logo.png" />
-                    </Form.Item>
+                    <div className="flex space-x-2 mb-6">
+                        <Form.Item
+                            name="logo_url"
+                            label="Logo 图片地址 (可选)"
+                            help="如果不填则使用默认的纯CSS Logo。输入图片URL或上传图片。"
+                            className="flex-1 mb-0"
+                        >
+                            <Input placeholder="https://example.com/logo.png" />
+                        </Form.Item>
+                        <div className="mt-8">
+                            <Upload
+                                showUploadList={false}
+                                beforeUpload={async (file) => {
+                                    try {
+                                        setLoading(true);
+                                        const url = await ApiClient.uploadImage(file);
+                                        form.setFieldValue('logo_url', url);
+                                        message.success('Upload successful');
+                                    } catch (error) {
+                                        message.error('Upload failed');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                    return false; // Prevent default upload behavior
+                                }}
+                            >
+                                <Button icon={<UploadOutlined />}>上传</Button>
+                            </Upload>
+                        </div>
+                    </div>
 
                     <Form.Item
                         name="footer_text"

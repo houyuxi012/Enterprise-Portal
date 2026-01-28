@@ -53,6 +53,7 @@ class NewsItemBase(BaseModel):
     date: date
     author: str
     image: str
+    is_top: bool = False
 
 class NewsItemCreate(NewsItemBase):
     pass
@@ -70,6 +71,7 @@ class QuickToolBase(BaseModel):
     color: str
     category: Optional[str] = None
     description: Optional[str] = None
+    image: Optional[str] = None
 
 class QuickToolCreate(QuickToolBase):
     pass
@@ -201,6 +203,31 @@ class LogForwardingConfigCreate(LogForwardingConfigBase):
     pass
 
 class LogForwardingConfig(LogForwardingConfigBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# Carousel Schemas
+class CarouselItemBase(BaseModel):
+    title: str
+    image: str
+    url: str
+    badge: str
+    sort_order: Optional[int] = 0
+    is_active: Optional[bool] = True
+
+class CarouselItemCreate(CarouselItemBase):
+    pass
+
+class CarouselItemUpdate(BaseModel):
+    title: Optional[str] = None
+    image: Optional[str] = None
+    url: Optional[str] = None
+    badge: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class CarouselItem(CarouselItemBase):
     id: int
     class Config:
         from_attributes = True

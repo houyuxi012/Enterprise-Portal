@@ -31,10 +31,8 @@ async def upload_image(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Return URL (Assuming backend is at localhost:8000, in prod this should be configurable)
-        # Note: The client will prepend the base URL if needed, but here we return relative path or full path
-        # Let's return the full relative path from root which will be served via static mount
-        return {"url": f"http://localhost:8000/uploads/{filename}"}
+        # Return URL (Relative path to be handled by frontend/nginx)
+        return {"url": f"/uploads/{filename}"}
 
     except Exception as e:
         print(f"Upload failed: {e}")

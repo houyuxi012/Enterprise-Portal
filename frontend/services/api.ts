@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Employee, NewsItem, QuickTool, Announcement } from '../types';
+import { Employee, NewsItem, QuickTool, Announcement, CarouselItem } from '../types';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -28,6 +28,7 @@ export interface QuickToolDTO {
   color: string;
   category: string;
   description: string;
+  image?: string;
 }
 
 export const ApiClient = {
@@ -253,6 +254,12 @@ export const ApiClient = {
     return response.data;
   },
 
+  getSystemInfo: async (): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/system/info', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
   // Log Management
   getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<any[]> => {
     const token = localStorage.getItem('token');
@@ -287,6 +294,35 @@ export const ApiClient = {
   deleteLogForwardingConfig: async (id: number): Promise<void> => {
     const token = localStorage.getItem('token');
     await api.delete(`/logs/config/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  },
+
+  // Carousel
+  getCarouselItems: async (): Promise<CarouselItem[]> => {
+    const response = await api.get('/carousel/');
+    return response.data;
+  },
+
+  getAdminCarouselItems: async (): Promise<CarouselItem[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/carousel/admin', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  createCarouselItem: async (data: Partial<CarouselItem>): Promise<CarouselItem> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/carousel/', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateCarouselItem: async (id: number, data: Partial<CarouselItem>): Promise<CarouselItem> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/carousel/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteCarouselItem: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/carousel/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 };
 

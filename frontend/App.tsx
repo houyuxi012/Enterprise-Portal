@@ -24,6 +24,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import NewsList from './pages/admin/NewsList';
 import EmployeeList from './pages/admin/EmployeeList';
 import ToolList from './pages/admin/ToolList';
+import CarouselList from './pages/admin/CarouselList';
 import AnnouncementList from './pages/admin/AnnouncementList';
 import SystemSettings from './pages/admin/SystemSettings';
 
@@ -44,7 +45,7 @@ const App: React.FC = () => {
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel'>('dashboard');
 
 
 
@@ -273,6 +274,7 @@ const App: React.FC = () => {
                 <a
                   key={tool.id}
                   href={tool.url}
+                  target="_blank"
                   className="group flex flex-col items-center p-8 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-3 transition-all duration-500 shadow-xl shadow-slate-200/20 dark:shadow-none"
                 >
                   <div className={`w-16 h-16 ${tool.color} rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow`}>
@@ -476,9 +478,12 @@ const App: React.FC = () => {
           window.history.pushState({}, '', '/');
         }}
         footerText={systemConfig.footer_text}
+        logoUrl={systemConfig.logo_url}
+        appName={systemConfig.app_name}
       >
         {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
         {activeAdminTab === 'news' && <NewsList />}
+        {activeAdminTab === 'carousel' && <CarouselList />}
         {activeAdminTab === 'announcements' && <AnnouncementList />}
         {activeAdminTab === 'employees' && <EmployeeList />}
         {activeAdminTab === 'users' && <UserList />}
@@ -489,7 +494,8 @@ const App: React.FC = () => {
         {activeAdminTab === 'system_logs' && <SystemLogs />}
         {activeAdminTab === 'business_logs' && <BusinessLogs />}
         {activeAdminTab === 'log_forwarding' && <LogForwarding />}
-      </AdminLayout>
+        {activeAdminTab === 'about_us' && <AboutUs />}
+      </AdminLayout >
     );
   }
 

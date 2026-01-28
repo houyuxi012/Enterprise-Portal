@@ -11,7 +11,8 @@ import {
     SafetyCertificateOutlined,
     AppstoreOutlined,
     SettingOutlined,
-    InfoCircleOutlined
+    InfoCircleOutlined,
+    PictureOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 
@@ -19,13 +20,15 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel') => void;
     onExit: () => void;
     footerText?: string;
+    logoUrl?: string; // New prop for Logo URL
+    appName?: string; // New prop for App Name
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText, logoUrl, appName }) => {
     const [collapsed, setCollapsed] = useState(false);
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -69,6 +72,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     label: '实时公告',
                 },
                 {
+                    key: 'carousel',
+                    icon: <PictureOutlined />,
+                    label: '轮播管理',
+                },
+                {
                     key: 'tools',
                     icon: <AppstoreOutlined />,
                     label: '应用管理',
@@ -98,6 +106,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             ],
         },
         {
+            key: 'sub_logs',
+            label: '日志管理',
+            icon: <FileTextOutlined />,
+            children: [
+                { key: 'system_logs', label: '系统日志' },
+                { key: 'business_logs', label: '业务日志' },
+                { key: 'log_forwarding', label: '日志外发' },
+            ]
+        },
+        {
             key: 'sub_system',
             label: '系统管理',
             icon: <SettingOutlined />,
@@ -113,16 +131,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     label: '关于我们',
                 },
             ],
-        },
-        {
-            key: 'sub_logs',
-            label: '日志管理',
-            icon: <FileTextOutlined />,
-            children: [
-                { key: 'system_logs', label: '系统日志' },
-                { key: 'business_logs', label: '业务日志' },
-                { key: 'log_forwarding', label: '日志外发' },
-            ]
         },
     ]; const userMenuItems = [
         {
@@ -145,8 +153,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} theme="light" width={250}>
                 <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
                     <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
-                        {!collapsed && <span className="font-bold text-lg text-slate-800">Admin Portal</span>}
+                        {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+                        ) : (
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                                {(appName || 'A')[0].toUpperCase()}
+                            </div>
+                        )}
+                        {!collapsed && <span className="font-bold text-lg text-slate-800">{appName ? `${appName} 后台管理` : 'Admin Portal'}</span>}
                     </div>
                 </div>
                 <Menu

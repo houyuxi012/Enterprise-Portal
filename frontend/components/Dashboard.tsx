@@ -4,9 +4,9 @@ import {
   X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu
 } from 'lucide-react';
 import ApiClient, { QuickToolDTO } from '../services/api';
-import { NewsItem, Announcement } from '../types';
+import { NewsItem, Announcement, CarouselItem } from '../types';
 import { getIcon } from '../utils/iconMap';
-import { DAILY_QUOTES, CAROUSEL_ITEMS } from '../constants'; // Keeping these static for now as requested
+import { DAILY_QUOTES } from '../constants'; // Keeping these static for now as requested
 
 interface DashboardProps {
   onViewAll: () => void;
@@ -33,19 +33,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedTools, fetchedNews, fetchedAnnouncements] = await Promise.all([
+        const [fetchedTools, fetchedNews, fetchedAnnouncements, fetchedCarousel] = await Promise.all([
           ApiClient.getTools(),
           ApiClient.getNews(),
-          ApiClient.getAnnouncements()
+          ApiClient.getAnnouncements(),
+          ApiClient.getCarouselItems()
         ]);
         setTools(fetchedTools);
         setNewsList(fetchedNews);
         setAnnouncements(fetchedAnnouncements);
+        setCarouselItems(fetchedCarousel);
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
       }
@@ -67,11 +70,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
   }, []);
 
   useEffect(() => {
+    if (carouselItems.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % CAROUSEL_ITEMS.length);
+      setCurrentSlide(prev => (prev + 1) % carouselItems.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [carouselItems]);
 
   const getTagConfig = (tag: string) => {
     const configs: Record<string, { color: string, icon: React.ReactNode }> = {
@@ -167,10 +171,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
                 <a
                   key={tool.id}
                   href={tool.url}
+                  target="_blank"
                   className="mica group p-5 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 transition-all duration-500 border border-white/50 shadow-lg shadow-slate-200/20 dark:shadow-none"
                 >
-                  <div className={`w-10 h-10 ${tool.color} rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow`}>
-                    {getIcon(tool.icon_name, { size: 18 })}
+                  <div className={`w-10 h-10 ${tool.color} rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-white`}>
+                    {tool.image ? (
+                      <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
+                    ) : (
+                      getIcon(tool.icon_name, { size: 18 })
+                    )}
                   </div>
                   <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter block">{tool.name}</span>
                   <p className="text-[9px] text-slate-400 mt-1 font-medium">点击进入系统</p>
@@ -182,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
           <section>
             <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">资讯动态</h2>
             <div className="space-y-4">
-              {newsList.slice(0, 2).map((news) => (
+              {newsList.slice(0, 3).map((news) => (
                 <div
                   key={news.id}
                   onClick={() => setSelectedNews(news)}
@@ -240,32 +249,38 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
           </div>
 
           <div className="relative group overflow-hidden mica rounded-[2rem] aspect-[16/10] shadow-xl border border-white/50">
-            {CAROUSEL_ITEMS.map((item, idx) => (
-              <a
-                key={item.id}
-                href={item.url}
-                className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}
-              >
-                <img src={item.image} className="w-full h-full object-cover" alt={item.title} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
-                  <span className="text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white px-2 py-0.5 rounded-full w-fit mb-2">
-                    {item.badge}
-                  </span>
-                  <h3 className="text-white font-black text-base leading-tight tracking-tight drop-shadow-md">
-                    {item.title}
-                  </h3>
+            {carouselItems.length > 0 ? (
+              <>
+                {carouselItems.map((item, idx) => (
+                  <a
+                    key={item.id}
+                    href={item.url}
+                    className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}
+                  >
+                    <img src={item.image} className="w-full h-full object-cover" alt={item.title} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
+                      <span className="text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white px-2 py-0.5 rounded-full w-fit mb-2">
+                        {item.badge}
+                      </span>
+                      <h3 className="text-white font-black text-base leading-tight tracking-tight drop-shadow-md">
+                        {item.title}
+                      </h3>
+                    </div>
+                  </a>
+                ))}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-1.5 z-20">
+                  {carouselItems.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-4' : 'bg-white/40'}`}
+                    />
+                  ))}
                 </div>
-              </a>
-            ))}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-1.5 z-20">
-              {CAROUSEL_ITEMS.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-4' : 'bg-white/40'}`}
-                />
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-400 font-bold">暂无轮播图</div>
+            )}
           </div>
         </div>
       </div>
@@ -277,12 +292,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
             onClick={() => setIsAnnouncementsModalOpen(false)}
           />
           <div className="mica w-full max-w-lg max-h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-2 duration-500 border border-white/10 ring-1 ring-white/20">
-            <div className="relative pt-4 pb-10 px-6 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 overflow-hidden shrink-0">
+            <div className="relative pt-4 pb-10 px-6 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 shrink-0">
               <div className="flex items-center justify-between z-10 relative">
                 <h2 className="text-xl font-black text-white uppercase">企业公告</h2>
                 <button onClick={() => setIsAnnouncementsModalOpen(false)}><X className="text-white" size={24} /></button>
               </div>
-              <div className="absolute -bottom-5 left-0 right-0 px-6 flex justify-center z-20">
+              <div className="absolute bottom-1 left-0 right-0 px-6 flex justify-center z-20">
                 <div className="flex items-center bg-white/10 backdrop-blur-3xl p-0.5 rounded-full border border-white/10 shadow-lg max-w-full overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setFilterTag(null)}

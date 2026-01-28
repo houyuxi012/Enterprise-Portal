@@ -13,7 +13,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[schemas.NewsItem])
 async def read_news(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.NewsItem).offset(skip).limit(limit))
+    result = await db.execute(select(models.NewsItem).order_by(models.NewsItem.is_top.desc(), models.NewsItem.date.desc()).offset(skip).limit(limit))
     news = result.scalars().all()
     return news
 

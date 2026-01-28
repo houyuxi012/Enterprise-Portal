@@ -24,3 +24,55 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+# --- Logger Helper ---
+import models
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def log_business_action(
+    db: AsyncSession,
+    operator: str,
+    action: str,
+    target: str | None = None,
+    status: str = "SUCCESS",
+    detail: str | None = None,
+    ip_address: str | None = None
+):
+    """
+    Helper to create a business log entry asynchronously.
+    """
+    try:
+        log = models.BusinessLog(
+            operator=operator,
+            action=action,
+            target=target,
+            status=status,
+            detail=detail,
+            ip_address=ip_address,
+            timestamp=datetime.now().isoformat()
+        )
+        db.add(log)
+        # We assume the caller handles the transaction commit if they are in the middle of one,
+        # but for logging we usually want immediate persistence. 
+        # However, to be safe with ongoing transactions allow simple add.
+        # But here we want to ensure it's saved.
+        # If the caller is using the session for other things, creating a nested transaction or separate session might be safer?
+        # For simplicity in this project, we'll just add it to the current session.
+        # If the main transaction fails, the log might roll back, which is often acceptable (action didn't happen).
+        # For Login (auth), it's a dedicated request.
+        
+        # To ensure logs persist even if main action fails (e.g. for ERROR logs), we might need a separate session, 
+        # but we are passing 'db' here.
+        # Let's trust the caller to commit, or we commit if it's a standalone log.
+        # Actually for 'auth', we return immediately, so we should commit.
+        # For 'users', we assume successful action = successful log.
+        
+        # We will NOT commit here to avoid breaking caller's atomicity, unless we want to force it.
+        # Better: caller commits. 
+        # BUT for Login, there is no other DB write. So we need to commit.
+        # Let's make it optional? Or just let caller handle it. 
+        # Let's safe-guard:
+        await db.commit() 
+    except Exception as e:
+        print(f"Failed to write business log: {e}")
+

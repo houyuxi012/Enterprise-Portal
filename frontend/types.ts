@@ -19,6 +19,7 @@ export interface NewsItem {
   date: string;
   author: string;
   image: string;
+  is_top?: boolean;
 }
 
 export interface Employee {
@@ -71,7 +72,7 @@ export interface Announcement {
   content: string;
   time: string;
   color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple';
-  isUrgent?: boolean;
+  is_urgent?: boolean;
 }
 
 export interface Permission {
@@ -145,4 +146,14 @@ export interface LogForwardingConfig {
   port?: number;
   secret_token?: string;
   enabled: boolean;
+}
+
+export interface CarouselItem {
+  id: number;
+  title: string;
+  image: string;
+  url: string;
+  badge: string;
+  sort_order: number;
+  is_active: boolean;
 }

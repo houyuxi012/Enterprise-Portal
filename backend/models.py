@@ -58,6 +58,7 @@ class NewsItem(Base):
     date = Column(Date)
     author = Column(String)
     image = Column(String)
+    is_top = Column(Boolean, default=False)
 
 class QuickTool(Base):
     __tablename__ = "tools"
@@ -68,7 +69,9 @@ class QuickTool(Base):
     url = Column(String)
     color = Column(String)
     category = Column(String)
+    category = Column(String)
     description = Column(String)
+    image = Column(String, nullable=True)
 
 class Announcement(Base):
     __tablename__ = "announcements"
@@ -144,3 +147,14 @@ class LogForwardingConfig(Base):
     port = Column(Integer, nullable=True)
     secret_token = Column(String, nullable=True)
     enabled = Column(Boolean, default=False)
+
+class CarouselItem(Base):
+    __tablename__ = "carousel_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    image = Column(String)
+    url = Column(String)
+    badge = Column(String)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)

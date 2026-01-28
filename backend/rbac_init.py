@@ -88,7 +88,7 @@ async def init_rbac(db: AsyncSession):
         admin_user = models.User(
             username="admin", 
             email="admin@example.com", 
-            hashed_password=utils.get_password_hash("123456"),
+            hashed_password=utils.get_password_hash("admin"),
             role="admin", # Legacy
             is_active=True
         )

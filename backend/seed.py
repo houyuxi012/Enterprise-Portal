@@ -72,6 +72,35 @@ async def init_db():
             ]
             db.add_all(tools)
             print("Tools seeded.")
+
+        # 5. Carousel
+        result = await db.execute(select(models.CarouselItem))
+        if not result.scalars().first():
+            carousel_items = [
+                models.CarouselItem(
+                    title="2024 年度战略发布会圆满落幕",
+                    image="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200",
+                    url="#",
+                    badge="焦点新闻",
+                    sort_order=1
+                ),
+                models.CarouselItem(
+                    title="ShiKu 义工日：我们在行动",
+                    image="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1200",
+                    url="#",
+                    badge="企业责任",
+                    sort_order=2
+                ),
+                models.CarouselItem(
+                    title="新一代协作平台即将灰度测试",
+                    image="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=1200",
+                    url="#",
+                    badge="产品动态",
+                    sort_order=3
+                )
+            ]
+            db.add_all(carousel_items)
+            print("Carousel items seeded.")
             
         await db.commit()
         print("Data seeding completed!")

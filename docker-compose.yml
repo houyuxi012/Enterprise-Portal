@@ -21,6 +21,8 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       - db
+    volumes:
+      - ./backend/uploads:/app/uploads
 
   frontend:
     build: ./frontend

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { List, Button, Modal, Form, Input, Select, Popconfirm, message, Card, Tag } from 'antd';
+import { List, Button, Modal, Form, Input, Select, Popconfirm, message, Card, Tag, Upload, Image } from 'antd';
+import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { QuickToolDTO } from '../../services/api';
 import ApiClient from '../../services/api';
@@ -7,8 +8,26 @@ import * as LucideIcons from 'lucide-react';
 
 const { Option } = Select;
 
+type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
+
+const getBase64 = (file: FileType): Promise<string> =>
+    new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+    });
+
 // Helper to render icon preview
-const IconPreview = ({ iconName, color }: { iconName: string, color: string }) => {
+const IconPreview = ({ iconName, color, image }: { iconName: string, color: string, image?: string }) => {
+    if (image) {
+        return (
+            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 flex items-center justify-center bg-white">
+                <img src={image} alt="icon" className="w-full h-full object-cover" />
+            </div>
+        );
+    }
+
     // @ts-ignore
     const Icon = LucideIcons[iconName] || LucideIcons.AppWindow;
     const colorMap: any = {
@@ -34,6 +53,11 @@ const ToolList: React.FC = () => {
     const [editingTool, setEditingTool] = useState<QuickToolDTO | null>(null);
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
+
+    // Upload state
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [fileList, setFileList] = useState<UploadFile[]>([]);
 
     useEffect(() => {
         fetchTools();
@@ -64,6 +88,19 @@ const ToolList: React.FC = () => {
     const handleEdit = (tool: QuickToolDTO) => {
         setEditingTool(tool);
         form.setFieldsValue(tool);
+        // Init fileList for existing image
+        if (tool.image) {
+            setFileList([
+                {
+                    uid: '-1',
+                    name: 'image.png',
+                    status: 'done',
+                    url: tool.image,
+                }
+            ]);
+        } else {
+            setFileList([]);
+        }
         setIsModalOpen(true);
     };
 
@@ -72,10 +109,24 @@ const ToolList: React.FC = () => {
         form.resetFields();
         form.setFieldsValue({
             color: 'blue',
-            icon_name: 'Link'
+            icon_name: 'Link',
+            image: ''
         });
+        setFileList([]);
         setIsModalOpen(true);
     };
+
+    const handlePreview = async (file: UploadFile) => {
+        if (!file.url && !file.preview) {
+            file.preview = await getBase64(file.originFileObj as FileType);
+        }
+
+        setPreviewImage(file.url || (file.preview as string));
+        setPreviewOpen(true);
+    };
+
+    const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) =>
+        setFileList(newFileList);
 
     const handleOk = async () => {
         try {
@@ -116,7 +167,7 @@ const ToolList: React.FC = () => {
                             ]}
                         >
                             <Card.Meta
-                                avatar={<IconPreview iconName={item.icon_name} color={item.color} />}
+                                avatar={<IconPreview iconName={item.icon_name} color={item.color} image={item.image} />}
                                 title={item.name}
                                 description={
                                     <div className="text-xs text-gray-400 truncate">
@@ -137,6 +188,49 @@ const ToolList: React.FC = () => {
                 onCancel={() => setIsModalOpen(false)}
             >
                 <Form form={form} layout="vertical">
+                    {/* Image Upload Area */}
+                    <Form.Item label="应用图标 (优先显示自定义图片)">
+                        <Form.Item name="image" noStyle>
+                            <Input hidden />
+                        </Form.Item>
+                        <Upload
+                            listType="picture-card"
+                            fileList={fileList}
+                            onPreview={handlePreview}
+                            onChange={handleChange}
+                            maxCount={1}
+                            customRequest={async ({ file, onSuccess, onError }) => {
+                                try {
+                                    const url = await ApiClient.uploadImage(file as File);
+                                    form.setFieldsValue({ image: url });
+                                    message.success('图片上传成功');
+                                    onSuccess?.(url);
+                                } catch (err) {
+                                    message.error('图片上传失败');
+                                    onError?.(err as Error);
+                                }
+                            }}
+                        >
+                            {fileList.length >= 1 ? null : (
+                                <button style={{ border: 0, background: 'none' }} type="button">
+                                    <PlusOutlined />
+                                    <div style={{ marginTop: 8 }}>上传图标</div>
+                                </button>
+                            )}
+                        </Upload>
+                        {previewImage && (
+                            <Image
+                                wrapperStyle={{ display: 'none' }}
+                                preview={{
+                                    visible: previewOpen,
+                                    onVisibleChange: (visible) => setPreviewOpen(visible),
+                                    afterOpenChange: (visible) => !visible && setPreviewImage(''),
+                                }}
+                                src={previewImage}
+                            />
+                        )}
+                    </Form.Item>
+
                     <Form.Item name="name" label="应用名称" rules={[{ required: true }]}>
                         <Input />
                     </Form.Item>
@@ -152,7 +246,7 @@ const ToolList: React.FC = () => {
                                 <Option value="其它">其它</Option>
                             </Select>
                         </Form.Item>
-                        <Form.Item name="color" label="颜色主题">
+                        <Form.Item name="color" label="颜色主题 (无图片时生效)">
                             <Select>
                                 <Option value="blue">Blue</Option>
                                 <Option value="purple">Purple</Option>
@@ -162,7 +256,7 @@ const ToolList: React.FC = () => {
                             </Select>
                         </Form.Item>
                     </div>
-                    <Form.Item name="icon_name" label="图标 (Lucide Icon Name)">
+                    <Form.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
                         <Input placeholder="e.g. Mail, Github, Slack" />
                     </Form.Item>
                     <Form.Item name="description" label="描述">

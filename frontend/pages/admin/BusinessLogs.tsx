@@ -30,6 +30,19 @@ const BusinessLogs: React.FC = () => {
         fetchLogs();
     }, []);
 
+    const ACTION_MAP: Record<string, string> = {
+        'LOGIN': '用户登录',
+        'CREATE_USER': '创建用户',
+        'DELETE_USER': '删除用户',
+        'UPDATE_USER': '更新用户',
+        'RESET_PASSWORD': '重置密码',
+    };
+
+    const STATUS_MAP: Record<string, string> = {
+        'SUCCESS': '成功',
+        'FAIL': '失败'
+    };
+
     const columns = [
         {
             title: '时间',
@@ -48,7 +61,7 @@ const BusinessLogs: React.FC = () => {
             dataIndex: 'action',
             key: 'action',
             width: 150,
-            render: (text: string) => <Tag color="blue">{text}</Tag>
+            render: (text: string) => <Tag color="blue">{ACTION_MAP[text] || text}</Tag>
         },
         {
             title: '目标对象',
@@ -69,7 +82,7 @@ const BusinessLogs: React.FC = () => {
             width: 100,
             render: (status: string) => (
                 <Tag color={status === 'SUCCESS' ? 'green' : 'red'}>
-                    {status}
+                    {STATUS_MAP[status] || status}
                 </Tag>
             )
         },

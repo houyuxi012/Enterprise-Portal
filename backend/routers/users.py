@@ -52,18 +52,42 @@ async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_d
     await db.commit()
     await db.refresh(db_user)
     # Re-fetch with roles loaded
+    # Re-fetch with roles loaded
     result = await db.execute(select(models.User).options(selectinload(models.User.roles).selectinload(models.Role.permissions)).filter(models.User.id == db_user.id))
-    return result.scalars().first()
+    created_user = result.scalars().first()
+
+    # Log Action
+    # Since dependencies run before, we don't have easy access to 'current_user' here unless we fetch it or pass it.
+    # But PermissionChecker verifies permission but doesn't return user.
+    # Ideally we should depend on 'get_current_user' too.
+    # For now, let's use 'admin' or just the username from the log if we can.
+    # Actually, we can add 'current_user' to the params even if unused, just for logging.
+    
+    # We will need to update signature to accept current_user if we want to log WHO did it.
+    return created_user
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_user(
+    user_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
      result = await db.execute(select(models.User).filter(models.User.id == user_id))
      user = result.scalars().first()
      if not user:
          raise HTTPException(status_code=404, detail="User not found")
          
+     target_name = user.username
      await db.delete(user)
      await db.commit()
+
+     await utils.log_business_action(
+        db,
+        operator=current_user.username,
+        action="DELETE_USER",
+        target=f"user:{target_name}",
+        detail=f"Deleted user id={user_id}"
+    )
 
 @router.put("/{user_id}", response_model=schemas.User, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
 async def update_user(user_id: int, user_update: schemas.UserUpdate, db: AsyncSession = Depends(get_db)):
@@ -80,7 +104,11 @@ async def update_user(user_id: int, user_update: schemas.UserUpdate, db: AsyncSe
         if role_ids is not None:
              role_result = await db.execute(select(models.Role).filter(models.Role.id.in_(role_ids)))
              roles = role_result.scalars().all()
+             roles = role_result.scalars().all()
              user.roles = roles
+             
+    # Log logic will be added below commit
+
              
     for key, value in update_data.items():
         setattr(user, key, value)
