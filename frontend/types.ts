@@ -118,3 +118,31 @@ export interface User {
   roles: Role[];
   is_active: boolean;
 }
+
+export interface SystemLog {
+  id: number;
+  level: 'INFO' | 'WARN' | 'ERROR';
+  module: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface BusinessLog {
+  id: number;
+  operator: string;
+  action: string;
+  target?: string;
+  ip_address?: string;
+  status: 'SUCCESS' | 'FAIL';
+  detail?: string;
+  timestamp: string;
+}
+
+export interface LogForwardingConfig {
+  id: number;
+  type: 'SYSLOG' | 'WEBHOOK';
+  endpoint: string;
+  port?: number;
+  secret_token?: string;
+  enabled: boolean;
+}

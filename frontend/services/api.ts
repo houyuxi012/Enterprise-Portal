@@ -251,6 +251,42 @@ export const ApiClient = {
     const token = localStorage.getItem('token');
     const response = await api.post('/system/config', config, { headers: { Authorization: `Bearer ${token}` } });
     return response.data;
+  },
+
+  // Log Management
+  getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/logs/system', {
+      params,
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  getBusinessLogs: async (params?: { operator?: string; action?: string; limit?: number; offset?: number }): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/logs/business', {
+      params,
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  getLogForwardingConfig: async (): Promise<any[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/logs/config', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  saveLogForwardingConfig: async (data: any): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/logs/config', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteLogForwardingConfig: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/logs/config/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 };
 

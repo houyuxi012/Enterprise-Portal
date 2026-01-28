@@ -44,24 +44,43 @@ async def read_departments(db: AsyncSession = Depends(get_db), current_user: mod
     # If Schema expects 'children', we must populate it.
     
     # Strategy: Fetch all departments, build tree in memory, return roots.
+    # Strategy: Fetch all departments, build tree in memory using Pydantic models/dicts to avoid async lazy load issues.
     result = await db.execute(select(models.Department).order_by(models.Department.id))
     all_depts = result.scalars().all()
     
-    # In-memory tree build
-    dept_map = {d.id: d for d in all_depts}
+    # Convert to schema models (Pydantic) immediately to detach from session and avoid lazy loading triggers
+    # We use a custom Pydantic construction because from_orm might try to access .children if it's in the schema default
+    # but initially children is empty in DB.
+    # A safer way: Convert to dicts, then reconstruct.
+    
+    dept_map = {}
     roots = []
     
-    # Reset children for memory objects to avoid stale state if any (though fresh from DB)
+    # helper to convert model to dict safe for Pydantic
+    def model_to_dict(d):
+        return {
+            "id": d.id,
+            "name": d.name,
+            "parent_id": d.parent_id,
+            "manager": d.manager,
+            "description": d.description,
+            "sort_order": d.sort_order,
+            "children": []
+        }
+
+    # First pass: Create dicts
     for d in all_depts:
-        d.children = [] # This modifies the ORM object in memory (not DB commit) to prepare for explicit linking
+        dept_map[d.id] = model_to_dict(d)
         
-    for d in all_depts:
-        if d.parent_id and d.parent_id in dept_map:
-            parent = dept_map[d.parent_id]
-            parent.children.append(d)
+    # Second pass: Link children
+    for d_id, d_dict in dept_map.items():
+        if d_dict["parent_id"] and d_dict["parent_id"] in dept_map:
+            parent = dept_map[d_dict["parent_id"]]
+            parent["children"].append(d_dict)
         else:
-            roots.append(d)
+            roots.append(d_dict)
             
+    # Pydantic will validate the list of dicts against List[schemas.Department]
     return roots
 
 @router.post("/", response_model=schemas.Department)
@@ -70,7 +89,18 @@ async def create_department(dept: schemas.DepartmentCreate, db: AsyncSession = D
     db.add(db_dept)
     await db.commit()
     await db.refresh(db_dept)
-    return db_dept
+    
+    # Manually construct response to avoid lazy loading 'children'
+    # We use the Schema model directly
+    return schemas.Department(
+        id=db_dept.id,
+        name=db_dept.name,
+        parent_id=db_dept.parent_id,
+        manager=db_dept.manager,
+        description=db_dept.description,
+        sort_order=db_dept.sort_order,
+        children=[] # Explicitly empty for new node
+    )
 
 @router.put("/{dept_id}", response_model=schemas.Department)
 async def update_department(dept_id: int, dept: schemas.DepartmentUpdate, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
@@ -84,7 +114,17 @@ async def update_department(dept_id: int, dept: schemas.DepartmentUpdate, db: As
         
     await db.commit()
     await db.refresh(db_dept)
-    return db_dept
+    
+    # Return manually constructed Schema to avoid implicit lazy load of children
+    return schemas.Department(
+        id=db_dept.id,
+        name=db_dept.name,
+        parent_id=db_dept.parent_id,
+        manager=db_dept.manager,
+        description=db_dept.description,
+        sort_order=db_dept.sort_order,
+        children=[] # We return empty children for update response too, assuming UI refresh
+    )
 
 @router.delete("/{dept_id}")
 async def delete_department(dept_id: int, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):

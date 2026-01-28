@@ -10,20 +10,22 @@ import {
     HomeOutlined,
     SafetyCertificateOutlined,
     AppstoreOutlined,
-    SettingOutlined
+    SettingOutlined,
+    InfoCircleOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 
-const { Header, Sider, Content } = Layout;
+const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding') => void;
     onExit: () => void;
+    footerText?: string;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText }) => {
     const [collapsed, setCollapsed] = useState(false);
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -52,61 +54,77 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             label: '概览面板',
         },
         {
-            type: 'group',
-            label: '内容管理', // Content Management
+            key: 'sub_content',
+            label: '内容管理',
+            icon: <FileTextOutlined />,
             children: [
                 {
                     key: 'news',
                     icon: <FileTextOutlined />,
-                    label: '新闻资讯', // News Info
+                    label: '新闻资讯',
                 },
                 {
                     key: 'announcements',
                     icon: <NotificationOutlined />,
-                    label: '实时公告', // Real-time Announcements
+                    label: '实时公告',
                 },
                 {
                     key: 'tools',
                     icon: <AppstoreOutlined />,
-                    label: '应用管理', // App Management
+                    label: '应用管理',
                 },
             ],
         },
         {
-            type: 'group',
-            label: '用户管理', // User Management
+            key: 'sub_users',
+            label: '用户管理',
+            icon: <TeamOutlined />,
             children: [
                 {
                     key: 'users',
-                    icon: <TeamOutlined />,
-                    label: '账户管理', // Account Management
+                    icon: <UserOutlined />, // Changed to UserOutlined to distinguish from parent
+                    label: '账户管理',
                 },
                 {
                     key: 'roles',
                     icon: <SafetyCertificateOutlined />,
-                    label: '角色管理', // Role Management (Definitions)
+                    label: '角色管理',
                 },
                 {
                     key: 'org',
-                    icon: <TeamOutlined />, // Reusing Team icon or similar
-                    label: '组织机构', // Organization (NEW)
+                    icon: <AppstoreOutlined />, // Changed icon to distinguish
+                    label: '组织机构',
                 },
             ],
         },
         {
-            type: 'group',
+            key: 'sub_system',
             label: '系统管理',
+            icon: <SettingOutlined />,
             children: [
                 {
                     key: 'settings',
                     icon: <SettingOutlined />,
-                    label: '系统设置',
+                    label: '客户化设置',
+                },
+                {
+                    key: 'about_us',
+                    icon: <InfoCircleOutlined />,
+                    label: '关于我们',
                 },
             ],
         },
-    ];
-
-    const userMenuItems = [
+        {
+            key: 'sub_logs',
+            label: '日志管理',
+            icon: <FileTextOutlined />,
+            children: [
+                { key: 'system_logs', label: '系统日志' },
+                { key: 'business_logs', label: '业务日志' },
+                { key: 'log_forwarding', label: '日志外发' },
+            ]
+        },
+    ]; const userMenuItems = [
         {
             key: 'exit',
             icon: <HomeOutlined />,
@@ -122,7 +140,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             danger: true,
         },
     ];
-
     return (
         <Layout style={{ minHeight: '100vh' }}>
             <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} theme="light" width={250}>
@@ -154,6 +171,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 <Content style={{ margin: '24px 16px', padding: 24, minHeight: 280, background: colorBgContainer, borderRadius: borderRadiusLG }}>
                     {children}
                 </Content>
+                <Footer style={{ textAlign: 'center', color: '#94a3b8' }}>
+                    {footerText || '© 2025 侯钰熙 版权所有'}
+                </Footer>
             </Layout>
         </Layout>
     );

@@ -160,3 +160,47 @@ class AIChatResponse(BaseModel):
 class PasswordResetRequest(BaseModel):
     username: str
     new_password: Optional[str] = "123456"
+
+# Log Management Schemas
+class SystemLogBase(BaseModel):
+    level: str
+    module: str
+    message: str
+    timestamp: str
+
+class SystemLog(SystemLogBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class BusinessLogBase(BaseModel):
+    operator: str
+    action: str
+    target: Optional[str] = None
+    ip_address: Optional[str] = None
+    status: str
+    detail: Optional[str] = None
+    timestamp: str
+
+class BusinessLogCreate(BusinessLogBase):
+    pass
+
+class BusinessLog(BusinessLogBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class LogForwardingConfigBase(BaseModel):
+    type: str # SYSLOG, WEBHOOK
+    endpoint: str
+    port: Optional[int] = None
+    secret_token: Optional[str] = None
+    enabled: bool = False
+
+class LogForwardingConfigCreate(LogForwardingConfigBase):
+    pass
+
+class LogForwardingConfig(LogForwardingConfigBase):
+    id: int
+    class Config:
+        from_attributes = True

@@ -32,6 +32,11 @@ import RoleList from './pages/admin/RoleList';
 
 import OrganizationList from './pages/admin/OrganizationList';
 
+import SystemLogs from './pages/admin/SystemLogs';
+import BusinessLogs from './pages/admin/BusinessLogs';
+import AboutUs from './pages/admin/AboutUs';
+import LogForwarding from './pages/admin/LogForwarding';
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -39,7 +44,9 @@ const App: React.FC = () => {
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding'>('dashboard');
+
+
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -462,12 +469,13 @@ const App: React.FC = () => {
   if (isAdminMode) {
     return (
       <AdminLayout
-        activeTab={activeAdminTab}
-        onTabChange={(tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'org' | 'roles') => setActiveAdminTab(tab)}
+        activeTab={activeAdminTab as any}
+        onTabChange={(tab: any) => setActiveAdminTab(tab)}
         onExit={() => {
           setIsAdminMode(false);
           window.history.pushState({}, '', '/');
         }}
+        footerText={systemConfig.footer_text}
       >
         {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
         {activeAdminTab === 'news' && <NewsList />}
@@ -477,8 +485,10 @@ const App: React.FC = () => {
         {activeAdminTab === 'roles' && <RoleList />}
         {activeAdminTab === 'tools' && <ToolList />}
         {activeAdminTab === 'settings' && <SystemSettings />}
-        {activeAdminTab === 'settings' && <SystemSettings />}
         {activeAdminTab === 'org' && <OrganizationList />}
+        {activeAdminTab === 'system_logs' && <SystemLogs />}
+        {activeAdminTab === 'business_logs' && <BusinessLogs />}
+        {activeAdminTab === 'log_forwarding' && <LogForwarding />}
       </AdminLayout>
     );
   }
@@ -508,6 +518,11 @@ const App: React.FC = () => {
           {renderView()}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="py-6 text-center text-xs text-slate-400 dark:text-slate-600 font-medium tracking-wide">
+        {systemConfig.footer_text || '© 2025 侯钰熙 版权所有'}
+      </footer>
 
       <AIAssistant
         isOpen={isAssistantOpen}

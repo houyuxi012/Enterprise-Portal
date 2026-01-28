@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments
+from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs
 import os
 import database
 import models
@@ -27,12 +27,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost",
-        "http://localhost:80",
-        "http://127.0.0.1",
-        "http://127.0.0.1:80",
-        "http://localhost:5173", # Dev
-        "http://127.0.0.1:5173", # Dev
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -55,3 +50,4 @@ app.include_router(upload.router)
 app.include_router(system.router)
 app.include_router(roles.router)
 app.include_router(departments.router)
+app.include_router(logs.router)

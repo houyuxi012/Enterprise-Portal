@@ -113,3 +113,34 @@ class Department(Base):
     # Self-referential relationship for tree structure
     children = relationship("Department", back_populates="parent")
     parent = relationship("Department", remote_side=[id], back_populates="children")
+
+class SystemLog(Base):
+    __tablename__ = "system_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    level = Column(String, index=True) # INFO, WARN, ERROR
+    module = Column(String, index=True)
+    message = Column(Text)
+    timestamp = Column(String) # Storing as ISO string involved for simplicity or Timestamp
+
+class BusinessLog(Base):
+    __tablename__ = "business_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    operator = Column(String, index=True)
+    action = Column(String, index=True) # e.g. "CREATE_USER"
+    target = Column(String, nullable=True) # e.g. "user:1"
+    ip_address = Column(String, nullable=True)
+    status = Column(String) # SUCCESS, FAIL
+    detail = Column(Text, nullable=True)
+    timestamp = Column(String)
+
+class LogForwardingConfig(Base):
+    __tablename__ = "log_forwarding_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String) # SYSLOG, WEBHOOK
+    endpoint = Column(String)
+    port = Column(Integer, nullable=True)
+    secret_token = Column(String, nullable=True)
+    enabled = Column(Boolean, default=False)

@@ -38,7 +38,7 @@ const SystemSettings: React.FC = () => {
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 max-w-2xl mx-auto">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold dark:text-white">系统设置</h2>
+                <h2 className="text-2xl font-bold dark:text-white">客户化设置</h2>
                 <p className="text-slate-500 dark:text-slate-400 text-sm">配置全局应用程序参数</p>
             </div>
 
@@ -70,6 +70,14 @@ const SystemSettings: React.FC = () => {
                         help="如果不填则使用默认的纯CSS Logo。输入图片URL可替换默认Logo。"
                     >
                         <Input placeholder="https://example.com/logo.png" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="footer_text"
+                        label="底部版权文字"
+                        help="显示在页面底部的版权信息"
+                    >
+                        <Input placeholder="© 2025 侯钰熙 版权所有" />
                     </Form.Item>
                 </Card>
 
