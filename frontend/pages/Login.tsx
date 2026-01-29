@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Loader2 } from 'lucide-react';
 import AuthService from '../services/auth';
+import ApiClient from '../services/api';
 
 interface LoginProps {
     onLoginSuccess: () => void;
@@ -11,6 +12,45 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || 'ShiKu Home');
+    const [logoUrl, setLogoUrl] = useState<string | null>(() => localStorage.getItem('sys_logo_url') || null);
+    const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || '© 2025 侯钰熙. All Rights Reserved.');
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const config = await ApiClient.getSystemConfig();
+                if (config.app_name) {
+                    setAppName(config.app_name);
+                    localStorage.setItem('sys_app_name', config.app_name);
+                }
+                if (config.logo_url) {
+                    setLogoUrl(config.logo_url);
+                    localStorage.setItem('sys_logo_url', config.logo_url);
+                }
+                if (config.footer_text) {
+                    setFooterText(config.footer_text);
+                    localStorage.setItem('sys_footer_text', config.footer_text);
+                }
+                if (config.browser_title) document.title = config.browser_title;
+                if (config.favicon_url) {
+                    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+                    if (link) {
+                        link.href = config.favicon_url;
+                    } else {
+                        const newLink = document.createElement('link');
+                        newLink.rel = 'icon';
+                        newLink.href = config.favicon_url;
+                        document.head.appendChild(newLink);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to load system config:", error);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,70 +68,86 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4">
-            <div className="max-w-md w-full mica p-8 rounded-[2.5rem] shadow-2xl ring-1 ring-white/50">
-                <div className="text-center mb-10">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 mb-6">
-                        <Lock size={32} />
-                    </div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">欢迎回来</h1>
-                    <p className="text-slate-500 text-sm mt-2 font-medium">请登录 ShiKu Enterprise Portal</p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
-                                <User size={18} />
-                            </div>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="block w-full pl-11 pr-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                                placeholder="用户名"
-                                required
-                            />
-                        </div>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
-                                <Lock size={18} />
-                            </div>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full pl-11 pr-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                                placeholder="密码"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {error && (
-                        <div className="p-4 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold text-center animate-in fade-in slide-in-from-top-2">
-                            {error}
+        <div className="min-h-screen bg-white relative flex flex-col">
+            {/* Top Bar */}
+            <header className="w-full max-w-7xl mx-auto p-6 flex justify-between items-center z-10">
+                <div className="flex items-center space-x-4">
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain" />
+                    ) : (
+                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                            <Lock size={24} />
                         </div>
                     )}
+                    <span className="text-2xl font-bold text-slate-800 tracking-tight">{appName}</span>
+                </div>
+            </header>
 
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full flex items-center justify-center py-4 px-6 border border-transparent rounded-2xl text-sm font-black text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        {isLoading ? <Loader2 size={20} className="animate-spin" /> : (
-                            <>
-                                <span className="mr-2">登 录</span>
-                                <ArrowRight size={16} />
-                            </>
+            {/* Main Content */}
+            <main className="flex-1 flex items-center justify-center -mt-20 px-4">
+                <div className="max-w-sm w-full space-y-8">
+                    {/* Headers */}
+                    <div className="text-center space-y-2">
+                        <h1 className="text-3xl font-bold text-slate-900">欢迎登录</h1>
+                        <p className="text-slate-500 font-medium tracking-wide">请使用您的企业账户登录系统</p>
+                    </div>
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+                        <div className="space-y-4">
+                            <div>
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="block w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                                    placeholder="请输入用户名"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="block w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                                    placeholder="请输入密码"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="p-3 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold text-center animate-in fade-in slide-in-from-top-1">
+                                {error}
+                            </div>
                         )}
-                    </button>
-                </form>
 
-                <p className="mt-8 text-center text-[10px] text-slate-400 font-medium">
-                    © 2025 侯钰熙. All Rights Reserved.
-                </p>
-            </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded" />
+                                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-500 font-medium">记住我</label>
+                            </div>
+                            <div className="text-sm">
+                                <a href="#" className="font-bold text-blue-600 hover:text-blue-700">忘记密码?</a>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center py-3.5 px-6 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            {isLoading ? <Loader2 size={18} className="animate-spin" /> : '立即登录'}
+                        </button>
+                    </form>
+                </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="py-6 text-center text-xs text-slate-400 font-medium tracking-wide mb-4">
+                {footerText}
+            </footer>
         </div>
     );
 };

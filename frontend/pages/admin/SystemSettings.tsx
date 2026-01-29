@@ -118,6 +118,38 @@ const SystemSettings: React.FC = () => {
                             </div>
                         </div>
 
+                        <div className="flex flex-col md:flex-row gap-6 mt-4">
+                            <Form.Item
+                                name="favicon_url"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">Favicon 图标地址</span>}
+                                help="输入.ico/.png图片URL或直接上传(建议32x32)。"
+                                className="flex-1"
+                            >
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="https://example.com/favicon.ico" />
+                            </Form.Item>
+
+                            <div className="md:mt-8">
+                                <Upload
+                                    showUploadList={false}
+                                    beforeUpload={async (file) => {
+                                        try {
+                                            setLoading(true);
+                                            const url = await ApiClient.uploadImage(file);
+                                            form.setFieldValue('favicon_url', url);
+                                            message.success('上传成功');
+                                        } catch (error) {
+                                            message.error('上传失败');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                        return false;
+                                    }}
+                                >
+                                    <Button size="large" icon={<UploadOutlined />} className="rounded-xl h-[42px] font-bold">本地上传</Button>
+                                </Upload>
+                            </div>
+                        </div>
+
                         <Form.Item
                             name="footer_text"
                             label={<span className="font-bold text-slate-600 dark:text-slate-300">底部版权文字</span>}

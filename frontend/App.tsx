@@ -69,12 +69,12 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  const [isLoading, setIsLoading] = useState(true);
+
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel'>('dashboard');
-
-
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -104,55 +104,64 @@ const App: React.FC = () => {
     return 'system';
   });
 
+  // Initialize App (Auth & Data)
   useEffect(() => {
-    // Check URL for admin
-    if (window.location.pathname === '/admin') {
-      if (isAuthenticated && currentUser?.role === 'admin') {
-        setIsAdminMode(true);
-      }
-    }
-  }, [isAuthenticated, currentUser]);
+    const initApp = async () => {
+      // 1. Check Auth & Load User
+      if (AuthService.isAuthenticated()) {
+        try {
+          const user = await AuthService.getCurrentUser();
+          setCurrentUser(user);
+          setIsAuthenticated(true);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      AuthService.getCurrentUser().then(user => {
-        setCurrentUser(user);
-        if (user.role === 'admin') {
-          // Optional: Auto switch to admin mode or show option
+          // Check for Admin Mode preference or URL
+          if (window.location.pathname.startsWith('/admin') && user.role === 'admin') {
+            setIsAdminMode(true);
+          }
+
+          // 2. Fetch App Data
+          const [fetchedEmployees, fetchedNews, fetchedTools, fetchedConfig] = await Promise.all([
+            ApiClient.getEmployees(),
+            ApiClient.getNews(),
+            ApiClient.getTools(),
+            ApiClient.getSystemConfig()
+          ]);
+          setEmployees(fetchedEmployees);
+          setNewsList(fetchedNews);
+          setTools(fetchedTools);
+          setSystemConfig(fetchedConfig);
+
+          // Apply Config
+          if (fetchedConfig.browser_title) {
+            document.title = fetchedConfig.browser_title;
+          }
+          if (fetchedConfig.favicon_url) {
+            const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+            if (link) {
+              link.href = fetchedConfig.favicon_url;
+            } else {
+              const newLink = document.createElement('link');
+              newLink.rel = 'icon';
+              newLink.href = fetchedConfig.favicon_url;
+              document.head.appendChild(newLink);
+            }
+          }
+
+        } catch (error) {
+          console.error("Failed to initialize app:", error);
+          setIsAuthenticated(false);
+          AuthService.logout(); // Clear potentially invalid token
         }
-      }).catch(() => {
+      } else {
         setIsAuthenticated(false);
-      });
-    }
-  }, [isAuthenticated]);
-
-  // Fetch Data on Mount
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchData = async () => {
-      try {
-        const [fetchedEmployees, fetchedNews, fetchedTools, fetchedConfig] = await Promise.all([
-          ApiClient.getEmployees(),
-          ApiClient.getNews(),
-          ApiClient.getTools(),
-          ApiClient.getSystemConfig()
-        ]);
-        setEmployees(fetchedEmployees);
-        setNewsList(fetchedNews);
-        setTools(fetchedTools);
-        setSystemConfig(fetchedConfig);
-
-        // Apply Config
-        if (fetchedConfig.browser_title) {
-          document.title = fetchedConfig.browser_title;
-        }
-      } catch (error) {
-        console.error("Error fetching app data:", error);
       }
+
+      // Stop Loading
+      setIsLoading(false);
     };
-    fetchData();
-  }, [isAuthenticated]);
+
+    initApp();
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -512,6 +521,24 @@ const App: React.FC = () => {
         return <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">即将上线</div>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="flex flex-col items-center animate-pulse">
+          <div className="w-16 h-16 bg-blue-600 rounded-3xl mb-4 shadow-xl shadow-blue-500/30 flex items-center justify-center">
+            <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+          <div className="h-2 w-32 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 animate-progress"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {

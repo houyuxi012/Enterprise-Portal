@@ -28,7 +28,8 @@ async def get_dashboard_stats(
 
     # 4. New Content (News in last 7 days)
     seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    result = await db.execute(select(func.count(models.NewsItem.id)).where(models.NewsItem.date >= seven_days_ago))
+    # Ensure strict date comparison if db column is Date
+    result = await db.execute(select(func.count(models.NewsItem.id)).where(models.NewsItem.date >= seven_days_ago.date()))
     new_content = result.scalar() or 0
 
     # --- Trend Calculation (Week over Week) ---
