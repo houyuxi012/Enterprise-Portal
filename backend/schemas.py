@@ -231,3 +231,23 @@ class CarouselItem(CarouselItemBase):
     id: int
     class Config:
         from_attributes = True
+
+# Dashboard & System Monitor Schemas
+class SystemResources(BaseModel):
+    cpu_percent: float
+    memory_percent: float
+    memory_used: str  # e.g. "4.2GB"
+    memory_total: str # e.g. "16GB"
+    disk_percent: float
+    network_sent_speed: float # MB/s
+    network_recv_speed: float # MB/s
+
+class DashboardStats(BaseModel):
+    system_visits: int
+    active_users: int
+    tool_clicks: int # Calculated from BusinessLog
+    new_content: int # News count
+    activity_trend: str # e.g. "+15.5%"
+    active_users_trend: str
+    tool_clicks_trend: str
+    new_content_trend: str

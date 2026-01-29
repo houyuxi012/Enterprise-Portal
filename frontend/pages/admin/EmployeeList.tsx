@@ -89,10 +89,20 @@ const EmployeeList: React.FC = () => {
             key: 'name',
             render: (text: string, record: Employee) => (
                 <div className="flex items-center space-x-3">
-                    <Avatar src={record.avatar} />
+                    <Avatar
+                        src={record.avatar}
+                        size={40}
+                        icon={<UserOutlined />}
+                        className="border border-slate-200 shadow-sm"
+                    />
                     <div>
-                        <div className="font-bold">{text} <Tag className="ml-2">{record.gender}</Tag></div>
-                        <div className="text-xs text-slate-400">#{record.job_number} · @{record.account}</div>
+                        <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                            {text}
+                            <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${record.gender === '男' ? 'bg-blue-50 text-blue-500' : 'bg-rose-50 text-rose-500'}`}>
+                                {record.gender}
+                            </span>
+                        </div>
+                        <div className="text-xs text-slate-400 font-medium">#{record.job_number} · @{record.account}</div>
                     </div>
                 </div>
             ),
@@ -103,8 +113,8 @@ const EmployeeList: React.FC = () => {
             key: 'role',
             render: (text: string, record: Employee) => (
                 <div>
-                    <div className="font-bold">{text}</div>
-                    <div className="text-xs text-gray-400">{record.department}</div>
+                    <div className="font-bold text-slate-700 dark:text-slate-300">{text}</div>
+                    <div className="text-xs text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md inline-block mt-0.5">{record.department}</div>
                 </div>
             ),
         },
@@ -112,9 +122,9 @@ const EmployeeList: React.FC = () => {
             title: '联系方式',
             key: 'contact',
             render: (_: any, record: Employee) => (
-                <div>
-                    <div className="text-xs">{record.email}</div>
-                    <div className="text-xs text-gray-400">{record.phone}</div>
+                <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-slate-600 dark:text-slate-400">{record.email}</div>
+                    <div className="text-xs text-slate-400">{record.phone}</div>
                 </div>
             ),
         },
@@ -122,18 +132,35 @@ const EmployeeList: React.FC = () => {
             title: '位置',
             dataIndex: 'location',
             key: 'location',
+            render: (text: string) => <span className="text-xs font-bold text-slate-500">{text}</span>
         },
         {
             title: '操作',
             key: 'action',
+            width: '15%',
             render: (_: any, record: Employee) => (
-                <Space size="middle">
-                    <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                <Space size="small">
+                    <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(record)}
+                        className="text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
+                    />
                     <Popconfirm title="确定重置密码为 123456 吗?" onConfirm={() => handleResetPassword(record.account)}>
-                        <Button type="text" icon={<KeyOutlined />} title="重置密码" />
+                        <Button
+                            type="text"
+                            icon={<KeyOutlined />}
+                            title="重置密码"
+                            className="text-amber-500 hover:bg-amber-50 font-bold rounded-lg"
+                        />
                     </Popconfirm>
                     <Popconfirm title="确定要删除吗?" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="text" danger icon={<DeleteOutlined />} />
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            className="hover:bg-red-50 font-bold rounded-lg"
+                        />
                     </Popconfirm>
                 </Space>
             ),
@@ -146,28 +173,45 @@ const EmployeeList: React.FC = () => {
     );
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">用户管理</h2>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large">新增用户</Button>
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header - Outside Card */}
+            <div className="flex justify-between items-center mb-2">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">员工档案管理</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">管理企业员工基本信息与职位</p>
+                </div>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleAddNew}
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
+                >
+                    新增员工
+                </Button>
             </div>
 
-            <div className="mb-4">
-                <Input
-                    placeholder="搜索姓名或部门..."
-                    prefix={<SearchOutlined />}
-                    onChange={e => setSearchText(e.target.value)}
-                    style={{ width: 300 }}
+            {/* Content Card */}
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+                <div className="mb-8 flex space-x-4">
+                    <Input
+                        placeholder="搜索姓名或部门..."
+                        prefix={<SearchOutlined className="text-slate-400" />}
+                        onChange={e => setSearchText(e.target.value)}
+                        className="w-full max-w-sm rounded-xl border-slate-200 bg-slate-50 hover:bg-white focus:bg-white transition-all h-10 font-medium"
+                        size="large"
+                    />
+                </div>
+
+                <Table
+                    columns={columns}
+                    dataSource={filteredData}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: 8, className: 'font-bold' }}
+                    className="ant-table-custom"
                 />
             </div>
-
-            <Table
-                columns={columns}
-                dataSource={filteredData}
-                rowKey="id"
-                loading={loading}
-                pagination={{ pageSize: 8 }}
-            />
 
             <Modal
                 title={editingEmployee ? '编辑用户' : '新增用户'}

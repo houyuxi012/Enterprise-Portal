@@ -31,9 +31,9 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText, logoUrl, appName }) => {
     const [collapsed, setCollapsed] = useState(false);
-    const {
-        token: { colorBgContainer, borderRadiusLG },
-    } = theme.useToken();
+
+    // We are overriding Antd token themes with CSS classes, but keeping this for safety
+    const { token: { borderRadiusLG } } = theme.useToken();
 
     const handleMenuClick = (e: { key: string }) => {
         onTabChange(e.key as any);
@@ -96,7 +96,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 },
                 {
                     key: 'users',
-                    icon: <UserOutlined />, // Changed to UserOutlined to distinguish from parent
+                    icon: <UserOutlined />,
                     label: '系统账户',
                 },
                 {
@@ -106,7 +106,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 },
                 {
                     key: 'org',
-                    icon: <AppstoreOutlined />, // Changed icon to distinguish
+                    icon: <AppstoreOutlined />,
                     label: '组织机构',
                 },
             ],
@@ -154,21 +154,40 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             danger: true,
         },
     ];
+
     return (
-        <Layout style={{ minHeight: '100vh' }}>
-            <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} theme="light" width={250}>
-                <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
-                    <div className="flex items-center space-x-2">
+        <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
+            {/* Sidebar with Glassmorphism / Soft Style */}
+            <Sider
+                collapsible
+                collapsed={collapsed}
+                onCollapse={(value) => setCollapsed(value)}
+                theme="light"
+                width={260}
+                className="shadow-2xl shadow-slate-200/50 dark:shadow-none border-r border-slate-100 dark:border-slate-800 z-20"
+                style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                }}
+            >
+                <div className="h-20 flex items-center justify-center border-b border-slate-50 dark:border-slate-800/50 mb-2">
+                    <div className="flex items-center space-x-3 transition-all duration-300">
                         {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                         ) : (
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
                                 {(appName || 'A')[0].toUpperCase()}
                             </div>
                         )}
-                        {!collapsed && <span className="font-bold text-lg text-slate-800">{appName ? `${appName} 后台管理` : 'Admin Portal'}</span>}
+                        {!collapsed && (
+                            <div className="flex flex-col">
+                                <span className="font-black text-lg text-slate-900 dark:text-white leading-tight">{appName || 'Admin Portal'}</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Workspace</span>
+                            </div>
+                        )}
                     </div>
                 </div>
+
                 <Menu
                     theme="light"
                     defaultSelectedKeys={[activeTab]}
@@ -176,25 +195,55 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     mode="inline"
                     items={menuItems as any}
                     onClick={handleMenuClick}
-                    style={{ borderRight: 0 }}
+                    className="border-none px-2 space-y-1 bg-transparent admin-menu"
+                    style={{ background: 'transparent' }}
                 />
             </Sider>
-            <Layout>
-                <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-slate-500">Welcome, Admin</span>
-                        <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight">
-                            <Avatar style={{ backgroundColor: '#1890ff', cursor: 'pointer' }} icon={<UserOutlined />} />
+
+            <Layout className="bg-transparent">
+                {/* Header - Floating & Transparent */}
+                <Header className="px-8 h-20 bg-transparent flex justify-end items-center z-10 backdrop-blur-sm sticky top-0">
+                    <div className="flex items-center space-x-6">
+                        <div className="text-right hidden sm:block">
+                            <div className="text-sm font-bold text-slate-800 dark:text-white">Admin User</div>
+                            <div className="text-xs text-slate-500 font-medium">Administrator</div>
+                        </div>
+                        <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight" trigger={['click']}>
+                            <div className="cursor-pointer p-1 rounded-full border-2 border-white dark:border-slate-700 shadow-md hover:shadow-lg transition-shadow">
+                                <Avatar
+                                    size={40}
+                                    style={{ backgroundColor: '#3b82f6' }}
+                                    icon={<UserOutlined />}
+                                    className="bg-gradient-to-br from-blue-500 to-indigo-600"
+                                />
+                            </div>
                         </Dropdown>
                     </div>
                 </Header>
-                <Content style={{ margin: '24px 16px', padding: 24, minHeight: 280, background: colorBgContainer, borderRadius: borderRadiusLG }}>
+
+                <Content className="m-6 mt-2 p-6 min-h-[280px] overflow-visible">
                     {children}
                 </Content>
-                <Footer style={{ textAlign: 'center', color: '#94a3b8' }}>
-                    {footerText || '© 2025 侯钰熙 版权所有'}
+
+                <Footer className="text-center text-slate-400 dark:text-slate-600 bg-transparent py-6 font-medium text-xs tracking-wide">
+                    {footerText || '© 2025 侯钰熙. All Rights Reserved.'}
                 </Footer>
             </Layout>
+
+            {/* Global Styles specific to Admin to override Antd defaults directly */}
+            <style>{`
+                /* Customize Menu Item Selection */
+                .admin-menu .ant-menu-item {
+                    border-radius: 12px !important;
+                    margin-bottom: 4px !important;
+                    font-weight: 600 !important;
+                }
+                .admin-menu .ant-menu-item-selected {
+                    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+                    color: #2563eb !important;
+                }
+                /* Dark mode adjustments would go here if we had full dark mode classes passed down */
+            `}</style>
         </Layout>
     );
 };

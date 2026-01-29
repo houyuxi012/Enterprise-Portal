@@ -18,6 +18,7 @@ interface FilterState {
 }
 
 import Login from './pages/Login';
+import AdminLogin from './pages/admin/AdminLogin';
 import AuthService from './services/auth';
 
 import AdminLayout from './layouts/AdminLayout';
@@ -180,6 +181,13 @@ const App: React.FC = () => {
     if (currentView === AppView.SEARCH_RESULTS && globalSearch.trim()) {
       const fetchInsight = async () => {
         setIsSearchAiLoading(true);
+        // Log Search Action
+        ApiClient.logBusinessAction({
+          action: 'SEARCH_QUERY',
+          target: 'AI_INSIGHT',
+          detail: `User searched for: ${globalSearch}`
+        });
+
         const prompt = `作为一个企业内网助手，请针对搜索词“${globalSearch}”提供一个专业的概览。如果是寻找流程，请简述步骤；如果是寻找人或部门，请说明可能的对接方式。请保持简练。`;
         try {
           const response = await ApiClient.chatAI(prompt);
@@ -301,6 +309,13 @@ const App: React.FC = () => {
                   key={tool.id}
                   href={tool.url}
                   target="_blank"
+                  onClick={() => {
+                    ApiClient.logBusinessAction({
+                      action: 'APP_LAUNCH',
+                      target: tool.name,
+                      detail: `Launched tool: ${tool.name} (URL: ${tool.url})`
+                    });
+                  }}
                   className="group flex flex-col items-center p-8 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-3 transition-all duration-500 shadow-xl shadow-slate-200/20 dark:shadow-none"
                 >
                   <div className={`w-16 h-16 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden`}>
@@ -499,6 +514,12 @@ const App: React.FC = () => {
   };
 
   if (!isAuthenticated) {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      return <AdminLogin onLoginSuccess={() => {
+        setIsAuthenticated(true);
+        setIsAdminMode(true);
+      }} />;
+    }
     return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
@@ -561,7 +582,7 @@ const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="py-6 text-center text-xs text-slate-400 dark:text-slate-600 font-medium tracking-wide">
-        {systemConfig.footer_text || '© 2025 侯钰熙 版权所有'}
+        {systemConfig.footer_text || '© 2025 侯钰熙. All Rights Reserved.'}
       </footer>
 
       <AIAssistant

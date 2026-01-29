@@ -158,3 +158,24 @@ export interface CarouselItem {
   sort_order: number;
   is_active: boolean;
 }
+
+export interface SystemResources {
+  cpu_percent: number;
+  memory_percent: number;
+  memory_used: string;
+  memory_total: string;
+  disk_percent: number;
+  network_sent_speed: number;
+  network_recv_speed: number;
+}
+
+export interface DashboardStats {
+  system_visits: number;
+  active_users: number;
+  tool_clicks: number;
+  new_content: number;
+  activity_trend: string;
+  active_users_trend: string;
+  tool_clicks_trend: string;
+  new_content_trend: string;
+}

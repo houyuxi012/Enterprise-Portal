@@ -36,6 +36,8 @@ const BusinessLogs: React.FC = () => {
         'DELETE_USER': '删除用户',
         'UPDATE_USER': '更新用户',
         'RESET_PASSWORD': '重置密码',
+        'APP_LAUNCH': '启动应用',
+        'SEARCH_QUERY': '搜索查询',
     };
 
     const STATUS_MAP: Record<string, string> = {
@@ -49,31 +51,35 @@ const BusinessLogs: React.FC = () => {
             dataIndex: 'timestamp',
             key: 'timestamp',
             width: 180,
+            render: (text: string) => <span className="font-mono text-slate-500 font-medium">{text}</span>
         },
         {
             title: '操作人',
             dataIndex: 'operator',
             key: 'operator',
             width: 120,
+            render: (text: string) => <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
         },
         {
             title: '动作',
             dataIndex: 'action',
             key: 'action',
             width: 150,
-            render: (text: string) => <Tag color="blue">{ACTION_MAP[text] || text}</Tag>
+            render: (text: string) => <Tag color="blue" className="rounded-lg font-bold border-0 bg-blue-50 text-blue-600 px-2">{ACTION_MAP[text] || text}</Tag>
         },
         {
             title: '目标对象',
             dataIndex: 'target',
             key: 'target',
             width: 150,
+            render: (text: string) => <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">{text}</span>
         },
         {
             title: 'IP地址',
             dataIndex: 'ip_address',
             key: 'ip_address',
             width: 120,
+            render: (text: string) => <span className="font-mono text-xs text-slate-400">{text}</span>
         },
         {
             title: '状态',
@@ -81,7 +87,7 @@ const BusinessLogs: React.FC = () => {
             key: 'status',
             width: 100,
             render: (status: string) => (
-                <Tag color={status === 'SUCCESS' ? 'green' : 'red'}>
+                <Tag color={status === 'SUCCESS' ? 'green' : 'red'} className="rounded-lg font-bold border-0 uppercase">
                     {STATUS_MAP[status] || status}
                 </Tag>
             )
@@ -89,49 +95,63 @@ const BusinessLogs: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">业务日志</h1>
-                    <p className="text-slate-500">审计关键业务操作记录</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">业务日志</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">审计关键业务操作与安全记录</p>
                 </div>
-                <Button icon={<ReloadOutlined />} onClick={fetchLogs}>刷新</Button>
+                <Button
+                    icon={<ReloadOutlined />}
+                    onClick={fetchLogs}
+                    className="rounded-xl px-4 border-slate-200 shadow-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200"
+                >
+                    刷新
+                </Button>
             </div>
 
-            <Card>
-                <div className="mb-4 flex gap-4">
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+                <div className="mb-6 flex gap-4 bg-slate-50 dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-700 w-fit">
                     <Input
                         placeholder="搜索操作人"
+                        bordered={false}
                         style={{ width: 200 }}
                         value={filterOperator}
                         onChange={e => setFilterOperator(e.target.value)}
                         onPressEnter={fetchLogs}
-                        prefix={<SearchOutlined />}
+                        prefix={<SearchOutlined className="text-slate-400" />}
+                        className="bg-transparent font-medium"
                     />
+                    <div className="w-px bg-slate-200 dark:bg-slate-700 my-1"></div>
                     <Input
                         placeholder="搜索动作 (如 CREATE_USER)"
-                        style={{ width: 200 }}
+                        bordered={false}
+                        style={{ width: 240 }}
                         value={filterAction}
                         onChange={e => setFilterAction(e.target.value)}
                         onPressEnter={fetchLogs}
+                        className="bg-transparent font-medium"
                     />
-                    <Button type="primary" onClick={fetchLogs}>查询</Button>
+                    <Button type="primary" onClick={fetchLogs} className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20">查询</Button>
                 </div>
                 <Table
                     dataSource={logs}
                     columns={columns}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 20 }}
+                    pagination={{ pageSize: 20, className: 'font-bold' }}
+                    className="ant-table-custom"
                     expandable={{
                         expandedRowRender: (record) => (
-                            <div className="p-4 bg-gray-50 rounded">
-                                <p className="font-mono text-sm">{record.detail || 'No details provided.'}</p>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 ml-12">
+                                <h4 className="text-xs font-bold uppercase text-slate-400 mb-2">详细信息</h4>
+                                <p className="font-mono text-sm text-slate-600 dark:text-slate-300 break-all">{record.detail || '暂无详细信息'}</p>
                             </div>
                         )
                     }}
                 />
-            </Card>
+            </div>
         </div>
     );
 };

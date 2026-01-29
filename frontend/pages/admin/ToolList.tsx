@@ -24,7 +24,7 @@ const getBase64 = (file: FileType): Promise<string> =>
 const IconPreview = ({ iconName, color, image }: { iconName: string, color: string, image?: string }) => {
     if (image) {
         return (
-            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 flex items-center justify-center bg-white">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
                 <img src={image} alt="icon" className="w-full h-full object-cover" />
             </div>
         );
@@ -33,8 +33,8 @@ const IconPreview = ({ iconName, color, image }: { iconName: string, color: stri
     const colorClass = getColorClass(color);
 
     return (
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClass}`}>
-            {getIcon(iconName, { size: 20 })}
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-${color}-500/20 ${colorClass} text-white`}>
+            {getIcon(iconName, { size: 24 })}
         </div>
     );
 };
@@ -138,36 +138,51 @@ const ToolList: React.FC = () => {
     };
 
     return (
-        <div className="site-card-wrapper">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">应用管理</h2>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large">新增应用</Button>
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">应用中心管理</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">管理首页快捷方式与工具卡片</p>
+                </div>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleAddNew}
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
+                >
+                    新增应用
+                </Button>
             </div>
 
             <List
-                grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 6 }}
+                grid={{ gutter: 24, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 6 }}
                 dataSource={tools}
                 loading={loading}
+                className="pb-10"
                 renderItem={item => (
                     <List.Item>
                         <Card
+                            hoverable
+                            className="rounded-[1.5rem] overflow-hidden border-0 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 bg-white dark:bg-slate-800 group"
                             actions={[
-                                <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
+                                <EditOutlined key="edit" onClick={() => handleEdit(item)} className="text-slate-400 hover:text-blue-500 transition-colors" />,
                                 <Popconfirm title="确定删除?" onConfirm={() => handleDelete(item.id)}>
-                                    <DeleteOutlined key="delete" style={{ color: 'red' }} />
+                                    <DeleteOutlined key="delete" className="text-slate-400 hover:text-rose-500 transition-colors" />
                                 </Popconfirm>,
                             ]}
                         >
-                            <Card.Meta
-                                avatar={<IconPreview iconName={item.icon_name} color={item.color} image={item.image} />}
-                                title={item.name}
-                                description={
-                                    <div className="text-xs text-gray-400 truncate">
-                                        <Tag>{item.category}</Tag>
-                                        <div className="mt-1">{item.url}</div>
-                                    </div>
-                                }
-                            />
+                            <div className="flex flex-col items-center text-center pt-2 pb-2">
+                                <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+                                    <IconPreview iconName={item.icon_name} color={item.color} image={item.image} />
+                                </div>
+                                <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg mb-1">{item.name}</h3>
+                                <div className="flex items-center space-x-2 justify-center w-full">
+                                    <Tag className="rounded-lg mr-0 font-bold border-0 bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">{item.category}</Tag>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-3 truncate w-full px-2">{item.url}</p>
+                            </div>
                         </Card>
                     </List.Item>
                 )}

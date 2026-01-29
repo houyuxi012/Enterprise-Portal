@@ -123,80 +123,99 @@ const UserList: React.FC = () => {
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">系统账户管理</h2>
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header - Outside Card */}
+            <div className="flex justify-between items-center mb-2">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统账户管理</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">管理系统登录账户及权限分配</p>
+                </div>
                 <button
                     onClick={handleAddNew}
-                    className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+                    className="flex items-center px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/30"
                 >
                     <Plus size={18} className="mr-2" />
                     新增账户
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700/50">
-                <div className="flex items-center space-x-3 mb-6 bg-slate-50 dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <Search size={18} className="text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="搜索用户名或邮箱..."
-                        className="bg-transparent outline-none flex-1 text-sm font-medium"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+            {/* Content Card */}
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center space-x-3 mb-8">
+                    <div className="relative w-full max-w-sm">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="搜索用户名或邮箱..."
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
                 </div>
 
                 <table className="w-full text-left">
                     <thead className="border-b border-slate-100 dark:border-slate-700">
                         <tr>
-                            <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400">用户名</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">角色 (Roles)</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">状态</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400">邮箱</th>
-                            <th className="pb-4 text-right pr-4 text-xs font-black uppercase text-slate-400">操作</th>
+                            <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400 tracking-wider">用户名</th>
+                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">角色 (Roles)</th>
+                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">状态</th>
+                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">邮箱</th>
+                            <th className="pb-4 pr-4 text-right text-xs font-black uppercase text-slate-400 tracking-wider">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
                         {filteredUsers.map(user => (
-                            <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                            <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-200">
                                 <td className="py-4 pl-4">
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shadow-sm border border-indigo-100 dark:border-indigo-800">
                                             {user.username[0].toUpperCase()}
                                         </div>
-                                        <span className="font-bold text-slate-800 dark:text-slate-200">{user.username}</span>
+                                        <span className="font-bold text-slate-700 dark:text-slate-200">{user.username}</span>
                                     </div>
                                 </td>
                                 <td className="py-4">
                                     <div className="flex flex-wrap gap-2">
                                         {user.roles && user.roles.length > 0 ? user.roles.map(role => (
-                                            <Tag key={role.id} color={role.code === 'admin' ? 'red' : 'blue'}>
+                                            <span
+                                                key={role.id}
+                                                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${role.code === 'admin'
+                                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
+                                                    : 'bg-blue-50 text-blue-600 border-blue-100'
+                                                    }`}
+                                            >
                                                 {role.name}
-                                            </Tag>
+                                            </span>
                                         )) : (
-                                            <Tag>No Roles</Tag>
+                                            <span className="text-xs text-slate-400 italic">No Roles</span>
                                         )}
                                     </div>
                                 </td>
                                 <td className="py-4">
-                                    <Switch
-                                        checked={user.is_active}
-                                        onChange={(checked) => handleStatusChange(user, checked)}
-                                        size="small"
-                                    />
+                                    <div className="flex items-center">
+                                        <Switch
+                                            checked={user.is_active}
+                                            onChange={(checked) => handleStatusChange(user, checked)}
+                                            size="small"
+                                            className="mr-2"
+                                        />
+                                        <span className={`text-xs font-bold ${user.is_active ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                            {user.is_active ? 'Active' : 'Disabled'}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
                                 <td className="py-4 pr-4 text-right">
-                                    <div className="flex justify-end space-x-2">
-                                        <button onClick={() => handleEdit(user)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                    <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <button onClick={() => handleEdit(user)} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="编辑">
                                             <Edit size={16} />
                                         </button>
-                                        <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">
-                                            <Trash2 size={16} />
-                                        </button>
-                                        <button onClick={() => handleResetPassword(user.username)} className="p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20" title="Reset Password">
+                                        <button onClick={() => handleResetPassword(user.username)} className="p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="重置密码">
                                             <Key size={16} />
+                                        </button>
+                                        <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors" title="删除">
+                                            <Trash2 size={16} />
                                         </button>
                                     </div>
                                 </td>

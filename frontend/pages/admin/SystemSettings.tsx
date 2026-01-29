@@ -36,87 +36,98 @@ const SystemSettings: React.FC = () => {
     };
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 max-w-2xl mx-auto">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold dark:text-white">客户化设置</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">配置全局应用程序参数</p>
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统设置</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">配置全局站点参数与品牌显示</p>
+                </div>
+                <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    onClick={() => form.submit()}
+                    loading={loading}
+                    size="large"
+                    className="rounded-xl px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
+                >
+                    保存更改
+                </Button>
             </div>
 
-            <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleSave}
-            >
-                <Card title="品牌与显示" className="mb-6 shadow-sm">
-                    <Form.Item
-                        name="app_name"
-                        label="站点名称"
-                        help="显示在导航栏左侧的名称，默认为 'ShiKu Home'"
-                    >
-                        <Input placeholder="ShiKu Home" />
-                    </Form.Item>
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSave}
+                    className="space-y-8"
+                >
+                    <div>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
+                            <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
+                            品牌与显示
+                        </h3>
 
-                    <Form.Item
-                        name="browser_title"
-                        label="浏览器标题 (Browser Tab Title)"
-                        help="浏览器标签页上显示的完整标题"
-                    >
-                        <Input placeholder="ShiKu Home | Next-Gen Enterprise Portal" />
-                    </Form.Item>
-
-                    <div className="flex space-x-2 mb-6">
-                        <Form.Item
-                            name="logo_url"
-                            label="Logo 图片地址 (可选)"
-                            help="如果不填则使用默认的纯CSS Logo。输入图片URL或上传图片。"
-                            className="flex-1 mb-0"
-                        >
-                            <Input placeholder="https://example.com/logo.png" />
-                        </Form.Item>
-                        <div className="mt-8">
-                            <Upload
-                                showUploadList={false}
-                                beforeUpload={async (file) => {
-                                    try {
-                                        setLoading(true);
-                                        const url = await ApiClient.uploadImage(file);
-                                        form.setFieldValue('logo_url', url);
-                                        message.success('Upload successful');
-                                    } catch (error) {
-                                        message.error('Upload failed');
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                    return false; // Prevent default upload behavior
-                                }}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Form.Item
+                                name="app_name"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">站点名称</span>}
+                                help="显示在导航栏左侧的名称"
                             >
-                                <Button icon={<UploadOutlined />}>上传</Button>
-                            </Upload>
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="ShiKu Home" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="browser_title"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">浏览器标题</span>}
+                                help="浏览器标签页上显示的完整标题"
+                            >
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="ShiKu Home | Next-Gen Enterprise Portal" />
+                            </Form.Item>
                         </div>
+
+                        <div className="flex flex-col md:flex-row gap-6 mt-4">
+                            <Form.Item
+                                name="logo_url"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">Logo 图片地址</span>}
+                                help="输入图片URL或直接上传。留空则使用默认Logo。"
+                                className="flex-1"
+                            >
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="https://example.com/logo.png" />
+                            </Form.Item>
+
+                            <div className="md:mt-8">
+                                <Upload
+                                    showUploadList={false}
+                                    beforeUpload={async (file) => {
+                                        try {
+                                            setLoading(true);
+                                            const url = await ApiClient.uploadImage(file);
+                                            form.setFieldValue('logo_url', url);
+                                            message.success('上传成功');
+                                        } catch (error) {
+                                            message.error('上传失败');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                        return false;
+                                    }}
+                                >
+                                    <Button size="large" icon={<UploadOutlined />} className="rounded-xl h-[42px] font-bold">本地上传</Button>
+                                </Upload>
+                            </div>
+                        </div>
+
+                        <Form.Item
+                            name="footer_text"
+                            label={<span className="font-bold text-slate-600 dark:text-slate-300">底部版权文字</span>}
+                            className="mt-4"
+                        >
+                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="© 2025 Company. All Rights Reserved." />
+                        </Form.Item>
                     </div>
-
-                    <Form.Item
-                        name="footer_text"
-                        label="底部版权文字"
-                        help="显示在页面底部的版权信息"
-                    >
-                        <Input placeholder="© 2025 侯钰熙 版权所有" />
-                    </Form.Item>
-                </Card>
-
-                <Form.Item>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        icon={<SaveOutlined />}
-                        loading={loading}
-                        size="large"
-                        className="w-full h-12 rounded-xl"
-                    >
-                        保存更改
-                    </Button>
-                </Form.Item>
-            </Form>
+                </Form>
+            </div>
         </div>
     );
 };

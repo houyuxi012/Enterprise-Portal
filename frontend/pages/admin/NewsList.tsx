@@ -155,7 +155,7 @@ const NewsList: React.FC = () => {
             key: 'image',
             width: '10%',
             render: (image: string) => (
-                <div className="w-16 h-10 rounded-lg overflow-hidden border border-slate-200">
+                <div className="w-12 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm group-hover:shadow-md transition-shadow">
                     <img src={image} alt="cover" className="w-full h-full object-cover" />
                 </div>
             )
@@ -164,12 +164,16 @@ const NewsList: React.FC = () => {
             title: '标题',
             dataIndex: 'title',
             key: 'title',
-            width: '25%',
+            width: '30%',
             render: (text: string, record: NewsItem) => (
-                <Space>
-                    {record.is_top && <Tag color="red">置顶</Tag>}
-                    <span className="font-bold">{text}</span>
-                </Space>
+                <div className="flex items-center space-x-2">
+                    {record.is_top && (
+                        <span className="bg-rose-50 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-100">
+                            置顶
+                        </span>
+                    )}
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
+                </div>
             )
         },
         {
@@ -181,7 +185,7 @@ const NewsList: React.FC = () => {
             },
             render: (summary: string) => (
                 <Tooltip placement="topLeft" title={summary}>
-                    {summary}
+                    <span className="text-slate-500 text-xs">{summary}</span>
                 </Tooltip>
             ),
         },
@@ -191,7 +195,9 @@ const NewsList: React.FC = () => {
             key: 'category',
             width: '10%',
             render: (category: string) => (
-                <Tag color="cyan">{category}</Tag>
+                <span className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                    {category}
+                </span>
             ),
         },
         {
@@ -199,27 +205,35 @@ const NewsList: React.FC = () => {
             dataIndex: 'date',
             key: 'date',
             width: '15%',
-            render: (date: string) => <span className="text-gray-500">{date}</span>
+            render: (date: string) => (
+                <div className="flex items-center space-x-1.5 text-slate-500 font-medium text-xs">
+                    {/* <Clock size={12} /> */}
+                    <span>{date}</span>
+                </div>
+            )
         },
         {
             title: '操作',
             key: 'action',
             width: '15%',
             render: (_: any, record: NewsItem) => (
-                <Space size="middle">
+                <Space size="small">
                     <Button
                         type="text"
+                        size="small"
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:text-blue-700"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-bold rounded-lg"
                     >
                         编辑
                     </Button>
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
                         <Button
                             type="text"
+                            size="small"
                             danger
                             icon={<DeleteOutlined />}
+                            className="hover:bg-red-50 font-bold rounded-lg"
                         >
                             删除
                         </Button>
@@ -230,31 +244,46 @@ const NewsList: React.FC = () => {
     ];
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
-            <div className="flex justify-between items-center mb-6">
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header - Outside Card */}
+            <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-bold dark:text-white">资讯内容管理</h2>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">发布和编辑企业新闻动态</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">资讯内容管理</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">发布和编辑企业新闻动态</p>
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large" className="rounded-xl px-6">发布资讯</Button>
-            </div>
-            <div className="mb-6 flex space-x-4">
-                <Input
-                    placeholder="搜索标题..."
-                    prefix={<SearchOutlined />}
-                    onChange={e => setTextSearch(e.target.value)}
-                    className="w-80 rounded-xl"
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleAddNew}
                     size="large"
-                />
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
+                >
+                    发布资讯
+                </Button>
             </div>
 
-            <Table
-                columns={columns}
-                dataSource={filteredNews}
-                rowKey="id"
-                loading={loading}
-                pagination={{ pageSize: 8 }}
-            />
+            {/* Content Card */}
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+
+                <div className="mb-8 flex space-x-4">
+                    <Input
+                        placeholder="搜索标题..."
+                        prefix={<SearchOutlined className="text-slate-400" />}
+                        onChange={e => setTextSearch(e.target.value)}
+                        className="w-full max-w-sm rounded-xl border-slate-200 bg-slate-50 hover:bg-white focus:bg-white transition-all h-10 font-medium"
+                        size="large"
+                    />
+                </div>
+
+                <Table
+                    columns={columns}
+                    dataSource={filteredNews}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: 8, className: 'font-bold' }}
+                    className="ant-table-custom"
+                />
+            </div>
 
             <Modal
                 title={<div className="text-xl font-bold py-2">{editingNews ? '编辑资讯' : '发布新的资讯动态'}</div>}

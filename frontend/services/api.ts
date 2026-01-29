@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Employee, NewsItem, QuickTool, Announcement, CarouselItem } from '../types';
+import AuthService from './auth';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -279,6 +280,47 @@ export const ApiClient = {
     return response.data;
   },
 
+  logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<any> => {
+    try {
+      const user = await AuthService.getCurrentUser().catch(() => ({ username: 'guest' }));
+      return api.post('/logs/business', {
+        operator: user.username,
+        action: log.action,
+        target: log.target || '',
+        status: log.status || 'SUCCESS',
+        detail: log.detail || '',
+        timestamp: new Date().toISOString(),
+        ip_address: 'frontend'
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    } catch (e) {
+      console.warn("Failed to log action:", e);
+      return null;
+    }
+  },
+
+
+  logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<any> => {
+    try {
+      const user = await AuthService.getCurrentUser().catch(() => ({ username: 'guest' }));
+      return api.post('/logs/business', {
+        operator: user.username,
+        action: log.action,
+        target: log.target || '',
+        status: log.status || 'SUCCESS',
+        detail: log.detail || '',
+        timestamp: new Date().toISOString(),
+        ip_address: 'frontend'
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    } catch (e) {
+      console.warn("Failed to log action:", e);
+      return null;
+    }
+  },
+
   getLogForwardingConfig: async (): Promise<any[]> => {
     const token = localStorage.getItem('token');
     const response = await api.get('/logs/config', { headers: { Authorization: `Bearer ${token}` } });
@@ -323,6 +365,19 @@ export const ApiClient = {
   deleteCarouselItem: async (id: number): Promise<void> => {
     const token = localStorage.getItem('token');
     await api.delete(`/carousel/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  },
+
+  // Dashboard
+  getDashboardStats: async () => {
+    const response = await api.get('/dashboard/stats');
+    return response.data;
+  },
+
+  // System Resources
+  getSystemResources: async () => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/system/resources', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
   }
 };
 

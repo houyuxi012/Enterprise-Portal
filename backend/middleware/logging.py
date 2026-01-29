@@ -20,7 +20,10 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         
         # Skip logging for static files or OPTIONS
-        if request.url.path.startswith("/uploads") or request.method == "OPTIONS":
+        # Skip logging for static files, OPTIONS, or polling endpoints (to avoid noise)
+        if (request.url.path.startswith("/uploads") or 
+            request.method == "OPTIONS" or 
+            request.url.path in ["/api/system/resources", "/api/dashboard/stats"]):
             return await call_next(request)
 
         try:

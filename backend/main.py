@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs, carousel
+from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs, carousel, dashboard
 import os
 import database
 import models
@@ -56,4 +56,6 @@ app.include_router(system.router)
 app.include_router(roles.router)
 app.include_router(departments.router)
 app.include_router(logs.router)
+
 app.include_router(carousel.router)
+app.include_router(dashboard.router)

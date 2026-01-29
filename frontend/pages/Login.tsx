@@ -89,7 +89,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 </form>
 
                 <p className="mt-8 text-center text-[10px] text-slate-400 font-medium">
-                    忘记密码请联系 IT 部门 · ShiKu Inc.
+                    © 2025 侯钰熙. All Rights Reserved.
                 </p>
             </div>
         </div>

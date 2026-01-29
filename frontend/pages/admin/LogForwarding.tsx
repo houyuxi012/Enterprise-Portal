@@ -49,30 +49,41 @@ const LogForwarding: React.FC = () => {
         }
     };
 
+    // Helper for tag since I didn't import Tag above
+    const CustomTag = ({ color, children }: any) => (
+        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${color === 'geekblue' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
+            {children}
+        </span>
+    );
+
     const columns = [
         {
             title: '类型',
             dataIndex: 'type',
             key: 'type',
-            render: (text: string) => <Tag color="geekblue">{text}</Tag>
+            render: (text: string) => <CustomTag color="geekblue">{text}</CustomTag>
         },
         {
             title: '目标地址 (Endpoint)',
             dataIndex: 'endpoint',
             key: 'endpoint',
+            render: (text: string) => <span className="font-mono text-slate-600 dark:text-slate-300 font-medium">{text}</span>
         },
         {
             title: '端口',
             dataIndex: 'port',
             key: 'port',
-            render: (port: number) => port || '-'
+            render: (port: number) => <span className="font-mono text-slate-500">{port || '-'}</span>
         },
         {
             title: '状态',
             dataIndex: 'enabled',
             key: 'enabled',
             render: (enabled: boolean) => (
-                <Badge status={enabled ? 'success' : 'default'} text={enabled ? '已启用' : '已禁用'} />
+                <span className={`flex items-center text-xs font-bold ${enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <span className={`w-2 h-2 rounded-full mr-2 ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                    {enabled ? '已启用' : '已禁用'}
+                </span>
             )
         },
         {
@@ -84,6 +95,7 @@ const LogForwarding: React.FC = () => {
                     danger
                     icon={<DeleteOutlined />}
                     onClick={() => handleDelete(record.id)}
+                    className="font-bold hover:bg-rose-50 rounded-lg"
                 >
                     删除
                 </Button>
@@ -91,26 +103,26 @@ const LogForwarding: React.FC = () => {
         }
     ];
 
-    // Helper for tag since I didn't import Tag above
-    const Tag = ({ color, children }: any) => (
-        <span className={`px-2 py-1 rounded text-xs font-bold bg-${color === 'geekblue' ? 'blue' : 'gray'}-100 text-${color === 'geekblue' ? 'blue' : 'gray'}-600`}>
-            {children}
-        </span>
-    );
-
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">日志外发配置</h1>
-                    <p className="text-slate-500">将系统日志转发至第三方 Syslog 或 SIEM 平台</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发配置</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">将系统日志转发至第三方 Syslog 或 SIEM 平台</p>
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => setIsModalOpen(true)}
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
+                >
                     新增配置
                 </Button>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
                 <Table
                     dataSource={configs}
                     columns={columns}
@@ -118,6 +130,7 @@ const LogForwarding: React.FC = () => {
                     loading={loading}
                     pagination={false}
                     locale={{ emptyText: '暂无外发配置' }}
+                    className="ant-table-custom"
                 />
             </div>
 
