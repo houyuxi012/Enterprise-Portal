@@ -72,7 +72,7 @@ const Navbar: React.FC<NavbarProps> = ({
     { id: AppView.DASHBOARD, label: '概览', icon: <LayoutDashboard size={18} /> },
     { id: AppView.NEWS, label: '资讯', icon: <Newspaper size={18} /> },
     { id: AppView.DIRECTORY, label: '团队', icon: <Users size={18} /> },
-    { id: AppView.TOOLS, label: '工具', icon: <Grid size={18} /> },
+    { id: AppView.TOOLS, label: '应用', icon: <Grid size={18} /> },
   ], []);
 
   useEffect(() => {
@@ -179,7 +179,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
               >
-                {React.cloneElement(item.icon as React.ReactElement, { size: 16 })}
+                {React.cloneElement(item.icon as any, { size: 16 })}
                 <span className="hidden sm:block">{item.label}</span>
                 {currentView === item.id && (
                   <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
@@ -235,7 +235,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   <div className="space-y-3 mb-3">
                     {previewResults.tools.length > 0 && (
                       <div>
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">工具</h4>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">应用</h4>
                         {previewResults.tools.map((t: any) => (
                           <div key={t.id} className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
                             <div className="w-5 h-5 rounded bg-white shadow-sm flex items-center justify-center text-xs">{t.icon_name ? <span>{t.icon_name[0]}</span> : <Grid size={10} />}</div>

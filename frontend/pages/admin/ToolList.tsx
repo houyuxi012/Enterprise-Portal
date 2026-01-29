@@ -5,6 +5,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, AppstoreOut
 import { QuickToolDTO } from '../../services/api';
 import ApiClient from '../../services/api';
 import * as LucideIcons from 'lucide-react';
+import { getIcon } from '../../utils/iconMap';
+import { getColorClass } from '../../utils/colorMap';
 
 const { Option } = Select;
 
@@ -28,21 +30,11 @@ const IconPreview = ({ iconName, color, image }: { iconName: string, color: stri
         );
     }
 
-    // @ts-ignore
-    const Icon = LucideIcons[iconName] || LucideIcons.AppWindow;
-    const colorMap: any = {
-        'blue': 'text-blue-600 bg-blue-50',
-        'purple': 'text-purple-600 bg-purple-50',
-        'emerald': 'text-emerald-600 bg-emerald-50',
-        'rose': 'text-rose-600 bg-rose-50',
-        'orange': 'text-orange-600 bg-orange-50',
-        'indigo': 'text-indigo-600 bg-indigo-50',
-    };
-    const colorClass = colorMap[color] || colorMap['blue'];
+    const colorClass = getColorClass(color);
 
     return (
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClass}`}>
-            <Icon size={20} />
+            {getIcon(iconName, { size: 20 })}
         </div>
     );
 };
@@ -148,7 +140,7 @@ const ToolList: React.FC = () => {
     return (
         <div className="site-card-wrapper">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">应用工具管理</h2>
+                <h2 className="text-2xl font-bold">应用管理</h2>
                 <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew} size="large">新增应用</Button>
             </div>
 

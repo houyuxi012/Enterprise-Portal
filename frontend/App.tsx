@@ -5,6 +5,7 @@ import AIAssistant from './components/AIAssistant';
 import { AppView, Employee, NewsItem, QuickToolDTO } from './types';
 import ApiClient from './services/api';
 import { getIcon } from './utils/iconMap';
+import { getColorClass } from './utils/colorMap';
 import {
   Mail, Monitor, Moon, Sun, Laptop, Sparkles
 } from 'lucide-react';
@@ -277,8 +278,12 @@ const App: React.FC = () => {
                   target="_blank"
                   className="group flex flex-col items-center p-8 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-3 transition-all duration-500 shadow-xl shadow-slate-200/20 dark:shadow-none"
                 >
-                  <div className={`w-16 h-16 ${tool.color} rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow`}>
-                    {getIcon(tool.icon_name, { size: 32 })}
+                  <div className={`w-16 h-16 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden`}>
+                    {tool.image ? (
+                      <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
+                    ) : (
+                      getIcon(tool.icon_name, { size: 32 })
+                    )}
                   </div>
                   <h3 className="text-sm font-black text-center text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{tool.name}</h3>
                 </a>
@@ -367,7 +372,7 @@ const App: React.FC = () => {
 
             {filteredTools.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关工具</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关应用</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                   {filteredTools.map(tool => (
                     <a
@@ -375,8 +380,12 @@ const App: React.FC = () => {
                       href={tool.url}
                       className="group flex flex-col items-center p-6 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-2 transition-all duration-500 shadow-lg"
                     >
-                      <div className={`w-12 h-12 ${tool.color} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
-                        {getIcon(tool.icon_name, { size: 24 })}
+                      <div className={`w-12 h-12 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform overflow-hidden`}>
+                        {tool.image ? (
+                          <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
+                        ) : (
+                          getIcon(tool.icon_name, { size: 24 })
+                        )}
                       </div>
                       <h3 className="text-xs font-black text-center text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{tool.name}</h3>
                     </a>

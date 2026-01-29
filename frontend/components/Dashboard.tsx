@@ -6,6 +6,7 @@ import {
 import ApiClient, { QuickToolDTO } from '../services/api';
 import { NewsItem, Announcement, CarouselItem } from '../types';
 import { getIcon } from '../utils/iconMap';
+import { getColorClass } from '../utils/colorMap';
 import { DAILY_QUOTES } from '../constants'; // Keeping these static for now as requested
 
 interface DashboardProps {
@@ -174,7 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
                   target="_blank"
                   className="mica group p-5 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 transition-all duration-500 border border-white/50 shadow-lg shadow-slate-200/20 dark:shadow-none"
                 >
-                  <div className={`w-10 h-10 ${tool.color} rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-white`}>
+                  <div className={`w-10 h-10 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-white`}>
                     {tool.image ? (
                       <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
                     ) : (

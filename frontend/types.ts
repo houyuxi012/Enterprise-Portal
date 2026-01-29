@@ -51,6 +51,7 @@ export interface QuickToolDTO {
   name: string;
   icon_name: string;
   url: string;
+  image?: string;
   color: string;
   category: string;
   description: string;
