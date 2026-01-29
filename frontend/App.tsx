@@ -39,6 +39,31 @@ import BusinessLogs from './pages/admin/BusinessLogs';
 import AboutUs from './pages/admin/AboutUs';
 import LogForwarding from './pages/admin/LogForwarding';
 
+const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: string }> = ({ src, name, className }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
+
+  if (!src || hasError) {
+    return <img src={fallbackUrl} className={className} alt={name} />;
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      className={className}
+      alt={name}
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -328,7 +353,7 @@ const App: React.FC = () => {
                     <tr key={emp.id} className="border-t border-slate-50 dark:border-slate-800/50">
                       <td className="px-8 py-4">
                         <div className="flex items-center space-x-3">
-                          <img src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`} className="w-10 h-10 rounded-full" />
+                          <AvatarWithFallback src={emp.avatar} name={emp.name} className="w-10 h-10 rounded-full" />
                           <div>
                             <p className="font-bold text-slate-900 dark:text-white">{emp.name}</p>
                           </div>
@@ -417,7 +442,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {filteredEmployees.map(emp => (
                     <div key={emp.id} className="mica rounded-3xl p-4 flex items-center space-x-4">
-                      <img src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`} className="w-12 h-12 rounded-full shadow-sm" />
+                      <AvatarWithFallback src={emp.avatar} name={emp.name} className="w-12 h-12 rounded-full shadow-sm" />
                       <div>
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm">{emp.name}</h4>
                         <p className="text-xs text-slate-500 font-medium">{emp.role} · {emp.department}</p>
