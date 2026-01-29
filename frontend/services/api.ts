@@ -33,7 +33,7 @@ export interface QuickToolDTO {
 
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
-    const response = await api.get<Employee[]>('/employees/');
+    const response = await api.get<Employee[]>('/employees/?limit=1000');
     // Backend returns numeric ID, types use string. We might need casting or refactoring types. 
     // Assuming backend returns proper JSON which JS treats flexibly, but TS might complain.
     return response.data.map(e => ({ ...e, id: String(e.id) })) as unknown as Employee[];

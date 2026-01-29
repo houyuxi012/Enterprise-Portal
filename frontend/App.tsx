@@ -328,7 +328,7 @@ const App: React.FC = () => {
                     <tr key={emp.id} className="border-t border-slate-50 dark:border-slate-800/50">
                       <td className="px-8 py-4">
                         <div className="flex items-center space-x-3">
-                          <img src={emp.avatar} className="w-10 h-10 rounded-full" />
+                          <img src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`} className="w-10 h-10 rounded-full" />
                           <div>
                             <p className="font-bold text-slate-900 dark:text-white">{emp.name}</p>
                           </div>
@@ -417,7 +417,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {filteredEmployees.map(emp => (
                     <div key={emp.id} className="mica rounded-3xl p-4 flex items-center space-x-4">
-                      <img src={emp.avatar} className="w-12 h-12 rounded-full shadow-sm" />
+                      <img src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`} className="w-12 h-12 rounded-full shadow-sm" />
                       <div>
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm">{emp.name}</h4>
                         <p className="text-xs text-slate-500 font-medium">{emp.role} · {emp.department}</p>

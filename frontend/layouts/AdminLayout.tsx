@@ -12,7 +12,8 @@ import {
     AppstoreOutlined,
     SettingOutlined,
     InfoCircleOutlined,
-    PictureOutlined
+    PictureOutlined,
+    IdcardOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 
@@ -89,9 +90,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             icon: <TeamOutlined />,
             children: [
                 {
+                    key: 'employees',
+                    icon: <IdcardOutlined />,
+                    label: '员工管理',
+                },
+                {
                     key: 'users',
                     icon: <UserOutlined />, // Changed to UserOutlined to distinguish from parent
-                    label: '账户管理',
+                    label: '系统账户',
                 },
                 {
                     key: 'roles',
