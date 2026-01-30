@@ -4,14 +4,22 @@ from database import get_db
 import models
 import os
 import uuid
-from datetime import datetime
+import io
+import filetype
+import logging
+from datetime import datetime, timezone
 from services.storage import storage
 from routers.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/upload",
     tags=["upload"]
 )
+
+# 5MB Limit
+MAX_FILE_SIZE = 5 * 1024 * 1024
 
 @router.post("/image")
 async def upload_image(
@@ -20,39 +28,57 @@ async def upload_image(
     user: models.User = Depends(get_current_user)
 ):
     try:
-        # Validate file type
-        if not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        # Validate file extension
-        file_ext = os.path.splitext(file.filename)[1].lower()
-        if file_ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
-            raise HTTPException(status_code=400, detail="Invalid image format")
+        # 1. Read content to memory (safe for 5MB)
+        content = await file.read()
+        size = len(content)
 
-        # Generate unique filename
+        # 2. Size Validation
+        if size > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"File too large. Max size is {MAX_FILE_SIZE/1024/1024}MB")
+
+        # 3. Magic Number Validation (Real Format)
+        kind = filetype.guess(content)
+        if kind is None or not kind.mime.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Invalid file type. Must be a valid image.")
+
+        # 4. Generate Filename (UUID + Real Extension)
+        # Force extension based on detected type
+        file_ext = f".{kind.extension}" 
         filename = f"{uuid.uuid4()}{file_ext}"
         
-        # Upload to Storage Provider
-        stored_path = await storage.upload(file, filename)
+        # 5. Upload to Storage
+        # Wrap bytes in IO stream
+        file_stream = io.BytesIO(content)
+        stored_path = await storage.upload(file_stream, filename, kind.mime, size)
         
-        # Save Metadata
-        file_meta = models.FileMetadata(
-            original_name=file.filename,
-            stored_name=filename,
-            bucket=os.getenv("MINIO_BUCKET_NAME", "local") if os.getenv("STORAGE_TYPE") == "minio" else "local",
-            size=file.size, # UploadFile might not have size set correctly if spooled?
-            content_type=file.content_type,
-            uploader_id=user.id,
-            created_at=datetime.now().isoformat()
-        )
-        db.add(file_meta)
-        await db.commit()
+        # 6. Save Metadata (DB Transaction with Consistency Rollback)
+        try:
+            file_meta = models.FileMetadata(
+                original_name=file.filename,
+                stored_name=filename,
+                bucket=os.getenv("MINIO_BUCKET_NAME", "local") if os.getenv("STORAGE_TYPE") == "minio" else "local",
+                size=size, 
+                content_type=kind.mime,
+                uploader_id=user.id,
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(file_meta)
+            await db.commit()
+        except Exception as  db_err:
+            await db.rollback()
+            logger.error(f"DB Save failed, rolling back upload: {db_err}")
+            # Compensation: Delete user uploaded file to ensure consistency
+            await storage.delete(stored_path)
+            raise db_err
 
-        # Return URL
-        url = storage.get_url(stored_path)
+        # 7. Return URL (Presigned for 60 mins)
+        url = storage.get_url(stored_path, expires_in=3600)
         return {"url": url}
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        print(f"Upload failed: {e}")
+        logger.exception("Upload failed unexpectedly")
         raise HTTPException(status_code=500, detail="Image upload failed")
+
 

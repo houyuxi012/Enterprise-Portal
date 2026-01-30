@@ -2,8 +2,7 @@
 import os
 import shutil
 from abc import ABC, abstractmethod
-from typing import Optional
-from fastapi import UploadFile
+from typing import Optional, BinaryIO
 from minio import Minio
 from datetime import timedelta
 import logging
@@ -12,13 +11,13 @@ logger = logging.getLogger(__name__)
 
 class StorageProvider(ABC):
     @abstractmethod
-    async def upload(self, file: UploadFile, filename: str) -> str:
-        """Upload file and return stored path/key"""
+    async def upload(self, file_data: BinaryIO, filename: str, content_type: str, length: int) -> str:
+        """Upload file stream and return stored path/key"""
         pass
 
     @abstractmethod
-    def get_url(self, filename: str) -> str:
-        """Get accessible URL (public or presigned)"""
+    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+        """Get accessible URL. expires_in in seconds for presigned."""
         pass
 
     @abstractmethod
@@ -33,15 +32,14 @@ class LocalStorageProvider(StorageProvider):
         # Base URL for local files (served via Nginx/Static)
         self.base_url = "/uploads"
 
-    async def upload(self, file: UploadFile, filename: str) -> str:
+    async def upload(self, file_data: BinaryIO, filename: str, content_type: str, length: int) -> str:
         file_path = os.path.join(self.upload_dir, filename)
-        # Reset file pointer if needed
-        await file.seek(0)
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file_data, buffer)
         return filename
 
-    def get_url(self, filename: str) -> str:
+    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+        # Local static files don't support expiration naturally
         return f"{self.base_url}/{filename}"
 
     async def delete(self, filename: str):
@@ -65,42 +63,32 @@ class MinioStorageProvider(StorageProvider):
             secure=self.secure
         )
         
-        # Ensure bucket exists (Client side check fallback)
+        # Ensure bucket exists
         if not self.client.bucket_exists(self.bucket):
             try:
                 self.client.make_bucket(self.bucket)
-                # Set public policy if needed, but 'createbuckets' container handles this better
             except Exception as e:
                 logger.warning(f"Could not check/create bucket: {e}")
 
-    async def upload(self, file: UploadFile, filename: str) -> str:
-        # MinIO put_object expects known size or data stream
-        # UploadFile.file IS a SpooledTemporaryFile or similar.
-        # Get size
-        await file.seek(0, os.SEEK_END)
-        size = file.file.tell()
-        await file.seek(0)
-        
-        # Sync call, should wrap in thread for high load, but ok for now
+    async def upload(self, file_data: BinaryIO, filename: str, content_type: str, length: int) -> str:
+        # Sync call
         self.client.put_object(
             self.bucket,
             filename,
-            file.file,
-            length=size,
-            content_type=file.content_type
+            file_data,
+            length=length,
+            content_type=content_type
         )
         return filename
 
-    def get_url(self, filename: str) -> str:
-        # Return Presigned URL (valid for 7 days)
-        # Or construct public URL if we know it's public
-        # Using presigned is safer for general use
+    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+        # Return Presigned URL
         try:
              url = self.client.get_presigned_url(
                  "GET",
                  self.bucket,
                  filename,
-                 expires=timedelta(days=7)
+                 expires=timedelta(seconds=expires_in)
              )
              return url
         except Exception as e:
@@ -109,6 +97,7 @@ class MinioStorageProvider(StorageProvider):
 
     async def delete(self, filename: str):
         self.client.remove_object(self.bucket, filename)
+
 
 # Factory
 def get_storage_provider() -> StorageProvider:

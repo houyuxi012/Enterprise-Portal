@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship, backref
 from database import Base
 
@@ -183,4 +183,4 @@ class FileMetadata(Base):
     size = Column(Integer)
     content_type = Column(String)
     uploader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(String, index=True)
+    created_at = Column(DateTime(timezone=True), index=True)
