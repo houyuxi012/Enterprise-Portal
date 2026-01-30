@@ -3,6 +3,7 @@ from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
+from services.cache_manager import cache
 import models, schemas
 from sqlalchemy import select
 
@@ -23,6 +24,7 @@ async def create_news(news: schemas.NewsItemCreate, db: AsyncSession = Depends(g
     db.add(db_news)
     await db.commit()
     await db.refresh(db_news)
+    await cache.delete("dashboard_stats")
     return db_news
 
 @router.put("/{news_id}", response_model=schemas.NewsItem, dependencies=[Depends(PermissionChecker("content:news:edit"))])
@@ -37,6 +39,7 @@ async def update_news(news_id: int, news_update: schemas.NewsItemCreate, db: Asy
     
     await db.commit()
     await db.refresh(news)
+    await cache.delete("dashboard_stats")
     return news
 
 @router.delete("/{news_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("content:news:edit"))])
@@ -48,4 +51,5 @@ async def delete_news(news_id: int, db: AsyncSession = Depends(get_db)):
     
     await db.delete(news)
     await db.commit()
+    await cache.delete("dashboard_stats")
     return None
