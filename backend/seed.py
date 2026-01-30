@@ -20,7 +20,7 @@ async def init_db():
             admin = models.User(
                 username="admin", 
                 email="admin@shiku.com", 
-                hashed_password=get_password_hash("admin123"), 
+                hashed_password=get_password_hash("admin"), 
                 role="admin"
             )
             db.add(admin)

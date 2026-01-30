@@ -15,6 +15,10 @@ async def startup():
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
     
+    # Init Cache (Redis / Memory) First
+    from services.cache_manager import cache
+    await cache.init()
+
     # Init RBAC
     from rbac_init import init_rbac
     async with database.SessionLocal() as session:

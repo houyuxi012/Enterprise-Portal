@@ -17,6 +17,13 @@ async def get_dashboard_stats(
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # Try Cache First
+    from services.cache_manager import cache
+    cache_key = "dashboard_stats"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     # 1. System Visits (Total SystemLogs)
     # Filter out polling endpoints to get "real" user activity logs if needed, 
     # but since we filter them at middleware level now, we can just count.
@@ -65,7 +72,7 @@ async def get_dashboard_stats(
     result = await db.execute(select(func.count(models.BusinessLog.id)).where(models.BusinessLog.action == "tool_click"))
     tool_clicks = result.scalar() or 0
 
-    return schemas.DashboardStats(
+    stats_data = schemas.DashboardStats(
         system_visits=system_visits,
         active_users=active_users,
         tool_clicks=tool_clicks,
@@ -75,3 +82,8 @@ async def get_dashboard_stats(
         tool_clicks_trend="+0.0%",  # Placeholder
         new_content_trend="+0.0%"   # Placeholder
     )
+    
+    # Cache result for 60 seconds
+    await cache.set(cache_key, stats_data.dict(), ttl=60)
+    
+    return stats_data

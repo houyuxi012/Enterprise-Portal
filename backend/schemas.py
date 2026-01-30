@@ -131,6 +131,8 @@ class Role(RoleBase):
 class UserBase(BaseModel):
     username: str
     email: str
+    name: Optional[str] = None
+    avatar: Optional[str] = None
     is_active: Optional[bool] = True
     role: Optional[str] = "user"
 

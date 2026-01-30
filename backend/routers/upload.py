@@ -1,18 +1,24 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-import shutil
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import get_db
+import models
 import os
 import uuid
+from datetime import datetime
+from services.storage import storage
+from routers.auth import get_current_user
 
 router = APIRouter(
     prefix="/upload",
     tags=["upload"]
 )
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 @router.post("/image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
     try:
         # Validate file type
         if not file.content_type.startswith("image/"):
@@ -25,15 +31,28 @@ async def upload_image(file: UploadFile = File(...)):
 
         # Generate unique filename
         filename = f"{uuid.uuid4()}{file_ext}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
+        
+        # Upload to Storage Provider
+        stored_path = await storage.upload(file, filename)
+        
+        # Save Metadata
+        file_meta = models.FileMetadata(
+            original_name=file.filename,
+            stored_name=filename,
+            bucket=os.getenv("MINIO_BUCKET_NAME", "local") if os.getenv("STORAGE_TYPE") == "minio" else "local",
+            size=file.size, # UploadFile might not have size set correctly if spooled?
+            content_type=file.content_type,
+            uploader_id=user.id,
+            created_at=datetime.now().isoformat()
+        )
+        db.add(file_meta)
+        await db.commit()
 
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        # Return URL (Relative path to be handled by frontend/nginx)
-        return {"url": f"/uploads/{filename}"}
+        # Return URL
+        url = storage.get_url(stored_path)
+        return {"url": url}
 
     except Exception as e:
         print(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail="Image upload failed")
+

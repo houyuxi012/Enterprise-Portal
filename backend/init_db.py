@@ -5,10 +5,10 @@ from sqlalchemy import select
 
 # Data from constants.tsx
 EMPLOYEES = [
-  { "name": '陈莎莎', "role": '产品设计主管', "department": '设计部', "email": 'sarah.c@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=sarah', "status": '在线' },
-  { "name": '马库斯', "role": '高级工程师', "department": '技术部', "email": 'm.miller@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=marcus', "status": '会议中' },
-  { "name": '艾莎', "role": '市场经理', "department": '增长部', "email": 'aisha.g@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=aisha', "status": '在线' },
-  { "name": '王汤姆', "role": '人力资源专员', "department": '人事部', "email": 'tom.w@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=tom', "status": '离线' },
+  { "name": '陈莎莎', "role": '产品设计主管', "department": '设计部', "email": 'sarah.c@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=sarah', "status": '在线', "job_number": "1001", "account": "sarah", "gender": "女", "phone": "13800138001" },
+  { "name": '马库斯', "role": '高级工程师', "department": '技术部', "email": 'm.miller@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=marcus', "status": '会议中', "job_number": "1002", "account": "marcus", "gender": "男", "phone": "13800138002" },
+  { "name": '艾莎', "role": '市场经理', "department": '增长部', "email": 'aisha.g@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=aisha', "status": '在线', "job_number": "1003", "account": "aisha", "gender": "女", "phone": "13800138003" },
+  { "name": '王汤姆', "role": '人力资源专员', "department": '人事部', "email": 'tom.w@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=tom', "status": '离线', "job_number": "1004", "account": "tom", "gender": "男", "phone": "13800138004" },
 ]
 
 NEWS = [
@@ -105,7 +105,7 @@ async def init_db():
 
         # Always check and add Admin User
         from models import User
-        from auth import get_password_hash
+        from utils import get_password_hash
         
         result_user = await db.execute(select(User).where(User.username == "admin"))
         if not result_user.scalars().first():
@@ -113,8 +113,10 @@ async def init_db():
             admin_user = User(
                 username="admin", 
                 email="admin@shiku.com",
-                hashed_password=get_password_hash("admin123"), # Default password
-                role="admin"
+                hashed_password=get_password_hash("admin"), # Default password
+                role="admin",
+                name="Administrator",
+                avatar=""
             )
             db.add(admin_user)
             

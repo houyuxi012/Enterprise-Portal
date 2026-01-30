@@ -3,7 +3,7 @@ from jose import jwt
 from datetime import datetime, timedelta
 import os
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24)) # Default 1 day
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
 ALGORITHM = "HS256"
 

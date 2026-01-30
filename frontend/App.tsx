@@ -119,17 +119,36 @@ const App: React.FC = () => {
             setIsAdminMode(true);
           }
 
-          // 2. Fetch App Data
-          const [fetchedEmployees, fetchedNews, fetchedTools, fetchedConfig] = await Promise.all([
-            ApiClient.getEmployees(),
-            ApiClient.getNews(),
-            ApiClient.getTools(),
-            ApiClient.getSystemConfig()
-          ]);
-          setEmployees(fetchedEmployees);
-          setNewsList(fetchedNews);
-          setTools(fetchedTools);
-          setSystemConfig(fetchedConfig);
+          // 2. Fetch App Data independently
+          try {
+            const fetchedEmployees = await ApiClient.getEmployees();
+            setEmployees(fetchedEmployees);
+          } catch (e) {
+            console.error("Failed to fetch employees", e);
+          }
+
+          try {
+            const fetchedNews = await ApiClient.getNews();
+            // console.log("News fetched:", fetchedNews);
+            setNewsList(fetchedNews);
+          } catch (e) {
+            console.error("Failed to fetch news", e);
+          }
+
+          try {
+            const fetchedTools = await ApiClient.getTools();
+            setTools(fetchedTools);
+          } catch (e) {
+            console.error("Failed to fetch tools", e);
+          }
+
+          let fetchedConfig: any = {};
+          try {
+            fetchedConfig = await ApiClient.getSystemConfig();
+            setSystemConfig(fetchedConfig);
+          } catch (e) {
+            console.error("Failed to fetch config", e);
+          }
 
           // Apply Config
           if (fetchedConfig.browser_title) {
@@ -147,10 +166,13 @@ const App: React.FC = () => {
             }
           }
 
-        } catch (error) {
+        } catch (error: any) {
           console.error("Failed to initialize app:", error);
-          setIsAuthenticated(false);
-          AuthService.logout(); // Clear potentially invalid token
+          if (error.response?.status === 401) {
+            setIsAuthenticated(false);
+            AuthService.logout(); // Clear invalid token
+          }
+          // If other error (e.g. network), keep authenticated state but maybe show error toast
         }
       } else {
         setIsAuthenticated(false);
@@ -343,7 +365,9 @@ const App: React.FC = () => {
       case AppView.NEWS:
         return (
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">资讯动态</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              资讯动态 <span className="text-lg opacity-50">({filteredNews.length})</span>
+            </h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredNews.map(news => (
                 <div key={news.id} className="group mica rounded-[2rem] overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-500 border border-white/50">
@@ -579,6 +603,14 @@ const App: React.FC = () => {
         {activeAdminTab === 'about_us' && <AboutUs />}
       </AdminLayout >
     );
+  }
+
+  // If authenticated but visiting /admin as non-admin, force Admin Login to allow switch
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    return <AdminLogin onLoginSuccess={() => {
+      // Reload to refresh token and user state
+      window.location.reload();
+    }} />;
   }
 
   return (

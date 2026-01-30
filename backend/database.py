@@ -5,15 +5,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/shiku_portal")
+# 1. Mandatory DATABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+# 2. Debug setting
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
+# 3. Production Engine Config
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=DEBUG,
+    future=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_recycle=1800,
+    pool_pre_ping=True,
+)
+
+# 4. Session Configuration
 SessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
     autocommit=False,
     autoflush=False,
-    bind=engine,
-    class_=AsyncSession
+    expire_on_commit=False,
 )
 
 Base = declarative_base()

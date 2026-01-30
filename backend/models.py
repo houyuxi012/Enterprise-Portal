@@ -69,7 +69,6 @@ class QuickTool(Base):
     url = Column(String)
     color = Column(String)
     category = Column(String)
-    category = Column(String)
     description = Column(String)
     image = Column(String, nullable=True)
 
@@ -92,6 +91,8 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
+    name = Column(String, nullable=True)
+    avatar = Column(String, nullable=True)
     role = Column(String, default="user") # Deprecated, keeping for migration safety for now
     
     roles = relationship("Role", secondary=user_roles, backref="users")
@@ -158,3 +159,28 @@ class CarouselItem(Base):
     badge = Column(String)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+
+class LoginAuditLog(Base):
+    __tablename__ = "login_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True) # Valid user ID if exists
+    username = Column(String, index=True) # Input username
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    success = Column(Boolean, default=False, index=True)
+    reason = Column(String, nullable=True) 
+    trace_id = Column(String, index=True, nullable=True)
+    created_at = Column(String, index=True)
+
+class FileMetadata(Base):
+    __tablename__ = "file_metadata"
+
+    id = Column(Integer, primary_key=True, index=True)
+    original_name = Column(String)
+    stored_name = Column(String, unique=True, index=True) # UUID filename
+    bucket = Column(String)
+    size = Column(Integer)
+    content_type = Column(String)
+    uploader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(String, index=True)

@@ -6,6 +6,7 @@ import models, utils, schemas
 from sqlalchemy import select
 from datetime import timedelta
 from jose import JWTError, jwt
+from services.audit_service import AuditService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -21,16 +22,19 @@ async def login_for_access_token(
     user = result.scalars().first()
     
     ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent", "unknown")
+    trace_id = request.headers.get("X-Request-ID")
 
     if not user or not utils.verify_password(form_data.password, user.hashed_password):
         # Log failure
-        await utils.log_business_action(
-            db, 
-            operator=form_data.username,
-            action="LOGIN",
-            status="FAIL",
-            detail="Incorrect username or password",
-            ip_address=ip
+        await AuditService.log_login(
+            db,
+            username=form_data.username,
+            success=False,
+            ip_address=ip,
+            user_agent=user_agent,
+            reason="Incorrect username or password",
+            trace_id=trace_id
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -40,14 +44,17 @@ async def login_for_access_token(
         
     # Capture username before commit in log_business_action expires the object
     username = user.username
+    user_id = user.id
 
     # Log success
-    await utils.log_business_action(
-        db, 
-        operator=username,
-        action="LOGIN",
-        status="SUCCESS",
-        ip_address=ip
+    await AuditService.log_login(
+        db,
+        username=username,
+        success=True,
+        ip_address=ip,
+        user_agent=user_agent,
+        user_id=user_id,
+        trace_id=trace_id
     )
 
     access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)

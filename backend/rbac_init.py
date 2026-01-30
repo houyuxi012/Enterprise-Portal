@@ -1,7 +1,14 @@
+import time
+import logging
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, exists
+from sqlalchemy.dialects.postgresql import insert
 import models
 import utils
+from services.cache_manager import cache
+
+logger = logging.getLogger(__name__)
 
 # Define system permissions (Code: Description)
 SYSTEM_PERMISSIONS = {
@@ -17,92 +24,140 @@ SYSTEM_PERMISSIONS = {
 }
 
 async def init_rbac(db: AsyncSession):
-    # 1. Sync Permissions
+    """
+    Idempotent RBAC Initialization (Production Grade)
+    """
+    logger.info("🚀 Starting RBAC Initialization...")
+
+    # 1. Sync Permissions (Batch Upsert)
     print("Syncing Permissions...")
-    all_perms = {}
-    for code, desc in SYSTEM_PERMISSIONS.items():
-        result = await db.execute(select(models.Permission).filter(models.Permission.code == code))
-        perm = result.scalars().first()
-        if not perm:
-            perm = models.Permission(code=code, description=desc)
-            db.add(perm)
-        else:
-            # Update description if changed (e.g. localization)
-            if perm.description != desc:
-                perm.description = desc
-        all_perms[code] = perm
+    perms_data = [
+        {"code": code, "description": desc}
+        for code, desc in SYSTEM_PERMISSIONS.items()
+    ]
     
-    # 2. Sync Roles
-    print("Syncing Roles...")
-    # Admin Role
-    admin_role_stmt = await db.execute(select(models.Role).filter(models.Role.code == "admin"))
-    admin_role = admin_role_stmt.scalars().first()
-    if not admin_role:
-        admin_role = models.Role(code="admin", name="Administrator")
-        db.add(admin_role)
-    
-    # User Role
-    user_role_stmt = await db.execute(select(models.Role).filter(models.Role.code == "user"))
-    user_role = user_role_stmt.scalars().first()
-    if not user_role:
-        user_role = models.Role(code="user", name="Regular User")
-        db.add(user_role)
-    
-    await db.flush() # Get IDs
-
-    # 3. Assign Permissions to Roles
-    # Admin gets ALL permissions
-    # We need to manage M:N relationship manually or via ORM if loaded
-    # Using ORM requires async loading of relationships which can be tricky.
-    # Let's use direct table checks or assumes fresh
-    
-    # For simplicity, we just ensure Admin has relationships.
-    # However, 'admin_role' object attached to session might not have collection loaded unless we refresh with joinedload.
-    # Simplest way: Direct insert into role_permissions for missing pairs.
-    # But ORM appending is safer if we refresh.
-    
-    # Let's simple strategy: Re-query Role with permissions loaded
-    # Actually, let's just use a helper or trust standard ORM with flush.
-    
-    # Refresh to be safe
-    await db.refresh(admin_role, attribute_names=['permissions'])
-    
-    existing_perm_ids = {p.id for p in admin_role.permissions}
-    for perm in all_perms.values():
-        if perm.id not in existing_perm_ids:
-            admin_role.permissions.append(perm)
-            
-    # User Permissions (Example: just upload?)
-    # For now user has none or specific ones
-    
-    # 4. Migrate Legacy Users & Ensure Admin Exists
-    # Find users with role="admin" string but no roles relation
-    result = await db.execute(select(models.User))
-    users = result.scalars().all()
-    
-    # Check if admin user exists at all
-    admin_user = next((u for u in users if u.username == 'admin'), None)
-    if not admin_user:
-        print("Creating default admin user...")
-        import utils # local import to avoid circular if at top level? No, utils is fine
-        admin_user = models.User(
-            username="admin", 
-            email="admin@example.com", 
-            hashed_password=utils.get_password_hash("admin"),
-            role="admin", # Legacy
-            is_active=True
+    if perms_data:
+        stmt = insert(models.Permission).values(perms_data)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['code'],
+            set_={"description": stmt.excluded.description}
         )
-        db.add(admin_user)
-        users.append(admin_user) # Add to list for role assignment below
+        await db.execute(stmt)
 
-    for user in users:
-        # Load roles
-        await db.refresh(user, attribute_names=['roles'])
-        if not user.roles:
-            if user.username == 'admin' or user.role == "admin":
-                user.roles.append(admin_role)
-            else:
-                user.roles.append(user_role)
+    # 2. Sync Roles (Batch Upsert - Do Nothing if exists)
+    print("Syncing Roles...")
+    roles_data = [
+        {"code": "admin", "name": "Administrator"},
+        {"code": "user", "name": "Regular User"}
+    ]
+    stmt = insert(models.Role).values(roles_data)
+    stmt = stmt.on_conflict_do_nothing(index_elements=['code'])
+    await db.execute(stmt)
+
+    # Flush to ensure IDs are generated/available
+    await db.flush()
+
+    # 3. Fetch IDs for Mapping
+    # Fetch all permissions map
+    perm_result = await db.execute(select(models.Permission))
+    perm_map = {p.code: p.id for p in perm_result.scalars().all()}
     
+    # Fetch all roles map
+    role_result = await db.execute(select(models.Role))
+    role_map = {r.code: r.id for r in role_result.scalars().all()}
+
+    # 4. Bind Permissions to Roles (Admin gets ALL)
+    print("Binding Admin Permissions...")
+    admin_role_id = role_map.get("admin")
+    if admin_role_id:
+        role_perms_data = [
+            {"role_id": admin_role_id, "permission_id": pid} 
+            for pid in perm_map.values()
+        ]
+        
+        if role_perms_data:
+            stmt = insert(models.role_permissions).values(role_perms_data)
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=['role_id', 'permission_id']
+            )
+            await db.execute(stmt)
+
+    # 5. Ensure Default Admin User Exists
+    print("Ensuring Admin User...")
+    admin_user_data = {
+        "username": "admin",
+        "email": "admin@example.com",
+        "hashed_password": utils.get_password_hash("admin"),
+        "role": "admin", # Legacy field
+        "is_active": True,
+        "name": "Administrator",
+        "avatar": ""
+    }
+    
+    stmt = insert(models.User).values(admin_user_data)
+    stmt = stmt.on_conflict_do_nothing(index_elements=['username'])
+    await db.execute(stmt)
+
+    # 6. Migrate Users (Bind Roles to Users who have NO roles)
+    # Using 'NOT EXISTS' logic to avoid fetching all users
+    # Performance optimization: Only fetch users that serve as migration targets
+    print("Migrating Legacy Users...")
+    
+    # Select Users where NOT EXISTS in user_roles
+    subq = select(1).where(models.user_roles.c.user_id == models.User.id)
+    stmt = select(models.User).where(~exists(subq))
+    
+    result = await db.execute(stmt)
+    users_without_roles = result.scalars().all()
+    
+    user_roles_data = []
+    affected_user_ids = []
+    
+    for user in users_without_roles:
+        # Determine Role
+        target_role_id = role_map.get("user")
+        if user.username == "admin" or user.role == "admin":
+            target_role_id = role_map.get("admin")
+            
+        if target_role_id:
+            user_roles_data.append({
+                "user_id": user.id,
+                "role_id": target_role_id
+            })
+            affected_user_ids.append(user.id)
+            print(f" > Migrating User: {user.username} -> Role ID: {target_role_id}")
+
+    if user_roles_data:
+        stmt = insert(models.user_roles).values(user_roles_data)
+        stmt = stmt.on_conflict_do_nothing(
+            index_elements=['user_id', 'role_id']
+        )
+        await db.execute(stmt)
+
     await db.commit()
-    print("RBAC Initialization Complete.")
+    
+    # 7. Invalidate Cache (Bump Permission Version)
+    if affected_user_ids:
+        print(f"Invalidating cache for {len(affected_user_ids)} users...")
+        for uid in affected_user_ids:
+            # Setting a version timestamp forces client re-fetch if implemented
+            try:
+                await cache.set(f"user_perm_ver:{uid}", int(time.time()), ttl=86400)
+            except Exception as e:
+                logger.warning(f"Cache update failed: {e}")
+
+    print("✅ RBAC Initialization Complete.")
+
+if __name__ == "__main__":
+    from database import SessionLocal
+
+    async def main():
+        # Initialize Cache Manager manually since we are outside FastAPI app lifespan
+        await cache.init()
+        
+        async with SessionLocal() as db:
+            await init_rbac(db)
+            
+        await cache.close()
+
+    asyncio.run(main())
