@@ -14,7 +14,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [error, setError] = useState('');
 
     const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || 'ShiKu Home');
-    const [logoUrl, setLogoUrl] = useState<string | null>(() => localStorage.getItem('sys_logo_url') || null);
+    const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
     const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || '© 2025 侯钰熙. All Rights Reserved.');
 
     useEffect(() => {
@@ -72,13 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             {/* Top Bar */}
             <header className="w-full max-w-7xl mx-auto p-6 flex justify-between items-center z-10">
                 <div className="flex items-center space-x-4">
-                    {logoUrl ? (
-                        <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain" />
-                    ) : (
-                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                            <Lock size={24} />
-                        </div>
-                    )}
+                    <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain" />
                     <span className="text-2xl font-bold text-slate-800 tracking-tight">{appName}</span>
                 </div>
             </header>

@@ -49,11 +49,35 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                 if response.status_code >= 500:
                     level = "ERROR"
 
+                # Extract detailed access info
+                ip = request.client.host if request.client else "unknown"
+                path = request.url.path
+                method = request.method
+                status = response.status_code
+                response_time_sec = float(f"{process_time:.3f}")
+                
+                # Try to get Content-Length from headers (String -> Int)
+                size_str = response.headers.get("content-length", "0")
+                try:
+                    size = int(size_str)
+                except:
+                    size = 0
+                
+                ua = request.headers.get("user-agent", "")
+
                 log = models.SystemLog(
                     level=level,
                     module="API",
-                    message=f"{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s",
-                    timestamp=datetime.datetime.now().isoformat()
+                    message=f"{method} {path} - {status} - {response_time_sec}s",
+                    timestamp=datetime.datetime.now().isoformat(),
+                    # Access Log Fields
+                    ip_address=ip,
+                    request_path=path,
+                    method=method,
+                    status_code=status,
+                    response_time=response_time_sec,
+                    request_size=size,
+                    user_agent=ua
                 )
                 db.add(log)
                 await db.commit()

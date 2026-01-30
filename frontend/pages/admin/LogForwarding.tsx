@@ -10,7 +10,6 @@ const LogForwarding: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [form] = Form.useForm();
-
     const fetchConfigs = async () => {
         setLoading(true);
         try {
@@ -48,6 +47,8 @@ const LogForwarding: React.FC = () => {
             message.error('删除失败');
         }
     };
+
+
 
     // Helper for tag since I didn't import Tag above
     const CustomTag = ({ color, children }: any) => (
@@ -108,8 +109,8 @@ const LogForwarding: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发配置</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">将系统日志转发至第三方 Syslog 或 SIEM 平台</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发与存储</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">配置日志存储策略及第三方转发</p>
                 </div>
                 <Button
                     type="primary"
@@ -118,11 +119,18 @@ const LogForwarding: React.FC = () => {
                     size="large"
                     className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
-                    新增配置
+                    新增外发配置
                 </Button>
             </div>
 
+
+
+            {/* Forwarding Configs Table */}
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                    <span className="w-1 h-6 bg-emerald-500 rounded-full mr-3"></span>
+                    外发规则列表
+                </h3>
                 <Table
                     dataSource={configs}
                     columns={columns}

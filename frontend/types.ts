@@ -127,6 +127,14 @@ export interface SystemLog {
   module: string;
   message: string;
   timestamp: string;
+  // Extended Access Log Fields
+  ip_address?: string;
+  request_path?: string;
+  method?: string;
+  status_code?: number;
+  response_time?: number;
+  request_size?: number;
+  user_agent?: string;
 }
 
 export interface BusinessLog {
@@ -178,4 +186,24 @@ export interface DashboardStats {
   active_users_trend: string;
   tool_clicks_trend: string;
   new_content_trend: string;
+}
+
+export interface AIProvider {
+  id: number;
+  name: string;
+  type: string; // 'google' | 'openai' | 'anthropic' | 'deepseek' | 'custom'
+  api_base?: string;
+  api_key?: string; // Masked when returned
+  model_name: string;
+  is_active: boolean;
+  priority: number;
+}
+
+export interface AISecurityPolicy {
+  id: number;
+  name: string;
+  type: string; // 'keyword' | 'regex' | 'length'
+  content: string;
+  action: string; // 'block' | 'mask' | 'audit'
+  is_active: boolean;
 }

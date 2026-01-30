@@ -1,84 +1,87 @@
-import React, { useEffect, useState } from 'react';
-import ApiClient from '../../services/api';
-import { Tag, Spin } from 'antd';
+import React from 'react';
+import { Users, Globe, Zap, Heart } from 'lucide-react';
 
 const AboutUs: React.FC = () => {
-    const [info, setInfo] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchInfo = async () => {
-            try {
-                const data = await ApiClient.getSystemInfo();
-                setInfo(data);
-            } catch (error) {
-                console.error("Failed to fetch system info", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchInfo();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Spin size="large" />
-            </div>
-        );
-    }
+    const stats = [
+        {
+            icon: <Users className="w-6 h-6 text-indigo-500" />,
+            value: '1,200+',
+            label: '全球员工',
+            color: 'indigo'
+        },
+        {
+            icon: <Globe className="w-6 h-6 text-blue-500" />,
+            value: '24',
+            label: '覆盖城市',
+            color: 'blue'
+        },
+        {
+            icon: <Zap className="w-6 h-6 text-violet-500" />,
+            value: '150+',
+            label: '专利技术',
+            color: 'violet'
+        },
+        {
+            icon: <Heart className="w-6 h-6 text-rose-500" />,
+            value: '99.2%',
+            label: '客户满意度',
+            color: 'rose'
+        }
+    ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2 max-w-2xl mx-auto w-full">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">关于系统</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">系统版本与运行环境信息</p>
-                </div>
+        <div className="flex flex-col items-center justify-center min-h-[80vh] animate-in fade-in zoom-in-95 duration-700 p-6">
+
+            {/* Badge */}
+            <div className="mb-8 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-full px-6 py-2 flex items-center space-x-2 shadow-sm">
+                <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </span>
+                <span className="text-[10px] font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-300 uppercase">
+                    Since 2018 · Leading Innovation
+                </span>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-10 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 max-w-2xl mx-auto text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+            {/* Title */}
+            <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight mb-2 text-center">
+                关于
+            </h1>
+            <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-8 text-center drop-shadow-sm">
+                ShiKu Home
+            </h1>
 
-                <div className="mb-10">
-                    <div className="w-24 h-24 bg-slate-900 dark:bg-white rounded-[2rem] flex items-center justify-center text-white dark:text-slate-900 font-black text-4xl mx-auto mb-6 shadow-2xl shadow-indigo-500/20 transform hover:rotate-6 transition-transform duration-500">
-                        A
+            {/* Description */}
+            <p className="max-w-2xl text-center text-slate-500 dark:text-slate-400 text-sm md:text-base font-medium leading-relaxed mb-16">
+                我们致力于构建下一代企业级智慧协作生态，通过 AI 驱动的技术方案，让每一位员工都能在数字空间中释放无限潜能。
+            </p>
+
+            {/* Cards Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-5xl">
+                {stats.map((stat, index) => (
+                    <div
+                        key={index}
+                        className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-50 dark:border-slate-700/50 flex flex-col items-center justify-center group hover:-translate-y-2 transition-transform duration-500"
+                    >
+                        <div className={`mb-4 p-4 bg-${stat.color}-50 dark:bg-${stat.color}-900/10 rounded-2xl group-hover:scale-110 transition-transform duration-500`}>
+                            {stat.icon}
+                        </div>
+                        <div className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
+                            {stat.value}
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {stat.label}
+                        </div>
                     </div>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">管理后台系统</h2>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">Next-Gen Enterprise Portal</p>
-                    <div className="mt-6 flex justify-center">
-                        <Tag color={info?.status === 'Online' ? 'success' : 'default'} className="px-4 py-1.5 text-sm rounded-full font-bold border-0 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            {info?.status || 'Online'}
-                        </Tag>
-                    </div>
-                </div>
+                ))}
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-indigo-100 transition-colors group">
-                        <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-bold">系统版本</p>
-                        <p className="text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{info?.version || '1.0.0'}</p>
-                    </div>
-
-                    <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-indigo-100 transition-colors group">
-                        <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-bold">运行环境</p>
-                        <p className="text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{info?.environment || '生产环境'}</p>
-                    </div>
-
-                    <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-indigo-100 transition-colors md:col-span-2 flex items-center justify-between">
-                        <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">数据库连接</p>
-
-                        <span className={`inline-flex items-center gap-2 font-bold ${info?.database === 'Connected' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            <span className={`w-2.5 h-2.5 rounded-full ${info?.database === 'Connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-                            {info?.database === 'Connected' ? '正常连接' : '连接断开'}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800/50">
-                    <p className="text-xs font-bold text-slate-300 dark:text-slate-600">
-                        © 2025 Enterprise Portal System. All Rights Reserved.
-                    </p>
+            {/* Footer Decoration */}
+            <div className="mt-20 opacity-20">
+                <div className="flex space-x-2">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="w-1 h-1 rounded-full bg-slate-400"></div>
+                    ))}
                 </div>
             </div>
         </div>

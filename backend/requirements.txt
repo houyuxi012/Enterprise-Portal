@@ -14,3 +14,4 @@ redis>=5.0.0
 fastapi-limiter>=0.1.6
 minio>=7.2.0
 filetype>=1.2.0
+httpx

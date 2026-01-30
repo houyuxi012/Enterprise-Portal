@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime
+from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float
 from sqlalchemy.orm import relationship, backref
 from database import Base
 
@@ -127,7 +127,16 @@ class SystemLog(Base):
     level = Column(String, index=True) # INFO, WARN, ERROR
     module = Column(String, index=True)
     message = Column(Text)
-    timestamp = Column(String) # Storing as ISO string involved for simplicity or Timestamp
+    timestamp = Column(String)
+    
+    # Extended Access Log Fields
+    ip_address = Column(String, nullable=True)
+    request_path = Column(String, nullable=True)
+    method = Column(String, nullable=True)
+    status_code = Column(Integer, nullable=True)
+    response_time = Column(Float, nullable=True)
+    request_size = Column(Integer, nullable=True)
+    user_agent = Column(String, nullable=True)
 
 class BusinessLog(Base):
     __tablename__ = "business_logs"
@@ -186,3 +195,26 @@ class FileMetadata(Base):
     content_type = Column(String)
     uploader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), index=True)
+
+class AIProvider(Base):
+    __tablename__ = "ai_providers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) # e.g. "Gemini Pro", "DeepSeek V3"
+    type = Column(String) # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    base_url = Column(String, nullable=True) # Custom endpoint
+    api_key = Column(String) # Encrypted or raw (demo: raw)
+    model = Column(String) # e.g. "gemini-pro", "deepseek-chat"
+    is_active = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+class AISecurityPolicy(Base):
+    __tablename__ = "ai_security_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    type = Column(String) # 'keyword', 'regex', 'length'
+    content = Column(Text) # JSON list of rules
+    action = Column(String) # 'block', 'mask', 'warn'
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), nullable=True)

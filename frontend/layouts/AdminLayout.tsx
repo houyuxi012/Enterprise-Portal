@@ -13,7 +13,9 @@ import {
     SettingOutlined,
     InfoCircleOutlined,
     PictureOutlined,
-    IdcardOutlined
+    IdcardOutlined,
+    RobotOutlined,
+    ApiOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 
@@ -21,8 +23,8 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security' | 'ai_models' | 'ai_security';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security' | 'ai_models' | 'ai_security') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -56,6 +58,28 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             key: 'dashboard',
             icon: <DashboardOutlined />,
             label: '概览面板',
+        },
+        {
+            key: 'sub_ai',
+            label: 'AI 管理',
+            icon: <RobotOutlined />,
+            children: [
+                {
+                    key: 'ai_settings',
+                    icon: <SettingOutlined />,
+                    label: '基础设置',
+                },
+                {
+                    key: 'ai_models',
+                    icon: <ApiOutlined />,
+                    label: '模型配置',
+                },
+                {
+                    key: 'ai_security',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '安全策略',
+                },
+            ],
         },
         {
             key: 'sub_content',
@@ -92,17 +116,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 {
                     key: 'employees',
                     icon: <IdcardOutlined />,
-                    label: '员工管理',
-                },
-                {
-                    key: 'users',
-                    icon: <UserOutlined />,
-                    label: '系统账户',
-                },
-                {
-                    key: 'roles',
-                    icon: <SafetyCertificateOutlined />,
-                    label: '角色管理',
+                    label: '用户管理',
                 },
                 {
                     key: 'org',
@@ -111,14 +125,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 },
             ],
         },
+
         {
             key: 'sub_logs',
             label: '日志管理',
             icon: <FileTextOutlined />,
             children: [
-                { key: 'system_logs', label: '系统日志' },
+                { key: 'system_logs', label: '访问日志' },
                 { key: 'business_logs', label: '业务日志' },
                 { key: 'log_forwarding', label: '日志外发' },
+                { key: 'log_storage', label: '存储设置' },
             ]
         },
         {
@@ -130,6 +146,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     key: 'security',
                     icon: <SafetyCertificateOutlined />,
                     label: '安全设置',
+                },
+                {
+                    key: 'users',
+                    icon: <UserOutlined />,
+                    label: '账户管理',
+                },
+                {
+                    key: 'roles',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '角色管理',
                 },
                 {
                     key: 'settings',
@@ -180,14 +206,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                         {logoUrl ? (
                             <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                         ) : (
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
-                                {(appName || 'A')[0].toUpperCase()}
-                            </div>
+                            <img src="/images/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                         )}
                         {!collapsed && (
                             <div className="flex flex-col">
                                 <span className="font-black text-lg text-slate-900 dark:text-white leading-tight">{appName || 'Admin Portal'}</span>
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Workspace</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">下一代企业门户系统</span>
                             </div>
                         )}
                     </div>

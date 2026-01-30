@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 # Department Schemas
 class DepartmentBase(BaseModel):
@@ -253,3 +253,53 @@ class DashboardStats(BaseModel):
     active_users_trend: str
     tool_clicks_trend: str
     new_content_trend: str
+
+# AI Management Schemas
+class AIProviderBase(BaseModel):
+    name: str
+    type: str # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    base_url: Optional[str] = None
+    api_key: str
+    model: str
+    is_active: bool = False
+
+class AIProviderCreate(AIProviderBase):
+    pass
+
+class AIProviderUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class AIProvider(AIProviderBase):
+    id: int
+    created_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+class AISecurityPolicyBase(BaseModel):
+    name: str
+    type: str # 'keyword', 'regex', 'length'
+    content: str # JSON list of rules
+    action: str # 'block', 'mask', 'warn'
+    is_enabled: bool = True
+
+class AISecurityPolicyCreate(AISecurityPolicyBase):
+    pass
+
+class AISecurityPolicyUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    content: Optional[str] = None
+    action: Optional[str] = None
+    is_enabled: Optional[bool] = None
+
+class AISecurityPolicy(AISecurityPolicyBase):
+    id: int
+    created_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+

@@ -24,6 +24,11 @@ async def startup():
     async with database.SessionLocal() as session:
         await init_rbac(session)
 
+    # Schedule Log Cleanup Task
+    from services.log_storage import run_log_cleanup_scheduler
+    import asyncio
+    asyncio.create_task(run_log_cleanup_scheduler(database.SessionLocal))
+
 # Mount uploads directory to serve static files
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -63,3 +68,6 @@ app.include_router(logs.router)
 
 app.include_router(carousel.router)
 app.include_router(dashboard.router)
+
+from routers import ai_admin
+app.include_router(ai_admin.router)

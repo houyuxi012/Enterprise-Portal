@@ -99,7 +99,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
             color: 'emerald'
         },
         {
-            title: '工具点击', // Tool Clicks
+            title: '应用访问', // App Visits
             value: stats?.tool_clicks.toLocaleString() || '---',
             trend: stats?.tool_clicks_trend || '---',
             isPositive: false,

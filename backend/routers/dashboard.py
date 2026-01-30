@@ -68,8 +68,9 @@ async def get_dashboard_stats(
     result = await db.execute(select(func.count(models.User.id)).where(models.User.is_active == True))
     active_users = result.scalar() or 0
     
-    # 3. Tool Clicks
-    result = await db.execute(select(func.count(models.BusinessLog.id)).where(models.BusinessLog.action == "tool_click"))
+    # 3. Tool Clicks / App Visits
+    # Support both legacy "tool_click" and new "APP_LAUNCH" actions
+    result = await db.execute(select(func.count(models.BusinessLog.id)).where(models.BusinessLog.action.in_(["tool_click", "APP_LAUNCH"])))
     tool_clicks = result.scalar() or 0
 
     stats_data = schemas.DashboardStats(

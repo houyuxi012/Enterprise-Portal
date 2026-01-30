@@ -1,0 +1,162 @@
+import React, { useEffect, useState } from 'react';
+import { Button, Card, Form, Input, Switch, message, Upload, Avatar } from 'antd';
+import { SaveOutlined, UploadOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
+import ApiClient from '../../../services/api';
+
+const AISettings: React.FC = () => {
+    const [loading, setLoading] = useState(false);
+    const [form] = Form.useForm();
+    const [imageUrl, setImageUrl] = useState<string>('');
+
+    const fetchConfig = async () => {
+        setLoading(true);
+        try {
+            const config = await ApiClient.getSystemConfig();
+            form.setFieldsValue({
+                ai_name: config.ai_name || 'AI Assistant',
+                ai_icon: config.ai_icon || '',
+                ai_enabled: config.ai_enabled === 'true',
+            });
+            setImageUrl(config.ai_icon || '');
+        } catch (error) {
+            message.error('Failed to load settings');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const handleSave = async (values: any) => {
+        setLoading(true);
+        try {
+            // Convert boolean to string for backend storage
+            const configToSave = {
+                ai_name: values.ai_name,
+                ai_icon: values.ai_icon,
+                ai_enabled: String(values.ai_enabled),
+            };
+            await ApiClient.updateSystemConfig(configToSave);
+            message.success('Settings saved successfully');
+            // Trigger a re-fetch or context update if needed
+            window.location.reload(); // Simple reload to apply global changes for now
+        } catch (error) {
+            message.error('Failed to save settings');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const normFile = (e: any) => {
+        if (Array.isArray(e)) {
+            return e;
+        }
+        return e?.fileList;
+    };
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">基础设置</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">配置 AI 助手的基本信息与功能开关</p>
+                </div>
+                <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    onClick={() => form.submit()}
+                    loading={loading}
+                    className="bg-indigo-600 hover:bg-indigo-500 border-indigo-600 hover:border-indigo-500 h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20 font-bold"
+                >
+                    保存设置
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={handleSave}
+                            className="p-4"
+                        >
+                            <Form.Item
+                                name="ai_enabled"
+                                label="启用 AI 助手"
+                                valuePropName="checked"
+                                help="关闭后，全站将隐藏 AI 助手入口"
+                            >
+                                <Switch />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="ai_name"
+                                label="助手名称"
+                                rules={[{ required: true, message: '请输入助手名称' }]}
+                            >
+                                <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder="例如: 企业智能助手" className="h-10 rounded-lg" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="ai_icon"
+                                label="助手图标 (URL)"
+                                help="输入图片 URL 地址"
+                            >
+                                <Input
+                                    prefix={<UploadOutlined className="text-slate-400" />}
+                                    placeholder="https://example.com/icon.png"
+                                    className="h-10 rounded-lg"
+                                    onChange={(e) => setImageUrl(e.target.value)}
+                                />
+                            </Form.Item>
+                        </Form>
+                    </Card>
+                </div>
+
+                <div className="lg:col-span-1">
+                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full">
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-6">预览效果</h3>
+
+                            <div className="relative group cursor-pointer">
+                                <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 overflow-hidden transition-transform duration-300 group-hover:scale-110">
+                                    {imageUrl ? (
+                                        <img src={imageUrl} alt="AI Icon" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = ''; setImageUrl(''); }} />
+                                    ) : (
+                                        <SparklesIcon />
+                                    )}
+                                </div>
+                            </div>
+
+                            <h4 className="mt-4 font-bold text-slate-800 dark:text-white">
+                                {form.getFieldValue('ai_name') || 'AI Assistant'}
+                            </h4>
+                            <p className="text-xs text-slate-400 mt-1">点击右下角浮窗即可唤起</p>
+
+                            <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-left w-full">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">配置说明</span>
+                                <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-2 list-disc list-inside">
+                                    <li>支持 JPG, PNG, SVG 格式图标</li>
+                                    <li>建议尺寸 128x128 像素</li>
+                                    <li>关闭开关后即时生效</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Simple icon component for preview
+const SparklesIcon = () => (
+    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+);
+
+export default AISettings;

@@ -25,12 +25,44 @@ const SUGGESTED_PROMPTS = [
 const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPrompt }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'ai', text: "你好！我是 ShiKu Assistant。有什么可以帮你的吗？" }
+    { role: 'ai', text: "你好！我是企业智能助手。有什么可以帮你的吗？" }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [aiConfig, setAiConfig] = useState<{ name: string; icon: string; enabled: boolean }>({
+    name: 'ShiKu Assistant',
+    icon: '',
+    enabled: true
+  });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch AI Config on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await ApiClient.getSystemConfig();
+        setAiConfig({
+          name: config.ai_name || 'ShiKu Assistant',
+          icon: config.ai_icon || '',
+          enabled: config.ai_enabled !== 'false' // Default to true if not set
+        });
+
+        // Update initial welcome message name if needed
+        setMessages(prev => {
+          if (prev.length === 1 && prev[0].role === 'ai') {
+            return [{ role: 'ai', text: `你好！我是${config.ai_name || '企业智能助手'}。有什么可以帮你的吗？` }];
+          }
+          return prev;
+        });
+
+      } catch (error) {
+        console.error("Failed to load AI config", error);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -63,7 +95,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       const response = await ApiClient.chatAI(userMsg);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', text: "抱歉，暂时无法连接到 ShiKu Brain。请稍后再试。" }]);
+      setMessages(prev => [...prev, { role: 'ai', text: "抱歉，暂时无法连接到智能服务。请稍后再试。" }]);
     } finally {
       setIsLoading(false);
     }
@@ -77,8 +109,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
   }, [isOpen, initialPrompt]);
 
   const clearChat = () => {
-    setMessages([{ role: 'ai', text: "对话已重置。有什么新问题吗？" }]);
+    setMessages([{ role: 'ai', text: `对话已重置。有什么新问题吗？` }]);
   };
+
+  // If AI is disabled globally, do not render anything
+  if (!aiConfig.enabled) return null;
 
   return (
     <>
@@ -87,8 +122,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         className={`fixed bottom-6 right-6 z-50 transition-all duration-500 hover:scale-110 active:scale-95 group ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
       >
         <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20 group-hover:opacity-40"></div>
-        <div className="relative w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-full shadow-2xl shadow-blue-500/40 flex items-center justify-center border border-white/20">
-          <Sparkles size={24} className="animate-pulse" />
+        <div className="relative w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-full shadow-2xl shadow-blue-500/40 flex items-center justify-center border border-white/20 overflow-hidden">
+          {aiConfig.icon ? (
+            <img src={aiConfig.icon} alt="AI" className="w-full h-full object-cover" />
+          ) : (
+            <Sparkles size={24} className="animate-pulse" />
+          )}
         </div>
       </button>
 
@@ -103,11 +142,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
           {/* Header */}
           <div className="px-5 py-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-b border-white/20 dark:border-white/5 flex justify-between items-center shrink-0">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                <Bot size={18} />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden">
+                {aiConfig.icon ? (
+                  <img src={aiConfig.icon} alt="AI" className="w-full h-full object-cover" />
+                ) : (
+                  <Bot size={18} />
+                )}
               </div>
               <div>
-                <h3 className="font-black text-sm text-slate-800 dark:text-white tracking-tight">ShiKu Assistant</h3>
+                <h3 className="font-black text-sm text-slate-800 dark:text-white tracking-tight">{aiConfig.name}</h3>
                 <div className="flex items-center space-x-1.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Online</span>
@@ -134,17 +177,19 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 <div className={`flex max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'} gap-3`}>
 
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-white/20 shadow-sm ${m.role === 'user'
-                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-white/20 shadow-sm overflow-hidden ${m.role === 'user'
+                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
                     }`}>
-                    {m.role === 'user' ? <User size={14} /> : <Sparkles size={14} />}
+                    {m.role === 'user' ? <User size={14} /> : (
+                      aiConfig.icon ? <img src={aiConfig.icon} className="w-full h-full object-cover" /> : <Sparkles size={14} />
+                    )}
                   </div>
 
                   {/* Bubble */}
                   <div className={`p-4 rounded-2xl shadow-sm text-sm leading-relaxed relative group ${m.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-sm'
-                      : 'bg-white dark:bg-slate-800 border border-white/50 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-sm'
+                    ? 'bg-blue-600 text-white rounded-tr-sm'
+                    : 'bg-white dark:bg-slate-800 border border-white/50 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-sm'
                     }`}>
                     {m.role === 'ai' ? (
                       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1">
@@ -183,7 +228,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
-                placeholder="Ask ShiKu Assistant..."
+                placeholder={`Ask ${aiConfig.name}...`}
                 disabled={isLoading}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-14 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-inner dark:text-white transition-all placeholder:text-slate-400"
               />

@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from schemas import AIChatRequest, AIChatResponse
 from database import get_db
 from models import Employee, NewsItem, QuickTool
-from services.gemini_service import get_ai_response
+from services.ai_engine import AIEngine
 
 router = APIRouter(
     prefix="/ai",
@@ -17,8 +17,14 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
     try:
         query = request.prompt.lower()
         context_parts = []
+        engine = AIEngine(db)
 
-        # 1. Search Employees
+        # 1. Input Security Check (Fail Fast)
+        # We do this inside engine.chat usually, but doing it here saves DB context queries if blocked.
+        # But for simplicity, let engine handle it all.
+
+        # 2. RAG Context Retrieval
+        # 2.1 Search Employees
         emp_stmt = select(Employee).filter(
             or_(
                 Employee.name.ilike(f"%{query}%"),
@@ -34,7 +40,7 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
             emp_info = "\n".join([f"- {e.name} ({e.role}, {e.department}): 电话 {e.phone}, 邮箱 {e.email}, 办公地 {e.location}" for e in employees])
             context_parts.append(f"【相关人员信息】:\n{emp_info}")
 
-        # 2. Search News
+        # 2.2 Search News
         news_stmt = select(NewsItem).filter(
             or_(
                 NewsItem.title.ilike(f"%{query}%"),
@@ -49,7 +55,7 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
             news_info = "\n".join([f"- [{n.category}] {n.title} (发布于 {n.date}): {n.summary}" for n in news])
             context_parts.append(f"【相关新闻资讯】:\n{news_info}")
 
-        # 3. Search Tools
+        # 2.3 Search Tools
         tool_stmt = select(QuickTool).filter(
             or_(
                 QuickTool.name.ilike(f"%{query}%"),
@@ -66,16 +72,11 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
 
         context = "\n\n".join(context_parts)
         
-        # 4. Get AI Response
-        response_text = await get_ai_response(request.prompt, context)
+        # 3. Get AI Response via Engine
+        response_text = await engine.chat(request.prompt, context)
         
         return AIChatResponse(response=response_text)
         
     except Exception as e:
-        print(f"RAG Error: {e}")
-        # Fallback to pure AI if DB search fails or other error
-        try:
-             response_text = await get_ai_response(request.prompt, "")
-             return AIChatResponse(response=response_text)
-        except:
-             raise HTTPException(status_code=500, detail="Failed to process request")
+        print(f"Chat Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

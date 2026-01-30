@@ -177,7 +177,7 @@ const EmployeeList: React.FC = () => {
             {/* Header - Outside Card */}
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">员工档案管理</h2>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">用户管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理企业员工基本信息与职位</p>
                 </div>
                 <Button

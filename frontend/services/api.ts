@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Employee, NewsItem, QuickTool, Announcement, CarouselItem } from '../types';
+import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy } from '../types';
 import AuthService from './auth';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -160,6 +160,14 @@ export const ApiClient = {
     });
   },
 
+  optimizeStorage: async () => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/system/optimize-storage', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
   chatAI: async (prompt: string): Promise<string> => {
     const response = await api.post<{ response: string }>('/ai/chat', { prompt });
     return response.data.response;
@@ -313,25 +321,7 @@ export const ApiClient = {
   },
 
 
-  logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<any> => {
-    try {
-      const user = await AuthService.getCurrentUser().catch(() => ({ username: 'guest' }));
-      return api.post('/logs/business', {
-        operator: user.username,
-        action: log.action,
-        target: log.target || '',
-        status: log.status || 'SUCCESS',
-        detail: log.detail || '',
-        timestamp: new Date().toISOString(),
-        ip_address: 'frontend'
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-    } catch (e) {
-      console.warn("Failed to log action:", e);
-      return null;
-    }
-  },
+
 
   getLogForwardingConfig: async (): Promise<any[]> => {
     const token = localStorage.getItem('token');
@@ -390,6 +380,54 @@ export const ApiClient = {
     const token = localStorage.getItem('token');
     const response = await api.get('/system/resources', { headers: { Authorization: `Bearer ${token}` } });
     return response.data;
+  }
+  ,
+
+  // AI Management
+  getAIProviders: async (): Promise<AIProvider[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/ai/admin/providers', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  createAIProvider: async (data: Partial<AIProvider>): Promise<AIProvider> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/ai/admin/providers', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateAIProvider: async (id: number, data: Partial<AIProvider>): Promise<AIProvider> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/ai/admin/providers/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteAIProvider: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/ai/admin/providers/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  },
+
+  getAIPolicies: async (): Promise<AISecurityPolicy[]> => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/ai/admin/policies', { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  createAIPolicy: async (data: Partial<AISecurityPolicy>): Promise<AISecurityPolicy> => {
+    const token = localStorage.getItem('token');
+    const response = await api.post('/ai/admin/policies', data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  updateAIPolicy: async (id: number, data: Partial<AISecurityPolicy>): Promise<AISecurityPolicy> => {
+    const token = localStorage.getItem('token');
+    const response = await api.put(`/ai/admin/policies/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    return response.data;
+  },
+
+  deleteAIPolicy: async (id: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    await api.delete(`/ai/admin/policies/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 };
 

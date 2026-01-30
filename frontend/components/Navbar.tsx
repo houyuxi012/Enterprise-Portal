@@ -158,11 +158,9 @@ const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setView(AppView.DASHBOARD)}
           >
             {systemConfig?.logo_url ? (
-              <img src={systemConfig.logo_url} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover shadow-lg shadow-blue-500/30 group-hover:rotate-12 transition-transform duration-500" />
+              <img src={systemConfig.logo_url} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" />
             ) : (
-              <div className="w-8 h-8 lg:w-9 lg:h-9 mesh-gradient rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/30 group-hover:rotate-12 transition-transform duration-500">
-                {(systemConfig?.app_name?.[0] || 'S').toUpperCase()}
-              </div>
+              <img src="/images/logo.png" className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" />
             )}
             <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">
               {systemConfig?.app_name || 'ShiKu Home'}
