@@ -75,6 +75,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel'>('dashboard');
+  const [activeNewsTab, setActiveNewsTab] = useState('全部');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -363,24 +364,90 @@ const App: React.FC = () => {
           </div>
         );
       case AppView.NEWS:
+        const tabFilteredNews = newsList.filter(n => {
+          if (activeNewsTab === '全部') return true;
+          return n.category === activeNewsTab;
+        }).filter(news =>
+          news.title.toLowerCase().includes(globalSearch.toLowerCase()) ||
+          news.summary.toLowerCase().includes(globalSearch.toLowerCase())
+        );
+
         return (
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              资讯动态 <span className="text-lg opacity-50">({filteredNews.length})</span>
-            </h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredNews.map(news => (
-                <div key={news.id} className="group mica rounded-[2rem] overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-500 border border-white/50">
-                  <div className="relative h-44 overflow-hidden">
-                    <img src={news.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">资讯中心</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">了解 ShiKu Home 的最新动态与深度报道</p>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                {['全部', '公告', '活动', '政策', '文化'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveNewsTab(tab)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${activeNewsTab === tab
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {tabFilteredNews.map(news => (
+                <div key={news.id} className="group bg-white dark:bg-slate-800 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 flex flex-col h-full border border-slate-100 dark:border-slate-700/50">
+                  {/* Image Container */}
+                  <div className="relative h-56 overflow-hidden">
+                    <img src={news.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                    {/* Badge */}
+                    <span className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-black text-white shadow-lg backdrop-blur-md ${news.category === '公告' ? 'bg-indigo-500/90' :
+                        news.category === '活动' ? 'bg-blue-500/90' :
+                          news.category === '政策' ? 'bg-rose-500/90' : 'bg-emerald-500/90'
+                      }`}>
+                      {news.category}
+                    </span>
                   </div>
-                  <div className="p-5">
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">{news.title}</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-xs leading-relaxed line-clamp-2">{news.summary}</p>
+
+                  {/* Content */}
+                  <div className="p-7 flex flex-col flex-1">
+                    {/* Meta Row */}
+                    <div className="flex items-center text-[10px] font-bold text-slate-400 mb-3 tracking-wide uppercase">
+                      <span>{news.date}</span>
+                      <span className="mx-2 text-slate-300">|</span>
+                      <span>{news.author}</span>
+                    </div>
+
+                    {/* Title */}
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
+                      {news.title}
+                    </h2>
+
+                    {/* Summary */}
+                    <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed line-clamp-2 mb-6 flex-1">
+                      {news.summary}
+                    </p>
+
+                    {/* Footer / Action */}
+                    <div className="flex items-center text-blue-600 dark:text-blue-400 text-xs font-bold group/btn">
+                      <span>阅读全文</span>
+                      <svg className="w-4 h-4 ml-1 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
+
+            {tabFilteredNews.length === 0 && (
+              <div className="text-center py-20 text-slate-400 font-bold">暂无此类资讯</div>
+            )}
           </div>
         );
       case AppView.DIRECTORY:

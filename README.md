@@ -17,8 +17,11 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 - **组织架构管理**: 可视化部门树管理，支持无限级部门嵌套与员工调岗。
 - **全链路日志审计**:
     - **系统日志**: 监控系统运行状态与异常堆栈。
-    - **业务日志**: 审计关键操作（如登录、搜索、配置修改）。
+    - **登录审计**: 记录所有登录尝试 (User, IP, Device, Status)，支持防爆破检测。
     - **日志外发**: 支持 Syslog/Webhook 实时转发至第三方 SIEM 平台。
+- **存储服务**:
+    - **MinIO 集成**: 支持对象存储 (S3 兼容)，用于头像、文件、图片的高可用存储。
+    - **生产级安全**: 文件类型魔数校验、5MB 大小限制、病毒扫描预留。
 - **资讯内容管理**: Premium 风格的新闻、公告、轮播图管理界面。
 - **企业个性化 (Branding)**: 支持自定义 Logo、系统名称、版权信息与浏览器标题设置。
 
@@ -50,7 +53,7 @@ docker-compose up -d --build
 # 2. 访问系统
 # 前端: http://localhost
 # 后端 API 文档: http://localhost:8000/docs
-# 默认管理员: admin / admin123
+# 默认管理员: admin / admin
 ```
 
 ### 方式二：本地开发部署 (Local Development)
@@ -98,7 +101,7 @@ DATABASE_URL=postgresql+asyncpg://user:password@localhost/portal_db
 
 # 初始化管理员
 ADMIN_USER=admin
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=admin
 ```
 
 ## 📝 License
