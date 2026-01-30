@@ -21,8 +21,8 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -126,6 +126,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             label: '系统管理',
             icon: <SettingOutlined />,
             children: [
+                {
+                    key: 'security',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '安全设置',
+                },
                 {
                     key: 'settings',
                     icon: <SettingOutlined />,

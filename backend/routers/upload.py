@@ -71,8 +71,8 @@ async def upload_image(
             await storage.delete(stored_path)
             raise db_err
 
-        # 7. Return URL (Presigned for 60 mins)
-        url = storage.get_url(stored_path, expires_in=3600)
+        # 7. Return URL (Stable Public URL for Images)
+        url = storage.get_url(stored_path, is_public=True)
         return {"url": url}
 
     except HTTPException as he:

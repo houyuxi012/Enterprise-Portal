@@ -16,7 +16,7 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+    def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
         """Get accessible URL. expires_in in seconds for presigned."""
         pass
 
@@ -38,7 +38,7 @@ class LocalStorageProvider(StorageProvider):
             shutil.copyfileobj(file_data, buffer)
         return filename
 
-    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+    def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
         # Local static files don't support expiration naturally
         return f"{self.base_url}/{filename}"
 
@@ -54,6 +54,7 @@ class MinioStorageProvider(StorageProvider):
         self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
         self.bucket = os.getenv("MINIO_BUCKET_NAME", "shiku-portal")
         self.secure = os.getenv("MINIO_SECURE", "False").lower() == "true"
+        self.external_endpoint = os.getenv("MINIO_EXTERNAL_ENDPOINT")
         
         # Initialize MinIO Client
         self.client = Minio(
@@ -81,7 +82,14 @@ class MinioStorageProvider(StorageProvider):
         )
         return filename
 
-    def get_url(self, filename: str, expires_in: int = 3600) -> str:
+    def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
+        if is_public:
+            # Return stable public URL (http://endpoint/bucket/filename)
+            # Use external endpoint if available, otherwise internal
+            base_endpoint = self.external_endpoint if self.external_endpoint else self.endpoint
+            protocol = "https" if self.secure else "http"
+            return f"{protocol}://{base_endpoint}/{self.bucket}/{filename}"
+
         # Return Presigned URL
         try:
              url = self.client.get_presigned_url(
@@ -90,6 +98,13 @@ class MinioStorageProvider(StorageProvider):
                  filename,
                  expires=timedelta(seconds=expires_in)
              )
+             
+             if self.external_endpoint:
+                 # Replace internal endpoint with external endpoint in the URL
+                 # internal self.endpoint might be 'minio:9000', url might be 'http://minio:9000/...'
+                 if self.endpoint in url:
+                     url = url.replace(self.endpoint, self.external_endpoint)
+                     
              return url
         except Exception as e:
             logger.error(f"Failed to generate presigned URL: {e}")

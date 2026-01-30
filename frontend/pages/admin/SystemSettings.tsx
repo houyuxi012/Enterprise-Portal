@@ -64,7 +64,7 @@ const SystemSettings: React.FC = () => {
                 >
                     <div>
                         <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
-                            <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
+
                             品牌与显示
                         </h3>
 

@@ -32,6 +32,14 @@ async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_d
     result = await db.execute(select(models.User).filter(models.User.username == user.username))
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Username already registered")
+
+    # Fetch Password Policy
+    config_result = await db.execute(select(models.SystemConfig))
+    configs = {c.key: c.value for c in config_result.scalars().all()}
+    min_length = int(configs.get("security_password_min_length", 8))
+
+    if len(user.password) < min_length:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
         
     pwd_hash = utils.get_password_hash(user.password)
     db_user = models.User(
@@ -127,6 +135,15 @@ async def reset_password(request: schemas.PasswordResetRequest, db: AsyncSession
         
     # Reset password
     new_pwd = request.new_password if request.new_password else "123456"
+    
+    # Fetch Password Policy
+    config_result = await db.execute(select(models.SystemConfig))
+    configs = {c.key: c.value for c in config_result.scalars().all()}
+    min_length = int(configs.get("security_password_min_length", 8))
+
+    if len(new_pwd) < min_length:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
+
     user.hashed_password = utils.get_password_hash(new_pwd)
     
     await db.commit()

@@ -1,6 +1,6 @@
 # ShiKu Home - Next-Gen Enterprise Portal
 
-> 新一代企业级内网门户系统，采用 React 18 + FastAPI + PostgreSQL 构建，提供现代化、高性能、美观的数字化办公体验。
+> 新一代企业级内网门户系统，采用 React 18 + FastAPI + PostgreSQL + MinIO 构建，提供现代化、高性能、美观的数字化办公体验。
 
 ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组织架构、日志审计、即时资讯和 AI 助手的完整企业工作台。
 
@@ -105,4 +105,5 @@ ADMIN_PASSWORD=admin
 ```
 
 ## 📝 License
-MIT License © 2025 侯钰熙
+MIT License © 2025 侯钰熙 
+https://www.houyuxi.com

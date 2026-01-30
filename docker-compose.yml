@@ -60,6 +60,7 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET_NAME: shiku-portal
+      MINIO_EXTERNAL_ENDPOINT: localhost:9000
     depends_on:
       - db
       - redis

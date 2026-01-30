@@ -91,6 +91,8 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
+    failed_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
     name = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
     role = Column(String, default="user") # Deprecated, keeping for migration safety for now
@@ -101,7 +103,7 @@ class SystemConfig(Base):
     __tablename__ = "system_config"
 
     key = Column(String, primary_key=True, index=True)
-    key = Column(String, primary_key=True, index=True)
+
     value = Column(String)
 
 class Department(Base):
