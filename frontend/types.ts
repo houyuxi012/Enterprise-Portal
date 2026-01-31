@@ -190,6 +190,13 @@ export interface DashboardStats {
   new_content_trend: string;
 }
 
+export interface AIModelOption {
+  id: number;
+  name: string;
+  model: string;
+  type: string;
+}
+
 export interface AIProvider {
   id: number;
   name: string;

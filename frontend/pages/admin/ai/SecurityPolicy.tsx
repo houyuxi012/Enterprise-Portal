@@ -54,12 +54,23 @@ const SecurityPolicy: React.FC = () => {
     const handleOk = async () => {
         try {
             const values = await form.validateFields();
-            // Validate JSON
+            // Validate and Auto-fix JSON
             try {
                 JSON.parse(values.content);
             } catch (e) {
-                message.error('Invalid JSON format for rules');
-                return;
+                // Try to auto-fix if user entered comma separated values
+                if (typeof values.content === 'string' && !values.content.trim().startsWith('[')) {
+                    try {
+                        const list = values.content.split(/,|，/).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+                        values.content = JSON.stringify(list);
+                    } catch (err) {
+                        message.error('Invalid Rules format. Must be JSON array or comma-separated list.');
+                        return;
+                    }
+                } else {
+                    message.error('Invalid JSON format for rules. Example: ["rule1", "rule2"]');
+                    return;
+                }
             }
 
             if (editingPolicy) {

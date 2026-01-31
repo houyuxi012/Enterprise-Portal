@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2 } from 'lucide-react';
+import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ApiClient from '../services/api';
+import { AIModelOption } from '../types';
 
 interface AIAssistantProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ const SUGGESTED_PROMPTS = [
   "如何申请年假？",
   "IT 部门的联系方式是什么？",
   "公司最新的差旅报销政策",
-  "怎么预定5号会议室？"
+  "怎么预定会议室？"
 ];
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPrompt }) => {
@@ -35,19 +36,34 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     enabled: true
   });
 
+  // Model Selection
+  const [models, setModels] = useState<AIModelOption[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<number | undefined>(undefined);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch AI Config on mount
+  // Fetch AI Config and Models on mount
   useEffect(() => {
-    const fetchConfig = async () => {
+    const fetchConfigAndModels = async () => {
       try {
-        const config = await ApiClient.getSystemConfig();
+        const [config, modelList] = await Promise.all([
+          ApiClient.getSystemConfig(),
+          ApiClient.getAIModels().catch(() => [])
+        ]);
+
         setAiConfig({
           name: config.ai_name || 'ShiKu Assistant',
           icon: config.ai_icon || '',
-          enabled: config.ai_enabled !== 'false' // Default to true if not set
+          enabled: config.ai_enabled !== 'false'
         });
+
+        setModels(modelList);
+        // Default to first available model if exists
+        if (modelList.length > 0) {
+          setSelectedModelId(modelList[0].id);
+        }
 
         // Update initial welcome message name if needed
         setMessages(prev => {
@@ -61,7 +77,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         console.error("Failed to load AI config", error);
       }
     };
-    fetchConfig();
+    fetchConfigAndModels();
   }, []);
 
   // Auto-scroll to bottom
@@ -92,14 +108,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
 
     try {
-      const response = await ApiClient.chatAI(userMsg);
+      // Pass selectedModelId to API
+      const response = await ApiClient.chatAI(userMsg, selectedModelId);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'ai', text: "抱歉，暂时无法连接到智能服务。请稍后再试。" }]);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, selectedModelId]); // Depend on selectedModelId
 
   // Handle deep-linked prompt
   useEffect(() => {
@@ -114,6 +131,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
 
   // If AI is disabled globally, do not render anything
   if (!aiConfig.enabled) return null;
+
+  const selectedModelName = models.find(m => m.id === selectedModelId)?.name || aiConfig.name;
 
   return (
     <>
@@ -140,7 +159,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
             }`}
         >
           {/* Header */}
-          <div className="px-5 py-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-b border-white/20 dark:border-white/5 flex justify-between items-center shrink-0">
+          <div className="relative z-10 px-5 py-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-b border-white/20 dark:border-white/5 flex justify-between items-center shrink-0">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden">
                 {aiConfig.icon ? (
@@ -151,7 +170,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
               </div>
               <div>
                 <h3 className="font-black text-sm text-slate-800 dark:text-white tracking-tight">{aiConfig.name}</h3>
-                <div className="flex items-center space-x-1.5">
+                <div className="flex items-center space-x-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Online</span>
                 </div>
@@ -171,7 +190,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
           </div>
 
           {/* Chat Area */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6 scroll-smooth bg-gradient-to-b from-transparent to-white/30 dark:to-black/30">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6 scroll-smooth bg-gradient-to-b from-transparent to-white/30 dark:to-black/30" onClick={() => setShowModelSelector(false)}>
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className={`flex max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'} gap-3`}>
@@ -221,6 +240,41 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
 
           {/* Input Area */}
           <div className="p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-white/20 dark:border-white/5 shrink-0">
+            {/* Model Selector Pill */}
+            {models.length > 0 && (
+              <div className="relative mb-2">
+                <button
+                  onClick={() => setShowModelSelector(!showModelSelector)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-white hover:border-slate-300 dark:hover:bg-slate-700 transition-all group"
+                >
+                  <span className="max-w-[100px] truncate">{selectedModelName}</span>
+                  <ChevronDown size={12} className={`text-slate-400 group-hover:text-blue-500 transition-transform duration-300 ${showModelSelector ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showModelSelector && (
+                  <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl ring-1 ring-slate-100 dark:ring-slate-700 py-1 w-48 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-700/50 mb-1">Select Model</div>
+                    {models.map(model => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModelId(model.id);
+                          setShowModelSelector(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between transition-colors ${selectedModelId === model.id
+                          ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/10'
+                          : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                      >
+                        <span className="truncate pr-2">{model.name}</span>
+                        {selectedModelId === model.id && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative flex items-center">
               <input
                 ref={inputRef}
@@ -228,7 +282,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
-                placeholder={`Ask ${aiConfig.name}...`}
+                placeholder={`Ask ${selectedModelName}...`}
                 disabled={isLoading}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-14 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-inner dark:text-white transition-all placeholder:text-slate-400"
               />

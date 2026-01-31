@@ -136,7 +136,7 @@ async def init_db():
             print("Creating testing Gemini model...")
             api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")
             gemini_provider = AIProvider(
-                name="Google Gemini",
+                name="Google Gemini 2.0 flash",
                 type="gemini",
                 base_url="https://generativelanguage.googleapis.com/v1beta/models", # Standard Endpoint
                 api_key=api_key,

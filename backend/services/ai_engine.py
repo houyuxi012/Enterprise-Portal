@@ -68,7 +68,7 @@ class AIEngine:
 
         return check_result
 
-    async def chat(self, prompt: str, context: str = "") -> str:
+    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None) -> str:
         # 1. Input Security Check
         in_check = await self.check_security_policies(prompt)
         if not in_check["allowed"]:
@@ -78,7 +78,10 @@ class AIEngine:
         safe_prompt = in_check["masked_text"]
 
         # 2. Get Provider
-        provider = await self.get_active_provider()
+        if model_id:
+             provider = await self.db.get(models.AIProvider, model_id)
+        else:
+             provider = await self.get_active_provider()
         
         full_prompt = prompt
         if context:

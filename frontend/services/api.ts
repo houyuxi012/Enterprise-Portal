@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy } from '../types';
+import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy, AIModelOption } from '../types';
 import AuthService from './auth';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
@@ -162,9 +162,14 @@ export const ApiClient = {
     return response.data;
   },
 
-  chatAI: async (prompt: string): Promise<string> => {
-    const response = await api.post<{ response: string }>('/ai/chat', { prompt });
+  chatAI: async (prompt: string, modelId?: number): Promise<string> => {
+    const response = await api.post<{ response: string }>('/ai/chat', { prompt, model_id: modelId });
     return response.data.response;
+  },
+
+  getAIModels: async (): Promise<AIModelOption[]> => {
+    const response = await api.get<AIModelOption[]>('/ai/models');
+    return response.data;
   },
 
   // Admin - Users

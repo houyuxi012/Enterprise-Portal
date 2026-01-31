@@ -158,6 +158,13 @@ class User(UserBase):
 class AIChatRequest(BaseModel):
     prompt: str
     history: Optional[List[dict]] = None
+    model_id: Optional[int] = None
+
+class AIModelOption(BaseModel):
+    id: int
+    name: str
+    model: str
+    type: str
 
 class AIChatResponse(BaseModel):
     response: str

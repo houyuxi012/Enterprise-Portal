@@ -223,7 +223,7 @@ const ModelConfig: React.FC = () => {
                         <Input placeholder="https://api.deepseek.com/v1" className="h-10 rounded-lg" />
                     </Form.Item>
 
-                    <Form.Item name="is_active" label="设为默认模型" valuePropName="checked">
+                    <Form.Item name="is_active" label="启用" valuePropName="checked">
                         <Switch />
                     </Form.Item>
                 </Form>

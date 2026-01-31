@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
-from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest
+from typing import List
+from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest, AIModelOption
 from database import get_db
 from models import Employee, NewsItem, QuickTool, AIProvider
 from services.ai_engine import AIEngine
@@ -11,6 +12,19 @@ router = APIRouter(
     prefix="/ai",
     tags=["ai"]
 )
+
+@router.get("/models", response_model=List[AIModelOption])
+async def get_models(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(AIProvider).where(AIProvider.is_active == True))
+    providers = result.scalars().all()
+    return [
+        AIModelOption(
+            id=p.id,
+            name=p.name,
+            model=p.model,
+            type=p.type
+        ) for p in providers
+    ]
 
 @router.post("/admin/providers/test")
 async def test_provider(request: AIProviderTestRequest, db: AsyncSession = Depends(get_db)):
@@ -94,7 +108,7 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
         context = "\n\n".join(context_parts)
         
         # 3. Get AI Response via Engine
-        response_text = await engine.chat(request.prompt, context)
+        response_text = await engine.chat(request.prompt, context, model_id=request.model_id)
         
         return AIChatResponse(response=response_text)
         

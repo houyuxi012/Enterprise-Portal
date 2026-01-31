@@ -68,15 +68,9 @@ async def create_provider(
     await db.commit()
     await db.refresh(db_provider)
     
-    # Logic to ensure single active provder
-    if provider.is_active:
-        # Set all other providers to inactive
-        stmt = select(models.AIProvider).where(models.AIProvider.id != db_provider.id)
-        others_result = await db.execute(stmt)
-        others = others_result.scalars().all()
-        for o in others:
-            o.is_active = False
-        await db.commit()
+    # Logic to ensure single active provider REMOVED
+    # Allow multiple active providers.
+    pass
 
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
@@ -138,13 +132,8 @@ async def update_provider(
     if provider.is_active is not None:
          db_provider.is_active = provider.is_active
          
-         # Enforce single active
-         if provider.is_active:
-             stmt = select(models.AIProvider).where(models.AIProvider.id != id)
-             others_result = await db.execute(stmt)
-             others = others_result.scalars().all()
-             for o in others:
-                 o.is_active = False
+         # Enforce single active REMOVED
+         pass
                  
     await db.commit()
     await db.refresh(db_provider)
@@ -223,6 +212,21 @@ async def create_policy(
     db.add(db_policy)
     await db.commit()
     await db.refresh(db_policy)
+
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="CREATE_AI_POLICY", 
+        target=f"AI策略:{db_policy.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+
     return db_policy
 
 @router.put("/policies/{id}", response_model=schemas.AISecurityPolicy)
@@ -243,6 +247,21 @@ async def update_policy(
             
     await db.commit()
     await db.refresh(db_policy)
+
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="UPDATE_AI_POLICY", 
+        target=f"AI策略:{db_policy.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+
     return db_policy
 
 @router.delete("/policies/{id}")
