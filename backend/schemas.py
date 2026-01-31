@@ -209,6 +209,7 @@ class LogForwardingConfigBase(BaseModel):
     port: Optional[int] = None
     secret_token: Optional[str] = None
     enabled: bool = False
+    log_types: Optional[List[str]] = ["BUSINESS", "SYSTEM", "ACCESS"]  # 要外发的日志类型
 
 class LogForwardingConfigCreate(LogForwardingConfigBase):
     pass

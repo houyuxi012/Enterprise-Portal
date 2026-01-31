@@ -162,6 +162,8 @@ class LogForwardingConfig(Base):
     port = Column(Integer, nullable=True)
     secret_token = Column(String, nullable=True)
     enabled = Column(Boolean, default=False)
+    # 要外发的日志类型 (JSON array): ["BUSINESS", "SYSTEM", "ACCESS", "AI", "LOGIN"]
+    log_types = Column(String, nullable=True, default='["BUSINESS","SYSTEM","ACCESS"]')
 
 class CarouselItem(Base):
     __tablename__ = "carousel_items"

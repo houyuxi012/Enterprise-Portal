@@ -1,9 +1,18 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, message, Badge, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ApiOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Switch, message, Tooltip, Tag } from 'antd';
+import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { LogForwardingConfig } from '../../types';
+
+// 可选的日志类型
+const LOG_TYPE_OPTIONS = [
+    { value: 'BUSINESS', label: '业务审计', color: 'blue' },
+    { value: 'SYSTEM', label: '系统日志', color: 'default' },
+    { value: 'ACCESS', label: '访问日志', color: 'green' },
+    { value: 'AI', label: 'AI 审计', color: 'purple' },
+    { value: 'LOGIN', label: '登录审计', color: 'orange' },
+];
 
 const LogForwarding: React.FC = () => {
     const [configs, setConfigs] = useState<LogForwardingConfig[]>([]);
@@ -14,7 +23,12 @@ const LogForwarding: React.FC = () => {
         setLoading(true);
         try {
             const data = await ApiClient.getLogForwardingConfig();
-            setConfigs(data);
+            // Parse log_types if it's a string
+            const parsed = data.map((c: any) => ({
+                ...c,
+                log_types: typeof c.log_types === 'string' ? JSON.parse(c.log_types) : (c.log_types || ['BUSINESS', 'SYSTEM', 'ACCESS'])
+            }));
+            setConfigs(parsed);
         } catch (error) {
             console.error(error);
         } finally {
@@ -28,7 +42,12 @@ const LogForwarding: React.FC = () => {
 
     const handleCreate = async (values: any) => {
         try {
-            await ApiClient.saveLogForwardingConfig(values);
+            // Ensure log_types is sent as JSON string for backend
+            const payload = {
+                ...values,
+                log_types: values.log_types || ['BUSINESS', 'SYSTEM', 'ACCESS']
+            };
+            await ApiClient.saveLogForwardingConfig(payload);
             message.success('配置已保存');
             setIsModalOpen(false);
             form.resetFields();
@@ -48,8 +67,6 @@ const LogForwarding: React.FC = () => {
         }
     };
 
-
-
     // Helper for tag since I didn't import Tag above
     const CustomTag = ({ color, children }: any) => (
         <span className={`px-2 py-1 rounded-lg text-xs font-bold ${color === 'geekblue' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
@@ -59,27 +76,43 @@ const LogForwarding: React.FC = () => {
 
     const columns = [
         {
-            title: '类型',
+            title: '协议类型',
             dataIndex: 'type',
             key: 'type',
+            width: 120,
             render: (text: string) => <CustomTag color="geekblue">{text}</CustomTag>
         },
         {
-            title: '目标地址 (Endpoint)',
+            title: '外发日志类型',
+            dataIndex: 'log_types',
+            key: 'log_types',
+            render: (types: string[]) => (
+                <div className="flex flex-wrap gap-1">
+                    {(types || []).map((t: string) => {
+                        const opt = LOG_TYPE_OPTIONS.find(o => o.value === t);
+                        return <Tag key={t} color={opt?.color || 'default'}>{opt?.label || t}</Tag>;
+                    })}
+                </div>
+            )
+        },
+        {
+            title: '目标地址',
             dataIndex: 'endpoint',
             key: 'endpoint',
-            render: (text: string) => <span className="font-mono text-slate-600 dark:text-slate-300 font-medium">{text}</span>
+            render: (text: string) => <span className="font-mono text-slate-600 dark:text-slate-300 font-medium text-sm">{text}</span>
         },
         {
             title: '端口',
             dataIndex: 'port',
             key: 'port',
+            width: 80,
             render: (port: number) => <span className="font-mono text-slate-500">{port || '-'}</span>
         },
         {
             title: '状态',
             dataIndex: 'enabled',
             key: 'enabled',
+            width: 100,
             render: (enabled: boolean) => (
                 <span className={`flex items-center text-xs font-bold ${enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <span className={`w-2 h-2 rounded-full mr-2 ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
@@ -90,6 +123,7 @@ const LogForwarding: React.FC = () => {
         {
             title: '操作',
             key: 'action',
+            width: 80,
             render: (_: any, record: LogForwardingConfig) => (
                 <Button
                     type="text"
@@ -109,8 +143,8 @@ const LogForwarding: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发与存储</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">配置日志存储策略及第三方转发</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">配置日志转发至第三方 SIEM / 日志平台</p>
                 </div>
                 <Button
                     type="primary"
@@ -147,13 +181,28 @@ const LogForwarding: React.FC = () => {
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 footer={null}
+                width={520}
             >
                 <Form
                     form={form}
                     layout="vertical"
                     onFinish={handleCreate}
-                    initialValues={{ type: 'SYSLOG', enabled: true }}
+                    initialValues={{ type: 'SYSLOG', enabled: true, log_types: ['BUSINESS', 'SYSTEM', 'ACCESS'] }}
                 >
+                    <Form.Item
+                        name="log_types"
+                        label="外发日志类型"
+                        rules={[{ required: true, message: '请选择至少一种日志类型' }]}
+                        extra="选择要转发到该目标的日志类型"
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="选择日志类型"
+                            options={LOG_TYPE_OPTIONS}
+                            className="w-full"
+                        />
+                    </Form.Item>
+
                     <Form.Item name="type" label="协议类型" rules={[{ required: true }]}>
                         <Select>
                             <Select.Option value="SYSLOG">Syslog (UDP/TCP)</Select.Option>
