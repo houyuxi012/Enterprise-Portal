@@ -133,11 +133,15 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=Grafana@houyuxi
       - GF_USERS_ALLOW_SIGN_UP=false
+      # 自动安装 Redis 数据源插件
+      - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
+      - redis
+      - db
 
 volumes:
   postgres_data:

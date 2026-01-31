@@ -1,9 +1,10 @@
-# Grafana Loki Data Source Provisioning
-# Auto-configures Loki as a data source on Grafana startup
+# Grafana Data Sources Provisioning
+# Auto-configures data sources on Grafana startup
 
 apiVersion: 1
 
 datasources:
+  # Loki - 日志数据源
   - name: Loki
     type: loki
     uid: loki
@@ -13,3 +14,36 @@ datasources:
     editable: false
     jsonData:
       maxLines: 1000
+
+  # Redis - 缓存数据源 (需要安装 redis-datasource 插件)
+  - name: Redis
+    type: redis-datasource
+    uid: redis
+    access: proxy
+    url: redis://redis:6379
+    editable: false
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 10
+      pingInterval: 0
+      pipelineWindow: 0
+
+  # PostgreSQL - 数据库数据源 (Grafana 内置支持)
+  - name: PostgreSQL
+    type: postgres
+    uid: postgres
+    access: proxy
+    url: db:5432
+    user: user
+    editable: false
+    secureJsonData:
+      password: password
+    jsonData:
+      database: portal_db
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400
+      postgresVersion: 1700
+      timescaledb: false
