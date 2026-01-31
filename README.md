@@ -10,7 +10,7 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 - **现代化仪表盘**: 极简设计，提供公告轮播、快捷应用网格、最新动态聚合。
 - **应用中心 (App Center)**: 统一管理企业内部工具，支持分类、搜索与一键直达。
 - **团队通讯录**: 可视化组织架构树，快速查找同事联系方式。
-- **AI 智能助手**: 集成 Google Gemini 模型，提供企业级智能问答支持。
+- **AI 智能助手**: 集成 Google Gemini 模型，支持**多模态图片上传分析**与智能问答支持。
 
 ### 🛡️ 管理后台 (Admin Portal)
 - **Premium Dashboard**: 全新设计的玻璃拟态仪表盘，实时监控 CPU/内存/网络资源与业务数据趋势。
@@ -24,7 +24,7 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
     - **生产级安全**: 文件类型魔数校验、5MB 大小限制、病毒扫描预留。
 - **资讯内容管理**: Premium 风格的新闻、公告、轮播图管理界面。
 - **企业个性化 (Branding)**: 支持自定义 Logo、系统名称、版权信息与浏览器标题设置。
-- **AI 管理**: 支持多 AI 服务商配置、API Key 加密存储、安全策略管理。
+- **AI 管理**: 支持多 AI 服务商配置、API Key 加密存储、安全策略管理、**搜索栏 AI 开关与默认模型配置**。
 
 ## 🛠️ 技术栈 (Tech Stack)
 
@@ -106,31 +106,6 @@ npm run dev
 前端开发服务器运行在 `http://localhost:3000`，自动代理 `/api` 请求到后端。
 
 ## ⚙️ 环境变量配置 (Configuration)
-
-### docker-compose.yml 关键配置
-
-```yaml
-# Backend 服务
-backend:
-  environment:
-    DATABASE_URL: postgresql+asyncpg://user:password@db:5432/portal_db
-    REDIS_URL: redis://redis:6379
-    SECRET_KEY: "your-super-secret-key"
-    CORS_ORIGINS: "http://localhost:3000,https://localhost,https://127.0.0.1"
-    COOKIE_SECURE: "True"
-    GEMINI_API_KEY: ${GEMINI_API_KEY}  # 可选，用于 AI 功能
-    STORAGE_TYPE: minio
-    MINIO_ENDPOINT: minio:9000
-    MINIO_ACCESS_KEY: minioadmin
-    MINIO_SECRET_KEY: minioadmin@houyuxi
-
-# Frontend 服务 (构建时注入)
-frontend:
-  build:
-    context: ./frontend
-    args:
-      VITE_API_BASE_URL: /api  # 重要：必须为 /api
-```
 
 ### 本地开发环境
 
