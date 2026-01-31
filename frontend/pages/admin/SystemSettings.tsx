@@ -74,7 +74,7 @@ const SystemSettings: React.FC = () => {
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300">站点名称</span>}
                                 help="显示在导航栏左侧的名称"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="ShiKu Home" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="Next-Gen Enterprise Portal" />
                             </Form.Item>
 
                             <Form.Item
@@ -82,7 +82,7 @@ const SystemSettings: React.FC = () => {
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300">浏览器标题</span>}
                                 help="浏览器标签页上显示的完整标题"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="ShiKu Home | Next-Gen Enterprise Portal" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="Next-Gen Enterprise Portal ｜ By HouYuXi" />
                             </Form.Item>
                         </div>
 
@@ -155,7 +155,7 @@ const SystemSettings: React.FC = () => {
                             label={<span className="font-bold text-slate-600 dark:text-slate-300">底部版权文字</span>}
                             className="mt-4"
                         >
-                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="© 2025 Company. All Rights Reserved." />
+                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="© 2025 侯钰熙. All Rights Reserved." />
                         </Form.Item>
                     </div>
                 </Form>

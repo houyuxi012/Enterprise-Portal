@@ -40,9 +40,11 @@ import OrganizationList from './pages/admin/OrganizationList';
 
 import SystemLogs from './pages/admin/SystemLogs';
 import BusinessLogs from './pages/admin/BusinessLogs';
+import AccessLogs from './pages/admin/logs/AccessLogs';
 import AboutUs from './pages/admin/AboutUs';
 import LogForwarding from './pages/admin/LogForwarding';
 import LogStorage from './pages/admin/LogStorage';
+import AIAudit from './pages/admin/logs/AIAudit';
 import ApplicationLogs from './pages/admin/ApplicationLogs';
 import ModelConfig from './pages/admin/ai/ModelConfig';
 import SecurityPolicy from './pages/admin/ai/SecurityPolicy';
@@ -81,7 +83,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -662,6 +664,8 @@ const App: React.FC = () => {
         {activeAdminTab === 'security' && <SecuritySettings />}
         {activeAdminTab === 'org' && <OrganizationList />}
         {activeAdminTab === 'business_logs' && <BusinessLogs />}
+        {activeAdminTab === 'access_logs' && <AccessLogs />}
+        {activeAdminTab === 'ai_audit' && <AIAudit />}
         {activeAdminTab === 'log_forwarding' && <LogForwarding />}
         {activeAdminTab === 'log_storage' && <LogStorage />}
         {activeAdminTab === 'ai_models' && <ModelConfig />}

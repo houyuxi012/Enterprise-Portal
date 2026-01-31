@@ -29,6 +29,20 @@ async def startup():
     import asyncio
     asyncio.create_task(run_log_cleanup_scheduler(database.SessionLocal))
 
+    # --- Initialize LogSink (Loki Sidecar) ---
+    from services.log_sink import init_log_sink
+    loki_url = os.getenv("LOKI_PUSH_URL")  # e.g., http://loki:3100
+    # DbSink is handled within AuditService, so we pass an async no-op here.
+    # The actual DB write is still managed by AuditService directly.
+    async def noop_db_write(entry): return True
+    init_log_sink(db_write_func=noop_db_write, loki_url=loki_url)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    from services.log_sink import shutdown_log_sink
+    await shutdown_log_sink()
+
 # Mount uploads directory (REMOVED: Moved to authenticated endpoint)
 # os.makedirs("uploads", exist_ok=True)
 # app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -47,6 +61,14 @@ app.add_middleware(
 # Logging Middleware
 from middleware.logging import SystemLoggingMiddleware
 app.add_middleware(SystemLoggingMiddleware)
+
+# Trace Context Middleware (X-Request-ID propagation)
+from middleware.trace_context import TraceContextMiddleware
+app.add_middleware(TraceContextMiddleware)
+
+# Access Logging Middleware (HTTP logs to Loki only)
+from middleware.access_logging import AccessLoggingMiddleware
+app.add_middleware(AccessLoggingMiddleware)
 
 @app.get("/")
 def read_root():

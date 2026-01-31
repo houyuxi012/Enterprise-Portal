@@ -184,7 +184,7 @@ const Navbar: React.FC<NavbarProps> = ({
               <img src="/images/logo.png" className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" />
             )}
             <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">
-              {systemConfig?.app_name || 'ShiKu Home'}
+              {systemConfig?.app_name || 'Next-Gen Enterprise Portal'}
             </span>
           </div>
 

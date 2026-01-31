@@ -70,12 +70,16 @@ class AuditService:
     ):
         """
         Log generic business action (e.g. CREATE_NEWS, UPDATE_USER).
-        Uses BusinessLog model.
+        Uses BusinessLog model + sidecar LogSink.
         """
         try:
-             # If trace_id not provided, generate one
+            # If trace_id not provided, try to get from context or generate one
             if not trace_id:
-                trace_id = str(uuid.uuid4())
+                try:
+                    from middleware.trace_context import get_trace_id
+                    trace_id = get_trace_id() or str(uuid.uuid4())
+                except ImportError:
+                    trace_id = str(uuid.uuid4())
                 
             from models import BusinessLog
             
@@ -91,13 +95,32 @@ class AuditService:
             )
             
             db.add(log_entry)
-            # We assume the caller handles commit if part of a larger transaction, 
-            # BUT for audit logs, we often want them to persist even if the transaction fails (if possible).
-            # However, sharing the session determines the transaction scope.
-            # If we want independent logging, we'd need a separate session.
-            # For simplicity and consistency with current architecture, we'll try to flush/add to current session.
-            # If the operation fails, we might want to log failure status.
-            # Usually caller calls this AFTER success or catch block.
+            # Caller handles commit
+            
+            # --- Sidecar LogSink (Loki) ---
+            try:
+                from services.log_sink import get_log_sink, LogEntry
+                sink = get_log_sink()
+                if sink:
+                    loki_entry = LogEntry(
+                        trace_id=trace_id,
+                        timestamp=datetime.utcnow().isoformat() + "Z",
+                        level="INFO",
+                        log_type="BUSINESS",
+                        action=action,
+                        status=status,
+                        user_id=user_id,
+                        username=username,
+                        target=target,
+                        ip_address=ip_address,
+                        detail=detail
+                    )
+                    # Fire-and-forget to sidecar (non-blocking)
+                    import asyncio
+                    asyncio.create_task(sink.emit(loki_entry))
+            except Exception as e:
+                logger.warning(f"LogSink emit failed (non-blocking): {e}")
             
         except Exception as e:
             logger.error(f"Failed to log business action: {e}")
+

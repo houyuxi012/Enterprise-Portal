@@ -63,7 +63,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-500/50"
                             alt="Logo"
                         />
-                        <span className="text-white font-bold text-xl tracking-wide">{systemConfig.app_name || 'ShiKu Home'}</span>
+                        <span className="text-white font-bold text-xl tracking-wide">{systemConfig.app_name || 'Next-Gen Enterprise Portal'}</span>
                     </div>
 
                     <h1 className="text-5xl font-black text-white leading-tight tracking-tight mb-8">

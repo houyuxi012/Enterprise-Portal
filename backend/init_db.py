@@ -145,10 +145,44 @@ async def init_db():
                 created_at=datetime.utcnow()
             )
             db.add(gemini_provider)
+
+        # Seed Google Gemini 3.0 Flash Provider
+        result_ai_3 = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini 3.0 flash"))
+        if not result_ai_3.scalars().first():
+            print("Creating testing Gemini 3.0 model...")
+            api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")
+            gemini_provider_3 = AIProvider(
+                name="Google Gemini 3.0 flash",
+                type="gemini",
+                base_url="https://generativelanguage.googleapis.com/v1beta/models", 
+                api_key=api_key,
+                model="gemini-3.0-flash", # Assuming this model ID for now
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            db.add(gemini_provider_3)
+            
+
+
+        # Seed Default System Config
+        from models import SystemConfig
+        result_config = await db.execute(select(SystemConfig).where(SystemConfig.key == "app_name"))
+        if not result_config.scalars().first():
+            print("Seeding default system config...")
+            base_configs = [
+                {"key": "app_name", "value": "Next-Gen Enterprise Portal"},
+                {"key": "footer_text", "value": "© 2026 Next-Gen Enterprise Portal. All Rights Reserved."},
+                {"key": "search_ai_enabled", "value": "true"}
+            ]
+            for conf in base_configs:
+                # Check exist again just in case
+                exists = await db.execute(select(SystemConfig).where(SystemConfig.key == conf["key"]))
+                if not exists.scalars().first():
+                    db.add(SystemConfig(**conf))
             
         await db.commit()
         print("Done!")
-        print("Done!")
+
 
 if __name__ == "__main__":
     asyncio.run(init_db())

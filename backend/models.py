@@ -150,6 +150,7 @@ class BusinessLog(Base):
     status = Column(String) # SUCCESS, FAIL
     detail = Column(Text, nullable=True)
     trace_id = Column(String, index=True, nullable=True)
+    source = Column(String, default="WEB", nullable=True)  # 日志来源: WEB, API, SYSTEM, LOKI
     timestamp = Column(String)
 
 class LogForwardingConfig(Base):

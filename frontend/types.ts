@@ -147,6 +147,7 @@ export interface BusinessLog {
   ip_address?: string;
   status: 'SUCCESS' | 'FAIL';
   detail?: string;
+  source?: string;  // 日志来源: WEB, API, SYSTEM, LOKI
   timestamp: string;
 }
 

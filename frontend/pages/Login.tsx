@@ -14,7 +14,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || 'ShiKu Home');
+    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || 'Next-Gen Enterprise Portal');
     const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
     const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || '© 2025 侯钰熙. All Rights Reserved.');
 

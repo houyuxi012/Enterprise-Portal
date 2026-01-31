@@ -1,13 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Input, Select, Card, Button } from 'antd';
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Tag, Input, Select, Card, Button, Segmented } from 'antd';
+import { SearchOutlined, ReloadOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { BusinessLog } from '../../types';
 
 const BusinessLogs: React.FC = () => {
     const [logs, setLogs] = useState<BusinessLog[]>([]);
     const [loading, setLoading] = useState(false);
+    const [logSource, setLogSource] = useState<string>('db');
     const [filterOperator, setFilterOperator] = useState<string>('');
     const [filterAction, setFilterAction] = useState<string>('');
 
@@ -16,7 +17,8 @@ const BusinessLogs: React.FC = () => {
         try {
             const data = await ApiClient.getBusinessLogs({
                 operator: filterOperator || undefined,
-                action: filterAction || undefined
+                action: filterAction || undefined,
+                source: logSource
             });
             setLogs(data);
         } catch (error) {
@@ -85,8 +87,12 @@ const BusinessLogs: React.FC = () => {
             title: '时间',
             dataIndex: 'timestamp',
             key: 'timestamp',
-            width: 180,
-            render: (text: string) => <span className="font-mono text-slate-500 font-medium">{text}</span>
+            width: 160,
+            render: (text: string) => {
+                // Format to YYYY-MM-DD HH:mm:ss
+                const formatted = text ? text.replace('T', ' ').substring(0, 19) : text;
+                return <span className="font-mono text-xs text-slate-500">{formatted}</span>;
+            }
         },
         {
             title: '操作人',
@@ -127,6 +133,17 @@ const BusinessLogs: React.FC = () => {
                 </Tag>
             )
         },
+        {
+            title: '来源',
+            dataIndex: 'source',
+            key: 'source',
+            width: 80,
+            render: (source: string) => (
+                <Tag color="purple" className="rounded-lg font-semibold border-0 bg-purple-50 text-purple-600 px-2">
+                    {source || 'WEB'}
+                </Tag>
+            )
+        },
     ];
 
     return (
@@ -147,28 +164,40 @@ const BusinessLogs: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <div className="mb-6 flex gap-4 bg-slate-50 dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-700 w-fit">
-                    <Input
-                        placeholder="搜索操作人"
-                        bordered={false}
-                        style={{ width: 200 }}
-                        value={filterOperator}
-                        onChange={e => setFilterOperator(e.target.value)}
-                        onPressEnter={fetchLogs}
-                        prefix={<SearchOutlined className="text-slate-400" />}
-                        className="bg-transparent font-medium"
+                <div className="mb-6 flex items-center gap-4">
+                    <div className="flex gap-3 bg-slate-50 dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-700">
+                        <Input
+                            placeholder="搜索操作人"
+                            bordered={false}
+                            style={{ width: 140 }}
+                            value={filterOperator}
+                            onChange={e => setFilterOperator(e.target.value)}
+                            onPressEnter={fetchLogs}
+                            prefix={<SearchOutlined className="text-slate-400" />}
+                            className="bg-transparent font-medium"
+                        />
+                        <div className="w-px bg-slate-200 dark:bg-slate-700 my-1"></div>
+                        <Input
+                            placeholder="搜索动作"
+                            bordered={false}
+                            style={{ width: 120 }}
+                            value={filterAction}
+                            onChange={e => setFilterAction(e.target.value)}
+                            onPressEnter={fetchLogs}
+                            className="bg-transparent font-medium"
+                        />
+                        <Button type="primary" onClick={fetchLogs} className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20">查询</Button>
+                    </div>
+                    <Segmented
+                        value={logSource}
+                        onChange={(v) => { setLogSource(v as string); }}
+                        options={[
+                            { label: <span className="flex items-center gap-1"><DatabaseOutlined />数据库</span>, value: 'db' },
+                            { label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span>, value: 'loki' },
+                            { label: '全部', value: 'all' },
+                        ]}
+                        className="font-bold"
                     />
-                    <div className="w-px bg-slate-200 dark:bg-slate-700 my-1"></div>
-                    <Input
-                        placeholder="搜索动作 (如 CREATE_USER)"
-                        bordered={false}
-                        style={{ width: 240 }}
-                        value={filterAction}
-                        onChange={e => setFilterAction(e.target.value)}
-                        onPressEnter={fetchLogs}
-                        className="bg-transparent font-medium"
-                    />
-                    <Button type="primary" onClick={fetchLogs} className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20">查询</Button>
                 </div>
                 <Table
                     dataSource={logs}

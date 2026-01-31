@@ -287,8 +287,13 @@ export const ApiClient = {
     return response.data;
   },
 
-  getBusinessLogs: async (params?: { operator?: string; action?: string; limit?: number; offset?: number }): Promise<any[]> => {
+  getBusinessLogs: async (params?: { operator?: string; action?: string; source?: string; limit?: number; offset?: number }): Promise<any[]> => {
     const response = await api.get('/logs/business', { params });
+    return response.data;
+  },
+
+  getAccessLogs: async (params?: { path?: string; status_code?: number; limit?: number }): Promise<any[]> => {
+    const response = await api.get('/logs/access', { params });
     return response.data;
   },
 
