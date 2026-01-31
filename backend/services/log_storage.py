@@ -10,6 +10,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 日志类型保留周期配置 (config_key, default_days, model_class)
+LOG_RETENTION_CONFIG = {
+    "system": ("log_retention_system_days", 7, models.SystemLog),
+    "business": ("log_retention_business_days", 30, models.BusinessLog),
+    "login": ("log_retention_login_days", 90, models.LoginAuditLog),
+}
+
 async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
     result = await db.execute(select(models.SystemConfig).filter(models.SystemConfig.key == key))
     config = result.scalars().first()
@@ -17,71 +24,62 @@ async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
 
 async def cleanup_logs(db_session_factory):
     """
-    Background task to clean up old logs based on retention policy and disk usage.
+    Background task to clean up old logs based on per-type retention policy and disk usage.
     """
     logger.info("Starting log cleanup task...")
     
     async with db_session_factory() as db:
         try:
-            # 1. Fetch Configuration
-            retention_days_str = await get_config_value(db, "log_retention_days", "30") # Default 30 days
-            max_disk_usage_str = await get_config_value(db, "log_max_disk_usage", "80") # Default 80%
-
+            # 1. Fetch disk usage config
+            max_disk_usage_str = await get_config_value(db, "log_max_disk_usage", "80")
             try:
-                retention_days = int(retention_days_str)
                 max_disk_usage_percent = float(max_disk_usage_str)
             except ValueError:
-                logger.error("Invalid configuration for log retention. Using defaults.")
-                retention_days = 30
                 max_disk_usage_percent = 80.0
 
-            # 2. Cleanup by Time (Retention Days)
-            if retention_days > 0:
-                cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
-                cutoff_str = cutoff_date.isoformat() # Assuming ISO string timestamp
+            # 2. Per-type cleanup based on retention policy
+            for log_type, (config_key, default_days, model_class) in LOG_RETENTION_CONFIG.items():
+                retention_days_str = await get_config_value(db, config_key, str(default_days))
+                try:
+                    retention_days = int(retention_days_str)
+                except ValueError:
+                    logger.error(f"Invalid retention config for {log_type}. Using default {default_days}.")
+                    retention_days = default_days
                 
-                # Delete System Logs
-                await db.execute(delete(models.SystemLog).where(models.SystemLog.timestamp < cutoff_str))
-                
-                # Delete Business Logs
-                await db.execute(delete(models.BusinessLog).where(models.BusinessLog.timestamp < cutoff_str))
-                
-                await db.commit()
-                logger.info(f"Cleaned up logs older than {retention_days} days.")
+                if retention_days > 0:
+                    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
+                    cutoff_str = cutoff_date.isoformat()
+                    
+                    # LoginAuditLog uses 'login_time' instead of 'timestamp'
+                    if model_class == models.LoginAuditLog:
+                        await db.execute(delete(model_class).where(model_class.login_time < cutoff_str))
+                    else:
+                        await db.execute(delete(model_class).where(model_class.timestamp < cutoff_str))
+                    
+                    logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
+            
+            await db.commit()
 
-            # 3. Cleanup by Disk Usage
+            # 3. Cleanup by Disk Usage (Emergency mode)
             disk_usage = psutil.disk_usage('/')
             current_usage_percent = disk_usage.percent
 
             if current_usage_percent > max_disk_usage_percent:
-                logger.warning(f"Disk usage {current_usage_percent}% exceeds limit {max_disk_usage_percent}%. Cleaning up oldest logs.")
+                logger.warning(f"Disk usage {current_usage_percent}% exceeds limit {max_disk_usage_percent}%. Triggering emergency cleanup.")
                 
-                # Logic: Delete oldest logs day by day until usage is safe or safety limit reached
-                # For simplicity in this iteration: Delete additional 1 day of logs per run if full
-                # A more aggressive approach might be needed for rapid filling
-                
-                # Just trimming oldest 1000 logs as a safeguard for now to avoid freezing DB
-                # or finding the oldest timestamp?
-                 
-                # Let's delete logs older than retention_days - 1 recursively? 
-                # Be simple: If disk full, aggressively reduce retention policy temporarily for this run?
-                # Practical Approach: Delete logs older than (Today - 1 Day) until space freed? NO that wipes everything.
-                
-                # Strategy: If disk full, delete oldest 10% of logs?
-                # Simpler: Delete all logs created before Today if disk is effectively full?
-                pass 
-                # Implementation Note: Deleting specifically to free space is complex with SQL. 
-                # We will stick to Time-based for MVP reliability, or maybe reduce retention by 1 day and loop?
-                
-                # BETTER STRATEGY MVP: If disk > limit, enforce a hard 7-day clamp, then 3-day.
+                # Emergency: Enforce 7-day retention for all log types
                 emergency_retention = 7
-                if retention_days > emergency_retention:
-                     cutoff_date = datetime.datetime.now() - datetime.timedelta(days=emergency_retention)
-                     cutoff_str = cutoff_date.isoformat()
-                     await db.execute(delete(models.SystemLog).where(models.SystemLog.timestamp < cutoff_str))
-                     await db.execute(delete(models.BusinessLog).where(models.BusinessLog.timestamp < cutoff_str))
-                     await db.commit()
-                     logger.warning(f"Emergency cleanup triggered: Enforced {emergency_retention} day retention.")
+                emergency_cutoff = datetime.datetime.now() - datetime.timedelta(days=emergency_retention)
+                emergency_cutoff_str = emergency_cutoff.isoformat()
+                
+                for log_type, (_, _, model_class) in LOG_RETENTION_CONFIG.items():
+                    if model_class == models.LoginAuditLog:
+                        await db.execute(delete(model_class).where(model_class.login_time < emergency_cutoff_str))
+                    else:
+                        await db.execute(delete(model_class).where(model_class.timestamp < emergency_cutoff_str))
+                
+                await db.commit()
+                logger.warning(f"Emergency cleanup completed: Enforced {emergency_retention} day retention for all log types.")
 
         except Exception as e:
             logger.error(f"Error during log cleanup: {e}")
@@ -107,6 +105,7 @@ async def optimize_database(db_session_factory):
             # PostgreSQL specific syntax
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_system_logs_timestamp ON system_logs (timestamp)"))
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_business_logs_timestamp ON business_logs (timestamp)"))
+            await db.execute(text("CREATE INDEX IF NOT EXISTS ix_login_audit_logs_login_time ON login_audit_logs (login_time)"))
             await db.commit()
             
             # 2. Run VACUUM & ANALYZE
