@@ -75,10 +75,38 @@ async def upload_image(
         url = storage.get_url(stored_path, is_public=True)
         return {"url": url}
 
-    except HTTPException as he:
-        raise he
     except Exception as e:
         logger.exception("Upload failed unexpectedly")
         raise HTTPException(status_code=500, detail="Image upload failed")
+
+from fastapi.responses import FileResponse, RedirectResponse
+
+@router.get("/files/{filename}/view")
+async def view_file(
+    filename: str,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    """
+    Authenticated endpoint to view files.
+    """
+    # 1. Check if file exists in DB (Optional, but good for auditing/acl)
+    # result = await db.execute(select(models.FileMetadata).filter(models.FileMetadata.stored_name == filename))
+    # db_file = result.scalars().first()
+    # if not db_file:
+    #    # Fallback: check storage directly or 404
+    #    pass
+
+    # 2. Get Signed URL or File Path
+    if os.getenv("STORAGE_TYPE") == "minio":
+        # Redirect to Presigned URL
+        url = storage.get_url(filename, is_public=False) # Helper handles presigned
+        return RedirectResponse(url)
+    else:
+        # Local Storage - Serve File
+        file_path = os.path.join("uploads", filename)
+        if not os.path.exists(file_path):
+             raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(file_path)
 
 

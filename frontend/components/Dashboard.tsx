@@ -1,20 +1,22 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import {
   TrendingUp, Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
-  X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu
+  X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
 } from 'lucide-react';
 import ApiClient, { QuickToolDTO } from '../services/api';
-import { NewsItem, Announcement, CarouselItem } from '../types';
+import { NewsItem, Announcement, CarouselItem, Employee } from '../types';
 import { getIcon } from '../utils/iconMap';
 import { getColorClass } from '../utils/colorMap';
 import { DAILY_QUOTES } from '../constants'; // Keeping these static for now as requested
 
 interface DashboardProps {
   onViewAll: () => void;
+  onNavigateToDirectory?: () => void;
+  employees?: Employee[];
   currentUser?: any;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, employees = [], currentUser }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -129,19 +131,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
             </p>
           </div>
         </div>
-        <div className="flex -space-x-2">
-          {[1, 2, 3].map(i => (
-            <img key={i} src={`https://i.pravatar.cc/100?u=${i + 10}`} className="w-10 h-10 rounded-xl border-2 border-slate-50 dark:border-slate-900 shadow-md" />
+        <div className="flex -space-x-2 items-center">
+          {employees.slice(0, 4).map((emp, i) => (
+            <img
+              key={emp.id || i}
+              src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`}
+              alt={emp.name}
+              className="w-10 h-10 rounded-xl border-2 border-slate-50 dark:border-slate-900 shadow-md object-cover"
+            />
           ))}
-          <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-500">
-            +12
-          </div>
+          {employees.length > 4 && (
+            <button
+              onClick={() => onNavigateToDirectory?.()}
+              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+            >
+              +{employees.length - 4}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { icon: <TrendingUp size={18} />, label: '全员活跃度', val: '92%', color: 'blue', desc: '比上周增长 4%' },
+          { icon: <ListTodo size={18} />, label: '代办事项', val: '5', color: 'orange', desc: '3 个紧急任务' },
           { icon: <Calendar size={18} />, label: '今日会议', val: '04', color: 'purple', desc: '下一场：14:00 产品周会' },
           { icon: <Clock size={18} />, label: '工时完成', val: '32h', color: 'rose', desc: '剩余目标 8h' },
         ].map((stat, i) => (
@@ -183,7 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, currentUser }) => {
                     )}
                   </div>
                   <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter block">{tool.name}</span>
-                  <p className="text-[9px] text-slate-400 mt-1 font-medium">点击进入系统</p>
+                  <p className="text-[9px] text-slate-400 mt-1 font-medium truncate">{tool.description || '点击进入系统'}</p>
                 </a>
               ))}
             </div>

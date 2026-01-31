@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, ApiOut
 import ApiClient from '../../../services/api';
 import { AIProvider } from '../../../types';
 
+
 const ModelConfig: React.FC = () => {
     const [providers, setProviders] = useState<AIProvider[]>([]);
     const [loading, setLoading] = useState(false);
@@ -52,6 +53,10 @@ const ModelConfig: React.FC = () => {
     const handleOk = async () => {
         try {
             const values = await form.validateFields();
+
+            // Encryption handled by backend at rest (TLS in transit)
+
+
             if (editingProvider) {
                 await ApiClient.updateAIProvider(editingProvider.id, values);
                 message.success('Provider updated');
@@ -62,6 +67,7 @@ const ModelConfig: React.FC = () => {
             setIsModalVisible(false);
             fetchProviders();
         } catch (error) {
+            console.error(error);
             message.error('Operation failed');
         }
     };

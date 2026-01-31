@@ -144,7 +144,25 @@ const Navbar: React.FC<NavbarProps> = ({
   // Default values if currentUser is unknown
   const username = currentUser?.username || '用户';
   const userRole = currentUser?.role === 'admin' ? '管理员' : '普通用户';
-  const userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+
+  let userAvatar = currentUser?.avatar;
+  if (!userAvatar) {
+    // Check various admin indicators (username, role name, role code)
+    const isAdmin =
+      currentUser?.username?.toLowerCase() === 'admin' ||
+      currentUser?.username === 'Admin User' ||
+      currentUser?.role === 'admin' ||
+      currentUser?.role === 'Administrator' ||
+      currentUser?.roles?.some(r => r.code === 'admin' || r.name === 'Administrator');
+
+    if (isAdmin) {
+      userAvatar = '/images/admin-avatar.svg';
+    } else {
+      userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+    }
+  }
+
+
 
 
 
@@ -287,56 +305,42 @@ const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 mt-4 w-[280px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800 z-[100]">
-                {/* Immersive Header */}
-                <div className="h-24 relative overflow-hidden bg-blue-600">
-                  <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                </div>
-
-                {/* Profile Card Body */}
-                <div className="px-6 pb-6 pt-0 relative">
-                  <div className="relative -mt-10 mb-4 w-20 h-20">
-                    <div className="w-20 h-20 rounded-[1.5rem] p-1 bg-white dark:bg-slate-900 shadow-2xl">
-                      <img src={userAvatar} className="w-full h-full rounded-2xl object-cover" />
+              <div className="absolute right-0 mt-3 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 z-[100]">
+                {/* Compact Profile Header */}
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-slate-100 dark:ring-slate-700 shrink-0">
+                      <img src={userAvatar} className="w-full h-full object-cover" alt={username} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{username}</h3>
+                      <p className="text-[10px] font-medium text-slate-400">{userRole}</p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="mb-6">
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{username}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{userRole}</p>
-                  </div>
-
-                  {/* Standard Menu Actions */}
-                  <div className="space-y-1">
-                    {[
-                      { id: AppView.SETTINGS, label: '偏好设置', icon: <Settings size={14} />, desc: '主题与显示设置' },
-                      { id: 'logout', label: '退出登录', icon: <LogOut size={14} />, desc: '安全注销账号', color: 'text-rose-500' }
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          if (item.id === 'logout') {
-                            if (onLogout) onLogout();
-                          } else {
-                            setView(item.id as AppView);
-                          }
-                          setIsProfileOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-800 ${item.color || 'text-slate-400'}`}>
-                            {item.icon}
-                          </div>
-                          <div className="text-left">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">{item.label}</p>
-                            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
-                          </div>
-                        </div>
-                        <ChevronRight size={12} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                      </button>
-                    ))}
-                  </div>
+                {/* Menu Items */}
+                <div className="py-2">
+                  <button
+                    onClick={() => {
+                      setView(AppView.SETTINGS);
+                      setIsProfileOpen(false);
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
+                  >
+                    <Settings size={16} className="text-slate-400" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">偏好设置</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (onLogout) onLogout();
+                      setIsProfileOpen(false);
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors text-left group"
+                  >
+                    <LogOut size={16} className="text-slate-400 group-hover:text-rose-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-rose-600">退出登录</span>
+                  </button>
                 </div>
               </div>
             )}

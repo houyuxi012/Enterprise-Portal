@@ -105,6 +105,18 @@ class AIEngine:
         return out_check["masked_text"]
 
     async def _call_provider(self, provider: models.AIProvider, prompt: str, context: str) -> str:
+        from services.crypto_service import CryptoService
+        
+        # Decrypt API Key (AES)
+        api_key = provider.api_key
+        try:
+             # If it looks like a Fernet token (starts with gAAAA...)
+             if api_key and api_key.startswith("gAAAA"):
+                 api_key = CryptoService.decrypt_data(api_key)
+        except Exception:
+             # Fallback to plain text usage (legacy keys)
+             pass
+
         system_prompt = "You are a helpful enterprise assistant. Answer based on the context provided if available."
         full_content = f"Context: {context}\n\nUser Question: {prompt}" if context else prompt
 
@@ -113,7 +125,7 @@ class AIEngine:
             # Reusing gemini_service logic but overriding key? 
             # Ideally gemini_service should accept key.
             # implementing direct call here for simplicity
-            url = f"{provider.base_url or 'https://generativelanguage.googleapis.com/v1beta/models'}/{provider.model}:generateContent?key={provider.api_key}"
+            url = f"{provider.base_url or 'https://generativelanguage.googleapis.com/v1beta/models'}/{provider.model}:generateContent?key={api_key}"
             async with httpx.AsyncClient() as client:
                 resp = await client.post(url, json={
                     "contents": [{"parts": [{"text": full_content}]}]
@@ -143,7 +155,7 @@ class AIEngine:
                  url = base_url
 
             headers = {
-                "Authorization": f"Bearer {provider.api_key}",
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
             payload = {

@@ -4,6 +4,10 @@ from typing import List
 from database import get_db
 import models, schemas, utils
 from sqlalchemy import select, update, delete
+from fastapi import Request
+from services.audit_service import AuditService
+from routers.auth import get_current_user
+import uuid
 
 router = APIRouter(
     prefix="/employees",
@@ -25,7 +29,12 @@ async def read_employee(employee_id: int, db: AsyncSession = Depends(get_db)):
     return employee
 
 @router.post("/", response_model=schemas.Employee, status_code=status.HTTP_201_CREATED)
-async def create_employee(employee: schemas.EmployeeCreate, db: AsyncSession = Depends(get_db)):
+async def create_employee(
+    request: Request,
+    employee: schemas.EmployeeCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     # 1. Create Employee
     db_employee = models.Employee(**employee.dict())
     db.add(db_employee)
@@ -48,12 +57,31 @@ async def create_employee(employee: schemas.EmployeeCreate, db: AsyncSession = D
         )
         db.add(new_user)
         
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="CREATE_EMPLOYEE", 
+        target=f"员工:{db_employee.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    
     await db.commit()
     await db.refresh(db_employee)
     return db_employee
 
 @router.put("/{employee_id}", response_model=schemas.Employee)
-async def update_employee(employee_id: int, employee_update: schemas.EmployeeCreate, db: AsyncSession = Depends(get_db)):
+async def update_employee(
+    employee_id: int, 
+    request: Request,
+    employee_update: schemas.EmployeeCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
     employee = result.scalars().first()
     if employee is None:
@@ -67,12 +95,30 @@ async def update_employee(employee_id: int, employee_update: schemas.EmployeeCre
     return employee
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_employee(employee_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_employee(
+    employee_id: int, 
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
     employee = result.scalars().first()
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
     
     await db.delete(employee)
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="DELETE_EMPLOYEE", 
+        target=f"员工:{employee.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
     await db.commit()
     return None

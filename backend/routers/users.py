@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+import uuid
+from services.audit_service import AuditService
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
@@ -27,7 +29,12 @@ async def read_users(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 @router.post("/", response_model=schemas.User, status_code=status.HTTP_201_CREATED, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+async def create_user(
+    request: Request,
+    user: schemas.UserCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     # Check if user exists
     result = await db.execute(select(models.User).filter(models.User.username == user.username))
     if result.scalars().first():
@@ -59,6 +66,21 @@ async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_d
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="CREATE_USER", 
+        target=f"用户:{db_user.username}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+
     # Re-fetch with roles loaded
     # Re-fetch with roles loaded
     result = await db.execute(select(models.User).options(selectinload(models.User.roles).selectinload(models.Role.permissions)).filter(models.User.id == db_user.id))
@@ -77,6 +99,7 @@ async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_d
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
 async def delete_user(
     user_id: int, 
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -87,18 +110,30 @@ async def delete_user(
          
      target_name = user.username
      await db.delete(user)
+     
+     # Audit Log
+     trace_id = request.headers.get("X-Request-ID")
+     ip = request.client.host if request.client else "unknown"
+     await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="DELETE_USER",
+        target=f"用户:{target_name}",
+        detail=f"Deleted user id={user_id}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
      await db.commit()
 
-     await utils.log_business_action(
-        db,
-        operator=current_user.username,
-        action="DELETE_USER",
-        target=f"user:{target_name}",
-        detail=f"Deleted user id={user_id}"
-    )
-
 @router.put("/{user_id}", response_model=schemas.User, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def update_user(user_id: int, user_update: schemas.UserUpdate, db: AsyncSession = Depends(get_db)):
+async def update_user(
+    user_id: int, 
+    request: Request,
+    user_update: schemas.UserUpdate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.User).options(selectinload(models.User.roles).selectinload(models.Role.permissions)).filter(models.User.id == user_id))
     user = result.scalars().first()
     if not user:
@@ -121,20 +156,38 @@ async def update_user(user_id: int, user_update: schemas.UserUpdate, db: AsyncSe
     for key, value in update_data.items():
         setattr(user, key, value)
         
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="UPDATE_USER", 
+        target=f"用户:{user.username}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+        
     await db.commit()
     await db.refresh(user)
     return user
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def reset_password(request: schemas.PasswordResetRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.User).filter(models.User.username == request.username))
+async def reset_password(
+    request: Request,
+    payload: schemas.PasswordResetRequest, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    result = await db.execute(select(models.User).filter(models.User.username == payload.username))
     user = result.scalars().first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
     # Reset password
-    new_pwd = request.new_password if request.new_password else "123456"
+    new_pwd = payload.new_password if payload.new_password else "123456"
     
     # Fetch Password Policy
     config_result = await db.execute(select(models.SystemConfig))
@@ -145,6 +198,19 @@ async def reset_password(request: schemas.PasswordResetRequest, db: AsyncSession
         raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
 
     user.hashed_password = utils.get_password_hash(new_pwd)
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="RESET_PASSWORD", 
+        target=f"用户:{user.username}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
     
     await db.commit()
     return {"message": f"Password for {user.username} has been reset"}

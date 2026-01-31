@@ -300,24 +300,49 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                     {/* Most Day Active (Bar Chart) */}
                     <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-200">访问高峰时段</h3>
+                            <h3 className="font-bold text-slate-700 dark:text-slate-200">访问高峰时段 (本周)</h3>
                             <button className="text-slate-400"><MoreHorizontal size={20} /></button>
                         </div>
-                        <div className="flex flex-col items-center mb-6">
-                            <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">8,162</div>
-                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">高流量 (周二)</div>
-                        </div>
 
-                        {/* CSS Bar Chart */}
-                        <div className="h-40 flex items-end justify-between gap-2 px-2">
-                            <Bar day="周日" height="40%" />
-                            <Bar day="周一" height="55%" />
-                            <Bar day="周二" height="90%" active />
-                            <Bar day="周三" height="45%" />
-                            <Bar day="周四" height="35%" />
-                            <Bar day="周五" height="65%" />
-                            <Bar day="周六" height="75%" />
-                        </div>
+                        {(() => {
+                            const data = stats?.peak_time_data || [0, 0, 0, 0, 0, 0, 0];
+                            const totalWeekly = data.reduce((a, b) => a + b, 0);
+                            const maxVal = Math.max(...data, 1); // Avoid div by zero
+                            const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+                            const todayIdx = new Date().getDay(); // 0=Sun
+
+                            // Find peak day
+                            const peakVal = Math.max(...data);
+                            const peakDayIdx = data.indexOf(peakVal);
+                            const peakDay = days[peakDayIdx];
+
+                            return (
+                                <>
+                                    <div className="flex flex-col items-center mb-6">
+                                        <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{totalWeekly.toLocaleString()}</div>
+                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                            {totalWeekly > 0 ? `峰值: ${peakDay}` : '暂无数据'}
+                                        </div>
+                                    </div>
+
+                                    <div className="h-40 flex items-end justify-between gap-2 px-2">
+                                        {data.map((val, idx) => {
+                                            // Min height 5% for visibility, Max 100%
+                                            const h = (val / maxVal) * 100;
+                                            const height = `${Math.max(h, 5)}%`;
+                                            return (
+                                                <Bar
+                                                    key={idx}
+                                                    day={days[idx]}
+                                                    height={height}
+                                                    active={idx === todayIdx}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
 

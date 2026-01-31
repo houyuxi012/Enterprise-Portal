@@ -23,8 +23,8 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security' | 'ai_models' | 'ai_security';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'carousel' | 'security' | 'ai_models' | 'ai_security') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -131,7 +131,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             label: '日志管理',
             icon: <FileTextOutlined />,
             children: [
-                { key: 'system_logs', label: '访问日志' },
                 { key: 'business_logs', label: '业务日志' },
                 { key: 'log_forwarding', label: '日志外发' },
                 { key: 'log_storage', label: '存储设置' },

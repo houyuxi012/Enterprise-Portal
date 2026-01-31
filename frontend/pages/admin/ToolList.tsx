@@ -133,7 +133,8 @@ const ToolList: React.FC = () => {
             setIsModalOpen(false);
             fetchTools();
         } catch (error) {
-            console.error(error);
+            console.error('Failed to save tool:', error);
+            message.error('操作失败，请检查网络或联系管理员');
         }
     };
 
@@ -263,6 +264,9 @@ const ToolList: React.FC = () => {
                             </Select>
                         </Form.Item>
                     </div>
+                    <Form.Item name="sort_order" label="显示优先级 (数值越大越靠前)">
+                        <Input type="number" placeholder="0" />
+                    </Form.Item>
                     <Form.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
                         <Input placeholder="e.g. Mail, Github, Slack" />
                     </Form.Item>

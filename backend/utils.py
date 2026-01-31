@@ -7,6 +7,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
 ALGORITHM = "HS256"
 
+# Security Configuration
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "False").lower() == "true"
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax") # 'lax', 'strict', 'none'
+COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", None) # e.g. '.example.com' or None for localhost
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):

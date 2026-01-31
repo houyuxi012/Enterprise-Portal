@@ -38,6 +38,41 @@ const BusinessLogs: React.FC = () => {
         'RESET_PASSWORD': '重置密码',
         'APP_LAUNCH': '启动应用',
         'SEARCH_QUERY': '搜索查询',
+        // News
+        'CREATE_NEWS': '新增新闻',
+        'UPDATE_NEWS': '更新新闻',
+        'DELETE_NEWS': '删除新闻',
+        // Announcement
+        'CREATE_ANNOUNCEMENT': '新增公告',
+        'UPDATE_ANNOUNCEMENT': '更新公告',
+        'DELETE_ANNOUNCEMENT': '删除公告',
+        // Carousel
+        'CREATE_CAROUSEL_ITEM': '新增轮播图',
+        'UPDATE_CAROUSEL_ITEM': '更新轮播图',
+        'DELETE_CAROUSEL_ITEM': '删除轮播图',
+        // App Center
+        'CREATE_APP': '新增应用',
+        'UPDATE_APP': '更新应用',
+        'DELETE_APP': '删除应用',
+        // AI Admin
+        'CREATE_AI_PROVIDER': '新增AI供应商',
+        'UPDATE_AI_PROVIDER': '更新AI供应商',
+        'DELETE_AI_PROVIDER': '删除AI供应商',
+        'CREATE_AI_POLICY': '新增AI安全策略',
+        'UPDATE_AI_POLICY': '更新AI安全策略',
+        'DELETE_AI_POLICY': '删除AI安全策略',
+        // System & Org
+        'UPDATE_SYSTEM_CONFIG': '更新系统配置',
+        // 'RESET_PASSWORD' is already defined above
+        'CREATE_EMPLOYEE': '新增员工',
+        'UPDATE_EMPLOYEE': '更新员工',
+        'DELETE_EMPLOYEE': '删除员工',
+        'CREATE_ROLE': '新增角色',
+        'UPDATE_ROLE': '更新角色',
+        'DELETE_ROLE': '删除角色',
+        'CREATE_DEPARTMENT': '新增部门',
+        'UPDATE_DEPARTMENT': '更新部门',
+        'DELETE_DEPARTMENT': '删除部门',
     };
 
     const STATUS_MAP: Record<string, string> = {

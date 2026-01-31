@@ -73,6 +73,22 @@ async def get_dashboard_stats(
     result = await db.execute(select(func.count(models.BusinessLog.id)).where(models.BusinessLog.action.in_(["tool_click", "APP_LAUNCH"])))
     tool_clicks = result.scalar() or 0
 
+    # Peak Time / Daily Activity (Current Week: Sun - Sat)
+    # Find start of current week (Sunday)
+    # Python weekday(): Mon=0, Sun=6.
+    today = datetime.utcnow().date()
+    # Calculate days to subtract to get to last Sunday
+    idx = (today.weekday() + 1) % 7 # Sun=0, Mon=1...
+    start_of_week = datetime.combine(today - timedelta(days=idx), datetime.min.time())
+    
+    peak_data = []
+    for i in range(7):
+        day_start = start_of_week + timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        # Query
+        count = await get_count_in_range(models.SystemLog, day_start, day_end)
+        peak_data.append(count)
+
     stats_data = schemas.DashboardStats(
         system_visits=system_visits,
         active_users=active_users,
@@ -81,7 +97,8 @@ async def get_dashboard_stats(
         activity_trend=visit_trend, 
         active_users_trend="+0.0%", # Placeholder
         tool_clicks_trend="+0.0%",  # Placeholder
-        new_content_trend="+0.0%"   # Placeholder
+        new_content_trend="+0.0%",   # Placeholder
+        peak_time_data=peak_data
     )
     
     # Cache result for 60 seconds

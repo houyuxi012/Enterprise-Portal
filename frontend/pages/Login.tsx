@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Loader2 } from 'lucide-react';
-import AuthService from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import ApiClient from '../services/api';
 
 interface LoginProps {
@@ -8,6 +8,7 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+    const { login } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -58,7 +59,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            await AuthService.login(username, password);
+            await login(username, password);
             onLoginSuccess();
         } catch (err) {
             setError('用户名或密码错误');

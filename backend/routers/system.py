@@ -6,6 +6,9 @@ import database
 import models
 from routers.auth import get_current_user
 from dependencies import PermissionChecker
+from fastapi import Request
+from services.audit_service import AuditService
+import uuid
 
 router = APIRouter(
     prefix="/system",
@@ -20,8 +23,10 @@ async def get_system_config(db: AsyncSession = Depends(database.get_db)):
 
 @router.post("/config", response_model=Dict[str, str], dependencies=[Depends(PermissionChecker("sys:settings:edit"))])
 async def update_system_config(
+    request: Request,
     config: Dict[str, str], 
-    db: AsyncSession = Depends(database.get_db)
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     # Permission checked by dependency
     
@@ -35,6 +40,20 @@ async def update_system_config(
             new_config = models.SystemConfig(key=key, value=value)
             db.add(new_config)
     
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="UPDATE_SYSTEM_CONFIG", 
+        target="系统配置", 
+        detail=f"Updated keys: {', '.join(config.keys())}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+
     await db.commit()
     
     # Return updated configs

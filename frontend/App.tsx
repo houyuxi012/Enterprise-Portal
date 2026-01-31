@@ -20,7 +20,8 @@ interface FilterState {
 
 import Login from './pages/Login';
 import AdminLogin from './pages/admin/AdminLogin';
-import AuthService from './services/auth';
+import { useAuth } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -42,6 +43,7 @@ import BusinessLogs from './pages/admin/BusinessLogs';
 import AboutUs from './pages/admin/AboutUs';
 import LogForwarding from './pages/admin/LogForwarding';
 import LogStorage from './pages/admin/LogStorage';
+import ApplicationLogs from './pages/admin/ApplicationLogs';
 import ModelConfig from './pages/admin/ai/ModelConfig';
 import SecurityPolicy from './pages/admin/ai/SecurityPolicy';
 import AISettings from './pages/admin/ai/AISettings';
@@ -72,10 +74,8 @@ const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: str
 };
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(AuthService.isAuthenticated());
-  const [currentUser, setCurrentUser] = useState<any>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
+  // Use AuthContext instead of local state
+  const { user: currentUser, isAuthenticated, isLoading, logout } = useAuth();
 
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
@@ -124,86 +124,65 @@ const App: React.FC = () => {
     return 'system';
   });
 
-  // Initialize App (Auth & Data)
+  // Fetch App Data when authenticated
   useEffect(() => {
-    const initApp = async () => {
-      // 1. Check Auth & Load User
-      if (AuthService.isAuthenticated()) {
-        try {
-          const user = await AuthService.getCurrentUser();
-          setCurrentUser(user);
-          setIsAuthenticated(true);
+    if (!isAuthenticated) return;
 
-          // Check for Admin Mode preference or URL
-          if (window.location.pathname.startsWith('/admin') && user.role === 'admin') {
-            setIsAdminMode(true);
-          }
-
-          // 2. Fetch App Data independently
-          try {
-            const fetchedEmployees = await ApiClient.getEmployees();
-            setEmployees(fetchedEmployees);
-          } catch (e) {
-            console.error("Failed to fetch employees", e);
-          }
-
-          try {
-            const fetchedNews = await ApiClient.getNews();
-            // console.log("News fetched:", fetchedNews);
-            setNewsList(fetchedNews);
-          } catch (e) {
-            console.error("Failed to fetch news", e);
-          }
-
-          try {
-            const fetchedTools = await ApiClient.getTools();
-            setTools(fetchedTools);
-          } catch (e) {
-            console.error("Failed to fetch tools", e);
-          }
-
-          let fetchedConfig: any = {};
-          try {
-            fetchedConfig = await ApiClient.getSystemConfig();
-            setSystemConfig(fetchedConfig);
-          } catch (e) {
-            console.error("Failed to fetch config", e);
-          }
-
-          // Apply Config
-          if (fetchedConfig.browser_title) {
-            document.title = fetchedConfig.browser_title;
-          }
-          if (fetchedConfig.favicon_url) {
-            const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-            if (link) {
-              link.href = fetchedConfig.favicon_url;
-            } else {
-              const newLink = document.createElement('link');
-              newLink.rel = 'icon';
-              newLink.href = fetchedConfig.favicon_url;
-              document.head.appendChild(newLink);
-            }
-          }
-
-        } catch (error: any) {
-          console.error("Failed to initialize app:", error);
-          if (error.response?.status === 401) {
-            setIsAuthenticated(false);
-            AuthService.logout(); // Clear invalid token
-          }
-          // If other error (e.g. network), keep authenticated state but maybe show error toast
-        }
-      } else {
-        setIsAuthenticated(false);
+    const fetchAppData = async () => {
+      // Check for Admin Mode preference or URL
+      if (window.location.pathname.startsWith('/admin') && currentUser?.role === 'admin') {
+        setIsAdminMode(true);
       }
 
-      // Stop Loading
-      setIsLoading(false);
+      // Fetch App Data
+      try {
+        const fetchedEmployees = await ApiClient.getEmployees();
+        setEmployees(fetchedEmployees);
+      } catch (e) {
+        console.error("Failed to fetch employees", e);
+      }
+
+      try {
+        const fetchedNews = await ApiClient.getNews();
+        setNewsList(fetchedNews);
+      } catch (e) {
+        console.error("Failed to fetch news", e);
+      }
+
+      try {
+        const fetchedTools = await ApiClient.getTools();
+        setTools(fetchedTools);
+      } catch (e) {
+        console.error("Failed to fetch tools", e);
+      }
+
+      let fetchedConfig: any = {};
+      try {
+        fetchedConfig = await ApiClient.getSystemConfig();
+        setSystemConfig(fetchedConfig);
+      } catch (e) {
+        console.error("Failed to fetch config", e);
+      }
+
+      // Apply Config
+      if (fetchedConfig.browser_title) {
+        document.title = fetchedConfig.browser_title;
+      }
+      if (fetchedConfig.favicon_url) {
+        const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (link) {
+          link.href = fetchedConfig.favicon_url;
+        } else {
+          const newLink = document.createElement('link');
+          newLink.rel = 'icon';
+          newLink.href = fetchedConfig.favicon_url;
+          document.head.appendChild(newLink);
+        }
+      }
     };
 
-    initApp();
-  }, []);
+    fetchAppData();
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -287,14 +266,13 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    AuthService.logout();
-    setIsAuthenticated(false);
+    logout();
   };
 
   const renderView = () => {
     switch (currentView) {
       case AppView.DASHBOARD:
-        return <Dashboard onViewAll={() => setCurrentView(AppView.TOOLS)} currentUser={currentUser} />;
+        return <Dashboard onViewAll={() => setCurrentView(AppView.TOOLS)} onNavigateToDirectory={() => setCurrentView(AppView.DIRECTORY)} employees={employees} currentUser={currentUser} />;
       case AppView.SETTINGS:
         return (
           <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">
@@ -643,11 +621,13 @@ const App: React.FC = () => {
   if (!isAuthenticated) {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
       return <AdminLogin onLoginSuccess={() => {
-        setIsAuthenticated(true);
+        // Auth state is updated via context after successful login
         setIsAdminMode(true);
       }} />;
     }
-    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+    return <Login onLoginSuccess={() => {
+      // Auth state is updated via context after successful login
+    }} />;
   }
 
   if (isAdminMode) {
@@ -674,7 +654,6 @@ const App: React.FC = () => {
         {activeAdminTab === 'settings' && <SystemSettings />}
         {activeAdminTab === 'security' && <SecuritySettings />}
         {activeAdminTab === 'org' && <OrganizationList />}
-        {activeAdminTab === 'system_logs' && <SystemLogs />}
         {activeAdminTab === 'business_logs' && <BusinessLogs />}
         {activeAdminTab === 'log_forwarding' && <LogForwarding />}
         {activeAdminTab === 'log_storage' && <LogStorage />}

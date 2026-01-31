@@ -2,26 +2,18 @@ import axios from 'axios';
 import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy } from '../types';
 import AuthService from './auth';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Send Cookies with cross-origin requests
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add Token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Request interceptor removed (Cookie Auth)
+// api.interceptors.request.use(...)
 
 // Response interceptor for error handling
 api.interceptors.response.use(
@@ -47,6 +39,14 @@ export interface QuickToolDTO {
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
     const response = await api.get<Employee[]>('/employees/?limit=1000');
+    // Safety & Debug Check
+    if (!Array.isArray(response.data)) {
+      console.error("API Error [getEmployees]: Expected array, got:", response.data);
+      if ((response.data as any)?.detail) {
+        console.error("Auth/Server Error Details:", (response.data as any).detail);
+      }
+      return []; // Fallback to prevent crash
+    }
     // Backend returns numeric ID, types use string. We might need casting or refactoring types. 
     // Assuming backend returns proper JSON which JS treats flexibly, but TS might complain.
     return response.data.map(e => ({ ...e, id: String(e.id) })) as unknown as Employee[];
@@ -54,6 +54,10 @@ export const ApiClient = {
 
   getNews: async (): Promise<NewsItem[]> => {
     const response = await api.get<NewsItem[]>('/news/');
+    if (!Array.isArray(response.data)) {
+      console.error("API Error [getNews]: Expected array, got:", response.data);
+      return [];
+    }
     return response.data.map(n => ({ ...n, id: String(n.id) }));
   },
 
@@ -92,6 +96,10 @@ export const ApiClient = {
 
   getAnnouncements: async (): Promise<Announcement[]> => {
     const response = await api.get<Announcement[]>('/announcements/');
+    if (!Array.isArray(response.data)) {
+      console.error("API Error [getAnnouncements]: Expected array, got:", response.data);
+      return [];
+    }
     return response.data.map(a => ({ ...a, id: String(a.id) }));
   },
 

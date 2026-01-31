@@ -169,8 +169,16 @@ const UserList: React.FC = () => {
                             <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-200">
                                 <td className="py-4 pl-4">
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shadow-sm border border-indigo-100 dark:border-indigo-800">
-                                            {user.username[0].toUpperCase()}
+                                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shadow-sm border border-indigo-100 dark:border-indigo-800 overflow-hidden">
+                                            {(user.username === 'admin' || user.username === 'Admin') ? (
+                                                <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
+                                            ) : (
+                                                user.avatar ? (
+                                                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    user.username[0].toUpperCase()
+                                                )
+                                            )}
                                         </div>
                                         <span className="font-bold text-slate-700 dark:text-slate-200">{user.username}</span>
                                     </div>

@@ -71,6 +71,7 @@ class QuickTool(Base):
     category = Column(String)
     description = Column(String)
     image = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
 
 class Announcement(Base):
     __tablename__ = "announcements"
@@ -148,6 +149,7 @@ class BusinessLog(Base):
     ip_address = Column(String, nullable=True)
     status = Column(String) # SUCCESS, FAIL
     detail = Column(Text, nullable=True)
+    trace_id = Column(String, index=True, nullable=True)
     timestamp = Column(String)
 
 class LogForwardingConfig(Base):

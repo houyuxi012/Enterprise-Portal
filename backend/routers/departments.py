@@ -7,6 +7,9 @@ import models
 import schemas
 from database import get_db
 from routers.auth import get_current_user
+from fastapi import Request
+from services.audit_service import AuditService
+import uuid
 
 router = APIRouter(
     prefix="/departments",
@@ -84,7 +87,12 @@ async def read_departments(db: AsyncSession = Depends(get_db), current_user: mod
     return roots
 
 @router.post("/", response_model=schemas.Department)
-async def create_department(dept: schemas.DepartmentCreate, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def create_department(
+    request: Request,
+    dept: schemas.DepartmentCreate, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
     db_dept = models.Department(**dept.dict())
     db.add(db_dept)
     await db.commit()
@@ -103,7 +111,13 @@ async def create_department(dept: schemas.DepartmentCreate, db: AsyncSession = D
     )
 
 @router.put("/{dept_id}", response_model=schemas.Department)
-async def update_department(dept_id: int, dept: schemas.DepartmentUpdate, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def update_department(
+    dept_id: int, 
+    request: Request,
+    dept: schemas.DepartmentUpdate, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.Department).filter(models.Department.id == dept_id))
     db_dept = result.scalars().first()
     if not db_dept:
@@ -127,7 +141,12 @@ async def update_department(dept_id: int, dept: schemas.DepartmentUpdate, db: As
     )
 
 @router.delete("/{dept_id}")
-async def delete_department(dept_id: int, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def delete_department(
+    dept_id: int, 
+    request: Request,
+    db: AsyncSession = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
     # Check existence
     result = await db.execute(select(models.Department).filter(models.Department.id == dept_id))
     db_dept = result.scalars().first()
@@ -149,6 +168,20 @@ async def delete_department(dept_id: int, db: AsyncSession = Depends(get_db), cu
     # Use Core Delete to avoid potential async ORM relationship loading issues
     from sqlalchemy import delete
     await db.execute(delete(models.Department).where(models.Department.id == dept_id))
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="DELETE_DEPARTMENT", 
+        target=f"部门:{db_dept.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    
     await db.commit()
     
     return {"message": "Department deleted"}

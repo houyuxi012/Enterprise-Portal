@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs, carousel, dashboard
@@ -29,16 +29,16 @@ async def startup():
     import asyncio
     asyncio.create_task(run_log_cleanup_scheduler(database.SessionLocal))
 
-# Mount uploads directory to serve static files
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Mount uploads directory (REMOVED: Moved to authenticated endpoint)
+# os.makedirs("uploads", exist_ok=True)
+# app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # CORS middleware to allow calls from frontend
+# CORS middleware to allow calls from frontend
+import utils
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",
-    ],
+    allow_origins=utils.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,22 +52,27 @@ app.add_middleware(SystemLoggingMiddleware)
 def read_root():
     return {"message": "Welcome to ShiKu Portal API"}
 
-# Include Routers
-app.include_router(employees.router)
-app.include_router(news.router)
-app.include_router(tools.router)
-app.include_router(announcements.router)
-app.include_router(ai.router)
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(upload.router)
-app.include_router(system.router)
-app.include_router(roles.router)
-app.include_router(departments.router)
-app.include_router(logs.router)
+# Create Main API Router with Prefix
+api_router = APIRouter(prefix="/api")
 
-app.include_router(carousel.router)
-app.include_router(dashboard.router)
+# Include Routers into API Router
+api_router.include_router(employees.router)
+api_router.include_router(news.router)
+api_router.include_router(tools.router)
+api_router.include_router(announcements.router)
+api_router.include_router(ai.router)
+api_router.include_router(auth.router)
+api_router.include_router(users.router)
+api_router.include_router(upload.router)
+api_router.include_router(system.router)
+api_router.include_router(roles.router)
+api_router.include_router(departments.router)
+api_router.include_router(logs.router)
+api_router.include_router(carousel.router)
+api_router.include_router(dashboard.router)
 
 from routers import ai_admin
-app.include_router(ai_admin.router)
+api_router.include_router(ai_admin.router)
+
+# Include API Router in App
+app.include_router(api_router)

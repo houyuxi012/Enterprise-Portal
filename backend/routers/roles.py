@@ -6,6 +6,10 @@ from sqlalchemy.orm import selectinload
 import models, schemas
 from database import get_db
 from dependencies import PermissionChecker
+from fastapi import Request
+from services.audit_service import AuditService
+from routers.auth import get_current_user
+import uuid
 
 router = APIRouter(
     prefix="/roles",
@@ -23,7 +27,12 @@ async def read_permissions(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 @router.post("/", response_model=schemas.Role, status_code=status.HTTP_201_CREATED, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def create_role(role: schemas.RoleCreate, db: AsyncSession = Depends(get_db)):
+async def create_role(
+    request: Request,
+    role: schemas.RoleCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     # Check code uniqueness
     result = await db.execute(select(models.Role).filter(models.Role.code == role.code))
     if result.scalars().first():
@@ -50,7 +59,13 @@ async def create_role(role: schemas.RoleCreate, db: AsyncSession = Depends(get_d
     return result.scalars().first()
 
 @router.put("/{role_id}", response_model=schemas.Role, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def update_role(role_id: int, role_update: schemas.RoleUpdate, db: AsyncSession = Depends(get_db)):
+async def update_role(
+    role_id: int, 
+    request: Request,
+    role_update: schemas.RoleUpdate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.Role).options(selectinload(models.Role.permissions)).filter(models.Role.id == role_id))
     db_role = result.scalars().first()
     
@@ -70,7 +85,12 @@ async def update_role(role_id: int, role_update: schemas.RoleUpdate, db: AsyncSe
     return db_role
 
 @router.delete("/{role_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
-async def delete_role(role_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_role(
+    role_id: int, 
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.Role).filter(models.Role.id == role_id))
     db_role = result.scalars().first()
     
@@ -82,4 +102,17 @@ async def delete_role(role_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cannot delete admin role")
         
     await db.delete(db_role)
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="DELETE_ROLE", 
+        target=f"角色:{db_role.name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
     await db.commit()

@@ -9,6 +9,14 @@ EMPLOYEES = [
   { "name": '马库斯', "role": '高级工程师', "department": '技术部', "email": 'm.miller@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=marcus', "status": '会议中', "job_number": "1002", "account": "marcus", "gender": "男", "phone": "13800138002" },
   { "name": '艾莎', "role": '市场经理', "department": '增长部', "email": 'aisha.g@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=aisha', "status": '在线', "job_number": "1003", "account": "aisha", "gender": "女", "phone": "13800138003" },
   { "name": '王汤姆', "role": '人力资源专员', "department": '人事部', "email": 'tom.w@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=tom', "status": '离线', "job_number": "1004", "account": "tom", "gender": "男", "phone": "13800138004" },
+  { "name": '李小明', "role": '前端工程师', "department": '技术部', "email": 'xiaoming.li@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=xiaoming', "status": '在线', "job_number": "1005", "account": "xiaoming", "gender": "男", "phone": "13800138005" },
+  { "name": '张雨晴', "role": 'UI设计师', "department": '设计部', "email": 'yuqing.z@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=yuqing', "status": '在线', "job_number": "1006", "account": "yuqing", "gender": "女", "phone": "13800138006" },
+  { "name": '刘大伟', "role": '后端工程师', "department": '技术部', "email": 'dawei.l@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=dawei', "status": '会议中', "job_number": "1007", "account": "dawei", "gender": "男", "phone": "13800138007" },
+  { "name": '赵雪梅', "role": '财务主管', "department": '财务部', "email": 'xuemei.z@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=xuemei', "status": '在线', "job_number": "1008", "account": "xuemei", "gender": "女", "phone": "13800138008" },
+  { "name": '孙博文', "role": '运维工程师', "department": '技术部', "email": 'bowen.s@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=bowen', "status": '离线', "job_number": "1009", "account": "bowen", "gender": "男", "phone": "13800138009" },
+  { "name": '周婷婷', "role": '法务专员', "department": '法务部', "email": 'tingting.z@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=tingting', "status": '在线', "job_number": "1010", "account": "tingting", "gender": "女", "phone": "13800138010" },
+  { "name": '吴健', "role": '销售经理', "department": '销售部', "email": 'jian.w@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=wujian', "status": '在线', "job_number": "1011", "account": "wujian", "gender": "男", "phone": "13800138011" },
+  { "name": '钱丽丽', "role": '行政助理', "department": '行政部', "email": 'lili.q@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=lili', "status": '在线', "job_number": "1012", "account": "lili", "gender": "女", "phone": "13800138012" },
 ]
 
 NEWS = [

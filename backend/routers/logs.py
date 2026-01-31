@@ -21,6 +21,8 @@ router = APIRouter(
 @router.get("/system", response_model=List[schemas.SystemLog])
 async def read_system_logs(
     level: Optional[str] = None,
+    module: Optional[str] = None,
+    exclude_module: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -29,6 +31,10 @@ async def read_system_logs(
     query = select(models.SystemLog).order_by(desc(models.SystemLog.id))
     if level:
         query = query.filter(models.SystemLog.level == level)
+    if module:
+        query = query.filter(models.SystemLog.module == module)
+    if exclude_module:
+        query = query.filter(models.SystemLog.module != exclude_module)
     
     result = await db.execute(query.limit(limit).offset(offset))
     return result.scalars().all()

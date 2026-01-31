@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
@@ -7,17 +7,22 @@ from sqlalchemy import select
 from datetime import timedelta
 from jose import JWTError, jwt
 from services.audit_service import AuditService
+from services.crypto_service import CryptoService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+
+
 
 @router.post("/token")
 async def login_for_access_token(
-    request: Request, # Added to get IP
+    request: Request,
+    response: Response, 
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: AsyncSession = Depends(get_db)
 ):
+    # Retrieve user (logic unchanged)
     result = await db.execute(select(models.User).filter(models.User.username == form_data.username))
     user = result.scalars().first()
     
@@ -30,7 +35,6 @@ async def login_for_access_token(
     import ipaddress
 
     # Fetch System Config once for all security checks
-    # Optimization: Loading config every login is acceptable for now. Caching would be better later.
     config_result = await db.execute(select(models.SystemConfig))
     configs = {c.key: c.value for c in config_result.scalars().all()}
     
@@ -52,7 +56,6 @@ async def login_for_access_token(
                     except ValueError:
                         continue # Ignore invalid config entries
             except ValueError:
-                # Client IP invalid?
                 pass
             
             if not is_allowed:
@@ -68,7 +71,6 @@ async def login_for_access_token(
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Access denied from this IP address.",
-                    headers={"WWW-Authenticate": "Bearer"},
                 )
 
     # 1. Check if user is locked
@@ -86,7 +88,6 @@ async def login_for_access_token(
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Account is locked. Please try again later.",
-                headers={"WWW-Authenticate": "Bearer"},
             )
         else:
             # Auto unlock
@@ -95,10 +96,12 @@ async def login_for_access_token(
             db.add(user)
             await db.commit()
 
+    # Password Verification (Plain text now, handled by HTTPS)
+    # Note: Frontend encryption removed in this phase, so we expect plain password.
+    # We still check verifies against hashed_password.
     if not user or not utils.verify_password(form_data.password, user.hashed_password):
         # 2. Handle configuration and failure
         if user:
-            # Configs already fetched
             max_retries = int(configs.get("security_login_max_retries", 5))
             lockout_duration = int(configs.get("security_lockout_duration", 15))
             
@@ -131,7 +134,7 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    # Capture username before commit in log_business_action expires the object
+    # Capture username before commit
     username = user.username
     user_id = user.id
     
@@ -140,9 +143,6 @@ async def login_for_access_token(
         user.failed_attempts = 0
         user.locked_until = None
         db.add(user)
-        # Commit will handle by context or explicit? 
-        # AuditService.log_login might commit implicitly if it uses the same session transaction? 
-        # Ideally we commit the user reset.
         await db.commit()
 
     # Log success
@@ -160,14 +160,52 @@ async def login_for_access_token(
     access_token = utils.create_access_token(
         data={"sub": username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Set Strict HttpOnly Cookie (Raw JWT)
+    response.set_cookie(
+        key="access_token",
+        value=access_token, # Raw JWT, no Bearer prefix
+        httponly=True,
+        max_age=utils.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=utils.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite=utils.COOKIE_SAMESITE, 
+        secure=utils.COOKIE_SECURE,
+        domain=utils.COOKIE_DOMAIN,
+        path="/"
+    )
+    
+    return {"message": "Login successful", "token_type": "bearer"}
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+@router.post("/logout")
+async def logout(response: Response):
+    # Must match creation params exactly to delete
+    response.delete_cookie(
+        key="access_token", 
+        path="/", 
+        domain=utils.COOKIE_DOMAIN, 
+        secure=utils.COOKIE_SECURE, 
+        samesite=utils.COOKIE_SAMESITE
+    )
+    return {"message": "Logout successful"}
+
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    token = request.cookies.get("access_token")
+    if not token:
+        # Fallback (optional, mostly for API clients who might still send header)
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+        else:
+            raise credentials_exception
+            
+    # Token is now raw JWT (whether from cookie or header split)
+
     try:
         payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM])
         username: str = payload.get("sub")

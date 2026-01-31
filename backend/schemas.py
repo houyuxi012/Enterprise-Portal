@@ -72,6 +72,7 @@ class QuickToolBase(BaseModel):
     category: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
+    sort_order: Optional[int] = 0
 
 class QuickToolCreate(QuickToolBase):
     pass
@@ -253,6 +254,7 @@ class DashboardStats(BaseModel):
     active_users_trend: str
     tool_clicks_trend: str
     new_content_trend: str
+    peak_time_data: List[int] # 7 days: Sun, Mon, Tue, Wed, Thu, Fri, Sat
 
 # AI Management Schemas
 class AIProviderBase(BaseModel):

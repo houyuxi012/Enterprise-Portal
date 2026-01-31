@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles } from 'lucide-react';
-import AuthService from '../../services/auth';
+import { useAuth } from '../../contexts/AuthContext';
 import ApiClient from '../../services/api';
 
 interface AdminLoginProps {
@@ -8,6 +8,7 @@ interface AdminLoginProps {
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
+    const { login, logout } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -33,10 +34,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const user = await AuthService.login(username, password);
+            const user = await login(username, password);
             if (user.role !== 'admin') {
                 setError('Access Denied: Administrator privileges required.');
-                AuthService.logout(); // Clear invalid token
+                logout(); // Clear invalid session
             } else {
                 onLoginSuccess();
             }
@@ -57,13 +58,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
                 <div className="relative z-10">
                     <div className="flex items-center space-x-3 mb-12">
-                        {systemConfig.logo_url ? (
-                            <img src={systemConfig.logo_url} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-500/50" alt="Logo" />
-                        ) : (
-                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/50">
-                                {systemConfig.app_name ? systemConfig.app_name.charAt(0).toUpperCase() : 'S'}
-                            </div>
-                        )}
+                        <img
+                            src={systemConfig.logo_url || '/images/logo.png'}
+                            className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-500/50"
+                            alt="Logo"
+                        />
                         <span className="text-white font-bold text-xl tracking-wide">{systemConfig.app_name || 'ShiKu Home'}</span>
                     </div>
 
@@ -79,15 +78,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div className="relative z-10">
-                    <div className="flex items-center space-x-4 mb-4">
-                        <div className="flex -space-x-3">
-                            <img className="w-10 h-10 rounded-full border-2 border-[#0A1A3B]" src="https://ui-avatars.com/api/?name=Alex&background=random" alt="User" />
-                            <img className="w-10 h-10 rounded-full border-2 border-[#0A1A3B]" src="https://ui-avatars.com/api/?name=Sarah&background=random" alt="User" />
-                            <img className="w-10 h-10 rounded-full border-2 border-[#0A1A3B]" src="https://ui-avatars.com/api/?name=Mike&background=random" alt="User" />
-                        </div>
-                        <span className="text-slate-400 text-sm font-bold tracking-wide">+1,200 ACTIVE EMPLOYEES</span>
-                    </div>
-
                     <div className="inline-flex items-center space-x-3 bg-white/5 backdrop-blur-sm px-4 py-3 rounded-2xl border border-white/10">
                         <div className="p-1.5 bg-blue-500/20 rounded-lg text-blue-400">
                             <Lock size={16} />
@@ -183,26 +173,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             )}
                         </button>
                     </form>
-
-                    <div className="mt-10 relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs">
-                            <span className="px-4 bg-slate-50 dark:bg-slate-900 text-slate-400 font-medium">或使用企业单点登录</span>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-2 gap-4">
-                        <button disabled className="flex items-center justify-center px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm bg-white dark:bg-slate-800 text-slate-500 text-xs font-bold hover:bg-slate-50 transition-colors opacity-60 cursor-not-allowed">
-                            <Fingerprint size={16} className="mr-2" />
-                            BIOMETRIC
-                        </button>
-                        <button disabled className="flex items-center justify-center px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm bg-white dark:bg-slate-800 text-slate-500 text-xs font-bold hover:bg-slate-50 transition-colors opacity-60 cursor-not-allowed">
-                            <Globe size={16} className="mr-2" />
-                            SSO LOGIN
-                        </button>
-                    </div>
 
                     <div className="mt-12 flex justify-between items-center text-[10px] text-slate-300 font-medium uppercase tracking-widest">
                         <div className="flex items-center space-x-1">
