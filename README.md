@@ -19,6 +19,10 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
     - **系统日志**: 监控系统运行状态与异常堆栈。
     - **登录审计**: 记录所有登录尝试 (User, IP, Device, Status)，支持防爆破检测。
     - **日志外发**: 支持 Syslog/Webhook 实时转发至第三方 SIEM 平台。
+- **全栈监控体系**:
+    - **Grafana 可视化**: 集成 System Overview, Redis, PostgreSQL 三大专业仪表盘。
+    - **Loki 日志聚合**: 统一收集全容器栈日志，支持实时流式检索与多维分析。
+    - **Deep Observability**: 实现了从 Nginx 到数据库的全链路可观测性。
 - **存储服务**:
     - **MinIO 集成**: 支持对象存储 (S3 兼容)，用于头像、文件、图片的高可用存储。
     - **生产级安全**: 文件类型魔数校验、5MB 大小限制、病毒扫描预留。
@@ -47,6 +51,7 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 - **容器化**: Docker Compose
 - **反向代理**: Nginx (HTTPS, HSTS, Security Headers)
 - **对象存储**: MinIO (S3 兼容)
+- **监控告警**: Grafana + Loki (日志与指标可视化)
 - **SSL**: 自签名证书 (开发) / Let's Encrypt (生产)
 
 ## 🚀 快速开始 (Quick Start)
@@ -67,6 +72,7 @@ docker-compose up -d --build
 # 前端: https://localhost (需接受自签名证书警告)
 # 后端 API 文档: https://localhost/api/docs
 # MinIO Console: http://localhost:9001 (minioadmin/minioadmin@houyuxi)
+# Grafana 监控: http://localhost:3000 (admin / Grafana@houyuxi)
 
 # 默认管理员: admin / 123456
 ```
@@ -152,6 +158,8 @@ Enterprise Portal/
 ├── nginx/                  # Nginx 配置
 │   ├── nginx.conf          # 主配置文件
 │   └── certs/              # SSL 证书
+├── grafana/                # Grafana 监控配置
+│   └── provisioning/       # 自动化仪表盘与数据源配置
 ├── docker-compose.yml      # Docker 编排
 └── README.md
 ```
