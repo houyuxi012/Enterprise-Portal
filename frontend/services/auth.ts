@@ -40,11 +40,11 @@ class AuthService {
 
     async logout() {
         try {
-            await axios.post(`${API_URL}/auth/logout`);
+            await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
         } catch (e) {
             console.error("Logout failed", e);
         }
-        window.location.href = '/login';
+        window.location.href = '/';
     }
 
     async getCurrentUser(): Promise<User> {

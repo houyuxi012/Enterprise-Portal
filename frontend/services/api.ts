@@ -67,20 +67,20 @@ export const ApiClient = {
   },
 
   createTool: async (data: any): Promise<QuickToolDTO> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/tools/', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/tools/', data);
     return response.data;
   },
 
   updateTool: async (id: number, data: any): Promise<QuickToolDTO> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/tools/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.put(`/tools/${id}`, data);
     return response.data;
   },
 
   deleteTool: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/tools/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/tools/${id}`);
   },
 
   uploadImage: async (file: File): Promise<string> => {
@@ -104,75 +104,61 @@ export const ApiClient = {
   },
 
   createAnnouncement: async (data: any): Promise<Announcement> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/announcements/', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/announcements/', data);
     return { ...response.data, id: String(response.data.id) };
   },
 
   updateAnnouncement: async (id: number, data: any): Promise<Announcement> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/announcements/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.put(`/announcements/${id}`, data);
     return { ...response.data, id: String(response.data.id) };
   },
 
   deleteAnnouncement: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/announcements/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/announcements/${id}`);
   },
 
   // Admin - Employees
   createEmployee: async (data: Partial<Employee>): Promise<Employee> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/employees/', data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.post('/employees/', data);
     return response.data;
   },
 
   updateEmployee: async (id: number, data: Partial<Employee>): Promise<Employee> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/employees/${id}`, data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.put(`/employees/${id}`, data);
     return response.data;
   },
 
   deleteEmployee: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/employees/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    await api.delete(`/employees/${id}`);
   },
 
   // Admin - News
   createNews: async (data: Partial<NewsItem>): Promise<NewsItem> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/news/', data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.post('/news/', data);
     return response.data;
   },
 
   updateNews: async (id: number, data: Partial<NewsItem>): Promise<NewsItem> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/news/${id}`, data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.put(`/news/${id}`, data);
     return response.data;
   },
 
   deleteNews: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/news/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    await api.delete(`/news/${id}`);
   },
 
   optimizeStorage: async () => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/system/optimize-storage', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.post('/system/optimize-storage', {});
     return response.data;
   },
 
@@ -183,93 +169,83 @@ export const ApiClient = {
 
   // Admin - Users
   getUsers: async (): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/users/', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.get('/users/');
     return response.data;
   },
 
   createUser: async (data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/users/', data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.post('/users/', data);
     return response.data;
   },
 
   updateUser: async (id: number, data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/users/${id}`, data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    const response = await api.put(`/users/${id}`, data);
     return response.data;
   },
 
   deleteUser: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/users/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    await api.delete(`/users/${id}`);
   },
 
   resetPassword: async (username: string): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.post('/users/reset-password', { username }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+
+    await api.post('/users/reset-password', { username });
   },
 
   getRoles: async (): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/roles/', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/roles/');
     return response.data;
   },
 
   createRole: async (data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/roles/', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/roles/', data);
     return response.data;
   },
 
   updateRole: async (id: number, data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/roles/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.put(`/roles/${id}`, data);
     return response.data;
   },
 
   deleteRole: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/roles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/roles/${id}`);
   },
 
   getPermissions: async (): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/roles/permissions', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/roles/permissions');
     return response.data;
   },
 
   getDepartments: async (): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/departments/', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/departments/');
     return response.data;
   },
 
   createDepartment: async (data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/departments/', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/departments/', data);
     return response.data;
   },
 
   updateDepartment: async (id: number, data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/departments/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.put(`/departments/${id}`, data);
     return response.data;
   },
 
   deleteDepartment: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/departments/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/departments/${id}`);
   },
 
   getSystemConfig: async (): Promise<Record<string, string>> => {
@@ -278,33 +254,25 @@ export const ApiClient = {
   },
 
   updateSystemConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/system/config', config, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/system/config', config);
     return response.data;
   },
 
   getSystemInfo: async (): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/system/info', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/system/info');
     return response.data;
   },
 
   // Log Management
   getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/logs/system', {
-      params,
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/logs/system', { params });
     return response.data;
   },
 
   getBusinessLogs: async (params?: { operator?: string; action?: string; limit?: number; offset?: number }): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/logs/business', {
-      params,
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/logs/business', { params });
     return response.data;
   },
 
@@ -319,8 +287,6 @@ export const ApiClient = {
         detail: log.detail || '',
         timestamp: new Date().toISOString(),
         ip_address: 'frontend'
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
     } catch (e) {
       console.warn("Failed to log action:", e);
@@ -332,20 +298,20 @@ export const ApiClient = {
 
 
   getLogForwardingConfig: async (): Promise<any[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/logs/config', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/logs/config');
     return response.data;
   },
 
   saveLogForwardingConfig: async (data: any): Promise<any> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/logs/config', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/logs/config', data);
     return response.data;
   },
 
   deleteLogForwardingConfig: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/logs/config/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/logs/config/${id}`);
   },
 
   // Carousel
@@ -355,26 +321,26 @@ export const ApiClient = {
   },
 
   getAdminCarouselItems: async (): Promise<CarouselItem[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/carousel/admin', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/carousel/admin');
     return response.data;
   },
 
   createCarouselItem: async (data: Partial<CarouselItem>): Promise<CarouselItem> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/carousel/', data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.post('/carousel/', data);
     return response.data;
   },
 
   updateCarouselItem: async (id: number, data: Partial<CarouselItem>): Promise<CarouselItem> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/carousel/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.put(`/carousel/${id}`, data);
     return response.data;
   },
 
   deleteCarouselItem: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/carousel/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+    await api.delete(`/carousel/${id}`);
   },
 
   // Dashboard
@@ -385,57 +351,49 @@ export const ApiClient = {
 
   // System Resources
   getSystemResources: async () => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/system/resources', { headers: { Authorization: `Bearer ${token}` } });
+
+    const response = await api.get('/system/resources');
     return response.data;
   }
   ,
 
-  // AI Management
+  // AI Management - Uses Cookie-based auth (HttpOnly cookie sent automatically)
   getAIProviders: async (): Promise<AIProvider[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/ai/admin/providers', { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.get('/ai/admin/providers');
     return response.data;
   },
 
   createAIProvider: async (data: Partial<AIProvider>): Promise<AIProvider> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/ai/admin/providers', data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.post('/ai/admin/providers', data);
     return response.data;
   },
 
   updateAIProvider: async (id: number, data: Partial<AIProvider>): Promise<AIProvider> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/ai/admin/providers/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.put(`/ai/admin/providers/${id}`, data);
     return response.data;
   },
 
   deleteAIProvider: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/ai/admin/providers/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+    await api.delete(`/ai/admin/providers/${id}`);
   },
 
   getAIPolicies: async (): Promise<AISecurityPolicy[]> => {
-    const token = localStorage.getItem('token');
-    const response = await api.get('/ai/admin/policies', { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.get('/ai/admin/policies');
     return response.data;
   },
 
   createAIPolicy: async (data: Partial<AISecurityPolicy>): Promise<AISecurityPolicy> => {
-    const token = localStorage.getItem('token');
-    const response = await api.post('/ai/admin/policies', data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.post('/ai/admin/policies', data);
     return response.data;
   },
 
   updateAIPolicy: async (id: number, data: Partial<AISecurityPolicy>): Promise<AISecurityPolicy> => {
-    const token = localStorage.getItem('token');
-    const response = await api.put(`/ai/admin/policies/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.put(`/ai/admin/policies/${id}`, data);
     return response.data;
   },
 
   deleteAIPolicy: async (id: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    await api.delete(`/ai/admin/policies/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+    await api.delete(`/ai/admin/policies/${id}`);
   }
 };
 

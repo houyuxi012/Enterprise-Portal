@@ -145,7 +145,7 @@ async def login_for_access_token(
         db.add(user)
         await db.commit()
 
-    # Log success
+    # Log success (to LoginAuditLog)
     await AuditService.log_login(
         db,
         username=username,
@@ -155,6 +155,18 @@ async def login_for_access_token(
         user_id=user_id,
         trace_id=trace_id
     )
+    
+    # Also log to BusinessLog for visibility in admin panel
+    await AuditService.log_business_action(
+        db,
+        user_id=user_id,
+        username=username,
+        action="用户登录",
+        target=f"用户 {username}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
 
     access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = utils.create_access_token(

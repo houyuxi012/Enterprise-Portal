@@ -181,24 +181,6 @@ Enterprise Portal/
 └── README.md
 ```
 
-## 🐛 常见问题 (Troubleshooting)
-
-### 白屏问题
-如果访问 `https://localhost` 显示白屏：
-1. 检查浏览器控制台是否有 CORS 错误
-2. 确认 `docker-compose.yml` 中 `frontend.build.args.VITE_API_BASE_URL` 设置为 `/api`
-3. 确认没有 `./frontend/dist` 的 volume 挂载覆盖容器内资源
-4. 重新构建: `docker-compose up -d --build frontend`
-
-### 登录 401 错误
-- 确认数据库已初始化默认用户
-- 检查 `CORS_ORIGINS` 是否包含当前访问域名
-- 确认 Cookie 设置正确 (`COOKIE_SECURE`, `COOKIE_DOMAIN`)
-
-### API 返回 HTML 而非 JSON
-- 确认 Nginx `proxy_pass` 没有末尾斜杠
-- 确认 `proxy_intercept_errors off;` 已设置
-
 ## 📝 License
 MIT License © 2025 侯钰熙 
 https://www.houyuxi.com

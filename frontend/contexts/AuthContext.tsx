@@ -27,7 +27,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent flash of login
     const [isInitialized, setIsInitialized] = useState(false);
     const initPromiseRef = useRef<Promise<void> | null>(null);
 
@@ -86,6 +86,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         return initPromiseRef.current;
     }, [isInitialized]);
+
+    // Auto-initialize auth on mount (handles page refresh)
+    useEffect(() => {
+        initAuth();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const value: AuthContextType = {
         user,
