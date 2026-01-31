@@ -49,6 +49,10 @@ async def create_provider(
 
     # API Key is sent as plain text (TLS protected)
     plain_api_key = provider.api_key 
+    
+    # Foolproof check: Do not allow ciphertext or placeholders
+    if plain_api_key.startswith("gAAAA") or "***" in plain_api_key or "placeholder" in plain_api_key.lower():
+        raise HTTPException(status_code=400, detail="Invalid API Key format. Please provide a valid plaintext key.")
 
     encrypted_api_key = CryptoService.encrypt_data(plain_api_key)
     
@@ -109,10 +113,26 @@ async def update_provider(
     if provider.base_url is not None:
          db_provider.base_url = provider.base_url
     if provider.api_key is not None:
-         # Plain text key (TLS)
-         plain_key = provider.api_key
-         # Encrypt AES for storage
-         db_provider.api_key = CryptoService.encrypt_data(plain_key)
+         input_key = provider.api_key
+         # 1. Idempotency Check: exact match
+         if input_key == db_provider.api_key:
+             pass # No change
+         
+         # 2. Foolproof Check: Starts with Fernet prefix 'gAAAA'
+         # If it starts with gAAAA, assume it's the existing ciphertext being returned by UI.
+         # Do NOT re-encrypt. Do NOT update.
+         elif input_key.startswith("gAAAA"):
+             print(f"Ignored encrypted key update for Provider {id}")
+             pass
+             
+         # 3. Foolproof Check: Masked chars or obvious placeholders
+         elif "***" in input_key or "placeholder" in input_key.lower():
+             print(f"Ignored masked/invalid key update for Provider {id}")
+             pass
+             
+         else:
+             # Plain text key (TLS) -> Encrypt
+             db_provider.api_key = CryptoService.encrypt_data(input_key)
     if provider.model is not None:
          db_provider.model = provider.model
     if provider.is_active is not None:

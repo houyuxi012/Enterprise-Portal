@@ -140,7 +140,8 @@ const ModelConfig: React.FC = () => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAdd}
-                    className="bg-indigo-600 hover:bg-indigo-500 border-indigo-600 hover:border-indigo-500 h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20 font-bold"
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     添加模型
                 </Button>
@@ -160,12 +161,38 @@ const ModelConfig: React.FC = () => {
             <Modal
                 title={editingProvider ? "编辑模型" : "添加模型"}
                 open={isModalVisible}
-                onOk={handleOk}
                 onCancel={() => setIsModalVisible(false)}
-                okText="保存"
-                cancelText="取消"
                 className="rounded-2xl overflow-hidden"
-                okButtonProps={{ className: "bg-indigo-600" }}
+                footer={[
+                    <Button key="test" icon={<ApiOutlined />} onClick={async () => {
+                        try {
+                            const values = await form.validateFields();
+                            const hide = message.loading('Testing connection...', 0);
+                            try {
+                                const res = await ApiClient.testAIProvider(values);
+                                hide();
+                                if (res.status === 'success') {
+                                    message.success('Connection successful');
+                                } else {
+                                    message.error(res.message || 'Connection failed');
+                                }
+                            } catch (err: any) {
+                                hide();
+                                message.error(err.response?.data?.detail || 'Connection failed');
+                            }
+                        } catch (e) {
+                            // Validation failed
+                        }
+                    }}>
+                        测试连接
+                    </Button>,
+                    <Button key="cancel" onClick={() => setIsModalVisible(false)}>
+                        取消
+                    </Button>,
+                    <Button key="submit" type="primary" onClick={handleOk} className="bg-indigo-600">
+                        保存
+                    </Button>,
+                ]}
             >
                 <Form form={form} layout="vertical" className="mt-4">
                     <Form.Item name="name" label="名称" rules={[{ required: true }]}>

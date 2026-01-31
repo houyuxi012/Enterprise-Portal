@@ -144,7 +144,8 @@ const SecurityPolicy: React.FC = () => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAdd}
-                    className="bg-indigo-600 hover:bg-indigo-500 border-indigo-600 hover:border-indigo-500 h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20 font-bold"
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     添加策略
                 </Button>

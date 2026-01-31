@@ -377,6 +377,11 @@ export const ApiClient = {
     await api.delete(`/ai/admin/providers/${id}`);
   },
 
+  testAIProvider: async (data: Partial<AIProvider>): Promise<any> => {
+    const response = await api.post('/ai/admin/providers/test', data);
+    return response.data;
+  },
+
   getAIPolicies: async (): Promise<AISecurityPolicy[]> => {
     const response = await api.get('/ai/admin/policies');
     return response.data;

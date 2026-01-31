@@ -112,8 +112,10 @@ async def init_db():
             print("Data already seeded.")
 
         # Always check and add Admin User
-        from models import User
+        from models import User, AIProvider
         from utils import get_password_hash
+        import os
+        from datetime import datetime
         
         result_user = await db.execute(select(User).where(User.username == "admin"))
         if not result_user.scalars().first():
@@ -127,6 +129,22 @@ async def init_db():
                 avatar=""
             )
             db.add(admin_user)
+
+        # Seed Google Gemini Provider
+        result_ai = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini"))
+        if not result_ai.scalars().first():
+            print("Creating testing Gemini model...")
+            api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")
+            gemini_provider = AIProvider(
+                name="Google Gemini",
+                type="gemini",
+                base_url="https://generativelanguage.googleapis.com/v1beta/models", # Standard Endpoint
+                api_key=api_key,
+                model="gemini-2.0-flash",
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            db.add(gemini_provider)
             
         await db.commit()
         print("Done!")

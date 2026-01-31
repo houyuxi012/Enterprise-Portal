@@ -181,13 +181,15 @@ const OrganizationList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">组织架构管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理企业部门层级与结构</p>
                 </div>
-                <button
+                <Button
+                    type="primary"
+                    icon={<Plus size={18} />}
                     onClick={() => openCreateModal(null)}
-                    className="flex items-center px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/30"
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
-                    <Plus size={18} className="mr-2" />
                     新增根部门
-                </button>
+                </Button>
             </div>
 
             <div className="flex flex-1 min-h-0 gap-6">

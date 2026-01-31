@@ -2,15 +2,36 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
-from schemas import AIChatRequest, AIChatResponse
+from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest
 from database import get_db
-from models import Employee, NewsItem, QuickTool
+from models import Employee, NewsItem, QuickTool, AIProvider
 from services.ai_engine import AIEngine
 
 router = APIRouter(
     prefix="/ai",
     tags=["ai"]
 )
+
+@router.post("/admin/providers/test")
+async def test_provider(request: AIProviderTestRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        engine = AIEngine(db)
+        # Create a temporary provider object
+        temp_provider = AIProvider(
+            name=request.name,
+            type=request.type,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            model=request.model,
+            is_active=True
+        )
+        
+        # Call provider with a simple prompt
+        response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
+        return {"status": "success", "message": "Connection successful", "response": response}
+    except Exception as e:
+        print(f"Test Provider Error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/chat", response_model=AIChatResponse)
 async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):

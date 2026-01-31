@@ -265,6 +265,13 @@ class AIProviderBase(BaseModel):
     model: str
     is_active: bool = False
 
+class AIProviderTestRequest(BaseModel):
+    name: str
+    type: str # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    base_url: Optional[str] = None
+    api_key: str
+    model: str
+
 class AIProviderCreate(AIProviderBase):
     pass
 

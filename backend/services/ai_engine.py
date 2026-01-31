@@ -131,6 +131,7 @@ class AIEngine:
                     "contents": [{"parts": [{"text": full_content}]}]
                 }, timeout=30)
                 if resp.status_code != 200:
+                    logger.warning(f"Gemini API Error: {resp.status_code} - {resp.text[:200]}")
                     raise Exception(f"Gemini API Error: {resp.text}")
                 data = resp.json()
                 return data['candidates'][0]['content']['parts'][0]['text']

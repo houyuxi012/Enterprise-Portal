@@ -18,6 +18,7 @@ import {
     ApiOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -185,6 +186,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         },
     ];
 
+    const { user } = useAuth(); // Import user from AuthContext
+
     return (
         <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
             {/* Sidebar with Glassmorphism / Soft Style */}
@@ -233,17 +236,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 <Header className="px-8 h-20 bg-transparent flex justify-end items-center z-10 backdrop-blur-sm sticky top-0">
                     <div className="flex items-center space-x-6">
                         <div className="text-right hidden sm:block">
-                            <div className="text-sm font-bold text-slate-800 dark:text-white">Admin User</div>
-                            <div className="text-xs text-slate-500 font-medium">Administrator</div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-white">{user?.name || user?.username || 'Admin User'}</div>
+                            <div className="text-xs text-slate-500 font-medium">{user?.role || 'Administrator'}</div>
                         </div>
                         <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight" trigger={['click']}>
                             <div className="cursor-pointer p-1 rounded-full border-2 border-white dark:border-slate-700 shadow-md hover:shadow-lg transition-shadow">
                                 <Avatar
                                     size={40}
-                                    style={{ backgroundColor: '#3b82f6' }}
+                                    src={user?.avatar}
+                                    style={{ backgroundColor: user?.avatar ? 'transparent' : '#3b82f6' }}
                                     icon={<UserOutlined />}
-                                    className="bg-gradient-to-br from-blue-500 to-indigo-600"
-                                />
+                                    className={user?.avatar ? "" : "bg-gradient-to-br from-blue-500 to-indigo-600"}
+                                >
+                                    {!user?.avatar && (user?.name?.[0] || user?.username?.[0] || 'A').toUpperCase()}
+                                </Avatar>
                             </div>
                         </Dropdown>
                     </div>

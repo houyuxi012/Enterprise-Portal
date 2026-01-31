@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X, Shield, Star } from 'lucide-react';
 import { Role, Permission } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Tag, Checkbox, Card, Empty, Tooltip } from 'antd';
+import { message, Tag, Checkbox, Card, Empty, Tooltip, Button } from 'antd';
 
 const RoleList: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
@@ -120,13 +120,15 @@ const RoleList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">角色定义与权限</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理系统用户角色及其对应权限</p>
                 </div>
-                <button
+                <Button
+                    type="primary"
+                    icon={<Plus size={18} />}
                     onClick={handleAddNew}
-                    className="flex items-center px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/30"
+                    size="large"
+                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
-                    <Plus size={18} className="mr-2" />
                     新增角色
-                </button>
+                </Button>
             </div>
 
             {/* Content Card */}
