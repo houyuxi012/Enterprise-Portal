@@ -131,15 +131,15 @@ const NewsList: React.FC = () => {
             setIsModalOpen(false);
             fetchNews();
         } catch (error: any) {
-            console.error(error);
+            console.error('News operation error:', error);
             // Check if it's a form validation error (Ant Design format)
             if (error.errorFields) {
                 message.warning('请检查表单中标记红色的必填项');
                 return;
             }
 
-            const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
-            alert('Debug Error: ' + errorMsg);
+            const errorDetail = error?.response?.data?.detail || error?.message || '未知错误';
+            const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
             message.error('操作失败: ' + errorMsg);
         }
     };

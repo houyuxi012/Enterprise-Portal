@@ -184,51 +184,35 @@ async def read_access_logs(
     """
     Query access logs from Loki only.
     Access logs are NOT stored in the database.
+    Uses LogRepository for unified abstraction.
     """
-    import os
-    import httpx
-    import json
+    from services.log_repository import get_log_repository, LogQuery
     
-    loki_url = os.getenv("LOKI_PUSH_URL")
-    if not loki_url:
+    repo = get_log_repository()
+    if not repo:
         return []
     
-    results = []
-    try:
-        async with httpx.AsyncClient() as client:
-            query_str = '{job="enterprise-portal",log_type="ACCESS"}'
-            resp = await client.get(
-                f"{loki_url}/loki/api/v1/query_range",
-                params={"query": query_str, "limit": limit},
-                timeout=5.0
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                for stream in data.get("data", {}).get("result", []):
-                    for value in stream.get("values", []):
-                        try:
-                            log_data = json.loads(value[1])
-                            # Apply filters
-                            if path and path not in log_data.get("path", ""):
-                                continue
-                            if status_code and log_data.get("status_code") != status_code:
-                                continue
-                            
-                            results.append({
-                                "id": len(results) + 1,
-                                "timestamp": log_data.get("timestamp", ""),
-                                "trace_id": log_data.get("trace_id", ""),
-                                "method": log_data.get("method", ""),
-                                "path": log_data.get("path", ""),
-                                "status_code": log_data.get("status_code", 0),
-                                "ip_address": log_data.get("ip_address", ""),
-                                "user_agent": log_data.get("user_agent", ""),
-                                "latency_ms": log_data.get("latency_ms", 0),
-                            })
-                        except json.JSONDecodeError:
-                            pass
-    except Exception as e:
-        import logging
-        logging.warning(f"Loki access log query failed: {e}")
+    query = LogQuery(
+        log_type="ACCESS",
+        path=path,
+        status_code=status_code,
+        limit=limit
+    )
     
-    return results[:limit]
+    results = await repo.read(query)
+    
+    # Format for frontend
+    return [
+        {
+            "id": idx + 1,
+            "timestamp": log.get("timestamp", ""),
+            "trace_id": log.get("trace_id", ""),
+            "method": log.get("method", ""),
+            "path": log.get("path", ""),
+            "status_code": log.get("status_code", 0),
+            "ip_address": log.get("ip_address", ""),
+            "user_agent": log.get("user_agent", ""),
+            "latency_ms": log.get("latency_ms", 0),
+        }
+        for idx, log in enumerate(results[:limit])
+    ]

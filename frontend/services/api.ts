@@ -167,16 +167,7 @@ export const ApiClient = {
     return response.data.response;
   },
 
-  uploadImage: async (file: File): Promise<{ url: string }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post('/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  },
+
 
   getAIModels: async (): Promise<AIModelOption[]> => {
     const response = await api.get<AIModelOption[]>('/ai/models');

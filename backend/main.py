@@ -36,12 +36,18 @@ async def startup():
     # The actual DB write is still managed by AuditService directly.
     async def noop_db_write(entry): return True
     init_log_sink(db_write_func=noop_db_write, loki_url=loki_url)
+    
+    # --- Initialize LogRepository (Unified Abstraction Layer) ---
+    from services.log_repository import init_log_repository
+    init_log_repository(db_session_factory=database.SessionLocal, loki_url=loki_url)
 
 
 @app.on_event("shutdown")
 async def shutdown():
     from services.log_sink import shutdown_log_sink
     await shutdown_log_sink()
+    from services.log_repository import shutdown_log_repository
+    await shutdown_log_repository()
 
 # Mount uploads directory (REMOVED: Moved to authenticated endpoint)
 # os.makedirs("uploads", exist_ok=True)

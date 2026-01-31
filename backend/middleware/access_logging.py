@@ -18,13 +18,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from middleware.trace_context import get_trace_id
-from services.log_sink import get_log_sink, LogEntry
 
 
 class AccessLoggingMiddleware(BaseHTTPMiddleware):
     """
     Middleware to log all HTTP requests to Loki (access logs only).
     These logs are NOT written to the database.
+    Uses LogRepository for unified log abstraction.
     """
     
     # Paths to skip logging (health checks, static files, etc.)
@@ -55,28 +55,31 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
         status = "SUCCESS" if 200 <= response.status_code < 400 else "FAIL"
         level = "INFO" if response.status_code < 400 else ("WARN" if response.status_code < 500 else "ERROR")
         
-        # Create access log entry
-        log_entry = LogEntry(
-            trace_id=trace_id,
-            request_id=trace_id,  # Same as trace_id for now
-            timestamp=datetime.utcnow().isoformat() + "Z",
-            level=level,
-            log_type="ACCESS",
-            source="access",
-            action="HTTP_REQUEST",
-            status=status,
-            path=request.url.path,
-            method=request.method,
-            status_code=response.status_code,
-            ip_address=client_ip,
-            user_agent=request.headers.get("User-Agent", ""),
-            latency_ms=latency_ms,
-        )
-        
-        # Push to Loki only (fire-and-forget)
-        sink = get_log_sink()
-        if sink and sink.sidecars:
-            for sidecar in sink.sidecars:
-                asyncio.create_task(sidecar.emit(log_entry))
+        # Use LogRepository for unified logging
+        try:
+            from services.log_repository import get_log_repository, LogEntry
+            repo = get_log_repository()
+            if repo:
+                log_entry = LogEntry(
+                    trace_id=trace_id,
+                    request_id=trace_id,
+                    timestamp=datetime.utcnow().isoformat() + "Z",
+                    level=level,
+                    log_type="ACCESS",
+                    source="access",
+                    action="HTTP_REQUEST",
+                    status=status,
+                    path=request.url.path,
+                    method=request.method,
+                    status_code=response.status_code,
+                    ip_address=client_ip,
+                    user_agent=request.headers.get("User-Agent", ""),
+                    latency_ms=latency_ms,
+                )
+                # Fire-and-forget (ACCESS logs go to Loki only via repository)
+                asyncio.create_task(repo.write(log_entry))
+        except Exception as e:
+            import logging
+            logging.warning(f"AccessLoggingMiddleware log failed: {e}")
         
         return response

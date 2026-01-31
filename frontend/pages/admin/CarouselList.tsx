@@ -66,8 +66,10 @@ const CarouselList: React.FC = () => {
             }
             setIsModalOpen(false);
             fetchItems();
-        } catch (error) {
-            message.error('操作失败');
+        } catch (error: any) {
+            console.error('Carousel operation error:', error);
+            const errorMsg = error?.response?.data?.detail || error?.message || '未知错误';
+            message.error('操作失败: ' + (typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg));
         }
     };
 

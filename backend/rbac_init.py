@@ -91,7 +91,7 @@ async def init_rbac(db: AsyncSession):
         "role": "admin", # Legacy field
         "is_active": True,
         "name": "Administrator",
-        "avatar": ""
+        "avatar": "/images/admin-avatar.svg"
     }
     
     stmt = insert(models.User).values(admin_user_data)
