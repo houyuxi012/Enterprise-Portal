@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Switch, message, Upload, Avatar } from 'antd';
+import { Button, Card, Form, Input, Switch, message, Upload, Avatar, Select } from 'antd';
 import { SaveOutlined, UploadOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
 
@@ -7,15 +7,24 @@ const AISettings: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
     const [imageUrl, setImageUrl] = useState<string>('');
+    const [models, setModels] = useState<any[]>([]);
 
     const fetchConfig = async () => {
         setLoading(true);
         try {
-            const config = await ApiClient.getSystemConfig();
+            const [config, modelList] = await Promise.all([
+                ApiClient.getSystemConfig(),
+                ApiClient.getAIModels()
+            ]);
+
+            setModels(modelList);
+
             form.setFieldsValue({
                 ai_name: config.ai_name || 'AI Assistant',
                 ai_icon: config.ai_icon || '',
-                ai_enabled: config.ai_enabled === 'true',
+                ai_enabled: config.ai_enabled !== 'false', // Default true implies enabled unless explicitly false
+                search_ai_enabled: config.search_ai_enabled !== 'false',
+                default_ai_model: config.default_ai_model ? Number(config.default_ai_model) : (modelList.length > 0 ? modelList[0].id : undefined)
             });
             setImageUrl(config.ai_icon || '');
         } catch (error) {
@@ -33,10 +42,13 @@ const AISettings: React.FC = () => {
         setLoading(true);
         try {
             // Convert boolean to string for backend storage
+            // Convert boolean to string for backend storage
             const configToSave = {
                 ai_name: values.ai_name,
                 ai_icon: values.ai_icon,
                 ai_enabled: String(values.ai_enabled),
+                search_ai_enabled: String(values.search_ai_enabled),
+                default_ai_model: values.default_ai_model ? String(values.default_ai_model) : '',
             };
             await ApiClient.updateSystemConfig(configToSave);
             message.success('Settings saved successfully');
@@ -90,6 +102,27 @@ const AISettings: React.FC = () => {
                                 help="关闭后，全站将隐藏 AI 助手入口"
                             >
                                 <Switch />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="search_ai_enabled"
+                                label="启用搜索栏 AI 增强"
+                                valuePropName="checked"
+                                help="在搜索栏提供 AI 智能预览结果以及搜索建议"
+                            >
+                                <Switch />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="default_ai_model"
+                                label="默认 AI 模型"
+                                help="AI 助手启动时默认选中的模型"
+                            >
+                                <Select placeholder="选择默认模型">
+                                    {models.map(m => (
+                                        <Select.Option key={m.id} value={m.id}>{m.name} ({m.model})</Select.Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
 
                             <Form.Item

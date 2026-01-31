@@ -159,6 +159,7 @@ class AIChatRequest(BaseModel):
     prompt: str
     history: Optional[List[dict]] = None
     model_id: Optional[int] = None
+    image_url: Optional[str] = None
 
 class AIModelOption(BaseModel):
     id: int

@@ -15,13 +15,13 @@ SYSTEM_INSTRUCTION = """你是 ShiKu Assistant，ShiKu Home 公司内网的官�
 3. **格式优化**：使用 Markdown，保持简洁专业。
 """
 
-async def get_ai_response(prompt: str, context: str = "") -> str:
+async def get_ai_response(prompt: str, context: str = "", image_data: bytes = None, mime_type: str = None) -> str:
     if not api_key:
         return "【系统提示】请配置 API Key 以启用 AI 智能回答。"
     
     try:
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-2.0-flash', # Upgrade to 2.0-flash which is generally better/multimodal
             system_instruction=SYSTEM_INSTRUCTION
         )
         
@@ -32,7 +32,14 @@ async def get_ai_response(prompt: str, context: str = "") -> str:
 【用户问题】
 {prompt}
 """
-        response = await model.generate_content_async(full_prompt)
+        content = [full_prompt]
+        if image_data and mime_type:
+            content.append({
+                "mime_type": mime_type,
+                "data": image_data
+            })
+            
+        response = await model.generate_content_async(content)
         return response.text
     except Exception as e:
         print(f"Gemini API Error: {e}")

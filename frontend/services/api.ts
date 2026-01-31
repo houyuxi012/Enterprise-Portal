@@ -162,9 +162,20 @@ export const ApiClient = {
     return response.data;
   },
 
-  chatAI: async (prompt: string, modelId?: number): Promise<string> => {
-    const response = await api.post<{ response: string }>('/ai/chat', { prompt, model_id: modelId });
+  chatAI: async (prompt: string, modelId?: number, imageUrl?: string): Promise<string> => {
+    const response = await api.post<{ response: string }>('/ai/chat', { prompt, model_id: modelId, image_url: imageUrl });
     return response.data.response;
+  },
+
+  uploadImage: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   },
 
   getAIModels: async (): Promise<AIModelOption[]> => {

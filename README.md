@@ -66,7 +66,7 @@ docker-compose up -d --build
 # 3. 访问系统
 # 前端: https://localhost (需接受自签名证书警告)
 # 后端 API 文档: https://localhost/api/docs
-# MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
+# MinIO Console: http://localhost:9001 (minioadmin/minioadmin@houyuxi)
 
 # 默认管理员: admin / 123456
 ```
@@ -122,7 +122,7 @@ backend:
     STORAGE_TYPE: minio
     MINIO_ENDPOINT: minio:9000
     MINIO_ACCESS_KEY: minioadmin
-    MINIO_SECRET_KEY: minioadmin
+    MINIO_SECRET_KEY: minioadmin@houyuxi
 
 # Frontend 服务 (构建时注入)
 frontend:

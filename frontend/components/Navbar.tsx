@@ -77,10 +77,13 @@ const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     if (aiSearchTimeoutRef.current) clearTimeout(aiSearchTimeoutRef.current);
-    if (!globalSearch.trim()) {
+
+    // Check config - skip if disabled
+    if (!globalSearch.trim() || (systemConfig && systemConfig.search_ai_enabled === 'false')) {
       setAiPreviewAnswer(null);
       return;
     }
+
     setIsAiLoading(true);
     aiSearchTimeoutRef.current = setTimeout(async () => {
       const prompt = `作为一个内网助手，请针对以下搜索词提供非常简短（50字以内）的预览回答：${globalSearch}`;
@@ -95,7 +98,7 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => {
       if (aiSearchTimeoutRef.current) clearTimeout(aiSearchTimeoutRef.current);
     };
-  }, [globalSearch]);
+  }, [globalSearch, systemConfig]);
 
   const previewResults = useMemo(() => {
     if (!globalSearch.trim()) return null;

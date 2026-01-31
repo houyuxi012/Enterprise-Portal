@@ -68,7 +68,7 @@ class AIEngine:
 
         return check_result
 
-    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None) -> str:
+    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None, image_url: Optional[str] = None) -> str:
         # 1. Input Security Check
         in_check = await self.check_security_policies(prompt)
         if not in_check["allowed"]:
@@ -76,6 +76,12 @@ class AIEngine:
         
         # Use masked text if masking occurred
         safe_prompt = in_check["masked_text"]
+        
+        # Pre-fetch Image if present
+        image_data = None
+        mime_type = None
+        if image_url:
+            image_data, mime_type = await self._download_image(image_url)
 
         # 2. Get Provider
         if model_id:
@@ -92,9 +98,10 @@ class AIEngine:
         if not provider:
             # Fallback to default Gemini Service if no active provider configured
             logger.info("No active provider, using default Gemini service")
-            response_text = await services.gemini_service.get_ai_response(safe_prompt, context)
+            response_text = await services.gemini_service.get_ai_response(safe_prompt, context, image_data, mime_type)
         else:
             try:
+                # TODO: Pass image data to other providers if they support it
                 response_text = await self._call_provider(provider, safe_prompt, context)
             except Exception as e:
                 logger.error(f"Provider {provider.name} failed: {e}")
@@ -106,6 +113,26 @@ class AIEngine:
             return f"【系统拦截】响应内容包含敏感信息，已屏蔽。"
         
         return out_check["masked_text"]
+    
+    async def _download_image(self, url: str):
+        """Helper to download image from URL (local or remote)"""
+        try:
+             # Logic for Local/MinIO URL resolution
+             if "uploads/" in url:
+                  # Assuming it's a relative path or full URL to our own server
+                  # For now, let's try to read from storage directly if possible, or use http request
+                  # Simplest approach: Config MinIO or Local path mapping
+                  pass
+             
+             # General HTTP fetch
+             async with httpx.AsyncClient() as client:
+                 resp = await client.get(url, timeout=10.0)
+                 resp.raise_for_status()
+                 content_type = resp.headers.get("content-type")
+                 return resp.content, content_type
+        except Exception as e:
+            logger.error(f"Failed to download image {url}: {e}")
+            return None, None
 
     async def _call_provider(self, provider: models.AIProvider, prompt: str, context: str) -> str:
         from services.crypto_service import CryptoService

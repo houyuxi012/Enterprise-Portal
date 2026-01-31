@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2, ChevronDown } from 'lucide-react';
+import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2, ChevronDown, Paperclip, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ApiClient from '../services/api';
@@ -14,6 +14,7 @@ interface AIAssistantProps {
 interface Message {
   role: 'user' | 'ai';
   text: string;
+  imageUrl?: string;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -41,6 +42,32 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
   const [selectedModelId, setSelectedModelId] = useState<number | undefined>(undefined);
   const [showModelSelector, setShowModelSelector] = useState(false);
 
+  // Image Upload State
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert("图片大小不能超过 5MB");
+        return;
+      }
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+      // Focus input back
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -60,9 +87,23 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         });
 
         setModels(modelList);
-        // Default to first available model if exists
-        if (modelList.length > 0) {
-          setSelectedModelId(modelList[0].id);
+
+        // Determine default model
+        let defaultModelId: number | undefined;
+        if (config.default_ai_model) {
+          const configId = Number(config.default_ai_model);
+          if (modelList.find(m => m.id === configId)) {
+            defaultModelId = configId;
+          }
+        }
+
+        // Fallback to first available if not configured or invalid
+        if (defaultModelId === undefined && modelList.length > 0) {
+          defaultModelId = modelList[0].id;
+        }
+
+        if (defaultModelId !== undefined) {
+          setSelectedModelId(defaultModelId);
         }
 
         // Update initial welcome message name if needed
@@ -97,26 +138,43 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     }
   }, [isOpen]);
 
-  const handleSend = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+  const handleSend = async (text: string) => {
+    if ((!text.trim() && !selectedImage) || isLoading) return;
 
     const userMsg = text.trim();
+    let imageUrl = '';
+
+    // Upload image if selected
+    if (selectedImage) {
+      try {
+        const result = await ApiClient.uploadImage(selectedImage);
+        imageUrl = result.url;
+      } catch (e) {
+        console.error("Upload failed", e);
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }, { role: 'ai', text: "❌ 图片上传失败，请重试。" }]);
+        return;
+      }
+    }
+
+    const newMessage: Message = { role: 'user', text: userMsg, imageUrl: imageUrl || undefined };
+
     setInput('');
+    clearImage();
     setIsLoading(true);
 
     // Add user message
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setMessages(prev => [...prev, newMessage]);
 
     try {
-      // Pass selectedModelId to API
-      const response = await ApiClient.chatAI(userMsg, selectedModelId);
+      // Pass selectedModelId and imageUrl to API
+      const response = await ApiClient.chatAI(userMsg, selectedModelId, imageUrl || undefined);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'ai', text: "抱歉，暂时无法连接到智能服务。请稍后再试。" }]);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, selectedModelId]); // Depend on selectedModelId
+  };
 
   // Handle deep-linked prompt
   useEffect(() => {
@@ -210,6 +268,16 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                     ? 'bg-blue-600 text-white rounded-tr-sm'
                     : 'bg-white dark:bg-slate-800 border border-white/50 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-sm'
                     }`}>
+                    {m.imageUrl && (
+                      <div className="mb-2">
+                        <img
+                          src={m.imageUrl}
+                          alt="User Upload"
+                          className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(m.imageUrl, '_blank')}
+                        />
+                      </div>
+                    )}
                     {m.role === 'ai' ? (
                       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
@@ -284,11 +352,38 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
                 placeholder={`Ask ${selectedModelName}...`}
                 disabled={isLoading}
-                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-14 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-inner dark:text-white transition-all placeholder:text-slate-400"
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-10 pr-14 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-inner dark:text-white transition-all placeholder:text-slate-400"
+              />
+
+              {/* File Upload Button */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileSelect}
               />
               <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute left-2.5 p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-all"
+                title="Upload Image"
+              >
+                <Paperclip size={18} />
+              </button>
+
+              {/* Image Preview Overlay */}
+              {imagePreview && (
+                <div className="absolute left-10 top-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 flex items-center gap-2 shadow-lg">
+                  <div className="relative w-8 h-8 rounded overflow-hidden">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                  <button onClick={clearImage} className="text-slate-400 hover:text-red-500 p-0.5"><X size={12} /></button>
+                </div>
+              )}
+
+              <button
                 onClick={() => handleSend(input)}
-                disabled={!input.trim() || isLoading}
+                disabled={(!input.trim() && !selectedImage) || isLoading}
                 className="absolute right-2 p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:hover:bg-blue-600 shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95"
               >
                 {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

@@ -87,7 +87,14 @@ class MinioStorageProvider(StorageProvider):
             # Return stable public URL (http://endpoint/bucket/filename)
             # Use external endpoint if available, otherwise internal
             base_endpoint = self.external_endpoint if self.external_endpoint else self.endpoint
-            protocol = "https" if self.secure else "http"
+            
+            # Determine protocol for external access
+            external_proto = os.getenv("MINIO_EXTERNAL_PROTOCOL")
+            if external_proto:
+                protocol = external_proto
+            else:
+                protocol = "https" if self.secure else "http"
+            
             return f"{protocol}://{base_endpoint}/{self.bucket}/{filename}"
 
         # Return Presigned URL

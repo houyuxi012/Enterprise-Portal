@@ -209,6 +209,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentView === AppView.SEARCH_RESULTS && globalSearch.trim()) {
+      // Check config to see if AI search is enabled
+      if (systemConfig && systemConfig.search_ai_enabled === 'false') {
+        setSearchAiInsight(null);
+        setIsSearchAiLoading(false);
+        return;
+      }
+
       const fetchInsight = async () => {
         setIsSearchAiLoading(true);
         // Log Search Action
@@ -231,7 +238,7 @@ const App: React.FC = () => {
     } else if (currentView !== AppView.SEARCH_RESULTS) {
       setSearchAiInsight(null);
     }
-  }, [currentView, globalSearch]);
+  }, [currentView, globalSearch, systemConfig]);
 
   const filteredTools = useMemo(() => {
     return tools.filter(tool =>
