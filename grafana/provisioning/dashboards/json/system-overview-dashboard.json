@@ -2,32 +2,68 @@
     "annotations": {
         "list": []
     },
+    "description": "系统运行监控 - 基于日志的全面监控视图",
     "editable": true,
     "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
+    "graphTooltip": 1,
     "id": null,
     "links": [],
     "panels": [
         {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 100,
+            "panels": [],
+            "title": "📊 系统概览",
+            "type": "row"
+        },
+        {
             "datasource": {
                 "type": "loki",
                 "uid": "loki"
             },
             "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1000
+                            },
+                            {
+                                "color": "red",
+                                "value": 5000
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
                 "overrides": []
             },
             "gridPos": {
                 "h": 4,
-                "w": 6,
+                "w": 4,
                 "x": 0,
-                "y": 0
+                "y": 1
             },
             "id": 1,
             "options": {
-                "colorMode": "value",
+                "colorMode": "background",
                 "graphMode": "area",
-                "justifyMode": "auto",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "reduceOptions": {
                     "calcs": [
@@ -45,11 +81,11 @@
                         "type": "loki",
                         "uid": "loki"
                     },
-                    "expr": "count_over_time({job=\"enterprise-portal\"}[1h])",
+                    "expr": "count_over_time({job=\"enterprise-portal\"} [$__range])",
                     "refId": "A"
                 }
             ],
-            "title": "总日志量 (1h)",
+            "title": "📄 总日志量",
             "type": "stat"
         },
         {
@@ -58,20 +94,34 @@
                 "uid": "loki"
             },
             "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
                 "overrides": []
             },
             "gridPos": {
                 "h": 4,
-                "w": 6,
-                "x": 6,
-                "y": 0
+                "w": 4,
+                "x": 4,
+                "y": 1
             },
             "id": 2,
             "options": {
-                "colorMode": "value",
+                "colorMode": "background",
                 "graphMode": "area",
-                "justifyMode": "auto",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "reduceOptions": {
                     "calcs": [
@@ -89,11 +139,11 @@
                         "type": "loki",
                         "uid": "loki"
                     },
-                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"INFO\" [1h])",
+                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"(?i)INFO\" [$__range])",
                     "refId": "A"
                 }
             ],
-            "title": "INFO 日志 (1h)",
+            "title": "ℹ️ INFO 日志",
             "type": "stat"
         },
         {
@@ -102,20 +152,42 @@
                 "uid": "loki"
             },
             "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 10
+                            },
+                            {
+                                "color": "orange",
+                                "value": 50
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
                 "overrides": []
             },
             "gridPos": {
                 "h": 4,
-                "w": 6,
-                "x": 12,
-                "y": 0
+                "w": 4,
+                "x": 8,
+                "y": 1
             },
             "id": 3,
             "options": {
-                "colorMode": "value",
+                "colorMode": "background",
                 "graphMode": "area",
-                "justifyMode": "auto",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "reduceOptions": {
                     "calcs": [
@@ -133,11 +205,11 @@
                         "type": "loki",
                         "uid": "loki"
                     },
-                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"WARN\" [1h])",
+                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"(?i)WARN\" [$__range])",
                     "refId": "A"
                 }
             ],
-            "title": "WARN 日志 (1h)",
+            "title": "⚠️ WARN 日志",
             "type": "stat"
         },
         {
@@ -146,20 +218,42 @@
                 "uid": "loki"
             },
             "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1
+                            },
+                            {
+                                "color": "red",
+                                "value": 10
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
                 "overrides": []
             },
             "gridPos": {
                 "h": 4,
-                "w": 6,
-                "x": 18,
-                "y": 0
+                "w": 4,
+                "x": 12,
+                "y": 1
             },
             "id": 4,
             "options": {
-                "colorMode": "value",
+                "colorMode": "background",
                 "graphMode": "area",
-                "justifyMode": "auto",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "reduceOptions": {
                     "calcs": [
@@ -177,11 +271,11 @@
                         "type": "loki",
                         "uid": "loki"
                     },
-                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"ERROR\" [1h])",
+                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"(?i)ERROR\" [$__range])",
                     "refId": "A"
                 }
             ],
-            "title": "ERROR 日志 (1h)",
+            "title": "🔴 ERROR 日志",
             "type": "stat"
         },
         {
@@ -189,22 +283,1113 @@
                 "type": "loki",
                 "uid": "loki"
             },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 1
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": []
+            },
             "gridPos": {
-                "h": 8,
-                "w": 24,
-                "x": 0,
-                "y": 4
+                "h": 4,
+                "w": 4,
+                "x": 16,
+                "y": 1
             },
             "id": 5,
             "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "count"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"(?i)exception|Exception|FATAL|panic|crash\" [$__range])",
+                    "refId": "A"
+                }
+            ],
+            "title": "💀 异常/严重错误",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "purple",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 20,
+                "y": 1
+            },
+            "id": 6,
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "count"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "count_over_time({job=\"enterprise-portal\"} |~ \"(?i)request|response|api|endpoint\" [$__range])",
+                    "refId": "A"
+                }
+            ],
+            "title": "🌐 API 请求",
+            "type": "stat"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 5
+            },
+            "id": 101,
+            "panels": [],
+            "title": "📈 日志趋势分析",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "gradientMode": "opacity",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "INFO"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "blue",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "WARN"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "yellow",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "ERROR"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "red",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 6
+            },
+            "id": 10,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum",
+                        "mean",
+                        "max"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)INFO\" [1m]))",
+                    "legendFormat": "INFO",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)WARN\" [1m]))",
+                    "legendFormat": "WARN",
+                    "refId": "B"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)ERROR\" [1m]))",
+                    "legendFormat": "ERROR",
+                    "refId": "C"
+                }
+            ],
+            "title": "日志级别趋势 (每分钟)",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "bars",
+                        "fillOpacity": 80,
+                        "gradientMode": "hue",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Error/Exception"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "red",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Warning"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "orange",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 6
+            },
+            "id": 11,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)error|exception|Exception\" [5m]))",
+                    "legendFormat": "Error/Exception",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)warning|warn\" [5m]))",
+                    "legendFormat": "Warning",
+                    "refId": "B"
+                }
+            ],
+            "title": "错误与警告分布 (堆叠)",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 14
+            },
+            "id": 102,
+            "panels": [],
+            "title": "🔗 服务与组件",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 0,
+                "y": 15
+            },
+            "id": 20,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum",
+                        "mean"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)database|db|postgres|sql\" [1m]))",
+                    "legendFormat": "数据库操作",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)redis|cache\" [1m]))",
+                    "legendFormat": "缓存操作",
+                    "refId": "B"
+                }
+            ],
+            "title": "数据库 & 缓存活动",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 8,
+                "y": 15
+            },
+            "id": 21,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum",
+                        "mean"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)login|logout|auth|token|session\" [1m]))",
+                    "legendFormat": "认证事件",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)permission|forbidden|unauthorized|access denied\" [1m]))",
+                    "legendFormat": "权限事件",
+                    "refId": "B"
+                }
+            ],
+            "title": "认证 & 权限",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 16,
+                "y": 15
+            },
+            "id": 22,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum",
+                        "mean"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)upload|download|file|minio|storage\" [1m]))",
+                    "legendFormat": "文件操作",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"(?i)email|mail|smtp|notification\" [1m]))",
+                    "legendFormat": "通知/邮件",
+                    "refId": "B"
+                }
+            ],
+            "title": "文件 & 通知",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 22
+            },
+            "id": 103,
+            "panels": [],
+            "title": "🌐 HTTP 请求分析",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 15,
+                        "gradientMode": "opacity",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "GET"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "green",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "POST"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "blue",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "PUT"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "orange",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "DELETE"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "red",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": 23
+            },
+            "id": 30,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum",
+                        "mean"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"\\\"GET \" [1m]))",
+                    "legendFormat": "GET",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"\\\"POST \" [1m]))",
+                    "legendFormat": "POST",
+                    "refId": "B"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"\\\"PUT \" [1m]))",
+                    "legendFormat": "PUT",
+                    "refId": "C"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"\\\"DELETE \" [1m]))",
+                    "legendFormat": "DELETE",
+                    "refId": "D"
+                }
+            ],
+            "title": "HTTP 方法分布",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "bars",
+                        "fillOpacity": 80,
+                        "gradientMode": "hue",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "2xx 成功"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "green",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "4xx 客户端错误"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "yellow",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "5xx 服务器错误"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "red",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": 23
+            },
+            "id": 31,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "sum"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "10.0.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"HTTP/[0-9.]+ (2[0-9]{2})\" [1m]))",
+                    "legendFormat": "2xx 成功",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"HTTP/[0-9.]+ (4[0-9]{2})\" [1m]))",
+                    "legendFormat": "4xx 客户端错误",
+                    "refId": "B"
+                },
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "expr": "sum(count_over_time({job=\"enterprise-portal\"} |~ \"HTTP/[0-9.]+ (5[0-9]{2})\" [1m]))",
+                    "legendFormat": "5xx 服务器错误",
+                    "refId": "C"
+                }
+            ],
+            "title": "HTTP 状态码分布",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 30
+            },
+            "id": 104,
+            "panels": [],
+            "title": "📋 实时日志流",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "loki"
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 31
+            },
+            "id": 40,
+            "options": {
                 "dedupStrategy": "none",
                 "enableLogDetails": true,
-                "prettifyLogMessage": false,
+                "prettifyLogMessage": true,
                 "showCommonLabels": false,
                 "showLabels": true,
                 "showTime": true,
                 "sortOrder": "Descending",
-                "wrapLogMessage": false
+                "wrapLogMessage": true
             },
             "targets": [
                 {
@@ -216,43 +1401,106 @@
                     "refId": "A"
                 }
             ],
-            "title": "所有日志流",
+            "title": "所有日志流 (实时)",
             "type": "logs"
         },
         {
-            "datasource": {
-                "type": "loki",
-                "uid": "loki"
-            },
+            "collapsed": true,
             "gridPos": {
-                "h": 8,
+                "h": 1,
                 "w": 24,
                 "x": 0,
-                "y": 12
+                "y": 41
             },
-            "id": 6,
-            "options": {
-                "dedupStrategy": "none",
-                "enableLogDetails": true,
-                "prettifyLogMessage": false,
-                "showCommonLabels": false,
-                "showLabels": false,
-                "showTime": true,
-                "sortOrder": "Descending",
-                "wrapLogMessage": false
-            },
-            "targets": [
+            "id": 105,
+            "panels": [
                 {
                     "datasource": {
                         "type": "loki",
                         "uid": "loki"
                     },
-                    "expr": "{job=\"enterprise-portal\"} |~ \"ERROR|WARN|exception|Exception\"",
-                    "refId": "A"
+                    "gridPos": {
+                        "h": 10,
+                        "w": 24,
+                        "x": 0,
+                        "y": 42
+                    },
+                    "id": 50,
+                    "options": {
+                        "dedupStrategy": "none",
+                        "enableLogDetails": true,
+                        "prettifyLogMessage": true,
+                        "showCommonLabels": false,
+                        "showLabels": true,
+                        "showTime": true,
+                        "sortOrder": "Descending",
+                        "wrapLogMessage": true
+                    },
+                    "targets": [
+                        {
+                            "datasource": {
+                                "type": "loki",
+                                "uid": "loki"
+                            },
+                            "expr": "{job=\"enterprise-portal\"} |~ \"(?i)ERROR|WARN|exception|Exception|failed|failure\"",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "⚠️ 错误和警告日志",
+                    "type": "logs"
                 }
             ],
-            "title": "错误和警告日志",
-            "type": "logs"
+            "title": "⚠️ 错误日志详情 (展开查看)",
+            "type": "row"
+        },
+        {
+            "collapsed": true,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 42
+            },
+            "id": 106,
+            "panels": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "loki"
+                    },
+                    "gridPos": {
+                        "h": 10,
+                        "w": 24,
+                        "x": 0,
+                        "y": 43
+                    },
+                    "id": 51,
+                    "options": {
+                        "dedupStrategy": "none",
+                        "enableLogDetails": true,
+                        "prettifyLogMessage": true,
+                        "showCommonLabels": false,
+                        "showLabels": true,
+                        "showTime": true,
+                        "sortOrder": "Descending",
+                        "wrapLogMessage": true
+                    },
+                    "targets": [
+                        {
+                            "datasource": {
+                                "type": "loki",
+                                "uid": "loki"
+                            },
+                            "expr": "{job=\"enterprise-portal\"} |~ \"(?i)login|logout|auth|token|session|password\"",
+                            "refId": "A"
+                        }
+                    ],
+                    "title": "🔐 认证相关日志",
+                    "type": "logs"
+                }
+            ],
+            "title": "🔐 认证日志详情 (展开查看)",
+            "type": "row"
         }
     ],
     "refresh": "30s",
@@ -260,7 +1508,9 @@
     "tags": [
         "system",
         "os",
-        "server"
+        "server",
+        "loki",
+        "logs"
     ],
     "templating": {
         "list": []
@@ -269,7 +1519,18 @@
         "from": "now-1h",
         "to": "now"
     },
-    "timepicker": {},
+    "timepicker": {
+        "refresh_intervals": [
+            "5s",
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h"
+        ]
+    },
     "timezone": "browser",
     "title": "系统运行监控",
     "uid": "system-overview-dashboard",
