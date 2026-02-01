@@ -567,7 +567,8 @@ async def get_ai_audit_stats(
     daily_trend_result = await db.execute(
         select(
             func.date(models.AIAuditLog.ts).label("day"),
-            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out).label("total")
+            func.sum(models.AIAuditLog.tokens_in).label("tokens_in"),
+            func.sum(models.AIAuditLog.tokens_out).label("tokens_out")
         ).filter(
             models.AIAuditLog.ts >= cutoff
         ).group_by(
@@ -577,7 +578,12 @@ async def get_ai_audit_stats(
         )
     )
     daily_trend = [
-        {"date": str(row[0]), "total_tokens": row[1] or 0} 
+        {
+            "date": str(row[0]), 
+            "tokens_in": row[1] or 0,
+            "tokens_out": row[2] or 0,
+            "total_tokens": (row[1] or 0) + (row[2] or 0)
+        }
         for row in daily_trend_result.fetchall() if row[0]
     ]
 

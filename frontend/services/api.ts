@@ -454,6 +454,8 @@ export const ApiClient = {
     }>;
     daily_trend: Array<{
       date: string;
+      tokens_in: number;
+      tokens_out: number;
       total_tokens: number;
     }>;
     total_tokens_prev?: number;

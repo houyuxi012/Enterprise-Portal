@@ -1,14 +1,14 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import {
     Users, FileText, Activity, Server,
     Plus, Shield, Database, Search,
     TrendingUp, TrendingDown, Clock, AlertTriangle, AlertCircle, CheckCircle, CheckCircle2, XCircle, Filter, Download, RefreshCw, BarChart2,
-    Cpu, HardDrive, Globe, Zap, List, Eye, Eye as EyeIcon,
+    Cpu, HardDrive, Globe, Zap, List, Eye,
     Sparkles, MessageSquare, Box, PlayCircle as Play, StopCircle as Stop,
     MousePointer2, ShoppingCart, ArrowUp, ArrowDown, MoreHorizontal, Calendar
 } from 'lucide-react';
 import { Avatar } from 'antd';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import ApiClient from '../../services/api';
 import { DashboardStats, SystemResources } from '../../types';
 
@@ -16,6 +16,16 @@ interface AdminDashboardProps {
     employeeCount: number;
     newsCount: number;
 }
+
+// --- Formatters ---
+const formatCompact = (n: number): string => {
+    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return n.toLocaleString();
+};
+
+const formatNumber = (n: number): string => n.toLocaleString();
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCount }) => {
     // --- Real Data State ---
@@ -67,6 +77,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         }>;
         daily_trend?: Array<{
             date: string;
+            tokens_in: number;
+            tokens_out: number;
             total_tokens: number;
         }>;
         total_tokens_prev?: number;
@@ -115,39 +127,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
     const statCards = [
         {
-            title: '系统访问量', // System Visits
+            title: '系统访问量',
             value: stats?.system_visits.toLocaleString() || '---',
-            trend: stats?.activity_trend || '---',
-            isPositive: true,
-            icon: <EyeIcon size={20} />,
-            subtitle: '总访问次数',
+            trend: stats?.activity_trend || '+0.0%',
+            isUp: (stats?.activity_trend || '+0.0%').startsWith('+'),
+            icon: <Eye size={20} />,
+            subtitle: '周环比',
             color: 'blue'
         },
         {
-            title: '活跃用户', // Active Users
+            title: '活跃用户',
             value: stats?.active_users.toLocaleString() || '---',
-            trend: stats?.active_users_trend || '---',
-            isPositive: true,
+            trend: stats?.active_users_trend || '+0.0%',
+            isUp: (stats?.active_users_trend || '+0.0%').startsWith('+'),
             icon: <Users size={20} />,
-            subtitle: '在线用户',
+            subtitle: '周环比',
             color: 'emerald'
         },
         {
-            title: '应用访问', // App Visits
+            title: '应用访问',
             value: stats?.tool_clicks.toLocaleString() || '---',
-            trend: stats?.tool_clicks_trend || '---',
-            isPositive: false,
+            trend: stats?.tool_clicks_trend || '+0.0%',
+            isUp: (stats?.tool_clicks_trend || '+0.0%').startsWith('+'),
             icon: <MousePointer2 size={20} />,
-            subtitle: '使用次数',
+            subtitle: '周环比',
             color: 'rose'
         },
         {
-            title: '新增内容', // New Content
+            title: '新增内容',
             value: stats?.new_content.toLocaleString() || '---',
-            trend: stats?.new_content_trend || '---',
-            isPositive: true,
+            trend: stats?.new_content_trend || '+0.0%',
+            isUp: (stats?.new_content_trend || '+0.0%').startsWith('+'),
             icon: <FileText size={20} />,
-            subtitle: '新增条目',
+            subtitle: '周环比',
             color: 'indigo'
         }
     ];
@@ -194,11 +206,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                             </div>
                         </div>
                         <div className="flex items-center justify-between relative z-10">
-                            <div className={`flex items - center space - x - 1 text - [10px] font - bold px - 2 py - 1 rounded - lg ${stat.isPositive
-                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
-                                : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
-                                } `}>
-                                {stat.isPositive ? <TrendingUp size={10} /> : <TrendingUp size={10} className="rotate-180" />}
+                            <div className={`flex items-center space-x-1 text-[10px] font-bold px-2 py-1 rounded-lg ${stat.isUp
+                                ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
+                                : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                }`}>
+                                {stat.isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                                 <span>{stat.trend}</span>
                             </div>
                             <span className="text-[10px] text-slate-400 font-bold">{stat.subtitle}</span>
@@ -287,15 +299,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                         <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/10 dark:bg-violet-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
                         <div className="flex justify-between items-center mb-8 relative z-10">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                <div className="p-2 bg-[#2636dd]/10 rounded-lg text-[#2636dd]">
-                                    <Sparkles size={18} />
-                                </div>
-                                <span>AI 模型消耗趋势</span>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                                AI 模型消耗趋势
                             </h3>
                             {aiStats?.total_tokens && (
                                 <div className="px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700/50 text-xs font-bold text-slate-500 border border-slate-100 dark:border-slate-700">
-                                    总计: <span className="text-violet-600 dark:text-violet-400">{aiStats.total_tokens.toLocaleString()}</span> Tokens
+                                    近7日总计: <span className="text-violet-600 dark:text-violet-400">{aiStats.total_tokens.toLocaleString()}</span> Tokens
                                 </div>
                             )}
                         </div>
@@ -305,253 +314,199 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                             <div>
                                 <h4 className="text-xs font-bold text-slate-400 mb-6 uppercase tracking-wider flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#2636dd]"></span>
-                                    近7日 Token 趋势 (万)
+                                    近7日 Token 趋势
                                 </h4>
 
-                                {/* Chart Container */}
-                                <div className="h-48 w-full relative group/chart">
-
+                                {/* Chart Container (Recharts) */}
+                                <div className="h-48 w-full">
                                     {aiStats?.daily_trend && aiStats.daily_trend.length > 0 ? (
                                         (() => {
-                                            const data = aiStats.daily_trend!.slice(-7);
-                                            // Handle edge case: single data point or empty
-                                            if (data.length < 2) return <div className="text-xs text-slate-400">数据不足，无法显示趋势</div>;
+                                            const chartData = aiStats.daily_trend!.slice(-7).map(d => ({
+                                                date: new Date(d.date).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '-'),
+                                                out: d.tokens_out,
+                                                in: d.tokens_in,
+                                            }));
 
-                                            // 1. Calculate Scales
-                                            const maxVal = Math.max(...data.map(d => d.total_tokens)) * 1.1 || 100; // Add 10% headroom
-                                            const minVal = 0;
-
-                                            // Chart Dimensions (use % for width, fixed height internal coordinate system)
-                                            const width = 100;
-                                            const height = 100;
-
-                                            // 2. Generate Points
-                                            const points = data.map((d, i) => {
-                                                const x = (i / (data.length - 1)) * width;
-                                                const y = height - ((d.total_tokens - minVal) / (maxVal - minVal)) * height;
-                                                return { x, y, val: d.total_tokens, date: d.date };
-                                            });
-
-                                            // 3. Create SVG Path (Smooth Curve or Straight Line)
-                                            // L = Line to
-                                            const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-
-                                            // Area Path (Close the loop at bottom)
-                                            const areaPath = `${linePath} L ${width},${height} L 0,${height} Z`;
-
-                                            // Peak Point
-                                            const peakPoint = points.reduce((prev, curr) => curr.val > prev.val ? curr : prev, points[0]);
+                                            // Custom Tooltip
+                                            const CustomTooltip = ({ active, payload, label }: any) => {
+                                                if (active && payload && payload.length) {
+                                                    return (
+                                                        <div className="bg-slate-900/90 backdrop-blur-sm text-white text-[11px] py-2 px-3 rounded-lg shadow-xl border border-white/10">
+                                                            <div className="text-slate-400 mb-1 border-b border-white/10 pb-1 font-medium">{label}</div>
+                                                            {payload.map((p: any, i: number) => (
+                                                                <div key={i} className="flex items-center justify-between gap-4">
+                                                                    <span className="flex items-center gap-1.5">
+                                                                        <span className="w-2 h-2 rounded-full" style={{ background: p.color }}></span>
+                                                                        {p.dataKey === 'out' ? 'Output' : 'Input'}
+                                                                    </span>
+                                                                    <span className="font-bold font-mono">{formatCompact(p.value)} <span className="text-slate-500">({formatNumber(p.value)})</span></span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            };
 
                                             return (
-                                                <div className="w-full h-full relative">
-                                                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                                        <defs>
-                                                            <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                                                                <stop offset="0%" stopColor="#2636dd" stopOpacity="0.3" />
-                                                                <stop offset="100%" stopColor="#2636dd" stopOpacity="0.0" />
-                                                            </linearGradient>
-                                                            <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
-                                                                <stop offset="0%" stopColor="#4c5ce8" />
-                                                                <stop offset="100%" stopColor="#2636dd" />
-                                                            </linearGradient>
-                                                        </defs>
-
-                                                        {/* Area Fill */}
-                                                        <path d={areaPath} fill="url(#areaGradient)" />
-
-                                                        {/* Stroke Line */}
-                                                        <path
-                                                            d={linePath}
-                                                            fill="none"
-                                                            stroke="url(#lineGradient)"
-                                                            strokeWidth="1.5"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            className="drop-shadow-sm"
-                                                        />
-
-                                                        {/* Peak Dot (Pulse) */}
-                                                        <circle cx={peakPoint.x} cy={peakPoint.y} r="1.5" fill="#2636dd" className="animate-pulse" />
-                                                        <circle cx={peakPoint.x} cy={peakPoint.y} r="4" fill="#2636dd" fillOpacity="0.2" />
-                                                    </svg>
-
-                                                    {/* Tooltip Hover Overlay (Invisible Columns) */}
-                                                    <div className="absolute inset-0 flex">
-                                                        {points.map((p, i) => (
-                                                            <div key={i} className="flex-1 h-full relative group/point cursor-crosshair">
-                                                                {/* The Tooltip */}
-                                                                <div
-                                                                    className={`absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded 
-                                                                                opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-xl
-                                                                                ${i === 0 ? 'left-0' : i === points.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-                                                                    `}
-                                                                >
-                                                                    <div className="font-bold">{p.val.toLocaleString()}</div>
-                                                                    <div className="text-slate-400 text-[9px]">{p.date}</div>
-                                                                </div>
-
-                                                                {/* Highlight Line on Hover */}
-                                                                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-indigo-500/20 opacity-0 group-hover/point:opacity-100"></div>
-
-                                                                {/* Dot on Hover */}
-                                                                <div
-                                                                    className="absolute w-2 h-2 bg-white border-2 border-indigo-500 rounded-full left-1/2 -ml-1 opacity-0 group-hover/point:opacity-100 transition-all shadow-sm"
-                                                                    style={{ top: `${(p.y / height) * 100}%` }}
-                                                                ></div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    {/* Peak Label (Static) */}
-                                                    <div
-                                                        className="absolute text-[9px] font-bold text-indigo-500 bg-white/80 dark:bg-slate-800/80 px-1 rounded shadow-sm backdrop-blur-sm pointer-events-none"
-                                                        style={{ left: `${(peakPoint.x / width) * 100}%`, top: `${(peakPoint.y / height) * 100}%`, transform: 'translate(-50%, -140%)' }}
-                                                    >
-                                                        Peak
-                                                    </div>
-
-                                                    {/* Axis Labels (X-Axis) */}
-                                                    <div className="absolute -bottom-6 inset-x-0 flex justify-between text-[9px] text-slate-400 font-medium px-1">
-                                                        {/* Only show 1st, middle, and last for clean look */}
-                                                        <span>{new Date(points[0].date).toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
-                                                        <span>{new Date(points[3]?.date || '').toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
-                                                        <span>{new Date(points[points.length - 1].date).toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
-                                                    </div>
-                                                </div>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <LineChart data={chartData} margin={{ top: 20, right: 5, left: 5, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" opacity={0.5} vertical={false} />
+                                                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                                        <YAxis tickFormatter={(v) => formatCompact(Number(v))} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} width={50} />
+                                                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#2636dd', strokeOpacity: 0.1, strokeWidth: 20 }} />
+                                                        <Line type="monotone" dataKey="out" stroke="#2636dd" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#2636dd', stroke: '#fff', strokeWidth: 2 }} name="Output" strokeLinecap="round" strokeLinejoin="round" />
+                                                        <Line type="monotone" dataKey="in" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} name="Input" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
                                             );
                                         })()
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-bold">暂无数据</div>
                                     )}
                                 </div>
-                                <div className="mt-8 flex items-center gap-4 text-xs font-medium text-slate-500">
-                                    <div className="flex items-center gap-1">
-                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                        <span>近7日总消耗</span>
-                                    </div>
-                                    <div className="text-slate-800 dark:text-slate-200 font-bold">
-                                        {(aiStats?.total_tokens || 0).toLocaleString()}
-                                    </div>
-                                    {/* Trend Badge */}
-                                    {aiStats?.trend_percentage !== undefined && (
-                                        <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${aiStats.trend_percentage >= 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
-                                            {aiStats.trend_percentage > 0 ? (
-                                                <TrendingUp size={10} />
-                                            ) : (
-                                                <TrendingDown size={10} />
-                                            )}
-                                            {Math.abs(aiStats.trend_percentage)}% <span className="text-slate-400 scale-75 origin-left ml-0.5">周环比</span>
-                                        </div>
-                                    )}
-
-                                </div>
                             </div>
 
                             {/* Right: Donut Chart (Modern Conic Gradient) */}
                             <div className="flex flex-col md:flex-row items-center justify-center gap-8 pl-0 md:pl-8 border-l border-transparent md:border-slate-50 dark:md:border-slate-800/50">
                                 {/* Donut Chart */}
-                                <div className="relative group/donut cursor-default w-40 h-40 flex-shrink-0">
-                                    {/* The Glow */}
-                                    <div className="absolute inset-0 rounded-full bg-[#2636dd]/10 blur-xl opacity-0 group-hover/donut:opacity-100 transition-opacity duration-700"></div>
+                                {(() => {
+                                    // Prepare data
+                                    const sorted = aiStats?.model_breakdown ? [...aiStats.model_breakdown].sort((a, b) => b.total_tokens - a.total_tokens) : [];
+                                    const top3 = sorted.slice(0, 3);
+                                    const others = sorted.slice(3).reduce((acc, curr) => acc + curr.total_tokens, 0);
+                                    const total = aiStats?.total_tokens || 1;
+                                    const colors = ['#2636dd', '#0ea5e9', '#ec4899', '#cbd5e1'];
+                                    const bgColors = ['bg-[#2636dd]', 'bg-sky-500', 'bg-pink-500', 'bg-slate-300'];
 
-                                    {/* The Chart */}
-                                    <div
-                                        className="w-full h-full rounded-full relative transition-transform duration-500 hover:scale-105 shadow-sm"
-                                        style={{
-                                            // Conic Gradient for the Ring
-                                            background: (() => {
-                                                if (!aiStats?.model_breakdown || aiStats.model_breakdown.length === 0) return '#f1f5f9'; // slate-100
+                                    const segments = [
+                                        ...top3.map((m, i) => ({ label: m.model, value: m.total_tokens, color: colors[i], bgColor: bgColors[i] })),
+                                        ...(others > 0 ? [{ label: '其他', value: others, color: colors[3], bgColor: bgColors[3] }] : [])
+                                    ];
 
-                                                const sorted = [...aiStats.model_breakdown].sort((a, b) => b.total_tokens - a.total_tokens);
-                                                const top3 = sorted.slice(0, 3);
-                                                const others = sorted.slice(3).reduce((acc, curr) => acc + curr.total_tokens, 0);
-                                                const total = aiStats.total_tokens || 1;
+                                    // State for hovered segment
+                                    const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
-                                                let gradientString = 'conic-gradient(';
-                                                let currentDeg = 0;
+                                    // Calculate segment angles for hover detection
+                                    let cumulativeDeg = 0;
+                                    const segmentAngles = segments.map(seg => {
+                                        const startDeg = cumulativeDeg;
+                                        const deg = (seg.value / total) * 360;
+                                        cumulativeDeg += deg;
+                                        return { ...seg, startDeg, endDeg: cumulativeDeg, percent: Math.round((seg.value / total) * 100) };
+                                    });
 
-                                                // Colors: #2636dd (Requested), Sky, Pink, Slate
-                                                const colors = ['#2636dd', '#0ea5e9', '#ec4899', '#cbd5e1'];
+                                    // Conic gradient string
+                                    let gradientString = 'conic-gradient(';
+                                    segmentAngles.forEach((seg, i) => {
+                                        gradientString += `${seg.color} ${seg.startDeg}deg ${seg.endDeg}deg${i === segmentAngles.length - 1 ? '' : ', '}`;
+                                    });
+                                    gradientString += ')';
 
-                                                const segments = [...top3.map((m, i) => ({ value: m.total_tokens, color: colors[i] })),
-                                                ...(others > 0 ? [{ value: others, color: colors[3] }] : [])
-                                                ];
+                                    return (
+                                        <>
+                                            <div className="relative group/donut cursor-pointer w-40 h-40 flex-shrink-0">
+                                                {/* The Glow */}
+                                                <div className="absolute inset-0 rounded-full bg-[#2636dd]/10 blur-xl opacity-0 group-hover/donut:opacity-100 transition-opacity duration-700"></div>
 
-                                                segments.forEach((seg, i) => {
-                                                    const deg = (seg.value / total) * 360;
-                                                    gradientString += `${seg.color} ${currentDeg}deg ${currentDeg + deg}deg${i === segments.length - 1 ? '' : ', '}`;
-                                                    currentDeg += deg;
-                                                });
+                                                {/* The Chart (Thicker Ring - 55%) */}
+                                                <div
+                                                    className="w-full h-full rounded-full relative transition-transform duration-500 hover:scale-105 shadow-sm"
+                                                    style={{
+                                                        background: gradientString,
+                                                        mask: 'radial-gradient(transparent 55%, black 56%)',
+                                                        WebkitMask: 'radial-gradient(transparent 55%, black 56%)'
+                                                    }}
+                                                >
+                                                    {/* Invisible Segment Hover Areas (SVG overlay) */}
+                                                    <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
+                                                        {segmentAngles.map((seg, i) => {
+                                                            // Create arc path for each segment
+                                                            const startRad = (seg.startDeg - 90) * Math.PI / 180;
+                                                            const endRad = (seg.endDeg - 90) * Math.PI / 180;
+                                                            const r = 50; // radius
+                                                            const x1 = 50 + r * Math.cos(startRad);
+                                                            const y1 = 50 + r * Math.sin(startRad);
+                                                            const x2 = 50 + r * Math.cos(endRad);
+                                                            const y2 = 50 + r * Math.sin(endRad);
+                                                            const largeArc = (seg.endDeg - seg.startDeg) > 180 ? 1 : 0;
 
-                                                return gradientString + ')';
-                                            })(),
-                                            // Mask for Inner Cutout (Donut Hole - 70%)
-                                            mask: 'radial-gradient(transparent 68%, black 69%)',
-                                            WebkitMask: 'radial-gradient(transparent 68%, black 69%)'
-                                        }}
-                                    >
-                                    </div>
-
-                                    {/* Center Text (Absolute Positioned in the Hole) */}
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-                                        {/* Big Number */}
-                                        <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-1">
-                                            {aiStats?.daily_trend && aiStats.daily_trend.length > 0
-                                                ? (() => {
-                                                    const val = aiStats.daily_trend[aiStats.daily_trend.length - 1].total_tokens;
-                                                    if (val >= 10000) return (val / 10000).toFixed(2) + 'w'; // 1.25w
-                                                    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';   // 1.5k
-                                                    return val.toLocaleString();                             // 100
-                                                })()
-                                                : '0'
-                                            }
-                                        </div>
-                                        {/* Small Label */}
-                                        <div className="text-[10px] font-bold text-slate-400">今日 Token</div>
-                                    </div>
-                                </div>
-
-                                {/* Legend (Right Side List) */}
-                                <div className="flex flex-col justify-center gap-3 min-w-[140px] flex-1">
-                                    {(() => {
-                                        if (!aiStats?.model_breakdown || aiStats.model_breakdown.length === 0) return <div className="text-[10px] text-slate-400">暂无数据</div>;
-                                        const sorted = [...aiStats.model_breakdown].sort((a, b) => b.total_tokens - a.total_tokens);
-                                        const top3 = sorted.slice(0, 3);
-                                        const others = sorted.slice(3).reduce((acc, curr) => acc + curr.total_tokens, 0);
-                                        const total = aiStats.total_tokens || 1;
-
-                                        // Same colors as above
-                                        const colors = ['bg-[#2636dd]', 'bg-sky-500', 'bg-pink-500', 'bg-slate-300'];
-
-                                        const chartData = [...top3.map((m, i) => ({
-                                            label: m.model,
-                                            value: m.total_tokens,
-                                            color: colors[i]
-                                        })),
-                                        ...(others > 0 ? [{ label: '其他', value: others, color: colors[3] }] : [])
-                                        ];
-
-                                        return chartData.map((item, i) => (
-                                            <div key={i} className="flex items-center justify-between text-xs group/item cursor-default w-full">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0 group-hover/item:scale-125 transition-transform`}></span>
-                                                    {/* Tooltip for full name if truncated */}
-                                                    <span className="font-bold text-slate-600 dark:text-slate-300 truncate" title={item.label}>
-                                                        {item.label}
-                                                    </span>
+                                                            return (
+                                                                <path
+                                                                    key={i}
+                                                                    d={`M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                                                    fill="transparent"
+                                                                    onMouseEnter={() => setHoveredIdx(i)}
+                                                                    onMouseLeave={() => setHoveredIdx(null)}
+                                                                    className="cursor-pointer"
+                                                                />
+                                                            );
+                                                        })}
+                                                    </svg>
                                                 </div>
-                                                <div className="flex items-center gap-2 pl-2">
-                                                    <span className="font-medium text-slate-400 text-[10px] hidden xl:block tabular-nums">
-                                                        {item.value >= 1000 ? (item.value / 1000).toFixed(1) + 'k' : item.value}
-                                                    </span>
-                                                    <span className="font-bold text-slate-500 group-hover/item:text-slate-700 dark:group-hover/item:text-slate-200 transition-colors tabular-nums min-w-[32px] text-right">
-                                                        {Math.round((item.value / total) * 100)}%
-                                                    </span>
+
+                                                {/* Center Text (Dynamic based on hover) */}
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                                    {hoveredIdx !== null ? (
+                                                        <>
+                                                            {/* Percentage on hover */}
+                                                            <div className="text-3xl font-black leading-none mb-1" style={{ color: segmentAngles[hoveredIdx].color }}>
+                                                                {segmentAngles[hoveredIdx].percent}%
+                                                            </div>
+                                                            <div className="text-[9px] font-bold text-slate-400 truncate max-w-[80px] text-center">
+                                                                {segmentAngles[hoveredIdx].label}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {/* Default: Today's Token */}
+                                                            <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-1">
+                                                                {aiStats?.daily_trend && aiStats.daily_trend.length > 0
+                                                                    ? (() => {
+                                                                        const val = aiStats.daily_trend[aiStats.daily_trend.length - 1].total_tokens;
+                                                                        if (val >= 10000) return (val / 10000).toFixed(2) + 'w';
+                                                                        if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+                                                                        return val.toLocaleString();
+                                                                    })()
+                                                                    : '0'
+                                                                }
+                                                            </div>
+                                                            <div className="text-[10px] font-bold text-slate-400">今日 Token</div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
-                                        ));
-                                    })()}
-                                </div>
+
+                                            {/* Legend (Right Side List) - No Percentages */}
+                                            <div className="flex flex-col justify-center gap-3 min-w-[140px] flex-1">
+                                                {segmentAngles.length === 0 ? (
+                                                    <div className="text-[10px] text-slate-400">暂无数据</div>
+                                                ) : (
+                                                    segmentAngles.map((item, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className={`flex items-center justify-between text-xs group/item cursor-pointer w-full transition-all ${hoveredIdx === i ? 'scale-105' : ''}`}
+                                                            onMouseEnter={() => setHoveredIdx(i)}
+                                                            onMouseLeave={() => setHoveredIdx(null)}
+                                                        >
+                                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                                <span className={`w-2 h-2 rounded-full ${item.bgColor} flex-shrink-0 group-hover/item:scale-125 transition-transform`}></span>
+                                                                <span className="font-bold text-slate-600 dark:text-slate-300 truncate" title={item.label}>
+                                                                    {item.label}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 pl-2">
+                                                                <span className="font-medium text-slate-400 text-[10px] tabular-nums">
+                                                                    {item.value >= 1000 ? (item.value / 1000).toFixed(1) + 'k' : item.value}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
