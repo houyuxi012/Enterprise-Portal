@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List
+from sqlalchemy import func, cast, Date
+from typing import List, Optional
 from datetime import datetime
 
 from database import get_db
@@ -291,3 +292,137 @@ async def delete_policy(
     await db.commit()
     
     return {"message": "Policy deleted"}
+
+
+
+# --- Quota Management ---
+
+from datetime import datetime, timedelta
+
+@router.get("/usage", response_model=List[schemas.AIModelQuota])
+async def get_usage_stats(
+    hours: Optional[int] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Get all quotas
+    result = await db.execute(select(models.AIModelQuota))
+    quotas = {q.model_name: q for q in result.scalars().all()}
+    
+    # 2. Get today's usage (Always relative to actual Today, regardless of filter, to show "Realtime")
+    today = datetime.now().date()
+    today_stats = await db.execute(
+        select(models.AIAuditLog.model, func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out))
+        .where(cast(models.AIAuditLog.ts, Date) == today)
+        .group_by(models.AIAuditLog.model)
+    )
+    today_map = {row[0]: row[1] or 0 for row in today_stats.all()}
+    
+    # Filter setup
+    cutoff = None
+    if hours:
+        cutoff = datetime.now() - timedelta(hours=hours)
+
+    # 3. Get Period Usage (Sum in range)
+    period_query = select(
+        models.AIAuditLog.model,
+        func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out)
+    ).group_by(models.AIAuditLog.model)
+    
+    if cutoff:
+        period_query = period_query.where(models.AIAuditLog.ts >= cutoff)
+        
+    period_stats = await db.execute(period_query)
+    period_map = {row[0]: row[1] or 0 for row in period_stats.all()}
+
+    # 4. Get Peak usage (grouped by day, model) - Filtered by Range
+    history_query = select(
+        models.AIAuditLog.model,
+        cast(models.AIAuditLog.ts, Date).label("day"),
+        func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out).label("total")
+    ).group_by(models.AIAuditLog.model, "day")
+
+    if cutoff:
+        history_query = history_query.where(models.AIAuditLog.ts >= cutoff)
+
+    history_usage = await db.execute(history_query)
+    
+    peak_map = {}
+    distinct_models = set()
+    
+    for row in history_usage.all():
+        m = row[0]
+        usage = row[2] or 0
+        if m not in peak_map: peak_map[m] = 0
+        if usage > peak_map[m]: peak_map[m] = usage
+        distinct_models.add(m)
+
+    # 5. Get active models from AIProvider
+    providers_result = await db.execute(select(models.AIProvider.model))
+    active_models_set = set([m for m in providers_result.scalars().all() if m])
+    
+    # Ensure all period models are in distinct_models so they appear
+    for m in period_map.keys():
+        distinct_models.add(m)
+        
+    # Merge with quotas
+    final_list = []
+    
+    # Handle existing quotas
+    for model_name, quota in quotas.items():
+        q_out = schemas.AIModelQuota(
+            id=quota.id,
+            model_name=quota.model_name,
+            daily_token_limit=quota.daily_token_limit,
+            daily_request_limit=quota.daily_request_limit,
+            updated_at=quota.updated_at,
+            peak_daily_tokens=peak_map.get(model_name, 0),
+            current_daily_tokens=today_map.get(model_name, 0),
+            period_tokens=period_map.get(model_name, 0),
+            is_active=(model_name in active_models_set)
+        )
+        final_list.append(q_out)
+        if model_name in distinct_models:
+             distinct_models.discard(model_name)
+        
+    # Handle discovered models without quota
+    for m in distinct_models:
+        if not m: continue
+        final_list.append(schemas.AIModelQuota(
+            id=0, # Virtual
+            model_name=m,
+            daily_token_limit=0,
+            daily_request_limit=0,
+            peak_daily_tokens=peak_map.get(m, 0),
+            current_daily_tokens=today_map.get(m, 0),
+            period_tokens=period_map.get(m, 0),
+            is_active=(m in active_models_set)
+        ))
+        
+    return final_list
+
+@router.post("/quotas", response_model=schemas.AIModelQuota)
+async def update_quota(
+    quota: schemas.AIModelQuotaCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Check if exists
+    result = await db.execute(select(models.AIModelQuota).where(models.AIModelQuota.model_name == quota.model_name))
+    db_quota = result.scalars().first()
+    
+    if db_quota:
+        db_quota.daily_token_limit = quota.daily_token_limit
+        db_quota.daily_request_limit = quota.daily_request_limit
+        db_quota.updated_at = datetime.now()
+    else:
+        db_quota = models.AIModelQuota(
+            model_name=quota.model_name,
+            daily_token_limit=quota.daily_token_limit,
+            daily_request_limit=quota.daily_request_limit,
+            updated_at=datetime.now()
+        )
+        db.add(db_quota)
+        
+    await db.commit()
+    await db.refresh(db_quota)
+    return db_quota

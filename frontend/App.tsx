@@ -49,6 +49,7 @@ import ApplicationLogs from './pages/admin/ApplicationLogs';
 import ModelConfig from './pages/admin/ai/ModelConfig';
 import SecurityPolicy from './pages/admin/ai/SecurityPolicy';
 import AISettings from './pages/admin/ai/AISettings';
+import ModelUsagePage from './pages/admin/ai/ModelUsagePage';
 
 const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: string }> = ({ src, name, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
@@ -83,7 +84,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -671,6 +672,7 @@ const App: React.FC = () => {
         {activeAdminTab === 'ai_models' && <ModelConfig />}
         {activeAdminTab === 'ai_security' && <SecurityPolicy />}
         {activeAdminTab === 'ai_settings' && <AISettings />}
+        {activeAdminTab === 'ai_usage' && <ModelUsagePage />}
         {activeAdminTab === 'about_us' && <AboutUs />}
       </AdminLayout >
     );

@@ -283,3 +283,13 @@ class AIAuditLog(Base):
     
     # 来源标识 (硬编码，非猜测)
     source = Column(String(20), default='ai_audit')
+
+
+class AIModelQuota(Base):
+    __tablename__ = "ai_model_quotas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String, unique=True, index=True)
+    daily_token_limit = Column(Integer, default=0)  # 每日 Token 限额 (0表示无限制)
+    daily_request_limit = Column(Integer, default=0) # 每日调用次数限额
+    updated_at = Column(DateTime(timezone=True), nullable=True)

@@ -536,6 +536,33 @@ async def get_ai_audit_stats(
     total_tokens_in = tokens_row[0] or 0 if tokens_row else 0
     total_tokens_out = tokens_row[1] or 0 if tokens_row else 0
     
+    # Per-model token usage breakdown
+    model_stats_result = await db.execute(
+        select(
+            models.AIAuditLog.model,
+            func.count(models.AIAuditLog.id).label("requests"),
+            func.sum(models.AIAuditLog.tokens_in).label("tokens_in"),
+            func.sum(models.AIAuditLog.tokens_out).label("tokens_out")
+        ).filter(
+            models.AIAuditLog.ts >= cutoff
+        ).group_by(
+            models.AIAuditLog.model
+        ).order_by(
+            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out).desc()
+        ).limit(50)
+    )
+    model_stats_rows = model_stats_result.fetchall()
+    model_breakdown = [
+        {
+            "model": row[0] or "unknown",
+            "requests": row[1] or 0,
+            "tokens_in": row[2] or 0,
+            "tokens_out": row[3] or 0,
+            "total_tokens": (row[2] or 0) + (row[3] or 0)
+        }
+        for row in model_stats_rows
+    ]
+    
     return {
         "period_days": days,
         "total_requests": total,
@@ -545,5 +572,8 @@ async def get_ai_audit_stats(
         "success_rate": round(success_count / total * 100, 2) if total > 0 else 0,
         "avg_latency_ms": round(avg_latency, 2),
         "total_tokens_in": total_tokens_in,
-        "total_tokens_out": total_tokens_out
+        "total_tokens_out": total_tokens_out,
+        "total_tokens": total_tokens_in + total_tokens_out,
+        "model_breakdown": model_breakdown
     }
+

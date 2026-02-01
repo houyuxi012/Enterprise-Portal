@@ -379,7 +379,33 @@ class AIAuditLogQuery(BaseModel):
     actor_id: Optional[int] = None
     provider: Optional[str] = None
     model: Optional[str] = None
-    status: Optional[str] = None
     source: str = "db"  # db, loki, or all
     limit: int = 100
     offset: int = 0
+
+
+# AI Model Quota Schemas
+class AIModelQuotaBase(BaseModel):
+    model_name: str
+    daily_token_limit: int = 0
+    daily_request_limit: int = 0
+
+class AIModelQuotaCreate(AIModelQuotaBase):
+    pass
+
+class AIModelQuotaUpdate(BaseModel):
+    daily_token_limit: Optional[int] = None
+    daily_request_limit: Optional[int] = None
+
+class AIModelQuota(AIModelQuotaBase):
+    id: int
+    updated_at: Optional[datetime] = None
+    
+    # Computed fields for dashboard
+    peak_daily_tokens: Optional[int] = 0
+    current_daily_tokens: Optional[int] = 0
+    period_tokens: Optional[int] = 0 # Total tokens in the filtered period
+    is_active: bool = False # Whether the model is currently configured in AIProvider
+
+    class Config:
+        from_attributes = True

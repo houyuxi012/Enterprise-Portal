@@ -52,6 +52,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         return () => clearInterval(interval);
     }, []);
 
+    // AI Stats State
+    const [aiStats, setAiStats] = useState<{
+        total_tokens: number;
+        total_tokens_in: number;
+        total_tokens_out: number;
+        model_breakdown: Array<{
+            model: string;
+            requests: number;
+            total_tokens: number;
+            tokens_in?: number;
+            tokens_out?: number;
+        }>;
+    } | null>(null);
+
+    // Fetch AI Stats on mount
+    useEffect(() => {
+        const fetchAiStats = async () => {
+            try {
+                const data = await ApiClient.getAIAuditStats();
+                setAiStats(data);
+            } catch (err) {
+                console.error("Failed to fetch AI stats", err);
+            }
+        };
+        fetchAiStats();
+    }, []);
+
     // --- Mock Data Generators for Charts ---
 
     // Line Chart Data (Simulating a sine wave + trend)
@@ -247,47 +274,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                         </div>
                     </div>
 
-                    {/* Active Employees Table */}
+                    {/* AI Model Usage Table (Replaces Active Employees) */}
                     <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">活跃用户</h3>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <Sparkles size={18} className="text-violet-500" />
+                                AI 模型使用情况 (7天)
+                            </h3>
                             <button className="text-blue-600 text-xs font-bold hover:underline">查看全部</button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700">
-                                        <th className="pb-4 pl-4">用户</th>
-                                        <th className="pb-4">角色</th>
-                                        <th className="pb-4">访问量</th>
-                                        <th className="pb-4">评级</th>
-                                        <th className="pb-4">参与度</th>
+                                        <th className="pb-4 pl-4">模型名称</th>
+                                        <th className="pb-4 text-center">调用次数</th>
+                                        <th className="pb-4 text-right">输入 Tokens</th>
+                                        <th className="pb-4 text-right">输出 Tokens</th>
+                                        <th className="pb-4 text-right">总 Tokens</th>
+                                        <th className="pb-4 w-32">占比</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-sm">
-                                    {activeEmployees.map((emp) => (
-                                        <tr key={emp.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="py-4 pl-4">
-                                                <div className="flex items-center space-x-3">
-                                                    <Avatar src={emp.img} size="small" />
-                                                    <span className="font-bold text-slate-700 dark:text-slate-200">{emp.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 text-slate-500 text-xs font-medium">{emp.role}</td>
-                                            <td className="py-4 text-slate-600 dark:text-slate-300 text-xs font-bold">{emp.sales}</td>
-                                            <td className="py-4">
-                                                <div className="flex items-center space-x-1 text-amber-400 text-xs font-bold">
-                                                    <span className="text-slate-700 dark:text-slate-200">{emp.rating}</span>
-                                                    <span>★</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-4">
-                                                <span className="text-emerald-500 text-xs font-bold bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg">
-                                                    {emp.revenue}
-                                                </span>
+                                    {aiStats?.model_breakdown && aiStats.model_breakdown.length > 0 ? (
+                                        aiStats.model_breakdown.map((item, idx) => {
+                                            const maxTokens = Math.max(...(aiStats.model_breakdown?.map(m => m.total_tokens) || [1]), 1);
+                                            const widthPercent = (item.total_tokens / maxTokens) * 100;
+                                            return (
+                                                <tr key={idx} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                                    <td className="py-4 pl-4 font-bold text-slate-700 dark:text-slate-200">
+                                                        {item.model}
+                                                    </td>
+                                                    <td className="py-4 text-center text-slate-500 font-medium">
+                                                        {item.requests.toLocaleString()}
+                                                    </td>
+                                                    <td className="py-4 text-right text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                                                        {item.tokens_in?.toLocaleString() || '-'}
+                                                    </td>
+                                                    <td className="py-4 text-right text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                                        {item.tokens_out?.toLocaleString() || '-'}
+                                                    </td>
+                                                    <td className="py-4 text-right font-black text-slate-800 dark:text-white">
+                                                        {item.total_tokens.toLocaleString()}
+                                                    </td>
+                                                    <td className="py-4 pl-4">
+                                                        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                                                            <div
+                                                                className="h-full bg-emerald-500 transition-all duration-500"
+                                                                style={{ width: `${((item.tokens_in || 0) / maxTokens) * 100}%` }}
+                                                            ></div>
+                                                            <div
+                                                                className="h-full bg-blue-500 transition-all duration-500"
+                                                                style={{ width: `${((item.tokens_out || 0) / maxTokens) * 100}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                                                暂无数据
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -297,64 +348,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                 {/* Right Column (Widgets) */}
                 <div className="space-y-6">
 
-                    {/* Most Day Active (Bar Chart) */}
-                    <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-200">访问高峰时段 (本周)</h3>
-                            <button className="text-slate-400"><MoreHorizontal size={20} /></button>
-                        </div>
-
-                        {(() => {
-                            const data = stats?.peak_time_data || [0, 0, 0, 0, 0, 0, 0];
-                            const totalWeekly = data.reduce((a, b) => a + b, 0);
-                            const maxVal = Math.max(...data, 1); // Avoid div by zero
-                            const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-                            const todayIdx = new Date().getDay(); // 0=Sun
-
-                            // Find peak day
-                            const peakVal = Math.max(...data);
-                            const peakDayIdx = data.indexOf(peakVal);
-                            const peakDay = days[peakDayIdx];
-
-                            return (
-                                <>
-                                    <div className="flex flex-col items-center mb-6">
-                                        <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{totalWeekly.toLocaleString()}</div>
-                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                                            {totalWeekly > 0 ? `峰值: ${peakDay}` : '暂无数据'}
-                                        </div>
-                                    </div>
-
-                                    <div className="h-40 flex items-end justify-between gap-2 px-2">
-                                        {data.map((val, idx) => {
-                                            // Min height 5% for visibility, Max 100%
-                                            const h = (val / maxVal) * 100;
-                                            const height = `${Math.max(h, 5)}%`;
-                                            return (
-                                                <Bar
-                                                    key={idx}
-                                                    day={days[idx]}
-                                                    height={height}
-                                                    active={idx === todayIdx}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
-
-
-
-                    {/* Small Widgets */}
-                    < div className="grid grid-cols-2 gap-4" >
-                        <SmallStatBox icon={<Shield size={18} />} label="系统安全" value="安全" color="emerald" />
-                        <SmallStatBox icon={<Server size={18} />} label="服务器状态" value="在线" color="blue" />
-                    </div >
-
                     {/* Chart Widget (e.g. Storage or something) */}
-                    < div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[1.5rem] p-6 text-white shadow-xl shadow-indigo-500/30" >
+                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[1.5rem] p-6 text-white shadow-xl shadow-indigo-500/30">
                         <h4 className="font-bold text-white/90 mb-4">存储计划</h4>
                         <div className="flex items-end space-x-2 mb-4">
                             <span className="text-3xl font-black">85%</span>

@@ -437,6 +437,16 @@ export const ApiClient = {
   getAIAuditStats: async (days: number = 7): Promise<any> => {
     const response = await api.get('/logs/ai-audit/stats/summary', { params: { days } });
     return response.data;
+  },
+
+  getAIModelUsage: async (hours?: number): Promise<any[]> => {
+    const response = await api.get('/ai/admin/usage', { params: { hours } });
+    return response.data;
+  },
+
+  updateAIModelQuota: async (data: any): Promise<any> => {
+    const response = await api.post('/ai/admin/quotas', data);
+    return response.data;
   }
 };
 

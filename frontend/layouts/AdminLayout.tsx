@@ -15,7 +15,8 @@ import {
     PictureOutlined,
     IdcardOutlined,
     RobotOutlined,
-    ApiOutlined
+    ApiOutlined,
+    BarChartOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,8 +25,8 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_audit';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_audit') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -74,6 +75,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     key: 'ai_models',
                     icon: <ApiOutlined />,
                     label: '模型配置',
+                },
+                {
+                    key: 'ai_usage',
+                    icon: <BarChartOutlined />,
+                    label: '模型用量',
                 },
                 {
                     key: 'ai_security',
