@@ -411,6 +411,32 @@ export const ApiClient = {
 
   deleteAIPolicy: async (id: number): Promise<void> => {
     await api.delete(`/ai/admin/policies/${id}`);
+  },
+
+  // AI Audit Logs
+  getAIAuditLogs: async (params?: {
+    start_time?: string;
+    end_time?: string;
+    actor_id?: number;
+    provider?: string;
+    model?: string;
+    status?: string;
+    source?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> => {
+    const response = await api.get('/logs/ai-audit', { params });
+    return response.data;
+  },
+
+  getAIAuditDetail: async (eventId: string): Promise<any> => {
+    const response = await api.get(`/logs/ai-audit/${eventId}`);
+    return response.data;
+  },
+
+  getAIAuditStats: async (days: number = 7): Promise<any> => {
+    const response = await api.get('/logs/ai-audit/stats/summary', { params: { days } });
+    return response.data;
   }
 };
 

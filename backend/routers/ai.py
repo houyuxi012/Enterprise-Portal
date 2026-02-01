@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
-from typing import List
+from typing import List, Optional
 from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest, AIModelOption
 from database import get_db
 from models import Employee, NewsItem, QuickTool, AIProvider
 from services.ai_engine import AIEngine
+from middleware.trace_context import get_trace_id
 
 router = APIRouter(
     prefix="/ai",
@@ -27,20 +28,18 @@ async def get_models(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.post("/admin/providers/test")
-async def test_provider(request: AIProviderTestRequest, db: AsyncSession = Depends(get_db)):
+async def test_provider(request_body: AIProviderTestRequest, db: AsyncSession = Depends(get_db)):
     try:
         engine = AIEngine(db)
-        # Create a temporary provider object
         temp_provider = AIProvider(
-            name=request.name,
-            type=request.type,
-            base_url=request.base_url,
-            api_key=request.api_key,
-            model=request.model,
+            name=request_body.name,
+            type=request_body.type,
+            base_url=request_body.base_url,
+            api_key=request_body.api_key,
+            model=request_body.model,
             is_active=True
         )
         
-        # Call provider with a simple prompt
         response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
         return {"status": "success", "message": "Connection successful", "response": response}
     except Exception as e:
@@ -48,15 +47,28 @@ async def test_provider(request: AIProviderTestRequest, db: AsyncSession = Depen
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/chat", response_model=AIChatResponse)
-async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat(request_body: AIChatRequest, request: Request, db: AsyncSession = Depends(get_db)):
     try:
-        query = request.prompt.lower()
+        query = request_body.prompt.lower()
         context_parts = []
-        engine = AIEngine(db)
-
-        # 1. Input Security Check (Fail Fast)
-        # We do this inside engine.chat usually, but doing it here saves DB context queries if blocked.
-        # But for simplicity, let engine handle it all.
+        
+        # 提取用户信息用于审计
+        user_id = None
+        user_ip = request.client.host if request.client else None
+        trace_id = get_trace_id()
+        session_id = request.cookies.get("session_id")
+        
+        # 尝试从 request.state 获取用户 ID (由 Auth 中间件设置)
+        if hasattr(request.state, "user") and request.state.user:
+            user_id = request.state.user.id
+        
+        engine = AIEngine(
+            db, 
+            user_id=user_id, 
+            user_ip=user_ip, 
+            trace_id=trace_id, 
+            session_id=session_id
+        )
 
         # 2. RAG Context Retrieval
         # 2.1 Search Employees
@@ -107,8 +119,8 @@ async def chat(request: AIChatRequest, db: AsyncSession = Depends(get_db)):
 
         context = "\n\n".join(context_parts)
         
-        # 3. Get AI Response via Engine
-        response_text = await engine.chat(request.prompt, context, model_id=request.model_id)
+        # 3. Get AI Response via Engine (with audit logging)
+        response_text = await engine.chat(request_body.prompt, context, model_id=request_body.model_id)
         
         return AIChatResponse(response=response_text)
         

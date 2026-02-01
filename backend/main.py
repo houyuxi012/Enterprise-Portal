@@ -41,6 +41,15 @@ async def startup():
     from services.log_repository import init_log_repository
     init_log_repository(db_session_factory=database.SessionLocal, loki_url=loki_url)
 
+    # --- Initialize AI Audit Writer (DB + Loki dual-write) ---
+    from services.ai_audit_writer import init_ai_audit_writer
+    loki_enabled = bool(loki_url)
+    init_ai_audit_writer(
+        db_session_factory=database.SessionLocal, 
+        loki_enabled=loki_enabled, 
+        loki_url=loki_url or "http://loki:3100"
+    )
+
 
 @app.on_event("shutdown")
 async def shutdown():

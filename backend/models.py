@@ -223,3 +223,63 @@ class AISecurityPolicy(Base):
     action = Column(String) # 'block', 'mask', 'warn'
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AIAuditLog(Base):
+    """
+    AI 审计日志表 - 用于合规追责与复盘
+    注意: 严禁存储 API Key/Token 明文，严禁保存 prompt/output 全文
+    """
+    __tablename__ = "ai_audit_log"
+
+    # 标识字段
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String(64), unique=True, index=True)  # UUID
+    ts = Column(DateTime(timezone=True), index=True)  # 时间戳
+    
+    # 环境信息
+    env = Column(String(20), default='production')  # dev/staging/production
+    service = Column(String(50), default='enterprise-portal')
+    request_id = Column(String(64), nullable=True)  # X-Request-ID
+    trace_id = Column(String(64), index=True, nullable=True)  # 全链路追踪
+    
+    # 用户信息
+    actor_type = Column(String(20))  # user/admin/system/api
+    actor_id = Column(Integer, nullable=True, index=True)
+    actor_ip = Column(String(45), nullable=True)
+    session_id = Column(String(128), nullable=True)
+    
+    # 资源信息
+    resource_type = Column(String(50), default='ai_chat')  # ai_chat/ai_completion
+    resource_id = Column(String(128), nullable=True)  # provider+model 标识
+    action = Column(String(50))  # CHAT/COMPLETION/IMAGE_GEN/SEARCH
+    
+    # AI 提供商信息
+    provider = Column(String(50), index=True, nullable=True)  # gemini/openai/deepseek
+    model = Column(String(100), nullable=True)
+    api_key_fingerprint = Column(String(16), nullable=True)  # SHA256[:16]，不可逆
+    
+    # 安全策略结果
+    input_policy_result = Column(String(20), nullable=True)   # ALLOW/BLOCK/MASK/WARN
+    output_policy_result = Column(String(20), nullable=True)  # ALLOW/BLOCK/MASK
+    policy_hits = Column(Text, nullable=True)  # JSON: ["keyword:xxx", "regex:yyy"]
+    
+    # 性能指标
+    latency_ms = Column(Integer, nullable=True)
+    tokens_in = Column(Integer, nullable=True)
+    tokens_out = Column(Integer, nullable=True)
+    
+    # 状态与错误
+    status = Column(String(20), index=True)  # SUCCESS/BLOCKED/ERROR/TIMEOUT
+    error_code = Column(String(50), nullable=True)
+    error_reason = Column(Text, nullable=True)
+    
+    # 内容指纹 (用于去重与异常检测，不可逆)
+    prompt_hash = Column(String(64), nullable=True)   # SHA256
+    output_hash = Column(String(64), nullable=True)   # SHA256
+    
+    # 脱敏预览 (可选，仅前 200 字符)
+    prompt_preview = Column(String(200), nullable=True)
+    
+    # 来源标识 (硬编码，非猜测)
+    source = Column(String(20), default='ai_audit')

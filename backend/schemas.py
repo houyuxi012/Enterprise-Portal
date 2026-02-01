@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
+from enum import Enum
 
 # Department Schemas
 class DepartmentBase(BaseModel):
@@ -194,6 +195,7 @@ class BusinessLogBase(BaseModel):
     status: str
     detail: Optional[str] = None
     timestamp: str
+    source: Optional[str] = None  # DB, LOKI, or DB,LOKI
 
 class BusinessLogCreate(BusinessLogBase):
     pass
@@ -321,3 +323,63 @@ class AISecurityPolicy(AISecurityPolicyBase):
     class Config:
         from_attributes = True
 
+
+# AI Audit Log Schemas
+class AIAuditLogBase(BaseModel):
+    event_id: str
+    ts: datetime
+    env: Optional[str] = "production"
+    service: Optional[str] = "enterprise-portal"
+    request_id: Optional[str] = None
+    trace_id: Optional[str] = None
+    
+    actor_type: str
+    actor_id: Optional[int] = None
+    actor_ip: Optional[str] = None
+    session_id: Optional[str] = None
+    
+    resource_type: Optional[str] = "ai_chat"
+    resource_id: Optional[str] = None
+    action: str
+    
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    api_key_fingerprint: Optional[str] = None
+    
+    input_policy_result: Optional[str] = None
+    output_policy_result: Optional[str] = None
+    policy_hits: Optional[str] = None
+    
+    latency_ms: Optional[int] = None
+    tokens_in: Optional[int] = None
+    tokens_out: Optional[int] = None
+    
+    status: str
+    error_code: Optional[str] = None
+    error_reason: Optional[str] = None
+    
+    prompt_hash: Optional[str] = None
+    output_hash: Optional[str] = None
+    prompt_preview: Optional[str] = None
+    
+    source: str = "ai_audit"
+
+
+class AIAuditLog(AIAuditLogBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+
+
+class AIAuditLogQuery(BaseModel):
+    """Query parameters for AI audit logs"""
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    actor_id: Optional[int] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    status: Optional[str] = None
+    source: str = "db"  # db, loki, or all
+    limit: int = 100
+    offset: int = 0
