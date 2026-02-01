@@ -403,6 +403,7 @@ async def get_usage_stats(
 @router.post("/quotas", response_model=schemas.AIModelQuota)
 async def update_quota(
     quota: schemas.AIModelQuotaCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -425,4 +426,19 @@ async def update_quota(
         
     await db.commit()
     await db.refresh(db_quota)
+
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db, 
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="UPDATE_AI_QUOTA", 
+        target=f"AI模型:{db_quota.model_name}", 
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+
     return db_quota

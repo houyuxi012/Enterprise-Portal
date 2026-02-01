@@ -79,14 +79,16 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: "10080" # 7 days
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       STORAGE_TYPE: minio
-      CORS_ORIGINS: "http://localhost:3000,https://localhost,https://127.0.0.1"
-      COOKIE_DOMAIN: "" # Empty for localhost to work on any port/IP
+      PUBLIC_BASE_URL: "https://127.0.0.1" # Frontend entry point
+      CORS_ORIGINS: "https://127.0.0.1" # Strict single origin
+      COOKIE_DOMAIN: "" # HostOnly
       COOKIE_SECURE: "True" # Force secure cookie
-      MINIO_ENDPOINT: minio:9000
+      COOKIE_SAMESITE: "lax"
+      MINIO_ENDPOINT: minio:9000 # Internal Docker network
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin@houyuxi
       MINIO_BUCKET_NAME: next-gen-enterprise-portal
-      MINIO_EXTERNAL_ENDPOINT: 127.0.0.1/minio
+      MINIO_EXTERNAL_ENDPOINT: 127.0.0.1/minio # Routed via Nginx
       MINIO_EXTERNAL_PROTOCOL: https
       LOKI_PUSH_URL: http://loki:3100
     depends_on:

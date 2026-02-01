@@ -84,6 +84,14 @@ class MinioStorageProvider(StorageProvider):
 
     def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
         if is_public:
+            # Use PUBLIC_BASE_URL if set (Strict Single Origin)
+            public_base = os.getenv("PUBLIC_BASE_URL")
+            if public_base:
+                # Format: {PUBLIC_BASE_URL}/minio/{bucket}/{filename}
+                # Remove trailing slash from base if present
+                public_base = public_base.rstrip("/")
+                return f"{public_base}/minio/{self.bucket}/{filename}"
+
             # Return stable public URL (http://endpoint/bucket/filename)
             # Use external endpoint if available, otherwise internal
             base_endpoint = self.external_endpoint if self.external_endpoint else self.endpoint
