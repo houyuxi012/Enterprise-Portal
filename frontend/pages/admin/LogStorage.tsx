@@ -8,6 +8,7 @@ interface StorageConfig {
     log_retention_system_days: number;
     log_retention_business_days: number;
     log_retention_login_days: number;
+    log_retention_ai_days: number;
     log_max_disk_usage: number;
 }
 
@@ -22,6 +23,7 @@ const LogStorage: React.FC = () => {
                 log_retention_system_days: config.log_retention_system_days || 7,
                 log_retention_business_days: config.log_retention_business_days || 30,
                 log_retention_login_days: config.log_retention_login_days || 90,
+                log_retention_ai_days: config.log_retention_ai_days || 30,
                 log_max_disk_usage: config.log_max_disk_usage || 80
             });
         } catch (error) {
@@ -40,6 +42,7 @@ const LogStorage: React.FC = () => {
                 log_retention_system_days: String(values.log_retention_system_days),
                 log_retention_business_days: String(values.log_retention_business_days),
                 log_retention_login_days: String(values.log_retention_login_days),
+                log_retention_ai_days: String(values.log_retention_ai_days),
                 log_max_disk_usage: String(values.log_max_disk_usage)
             });
             message.success('存储策略已保存');
@@ -131,6 +134,23 @@ const LogStorage: React.FC = () => {
                                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
                                 登录审计保留周期
                                 <Tooltip title="登录/登出记录、失败尝试等">
+                                    <InfoCircleOutlined className="text-slate-400" />
+                                </Tooltip>
+                            </span>
+                        }
+                        rules={[{ required: true, message: '请输入保留天数' }]}
+                    >
+                        <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
+                    </Form.Item>
+
+                    {/* AI 审计 */}
+                    <Form.Item
+                        name="log_retention_ai_days"
+                        label={
+                            <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                                AI 审计保留周期
+                                <Tooltip title="AI 对话、生成记录、Token 消耗等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
                             </span>

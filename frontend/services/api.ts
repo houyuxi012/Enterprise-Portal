@@ -434,7 +434,31 @@ export const ApiClient = {
     return response.data;
   },
 
-  getAIAuditStats: async (days: number = 7): Promise<any> => {
+  getAIAuditStats: async (days: number = 7): Promise<{
+    period_days: number;
+    total_requests: number;
+    success_count: number;
+    blocked_count: number;
+    error_count: number;
+    success_rate: number;
+    avg_latency_ms: number;
+    total_tokens_in: number;
+    total_tokens_out: number;
+    total_tokens: number;
+    model_breakdown: Array<{
+      model: string;
+      requests: number;
+      tokens_in: number;
+      tokens_out: number;
+      total_tokens: number;
+    }>;
+    daily_trend: Array<{
+      date: string;
+      total_tokens: number;
+    }>;
+    total_tokens_prev?: number;
+    trend_percentage?: number;
+  }> => {
     const response = await api.get('/logs/ai-audit/stats/summary', { params: { days } });
     return response.data;
   },

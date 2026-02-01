@@ -1,10 +1,9 @@
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # Configure the Gemini API with the key from environment variables
 api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
 
 SYSTEM_INSTRUCTION = """你是 ShiKu Assistant，ShiKu Home 公司内网的官方 AI 指南。
 你的任务是根据提供的【上下文信息】回答员工的问题。
@@ -20,10 +19,7 @@ async def get_ai_response(prompt: str, context: str = "", image_data: bytes = No
         return "【系统提示】请配置 API Key 以启用 AI 智能回答。"
     
     try:
-        model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash', # Upgrade to 2.0-flash which is generally better/multimodal
-            system_instruction=SYSTEM_INSTRUCTION
-        )
+        client = genai.Client(api_key=api_key)
         
         full_prompt = f"""
 【上下文信息】
@@ -32,14 +28,20 @@ async def get_ai_response(prompt: str, context: str = "", image_data: bytes = No
 【用户问题】
 {prompt}
 """
-        content = [full_prompt]
+        contents = [full_prompt]
         if image_data and mime_type:
-            content.append({
-                "mime_type": mime_type,
-                "data": image_data
-            })
-            
-        response = await model.generate_content_async(content)
+             # google-genai supports bytes or PIL image
+             # For raw bytes, we often wrap in types.Part or pass directly if supported
+             # SDK 0.x: supports sending images as Part.
+             contents.append(types.Part.from_bytes(data=image_data, mime_type=mime_type))
+
+        response = await client.aio.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION
+            )
+        )
         return response.text
     except Exception as e:
         print(f"Gemini API Error: {e}")

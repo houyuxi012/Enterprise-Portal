@@ -15,6 +15,7 @@ LOG_RETENTION_CONFIG = {
     "system": ("log_retention_system_days", 7, models.SystemLog),
     "business": ("log_retention_business_days", 30, models.BusinessLog),
     "login": ("log_retention_login_days", 90, models.LoginAuditLog),
+    "ai": ("log_retention_ai_days", 30, models.AIAuditLog),
 }
 
 async def get_config_value(db: AsyncSession, key: str, default: str) -> str:

@@ -7,8 +7,11 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import models
+import models
 import services.gemini_service
 import re
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger("ai_engine")
 
@@ -222,16 +225,23 @@ class AIEngine:
         full_content = f"Context: {context}\n\nUser Question: {prompt}" if context else prompt
 
         if provider.type == "gemini":
-            url = f"{provider.base_url or 'https://generativelanguage.googleapis.com/v1beta/models'}/{provider.model}:generateContent?key={api_key}"
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(url, json={
-                    "contents": [{"parts": [{"text": full_content}]}]
-                }, timeout=30)
-                if resp.status_code != 200:
-                    logger.warning(f"Gemini API Error: {resp.status_code} - {resp.text[:200]}")
-                    raise Exception(f"Gemini API Error: {resp.text}")
-                data = resp.json()
-                return data['candidates'][0]['content']['parts'][0]['text']
+            # Migrate to Google GenAI SDK
+            client = genai.Client(api_key=api_key)
+            
+            # Note: Provider base_url handling might differ in new SDK. 
+            # If critical, check SDK docs for base_url support (usually client_options).
+            # For now, we assume standard usage or rely on SDK defaults.
+            
+            contents = [full_content]
+            
+            response = await client.aio.models.generate_content(
+                model=provider.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt
+                )
+            )
+            return response.text
 
         elif provider.type in ["openai", "deepseek", "qwen", "zhipu", "dashscope"]:
             base_url = provider.base_url

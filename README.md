@@ -18,17 +18,18 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 - **全链路日志审计**:
     - **系统日志**: 监控系统运行状态与异常堆栈。
     - **登录审计**: 记录所有登录尝试 (User, IP, Device, Status)，支持防爆破检测。
+    - **业务日志**: 记录关键业务操作（如用户增删、**AI 模型限额调整**）。
     - **日志外发**: 支持 Syslog/Webhook 实时转发至第三方 SIEM 平台。
 - **全栈监控体系**:
-    - **Grafana 可视化**: 集成 System Overview, Redis, PostgreSQL 三大专业仪表盘。
+    - **Grafana 可视化**: 集成 System Overview, Redis, PostgreSQL, **AI Model Usage** 四大专业仪表盘。
     - **Loki 日志聚合**: 统一收集全容器栈日志，支持实时流式检索与多维分析。
     - **Deep Observability**: 实现了从 Nginx 到数据库的全链路可观测性。
 - **存储服务**:
-    - **MinIO 集成**: 支持对象存储 (S3 兼容)，用于头像、文件、图片的高可用存储。
+    - **MinIO 集成**: 支持对象存储 (S3 兼容)，通过 **Nginx 反代 (/minio)** 统一访问，解决 Mixed Content。
     - **生产级安全**: 文件类型魔数校验、5MB 大小限制、病毒扫描预留。
 - **资讯内容管理**: Premium 风格的新闻、公告、轮播图管理界面。
 - **企业个性化 (Branding)**: 支持自定义 Logo、系统名称、版权信息与浏览器标题设置。
-- **AI 管理**: 支持多 AI 服务商配置、API Key 加密存储、安全策略管理、**搜索栏 AI 开关与默认模型配置**。
+- **AI 管理**: 支持多 AI 服务商配置、API Key 加密存储、安全策略管理、搜索栏 AI 开关与默认模型配置。
 
 ## 🛠️ 技术栈 (Tech Stack)
 
@@ -40,7 +41,7 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 - **设计风格**: Glassmorphism (玻璃拟态), Modern Clean UI
 
 ### Backend (后台)
-- **框架**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
+- **框架**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.12+)
 - **数据库**: [PostgreSQL 17](https://www.postgresql.org/)
 - **缓存**: [Redis](https://redis.io/)
 - **ORM**: [SQLAlchemy](https://www.sqlalchemy.org/) (AsyncIO) + [Pydantic](https://docs.pydantic.dev/)
@@ -49,7 +50,7 @@ ShiKu Home 不仅仅是一个导航页，它是一个集成了应用管理、组
 
 ### Infrastructure (基础设施)
 - **容器化**: Docker Compose
-- **反向代理**: Nginx (HTTPS, HSTS, Security Headers)
+- **反向代理**: Nginx (HTTPS, HSTS, Security Headers, API/MinIO Proxy)
 - **对象存储**: MinIO (S3 兼容)
 - **监控告警**: Grafana + Loki (日志与指标可视化)
 - **SSL**: 自签名证书 (开发) / Let's Encrypt (生产)
@@ -68,23 +69,23 @@ cd Enterprise\ Portal
 # 2. 启动所有服务
 docker-compose up -d --build
 
-# 3. 访问系统
-# 前端: https://localhost (需接受自签名证书警告)
-# 后端 API 文档: https://localhost/api/docs
-# MinIO Console: http://localhost:9001 (minioadmin/minioadmin@houyuxi)
+# 3. 访问系统 (统一入口)
+# 前端: https://127.0.0.1 (需接受自签名证书警告)
+# 后端 API: https://127.0.0.1/api/docs
+# MinIO 资源: https://127.0.0.1/minio/...
 # Grafana 监控: http://localhost:3000 (admin / Grafana@houyuxi)
 
-# 默认管理员: admin / 123456
+# 默认管理员: admin / admin123
 ```
 
-> ⚠️ **注意**: 首次访问 `https://localhost` 时，浏览器会提示证书不受信任。这是预期行为，请点击"高级" → "继续访问"。
+> ⚠️ **注意**: 首次访问 `https://127.0.0.1` 时，浏览器会提示证书不受信任。这是预期行为，请点击"高级" → "继续访问"。
 
 ### 方式二：本地开发部署 (Local Development)
 
 适用于开发者进行功能迭代。
 
 **前提条件**:
-- Python 3.10+
+- Python 3.12+
 - Node.js 18+
 - PostgreSQL (本地安装或 Docker 启动)
 - Redis
@@ -109,7 +110,7 @@ cd frontend
 npm install
 npm run dev
 ```
-前端开发服务器运行在 `http://localhost:3000`，自动代理 `/api` 请求到后端。
+前端开发服务器运行在 `http://localhost:3000`，但建议通过 Nginx 或 Docker 环境调试以获得完整 HTTPS 支持。
 
 ## ⚙️ 环境变量配置 (Configuration)
 
@@ -121,6 +122,7 @@ npm run dev
 # 基础配置
 GEMINI_API_KEY=your_gemini_api_key
 SECRET_KEY=your_jwt_secret_key
+PUBLIC_BASE_URL=https://127.0.0.1  # 统一入口域名
 
 # 数据库配置
 DATABASE_URL=postgresql+asyncpg://user:password@localhost/portal_db
@@ -133,10 +135,11 @@ COOKIE_DOMAIN=
 
 ## 🔒 安全特性 (Security Features)
 
+- **统一入口 (Unified Entry)**: 所有流量通过 HTTPS (`https://127.0.0.1`) 443 端口进入，MinIO 端口不直接暴露。
 - **HTTPS 强制**: Nginx 自动将 HTTP 重定向到 HTTPS
 - **安全响应头**: HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
 - **HttpOnly Cookie**: JWT Token 存储在 HttpOnly Cookie 中，防止 XSS
-- **CORS 白名单**: 严格限制允许的源
+- **CORS 白名单**: 严格限制允许的源 (Single Origin)
 - **API Key 加密**: 使用 Fernet 对称加密存储敏感密钥
 - **限流保护**: Nginx 层 API 限流 (10r/s, burst 20)
 - **文件上传安全**: 魔数校验、大小限制、类型白名单
@@ -145,7 +148,7 @@ COOKIE_DOMAIN=
 
 ```
 Enterprise Portal/
-├── backend/                 # FastAPI 后端
+├── backend/                 # FastAPI 后端 (Python 3.12)
 │   ├── routers/            # API 路由
 │   ├── models.py           # SQLAlchemy 模型
 │   ├── utils.py            # 工具函数 (加密、认证)
@@ -155,15 +158,15 @@ Enterprise Portal/
 │   ├── components/         # 通用组件
 │   ├── services/           # API 客户端
 │   └── index.html          # HTML 入口
-├── nginx/                  # Nginx 配置
+├── nginx/                  # Nginx 配置 (反代 API & MinIO)
 │   ├── nginx.conf          # 主配置文件
 │   └── certs/              # SSL 证书
 ├── grafana/                # Grafana 监控配置
-│   └── provisioning/       # 自动化仪表盘与数据源配置
+│   └── provisioning/       # 自动化仪表盘 (含 AI Model Usage)
 ├── docker-compose.yml      # Docker 编排
 └── README.md
 ```
 
 ## 📝 License
-MIT License © 2025 侯钰熙 
+MIT License © 2025 侯钰熙
 https://www.houyuxi.com

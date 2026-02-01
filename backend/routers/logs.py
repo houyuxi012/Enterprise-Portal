@@ -563,6 +563,43 @@ async def get_ai_audit_stats(
         for row in model_stats_rows
     ]
     
+    # Daily trend (Total tokens per day)
+    daily_trend_result = await db.execute(
+        select(
+            func.date(models.AIAuditLog.ts).label("day"),
+            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out).label("total")
+        ).filter(
+            models.AIAuditLog.ts >= cutoff
+        ).group_by(
+            "day"
+        ).order_by(
+            "day"
+        )
+    )
+    daily_trend = [
+        {"date": str(row[0]), "total_tokens": row[1] or 0} 
+        for row in daily_trend_result.fetchall() if row[0]
+    ]
+
+    # Comparison (Previous Period)
+    prev_cutoff_start = cutoff - datetime.timedelta(days=days)
+    prev_cutoff_end = cutoff
+    
+    prev_tokens_result = await db.execute(
+        select(
+            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out)
+        ).filter(
+            models.AIAuditLog.ts >= prev_cutoff_start,
+            models.AIAuditLog.ts < prev_cutoff_end
+        )
+    )
+    total_tokens_prev = prev_tokens_result.scalar() or 0
+    
+    trend_percentage = 0.0
+    if total_tokens_prev > 0:
+        current_total = total_tokens_in + total_tokens_out
+        trend_percentage = ((current_total - total_tokens_prev) / total_tokens_prev) * 100
+
     return {
         "period_days": days,
         "total_requests": total,
@@ -574,6 +611,9 @@ async def get_ai_audit_stats(
         "total_tokens_in": total_tokens_in,
         "total_tokens_out": total_tokens_out,
         "total_tokens": total_tokens_in + total_tokens_out,
-        "model_breakdown": model_breakdown
+        "model_breakdown": model_breakdown,
+        "daily_trend": daily_trend,
+        "total_tokens_prev": total_tokens_prev,
+        "trend_percentage": round(trend_percentage, 1)
     }
 

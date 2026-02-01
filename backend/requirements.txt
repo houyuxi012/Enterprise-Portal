@@ -3,7 +3,7 @@ uvicorn[standard]
 sqlalchemy
 asyncpg
 pydantic-settings
-google-generativeai
+google-genai
 python-dotenv
 python-jose[cryptography]
 passlib[bcrypt]

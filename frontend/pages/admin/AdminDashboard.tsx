@@ -3,9 +3,10 @@ import React, { useMemo, useState, useEffect } from 'react';
 import {
     Users, FileText, Activity, Server,
     Plus, Shield, Database, Search,
-    TrendingUp, Clock, AlertCircle, CheckCircle2,
-    MousePointer2, ShoppingCart, ArrowUp, ArrowDown,
-    MoreHorizontal, Download, Calendar, Sparkles, HardDrive, Eye as EyeIcon
+    TrendingUp, TrendingDown, Clock, AlertTriangle, AlertCircle, CheckCircle, CheckCircle2, XCircle, Filter, Download, RefreshCw, BarChart2,
+    Cpu, HardDrive, Globe, Zap, List, Eye, Eye as EyeIcon,
+    Sparkles, MessageSquare, Box, PlayCircle as Play, StopCircle as Stop,
+    MousePointer2, ShoppingCart, ArrowUp, ArrowDown, MoreHorizontal, Calendar
 } from 'lucide-react';
 import { Avatar } from 'antd';
 import ApiClient from '../../services/api';
@@ -64,6 +65,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
             tokens_in?: number;
             tokens_out?: number;
         }>;
+        daily_trend?: Array<{
+            date: string;
+            total_tokens: number;
+        }>;
+        total_tokens_prev?: number;
+        trend_percentage?: number;
     } | null>(null);
 
     // Fetch AI Stats on mount
@@ -274,73 +281,278 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                         </div>
                     </div>
 
-                    {/* AI Model Usage Table (Replaces Active Employees) */}
-                    <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                        <div className="flex justify-between items-center mb-6">
+                    {/* AI Model Usage Section (Polished) */}
+                    <div className="rounded-[1.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700/50 relative overflow-hidden group bg-white dark:bg-slate-800">
+                        {/* Decorative Background Glow */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/10 dark:bg-violet-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+                        <div className="flex justify-between items-center mb-8 relative z-10">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                <Sparkles size={18} className="text-violet-500" />
-                                AI 模型使用情况 (7天)
+                                <div className="p-2 bg-[#2636dd]/10 rounded-lg text-[#2636dd]">
+                                    <Sparkles size={18} />
+                                </div>
+                                <span>AI 模型消耗趋势</span>
                             </h3>
-                            <button className="text-blue-600 text-xs font-bold hover:underline">查看全部</button>
+                            {aiStats?.total_tokens && (
+                                <div className="px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700/50 text-xs font-bold text-slate-500 border border-slate-100 dark:border-slate-700">
+                                    总计: <span className="text-violet-600 dark:text-violet-400">{aiStats.total_tokens.toLocaleString()}</span> Tokens
+                                </div>
+                            )}
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700">
-                                        <th className="pb-4 pl-4">模型名称</th>
-                                        <th className="pb-4 text-center">调用次数</th>
-                                        <th className="pb-4 text-right">输入 Tokens</th>
-                                        <th className="pb-4 text-right">输出 Tokens</th>
-                                        <th className="pb-4 text-right">总 Tokens</th>
-                                        <th className="pb-4 w-32">占比</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-sm">
-                                    {aiStats?.model_breakdown && aiStats.model_breakdown.length > 0 ? (
-                                        aiStats.model_breakdown.map((item, idx) => {
-                                            const maxTokens = Math.max(...(aiStats.model_breakdown?.map(m => m.total_tokens) || [1]), 1);
-                                            const widthPercent = (item.total_tokens / maxTokens) * 100;
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 relative z-10">
+                            {/* Left: VS Trend (Area Line Chart) */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-400 mb-6 uppercase tracking-wider flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#2636dd]"></span>
+                                    近7日 Token 趋势 (万)
+                                </h4>
+
+                                {/* Chart Container */}
+                                <div className="h-48 w-full relative group/chart">
+
+                                    {aiStats?.daily_trend && aiStats.daily_trend.length > 0 ? (
+                                        (() => {
+                                            const data = aiStats.daily_trend!.slice(-7);
+                                            // Handle edge case: single data point or empty
+                                            if (data.length < 2) return <div className="text-xs text-slate-400">数据不足，无法显示趋势</div>;
+
+                                            // 1. Calculate Scales
+                                            const maxVal = Math.max(...data.map(d => d.total_tokens)) * 1.1 || 100; // Add 10% headroom
+                                            const minVal = 0;
+
+                                            // Chart Dimensions (use % for width, fixed height internal coordinate system)
+                                            const width = 100;
+                                            const height = 100;
+
+                                            // 2. Generate Points
+                                            const points = data.map((d, i) => {
+                                                const x = (i / (data.length - 1)) * width;
+                                                const y = height - ((d.total_tokens - minVal) / (maxVal - minVal)) * height;
+                                                return { x, y, val: d.total_tokens, date: d.date };
+                                            });
+
+                                            // 3. Create SVG Path (Smooth Curve or Straight Line)
+                                            // L = Line to
+                                            const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+
+                                            // Area Path (Close the loop at bottom)
+                                            const areaPath = `${linePath} L ${width},${height} L 0,${height} Z`;
+
+                                            // Peak Point
+                                            const peakPoint = points.reduce((prev, curr) => curr.val > prev.val ? curr : prev, points[0]);
+
                                             return (
-                                                <tr key={idx} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                                    <td className="py-4 pl-4 font-bold text-slate-700 dark:text-slate-200">
-                                                        {item.model}
-                                                    </td>
-                                                    <td className="py-4 text-center text-slate-500 font-medium">
-                                                        {item.requests.toLocaleString()}
-                                                    </td>
-                                                    <td className="py-4 text-right text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                                                        {item.tokens_in?.toLocaleString() || '-'}
-                                                    </td>
-                                                    <td className="py-4 text-right text-blue-600 dark:text-blue-400 font-bold text-xs">
-                                                        {item.tokens_out?.toLocaleString() || '-'}
-                                                    </td>
-                                                    <td className="py-4 text-right font-black text-slate-800 dark:text-white">
-                                                        {item.total_tokens.toLocaleString()}
-                                                    </td>
-                                                    <td className="py-4 pl-4">
-                                                        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                                                            <div
-                                                                className="h-full bg-emerald-500 transition-all duration-500"
-                                                                style={{ width: `${((item.tokens_in || 0) / maxTokens) * 100}%` }}
-                                                            ></div>
-                                                            <div
-                                                                className="h-full bg-blue-500 transition-all duration-500"
-                                                                style={{ width: `${((item.tokens_out || 0) / maxTokens) * 100}%` }}
-                                                            ></div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
+                                                <div className="w-full h-full relative">
+                                                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                                        <defs>
+                                                            <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
+                                                                <stop offset="0%" stopColor="#2636dd" stopOpacity="0.3" />
+                                                                <stop offset="100%" stopColor="#2636dd" stopOpacity="0.0" />
+                                                            </linearGradient>
+                                                            <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
+                                                                <stop offset="0%" stopColor="#4c5ce8" />
+                                                                <stop offset="100%" stopColor="#2636dd" />
+                                                            </linearGradient>
+                                                        </defs>
+
+                                                        {/* Area Fill */}
+                                                        <path d={areaPath} fill="url(#areaGradient)" />
+
+                                                        {/* Stroke Line */}
+                                                        <path
+                                                            d={linePath}
+                                                            fill="none"
+                                                            stroke="url(#lineGradient)"
+                                                            strokeWidth="1.5"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className="drop-shadow-sm"
+                                                        />
+
+                                                        {/* Peak Dot (Pulse) */}
+                                                        <circle cx={peakPoint.x} cy={peakPoint.y} r="1.5" fill="#2636dd" className="animate-pulse" />
+                                                        <circle cx={peakPoint.x} cy={peakPoint.y} r="4" fill="#2636dd" fillOpacity="0.2" />
+                                                    </svg>
+
+                                                    {/* Tooltip Hover Overlay (Invisible Columns) */}
+                                                    <div className="absolute inset-0 flex">
+                                                        {points.map((p, i) => (
+                                                            <div key={i} className="flex-1 h-full relative group/point cursor-crosshair">
+                                                                {/* The Tooltip */}
+                                                                <div
+                                                                    className={`absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded 
+                                                                                opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-xl
+                                                                                ${i === 0 ? 'left-0' : i === points.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
+                                                                    `}
+                                                                >
+                                                                    <div className="font-bold">{p.val.toLocaleString()}</div>
+                                                                    <div className="text-slate-400 text-[9px]">{p.date}</div>
+                                                                </div>
+
+                                                                {/* Highlight Line on Hover */}
+                                                                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-indigo-500/20 opacity-0 group-hover/point:opacity-100"></div>
+
+                                                                {/* Dot on Hover */}
+                                                                <div
+                                                                    className="absolute w-2 h-2 bg-white border-2 border-indigo-500 rounded-full left-1/2 -ml-1 opacity-0 group-hover/point:opacity-100 transition-all shadow-sm"
+                                                                    style={{ top: `${(p.y / height) * 100}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Peak Label (Static) */}
+                                                    <div
+                                                        className="absolute text-[9px] font-bold text-indigo-500 bg-white/80 dark:bg-slate-800/80 px-1 rounded shadow-sm backdrop-blur-sm pointer-events-none"
+                                                        style={{ left: `${(peakPoint.x / width) * 100}%`, top: `${(peakPoint.y / height) * 100}%`, transform: 'translate(-50%, -140%)' }}
+                                                    >
+                                                        Peak
+                                                    </div>
+
+                                                    {/* Axis Labels (X-Axis) */}
+                                                    <div className="absolute -bottom-6 inset-x-0 flex justify-between text-[9px] text-slate-400 font-medium px-1">
+                                                        {/* Only show 1st, middle, and last for clean look */}
+                                                        <span>{new Date(points[0].date).toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
+                                                        <span>{new Date(points[3]?.date || '').toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
+                                                        <span>{new Date(points[points.length - 1].date).toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}</span>
+                                                    </div>
+                                                </div>
                                             );
-                                        })
+                                        })()
                                     ) : (
-                                        <tr>
-                                            <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                                                暂无数据
-                                            </td>
-                                        </tr>
+                                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-bold">暂无数据</div>
                                     )}
-                                </tbody>
-                            </table>
+                                </div>
+                                <div className="mt-8 flex items-center gap-4 text-xs font-medium text-slate-500">
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                        <span>近7日总消耗</span>
+                                    </div>
+                                    <div className="text-slate-800 dark:text-slate-200 font-bold">
+                                        {(aiStats?.total_tokens || 0).toLocaleString()}
+                                    </div>
+                                    {/* Trend Badge */}
+                                    {aiStats?.trend_percentage !== undefined && (
+                                        <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${aiStats.trend_percentage >= 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
+                                            {aiStats.trend_percentage > 0 ? (
+                                                <TrendingUp size={10} />
+                                            ) : (
+                                                <TrendingDown size={10} />
+                                            )}
+                                            {Math.abs(aiStats.trend_percentage)}% <span className="text-slate-400 scale-75 origin-left ml-0.5">周环比</span>
+                                        </div>
+                                    )}
+
+                                </div>
+                            </div>
+
+                            {/* Right: Donut Chart (Modern Conic Gradient) */}
+                            <div className="flex flex-col md:flex-row items-center justify-center gap-8 pl-0 md:pl-8 border-l border-transparent md:border-slate-50 dark:md:border-slate-800/50">
+                                {/* Donut Chart */}
+                                <div className="relative group/donut cursor-default w-40 h-40 flex-shrink-0">
+                                    {/* The Glow */}
+                                    <div className="absolute inset-0 rounded-full bg-[#2636dd]/10 blur-xl opacity-0 group-hover/donut:opacity-100 transition-opacity duration-700"></div>
+
+                                    {/* The Chart */}
+                                    <div
+                                        className="w-full h-full rounded-full relative transition-transform duration-500 hover:scale-105 shadow-sm"
+                                        style={{
+                                            // Conic Gradient for the Ring
+                                            background: (() => {
+                                                if (!aiStats?.model_breakdown || aiStats.model_breakdown.length === 0) return '#f1f5f9'; // slate-100
+
+                                                const sorted = [...aiStats.model_breakdown].sort((a, b) => b.total_tokens - a.total_tokens);
+                                                const top3 = sorted.slice(0, 3);
+                                                const others = sorted.slice(3).reduce((acc, curr) => acc + curr.total_tokens, 0);
+                                                const total = aiStats.total_tokens || 1;
+
+                                                let gradientString = 'conic-gradient(';
+                                                let currentDeg = 0;
+
+                                                // Colors: #2636dd (Requested), Sky, Pink, Slate
+                                                const colors = ['#2636dd', '#0ea5e9', '#ec4899', '#cbd5e1'];
+
+                                                const segments = [...top3.map((m, i) => ({ value: m.total_tokens, color: colors[i] })),
+                                                ...(others > 0 ? [{ value: others, color: colors[3] }] : [])
+                                                ];
+
+                                                segments.forEach((seg, i) => {
+                                                    const deg = (seg.value / total) * 360;
+                                                    gradientString += `${seg.color} ${currentDeg}deg ${currentDeg + deg}deg${i === segments.length - 1 ? '' : ', '}`;
+                                                    currentDeg += deg;
+                                                });
+
+                                                return gradientString + ')';
+                                            })(),
+                                            // Mask for Inner Cutout (Donut Hole - 70%)
+                                            mask: 'radial-gradient(transparent 68%, black 69%)',
+                                            WebkitMask: 'radial-gradient(transparent 68%, black 69%)'
+                                        }}
+                                    >
+                                    </div>
+
+                                    {/* Center Text (Absolute Positioned in the Hole) */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                        {/* Big Number */}
+                                        <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-1">
+                                            {aiStats?.daily_trend && aiStats.daily_trend.length > 0
+                                                ? (() => {
+                                                    const val = aiStats.daily_trend[aiStats.daily_trend.length - 1].total_tokens;
+                                                    if (val >= 10000) return (val / 10000).toFixed(2) + 'w'; // 1.25w
+                                                    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';   // 1.5k
+                                                    return val.toLocaleString();                             // 100
+                                                })()
+                                                : '0'
+                                            }
+                                        </div>
+                                        {/* Small Label */}
+                                        <div className="text-[10px] font-bold text-slate-400">今日 Token</div>
+                                    </div>
+                                </div>
+
+                                {/* Legend (Right Side List) */}
+                                <div className="flex flex-col justify-center gap-3 min-w-[140px] flex-1">
+                                    {(() => {
+                                        if (!aiStats?.model_breakdown || aiStats.model_breakdown.length === 0) return <div className="text-[10px] text-slate-400">暂无数据</div>;
+                                        const sorted = [...aiStats.model_breakdown].sort((a, b) => b.total_tokens - a.total_tokens);
+                                        const top3 = sorted.slice(0, 3);
+                                        const others = sorted.slice(3).reduce((acc, curr) => acc + curr.total_tokens, 0);
+                                        const total = aiStats.total_tokens || 1;
+
+                                        // Same colors as above
+                                        const colors = ['bg-[#2636dd]', 'bg-sky-500', 'bg-pink-500', 'bg-slate-300'];
+
+                                        const chartData = [...top3.map((m, i) => ({
+                                            label: m.model,
+                                            value: m.total_tokens,
+                                            color: colors[i]
+                                        })),
+                                        ...(others > 0 ? [{ label: '其他', value: others, color: colors[3] }] : [])
+                                        ];
+
+                                        return chartData.map((item, i) => (
+                                            <div key={i} className="flex items-center justify-between text-xs group/item cursor-default w-full">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0 group-hover/item:scale-125 transition-transform`}></span>
+                                                    {/* Tooltip for full name if truncated */}
+                                                    <span className="font-bold text-slate-600 dark:text-slate-300 truncate" title={item.label}>
+                                                        {item.label}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 pl-2">
+                                                    <span className="font-medium text-slate-400 text-[10px] hidden xl:block tabular-nums">
+                                                        {item.value >= 1000 ? (item.value / 1000).toFixed(1) + 'k' : item.value}
+                                                    </span>
+                                                    <span className="font-bold text-slate-500 group-hover/item:text-slate-700 dark:group-hover/item:text-slate-200 transition-colors tabular-nums min-w-[32px] text-right">
+                                                        {Math.round((item.value / total) * 100)}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
