@@ -1,16 +1,13 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Users, FileText, Activity, Server,
-    Plus, Shield, Database, Search,
-    TrendingUp, TrendingDown, Clock, AlertTriangle, AlertCircle, CheckCircle, CheckCircle2, XCircle, Filter, Download, RefreshCw, BarChart2,
-    Cpu, HardDrive, Globe, Zap, List, Eye,
-    Sparkles, MessageSquare, Box, PlayCircle as Play, StopCircle as Stop,
-    MousePointer2, ShoppingCart, ArrowUp, ArrowDown, MoreHorizontal, Calendar
+    TrendingUp, TrendingDown,
+    Eye, HardDrive,
+    MousePointer2, ArrowUp, ArrowDown, Database
 } from 'lucide-react';
-import { Avatar } from 'antd';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Sector } from 'recharts';
 import ApiClient from '../../services/api';
-import { DashboardStats, SystemResources } from '../../types';
+import { DashboardStats, SystemResources, StorageStats } from '../../types';
 
 interface AdminDashboardProps {
     employeeCount: number;
@@ -28,9 +25,39 @@ const formatCompact = (n: number): string => {
 const formatNumber = (n: number): string => n.toLocaleString();
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCount }) => {
+    // ... (rest of component)
+
     // --- Real Data State ---
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [resources, setResources] = useState<SystemResources | null>(null);
+    const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+    const [activeStorageIndex, setActiveStorageIndex] = useState<number | null>(null);
+
+    // Render Active Shape for Pie Expansion
+    const renderActiveShape = (props: any) => {
+        const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+        return (
+            <g>
+                <Sector
+                    cx={cx}
+                    cy={cy}
+                    innerRadius={innerRadius}
+                    outerRadius={outerRadius + 8}
+                    startAngle={startAngle}
+                    endAngle={endAngle}
+                    fill={fill}
+                />
+            </g>
+        );
+    };
+
+    // Format Bytes
+    const formatBytes = (bytes: number): string => {
+        if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return bytes + ' B';
+    };
 
     // Fetch Stats on mount
     useEffect(() => {
@@ -60,6 +87,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         fetchResources();
 
         const interval = setInterval(fetchResources, 3000); // 3 seconds
+        return () => clearInterval(interval);
+    }, []);
+
+    // Fetch Storage Stats
+    useEffect(() => {
+        const fetchStorageStats = async () => {
+            try {
+                const data = await ApiClient.getStorageStats();
+                setStorageStats(data);
+            } catch (err) {
+                console.error("Failed to fetch storage stats", err);
+            }
+        };
+        fetchStorageStats();
+        const interval = setInterval(fetchStorageStats, 10000); // 10 seconds
         return () => clearInterval(interval);
     }, []);
 
@@ -98,32 +140,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         fetchAiStats();
     }, []);
 
-    // --- Mock Data Generators for Charts ---
-
-    // Line Chart Data (Simulating a sine wave + trend)
-    const lineChartData = useMemo(() => {
-        const points = [];
-        for (let i = 0; i < 30; i++) {
-            const val = 40 + Math.sin(i * 0.5) * 20 + (i * 1.5) + Math.random() * 10;
-            points.push(val);
-        }
-        return points;
-    }, []);
-
-    // Generate SVG Path for Line Chart
-    const linePath = useMemo(() => {
-        const max = Math.max(...lineChartData);
-        const min = Math.min(...lineChartData);
-        const range = max - min;
-        const width = 100; // SVG viewBox width
-        const height = 40; // SVG viewBox height
-
-        return lineChartData.map((val, i) => {
-            const x = (i / (lineChartData.length - 1)) * width;
-            const y = height - ((val - min) / range) * height;
-            return `${x},${y} `;
-        }).join(' L ');
-    }, [lineChartData]);
 
     const statCards = [
         {
@@ -164,13 +180,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         }
     ];
 
-    const activeEmployees = [
-        { id: 1, name: '张伟', role: '设计师', sales: '2,310 浏览', revenue: '98%', rating: 5.0, img: 'https://ui-avatars.com/api/?name=Zhang+Wei&background=random' },
-        { id: 2, name: '李强', role: '开发工程师', sales: '1,230 浏览', revenue: '95%', rating: 4.8, img: 'https://ui-avatars.com/api/?name=Li+Qiang&background=random' },
-        { id: 3, name: '王敏', role: '项目经理', sales: '812 浏览', revenue: '92%', rating: 4.7, img: 'https://ui-avatars.com/api/?name=Wang+Min&background=random' },
-        { id: 4, name: '赵杰', role: '人力资源', sales: '645 浏览', revenue: '88%', rating: 4.5, img: 'https://ui-avatars.com/api/?name=Zhao+Jie&background=random' },
-        { id: 5, name: '刘芳', role: '销售专员', sales: '572 浏览', revenue: '85%', rating: 4.5, img: 'https://ui-avatars.com/api/?name=Liu+Fang&background=random' },
-    ];
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
@@ -512,47 +521,128 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                     </div>
                 </div>
 
-                {/* Right Column (Widgets) */}
+                {/* Right Column - Storage Stats */}
                 <div className="space-y-6">
-
-                    {/* Chart Widget (e.g. Storage or something) */}
-                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[1.5rem] p-6 text-white shadow-xl shadow-indigo-500/30">
-                        <h4 className="font-bold text-white/90 mb-4">存储计划</h4>
-                        <div className="flex items-end space-x-2 mb-4">
-                            <span className="text-3xl font-black">85%</span>
-                            <span className="text-xs font-medium text-white/60 mb-1">已使用</span>
+                    <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">对象存储</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-1">MinIO 存储统计</p>
+                            </div>
+                            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <HardDrive size={18} />
+                            </div>
                         </div>
-                        <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden mb-4">
-                            <div className="h-full bg-white/90 rounded-full w-[85%]"></div>
-                        </div>
-                        <button className="w-full py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-white/90 transition-colors">
-                            升级计划
-                        </button>
-                    </div >
 
-                </div >
+                        {/* Semi-circle Gauge + Stats Layout */}
+                        <div className="flex items-center gap-6">
+                            {/* Left: Semi-circle Gauge */}
+                            <div className="relative flex-shrink-0" style={{ width: 160, height: 90 }}>
+                                <PieChart width={160} height={90}>
+                                    {/* @ts-ignore */}
+                                    <Pie
+                                        data={[
+                                            { name: '已用', value: storageStats?.used_percent ?? 0 },
+                                            { name: '剩余', value: 100 - (storageStats?.used_percent ?? 0) }
+                                        ]}
+                                        cx={75} // Center X adjustment
+                                        cy={85} // Center Y (Bottom)
+                                        innerRadius={60}
+                                        outerRadius={75}
+                                        startAngle={180}
+                                        endAngle={0}
+                                        paddingAngle={0}
+                                        dataKey="value"
+                                        stroke="none"
+                                        activeIndex={activeStorageIndex !== null ? activeStorageIndex : undefined}
+                                        activeShape={renderActiveShape}
+                                        onClick={(_, index) => setActiveStorageIndex(index === activeStorageIndex ? null : index)}
+                                        cursor="pointer"
+                                    >
+                                        <Cell fill="#10b981" />
+                                        <Cell fill="#e2e8f0" className="dark:fill-slate-700" />
+                                    </Pie>
+                                </PieChart>
+                                <div className="absolute bottom-0 left-[75px] -translate-x-1/2 text-center mb-1 pointer-events-none">
+                                    <span className="text-2xl font-black text-slate-800 dark:text-white">
+                                        {storageStats?.used_percent ?? 0}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Right: Stats */}
+                            <div className="flex-1 space-y-4 pt-2">
+                                {/* Used Capacity (Index 0) */}
+                                <div
+                                    className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg cursor-pointer ${activeStorageIndex === 0
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/10 scale-105 shadow-sm'
+                                        : activeStorageIndex !== null
+                                            ? 'opacity-40 grayscale'
+                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                        }`}
+                                    onClick={() => setActiveStorageIndex(activeStorageIndex === 0 ? null : 0)}
+                                >
+                                    <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"></span>
+                                        <span className={`text-xs font-bold transition-colors ${activeStorageIndex === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>已用容量</span>
+                                    </div>
+                                    <div className={`flex-grow border-b-2 border-dotted mb-1.5 mx-4 transition-colors ${activeStorageIndex === 0 ? 'border-emerald-200 dark:border-emerald-800' : 'border-slate-200 dark:border-slate-700'}`}></div>
+                                    <div className={`relative z-10 pl-2 text-sm font-black transition-colors ${activeStorageIndex === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                                        {storageStats ? formatBytes(storageStats.used_bytes) : '0 B'}
+                                    </div>
+                                </div>
+
+                                {/* Remaining Capacity (Index 1) */}
+                                <div
+                                    className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg cursor-pointer ${activeStorageIndex === 1
+                                        ? 'bg-slate-100 dark:bg-slate-700 scale-105 shadow-sm'
+                                        : activeStorageIndex !== null
+                                            ? 'opacity-40 grayscale'
+                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                        }`}
+                                    onClick={() => setActiveStorageIndex(activeStorageIndex === 1 ? null : 1)}
+                                >
+                                    <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.3)]"></span>
+                                        <span className={`text-xs font-bold transition-colors ${activeStorageIndex === 1 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>剩余容量</span>
+                                    </div>
+                                    <div className={`flex-grow border-b-2 border-dotted mb-1.5 mx-4 transition-colors ${activeStorageIndex === 1 ? 'border-slate-300 dark:border-slate-600' : 'border-slate-200 dark:border-slate-700'}`}></div>
+                                    <div className={`relative z-10 pl-2 text-sm font-black transition-colors ${activeStorageIndex === 1 ? 'text-slate-800 dark:text-slate-100' : 'text-slate-700 dark:text-slate-200'}`}>
+                                        {storageStats ? formatBytes(storageStats.free_bytes) : '0 B'}
+                                    </div>
+                                </div>
+
+                                {/* Total Capacity (Static) */}
+                                <div className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg ${activeStorageIndex !== null ? 'opacity-40 grayscale' : ''}`}>
+                                    <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.3)]"></span>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">总容量</span>
+                                    </div>
+                                    <div className="flex-grow border-b-2 border-dotted border-slate-200 dark:border-slate-700 mb-1.5 mx-4"></div>
+                                    <div className="relative z-10 pl-2 text-sm font-black text-slate-700 dark:text-slate-200">
+                                        {storageStats ? formatBytes(storageStats.total_bytes) : '0 B'}
+                                    </div>
+                                </div>
+
+                                {/* Object Count (Static) */}
+                                <div className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg ${activeStorageIndex !== null ? 'opacity-40 grayscale' : ''}`}>
+                                    <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.3)]"></span>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Object 数</span>
+                                    </div>
+                                    <div className="flex-grow border-b-2 border-dotted border-slate-200 dark:border-slate-700 mb-1.5 mx-4"></div>
+                                    <div className="relative z-10 pl-2 text-sm font-black text-slate-700 dark:text-slate-200">
+                                        {storageStats?.object_count ?? 0}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div >
         </div >
     );
 };
-
-// --- Sub-components for cleaner code ---
-
-const SmallStatBox = ({ icon, label, value, color }: any) => (
-    <div className={`bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex flex-col items-center justify-center space-y-2 hover:-translate-y-1 transition-transform`}>
-        <div className={`text-${color}-500 bg-${color}-50 dark:bg-${color}-900/20 p-2 rounded-xl`}>{icon}</div>
-        <div className="text-center">
-            <div className="text-xs text-slate-400 font-bold">{label}</div>
-            <div className={`text-sm font-black text-${color}-600 dark:text-${color}-400`}>{value}</div>
-        </div>
-    </div>
-);
-
-const Bar: React.FC<{ day: string, height: string, active?: boolean }> = ({ day, height, active }) => (
-    <div className="flex flex-col items-center w-full group cursor-pointer">
-        <div className={`w-full rounded-t-lg transition-all duration-300 ${active ? 'bg-blue-600 shadow-lg shadow-blue-500/30' : 'bg-slate-100 dark:bg-slate-700 group-hover:bg-slate-200 dark:group-hover:bg-slate-600'}`} style={{ height }}></div>
-        <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase">{day}</div>
-    </div>
-);
 
 export default AdminDashboard;

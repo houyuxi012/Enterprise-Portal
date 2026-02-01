@@ -181,6 +181,15 @@ export interface SystemResources {
   network_recv_speed: number;
 }
 
+export interface StorageStats {
+  used_bytes: number;
+  total_bytes: number;
+  free_bytes: number;
+  used_percent: number;
+  bucket_count: number;
+  object_count: number;
+}
+
 export interface DashboardStats {
   system_visits: number;
   active_users: number;

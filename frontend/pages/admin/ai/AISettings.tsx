@@ -135,15 +135,51 @@ const AISettings: React.FC = () => {
 
                             <Form.Item
                                 name="ai_icon"
-                                label="助手图标 (URL)"
-                                help="输入图片 URL 地址"
+                                label="助手图标"
+                                help="支持 PNG 格式图片上传，也可直接输入 URL"
                             >
-                                <Input
-                                    prefix={<UploadOutlined className="text-slate-400" />}
-                                    placeholder="https://example.com/icon.png"
-                                    className="h-10 rounded-lg"
-                                    onChange={(e) => setImageUrl(e.target.value)}
-                                />
+                                <div className="flex gap-3">
+                                    <Input
+                                        value={imageUrl}
+                                        onChange={(e) => {
+                                            setImageUrl(e.target.value);
+                                            form.setFieldValue('ai_icon', e.target.value);
+                                        }}
+                                        placeholder="https://example.com/icon.png"
+                                        className="h-10 rounded-lg flex-1"
+                                        prefix={<UploadOutlined className="text-slate-400" />}
+                                    />
+                                    <Upload
+                                        accept="image/png"
+                                        showUploadList={false}
+                                        beforeUpload={(file) => {
+                                            if (file.type !== 'image/png') {
+                                                message.error('只支持 PNG 格式的图片!');
+                                                return Upload.LIST_IGNORE;
+                                            }
+                                            return true;
+                                        }}
+                                        customRequest={async ({ file, onSuccess, onError }) => {
+                                            try {
+                                                const url = await ApiClient.uploadImage(file as File);
+                                                setImageUrl(url);
+                                                form.setFieldValue('ai_icon', url);
+                                                message.success('图标上传成功');
+                                                onSuccess?.(url);
+                                            } catch (err) {
+                                                message.error('上传失败');
+                                                onError?.(err as Error);
+                                            }
+                                        }}
+                                    >
+                                        <Button
+                                            icon={<UploadOutlined />}
+                                            className="h-10 rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                        >
+                                            上传 PNG
+                                        </Button>
+                                    </Upload>
+                                </div>
                             </Form.Item>
                         </Form>
                     </Card>

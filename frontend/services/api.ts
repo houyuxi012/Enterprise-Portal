@@ -366,8 +366,12 @@ export const ApiClient = {
 
     const response = await api.get('/system/resources');
     return response.data;
-  }
-  ,
+  },
+
+  getStorageStats: async (): Promise<import('../types').StorageStats> => {
+    const response = await api.get('/system/storage');
+    return response.data;
+  },
 
   // AI Management - Uses Cookie-based auth (HttpOnly cookie sent automatically)
   getAIProviders: async (): Promise<AIProvider[]> => {

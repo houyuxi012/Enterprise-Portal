@@ -20,7 +20,7 @@ const ApplicationLogs: React.FC = () => {
     const fetchLogs = async () => {
         setLoading(true);
         try {
-            const data = await ApiClient.getApplicationLogs({ level, limit: 100 });
+            const data = await ApiClient.getSystemLogs({ level, limit: 100 });
             setLogs(data);
         } catch (error) {
             message.error('获取系统日志失败');

@@ -2,7 +2,7 @@
 import os
 import shutil
 from abc import ABC, abstractmethod
-from typing import Optional, BinaryIO
+from typing import Optional, BinaryIO, Dict, Any
 from minio import Minio
 from datetime import timedelta
 import logging
@@ -25,6 +25,10 @@ class StorageProvider(ABC):
         """Delete file"""
         pass
 
+    def get_stats(self) -> Dict[str, Any]:
+        """Get storage statistics (used, total, percent)"""
+        return {"used_bytes": 0, "total_bytes": 0, "used_percent": 0, "file_count": 0}
+
 class LocalStorageProvider(StorageProvider):
     def __init__(self, upload_dir: str = "uploads"):
         self.upload_dir = upload_dir
@@ -46,6 +50,26 @@ class LocalStorageProvider(StorageProvider):
         file_path = os.path.join(self.upload_dir, filename)
         if os.path.exists(file_path):
             os.remove(file_path)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get local storage stats by scanning upload directory"""
+        total_size = 0
+        file_count = 0
+        for root, dirs, files in os.walk(self.upload_dir):
+            for f in files:
+                fp = os.path.join(root, f)
+                if os.path.isfile(fp):
+                    total_size += os.path.getsize(fp)
+                    file_count += 1
+        # For local storage, we don't have a fixed total - use disk space
+        import shutil as sh
+        disk_usage = sh.disk_usage(self.upload_dir)
+        return {
+            "used_bytes": total_size,
+            "total_bytes": disk_usage.total,
+            "used_percent": round((total_size / disk_usage.total) * 100, 1) if disk_usage.total > 0 else 0,
+            "file_count": file_count
+        }
 
 class MinioStorageProvider(StorageProvider):
     def __init__(self):
@@ -127,6 +151,78 @@ class MinioStorageProvider(StorageProvider):
 
     async def delete(self, filename: str):
         self.client.remove_object(self.bucket, filename)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get MinIO storage stats using Admin API for real disk capacity"""
+        try:
+            import json
+            import hashlib
+            import hmac
+            from datetime import datetime
+            import urllib.request
+            import urllib.error
+            
+            total_size = 0
+            file_count = 0
+            # List all objects in bucket and sum sizes
+            objects = self.client.list_objects(self.bucket, recursive=True)
+            for obj in objects:
+                total_size += obj.size
+                file_count += 1
+            
+            # Try to get real disk capacity from MinIO Admin API
+            total_bytes = 0
+            try:
+                # MinIO Prometheus metrics endpoint for disk info
+                # This requires MINIO_PROMETHEUS_AUTH_TYPE=public or we use internal API
+                admin_endpoint = f"http://{self.endpoint}/minio/admin/v3/info"
+                
+                # Build signed request using AWS Signature V4
+                # For simplicity, we'll try the Prometheus metrics endpoint first
+                metrics_url = f"http://{self.endpoint}/minio/v2/metrics/cluster"
+                
+                req = urllib.request.Request(metrics_url)
+                req.add_header("Authorization", f"Basic {self._get_basic_auth()}")
+                
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    metrics_text = response.read().decode('utf-8')
+                    # Parse Prometheus metrics for disk capacity
+                    for line in metrics_text.split('\n'):
+                        if line.startswith('minio_cluster_capacity_raw_total_bytes'):
+                            # Format: minio_cluster_capacity_raw_total_bytes{...} 123456789
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                total_bytes = int(float(parts[-1]))
+                                break
+                
+            except Exception as admin_err:
+                logger.warning(f"Failed to get MinIO admin stats, using fallback: {admin_err}")
+                # Fallback to env var
+                total_bytes = int(os.getenv("MINIO_BUCKET_QUOTA_BYTES", str(10 * 1024 * 1024 * 1024)))
+            
+            if total_bytes == 0:
+                total_bytes = int(os.getenv("MINIO_BUCKET_QUOTA_BYTES", str(10 * 1024 * 1024 * 1024)))
+            
+            free_bytes = max(0, total_bytes - total_size)
+            used_percent = round((total_size / total_bytes) * 100, 1) if total_bytes > 0 else 0
+            
+            return {
+                "used_bytes": total_size,
+                "total_bytes": total_bytes,
+                "free_bytes": free_bytes,
+                "used_percent": min(used_percent, 100),
+                "bucket_count": len(list(self.client.list_buckets())),
+                "object_count": file_count
+            }
+        except Exception as e:
+            logger.error(f"Failed to get MinIO stats: {e}")
+            return {"used_bytes": 0, "total_bytes": 0, "free_bytes": 0, "used_percent": 0, "bucket_count": 0, "object_count": 0}
+
+    def _get_basic_auth(self) -> str:
+        """Generate Basic Auth header for MinIO metrics"""
+        import base64
+        credentials = f"{self.access_key}:{self.secret_key}"
+        return base64.b64encode(credentials.encode()).decode()
 
 
 # Factory

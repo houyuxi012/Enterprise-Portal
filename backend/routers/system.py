@@ -137,3 +137,15 @@ async def get_system_resources():
         network_sent_speed=round(sent_speed, 2),
         network_recv_speed=round(recv_speed, 2)
     )
+
+from services.storage import storage
+
+@router.get("/storage")
+async def get_storage_stats(current_user: models.User = Depends(get_current_user)):
+    """
+    Get storage usage statistics from MinIO or Local storage.
+    Returns: used_bytes, total_bytes, free_bytes, used_percent, bucket_count, object_count.
+    """
+    return storage.get_stats()
+
+
