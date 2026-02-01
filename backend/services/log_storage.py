@@ -60,26 +60,57 @@ async def cleanup_logs(db_session_factory):
             
             await db.commit()
 
-            # 3. Cleanup by Disk Usage (Emergency mode)
+            # 3. Cleanup by Disk Usage - Delete oldest logs until within limit
             disk_usage = psutil.disk_usage('/')
             current_usage_percent = disk_usage.percent
 
             if current_usage_percent > max_disk_usage_percent:
-                logger.warning(f"Disk usage {current_usage_percent}% exceeds limit {max_disk_usage_percent}%. Triggering emergency cleanup.")
+                logger.warning(f"Disk usage {current_usage_percent}% exceeds limit {max_disk_usage_percent}%. Starting iterative cleanup...")
                 
-                # Emergency: Enforce 7-day retention for all log types
-                emergency_retention = 7
-                emergency_cutoff = datetime.datetime.now() - datetime.timedelta(days=emergency_retention)
-                emergency_cutoff_str = emergency_cutoff.isoformat()
+                # Define batch size for deletion
+                batch_size = 1000
+                max_iterations = 50  # Safety limit to prevent infinite loop
+                iteration = 0
                 
-                for log_type, (_, _, model_class) in LOG_RETENTION_CONFIG.items():
-                    if model_class == models.LoginAuditLog:
-                        await db.execute(delete(model_class).where(model_class.login_time < emergency_cutoff_str))
-                    else:
-                        await db.execute(delete(model_class).where(model_class.timestamp < emergency_cutoff_str))
+                while current_usage_percent > max_disk_usage_percent and iteration < max_iterations:
+                    iteration += 1
+                    deleted_any = False
+                    
+                    # Find and delete oldest logs from each type
+                    for log_type, (_, _, model_class) in LOG_RETENTION_CONFIG.items():
+                        try:
+                            # Find oldest records
+                            if model_class == models.LoginAuditLog:
+                                oldest_query = select(model_class.id).order_by(model_class.login_time).limit(batch_size)
+                            else:
+                                oldest_query = select(model_class.id).order_by(model_class.timestamp).limit(batch_size)
+                            
+                            result = await db.execute(oldest_query)
+                            oldest_ids = [row[0] for row in result.fetchall()]
+                            
+                            if oldest_ids:
+                                await db.execute(delete(model_class).where(model_class.id.in_(oldest_ids)))
+                                deleted_any = True
+                                logger.info(f"Deleted {len(oldest_ids)} oldest {log_type} logs (iteration {iteration})")
+                        except Exception as e:
+                            logger.error(f"Error deleting {log_type} logs: {e}")
+                    
+                    await db.commit()
+                    
+                    # Re-check disk usage after deletion
+                    disk_usage = psutil.disk_usage('/')
+                    current_usage_percent = disk_usage.percent
+                    
+                    if not deleted_any:
+                        logger.warning("No more logs to delete, but disk usage still exceeds limit.")
+                        break
+                    
+                    logger.info(f"After iteration {iteration}: disk usage now {current_usage_percent}%")
                 
-                await db.commit()
-                logger.warning(f"Emergency cleanup completed: Enforced {emergency_retention} day retention for all log types.")
+                if current_usage_percent <= max_disk_usage_percent:
+                    logger.info(f"Disk cleanup completed. Usage now {current_usage_percent}% (limit: {max_disk_usage_percent}%)")
+                else:
+                    logger.warning(f"Cleanup stopped after {iteration} iterations. Disk usage still {current_usage_percent}%")
 
         except Exception as e:
             logger.error(f"Error during log cleanup: {e}")

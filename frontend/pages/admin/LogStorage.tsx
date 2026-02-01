@@ -147,7 +147,7 @@ const LogStorage: React.FC = () => {
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-orange-500"></span>
                                 最大磁盘占用
-                                <Tooltip title="超出后将强制执行 7 天保留策略">
+                                <Tooltip title="超出后将自动删除最早的日志，直到磁盘占用降至设定值以下">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
                             </span>
