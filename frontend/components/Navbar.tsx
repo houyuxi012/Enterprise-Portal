@@ -39,6 +39,22 @@ const Navbar: React.FC<NavbarProps> = ({
   const [aiPreviewAnswer, setAiPreviewAnswer] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  // Cached logo URL to prevent flash on refresh
+  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
+
+  // Sync logo URL with localStorage when systemConfig updates
+  useEffect(() => {
+    if (systemConfig?.logo_url) {
+      setLogoUrl(systemConfig.logo_url);
+      localStorage.setItem('sys_logo_url', systemConfig.logo_url);
+    } else if (systemConfig && !systemConfig.logo_url) {
+      // Config loaded but no custom logo - use default
+      setLogoUrl('/images/logo.png');
+      localStorage.removeItem('sys_logo_url');
+    }
+    // If systemConfig is undefined, keep using cached value (from localStorage)
+  }, [systemConfig]);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -178,11 +194,7 @@ const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center space-x-3 cursor-pointer group pr-4 border-r border-slate-200/50 dark:border-slate-700/50 shrink-0"
             onClick={() => setView(AppView.DASHBOARD)}
           >
-            {systemConfig?.logo_url ? (
-              <img src={systemConfig.logo_url} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" />
-            ) : (
-              <img src="/images/logo.png" className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" />
-            )}
+            <img src={logoUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" alt="Logo" />
             <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">
               {systemConfig?.app_name || 'Next-Gen Enterprise Portal'}
             </span>

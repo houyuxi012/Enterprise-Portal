@@ -393,15 +393,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
 
 
-                                {/* Total Capacity (Static) */}
+                                {/* Remaining Capacity (Static) */}
                                 <div className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg ${activeStorageIndex !== null ? 'opacity-40 grayscale' : ''}`}>
                                     <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
                                         <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.3)]"></span>
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">总容量</span>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">剩余容量</span>
                                     </div>
                                     <div className="flex-grow border-b-2 border-dotted border-slate-200 dark:border-slate-700 mb-1.5 mx-4"></div>
                                     <div className="relative z-10 pl-2 text-sm font-black text-slate-700 dark:text-slate-200">
-                                        {storageStats ? formatBytes(storageStats.total_bytes) : '0 B'}
+                                        {storageStats ? formatBytes(storageStats.total_bytes - storageStats.used_bytes) : '0 B'}
                                     </div>
                                 </div>
 
