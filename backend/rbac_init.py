@@ -21,6 +21,11 @@ SYSTEM_PERMISSIONS = {
     "content:announcement:edit": "管理通知公告",
     "content:tool:edit": "管理应用工具",
     "file:upload": "文件上传权限",
+    # Logs & Audit
+    "portal.logs.system.read": "查看系统日志",
+    "portal.logs.business.read": "查看业务日志",
+    "portal.logs.forwarding.admin": "管理日志转发",
+    "portal.ai_audit.read": "查看AI审计",
 }
 
 async def init_rbac(db: AsyncSession):
@@ -32,14 +37,14 @@ async def init_rbac(db: AsyncSession):
     # 1. Sync Permissions (Batch Upsert)
     print("Syncing Permissions...")
     perms_data = [
-        {"code": code, "description": desc}
+        {"app_id": "portal", "code": code, "description": desc}
         for code, desc in SYSTEM_PERMISSIONS.items()
     ]
     
     if perms_data:
         stmt = insert(models.Permission).values(perms_data)
         stmt = stmt.on_conflict_do_update(
-            index_elements=['code'],
+            constraint='uq_perm_app_code',  # Use named constraint
             set_={"description": stmt.excluded.description}
         )
         await db.execute(stmt)
@@ -47,11 +52,11 @@ async def init_rbac(db: AsyncSession):
     # 2. Sync Roles (Batch Upsert - Do Nothing if exists)
     print("Syncing Roles...")
     roles_data = [
-        {"code": "admin", "name": "Administrator"},
-        {"code": "user", "name": "Regular User"}
+        {"app_id": "portal", "code": "admin", "name": "Administrator"},
+        {"app_id": "portal", "code": "user", "name": "Regular User"}
     ]
     stmt = insert(models.Role).values(roles_data)
-    stmt = stmt.on_conflict_do_nothing(index_elements=['code'])
+    stmt = stmt.on_conflict_do_nothing(constraint='uq_role_app_code')  # Use named constraint
     await db.execute(stmt)
 
     # Flush to ensure IDs are generated/available
@@ -88,7 +93,7 @@ async def init_rbac(db: AsyncSession):
         "username": "admin",
         "email": "admin@example.com",
         "hashed_password": utils.get_password_hash("admin"),
-        "role": "admin", # Legacy field
+        # "role": "admin", # Legacy field REMOVED
         "is_active": True,
         "name": "Administrator",
         "avatar": "/images/admin-avatar.svg"
@@ -116,7 +121,13 @@ async def init_rbac(db: AsyncSession):
     for user in users_without_roles:
         # Determine Role
         target_role_id = role_map.get("user")
-        if user.username == "admin" or user.role == "admin":
+        is_admin_legacy = False
+        # Deprecated: user.role check removed/commented
+        # if user.role == "admin": is_admin_legacy = True
+        
+        has_admin_role = any(r.code == "admin" for r in user.roles)
+        
+        if user.username == "admin" or has_admin_role:
             target_role_id = role_map.get("admin")
             
         if target_role_id:
@@ -137,6 +148,13 @@ async def init_rbac(db: AsyncSession):
     await db.commit()
     
     # 7. Invalidate Cache (Bump Permission Version)
+    # Always invalidate "admin" user to ensure new permissions take effect
+    result = await db.execute(select(models.User.id).filter(models.User.username == "admin"))
+    admin_id = result.scalar()
+    if admin_id:
+        if admin_id not in affected_user_ids:
+            affected_user_ids.append(admin_id)
+
     if affected_user_ids:
         print(f"Invalidating cache for {len(affected_user_ids)} users...")
         for uid in affected_user_ids:

@@ -104,9 +104,14 @@ class Announcement(AnnouncementBase):
 class PermissionBase(BaseModel):
     code: str
     description: str
+    app_id: Optional[str] = "portal"
+
+class PermissionCreate(PermissionBase):
+    pass
 
 class Permission(PermissionBase):
     id: int
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -114,6 +119,7 @@ class RoleBase(BaseModel):
     code: str
     name: str
     description: Optional[str] = None
+    app_id: Optional[str] = "portal"
 
 class RoleCreate(RoleBase):
     permission_ids: List[int] = []
@@ -126,6 +132,17 @@ class RoleUpdate(BaseModel):
 class Role(RoleBase):
     id: int
     permissions: List[Permission] = []
+    created_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+# Simplified Role for /me response
+class RoleOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    app_id: str = "portal"
+    
     class Config:
         from_attributes = True
 
@@ -136,7 +153,7 @@ class UserBase(BaseModel):
     name: Optional[str] = None
     avatar: Optional[str] = None
     is_active: Optional[bool] = True
-    role: Optional[str] = "user"
+    role: Optional[str] = "user"  # Deprecated, kept for compatibility
 
 
 class UserCreate(UserBase):
@@ -152,6 +169,21 @@ class UserUpdate(BaseModel):
 class User(UserBase):
     id: int
     roles: List[Role] = []
+    class Config:
+        from_attributes = True
+
+# IAM /me Response (flattened permissions + version)
+class UserMeResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    is_active: bool = True
+    roles: List[RoleOut] = []
+    permissions: List[str] = []  # Flattened permission codes
+    perm_version: int = 1
+    
     class Config:
         from_attributes = True
 

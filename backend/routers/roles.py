@@ -13,7 +13,8 @@ import uuid
 
 router = APIRouter(
     prefix="/roles",
-    tags=["roles"]
+    tags=["roles"],
+    deprecated=True
 )
 
 @router.get("/", response_model=List[schemas.Role], dependencies=[Depends(PermissionChecker("sys:user:view"))])

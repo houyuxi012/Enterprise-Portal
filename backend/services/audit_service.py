@@ -66,7 +66,8 @@ class AuditService:
         status: str = "SUCCESS", # SUCCESS / FAIL
         detail: Optional[str] = None,
         ip_address: Optional[str] = None,
-        trace_id: Optional[str] = None
+        trace_id: Optional[str] = None,
+        domain: str = "BUSINESS" # BUSINESS / IAM / SYSTEM / AI
     ):
         """
         Log generic business action (e.g. CREATE_NEWS, UPDATE_USER).
@@ -91,6 +92,7 @@ class AuditService:
                 status=status,
                 detail=detail,
                 trace_id=trace_id,
+                domain=domain,
                 timestamp=datetime.now().isoformat()
             )
             
@@ -106,7 +108,7 @@ class AuditService:
                         trace_id=trace_id,
                         timestamp=datetime.utcnow().isoformat() + "Z",
                         level="INFO",
-                        log_type="BUSINESS",
+                        log_type=domain, # Use domain as log_type in Loki for isolation
                         action=action,
                         status=status,
                         user_id=user_id,

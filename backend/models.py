@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float
+from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from database import Base
 
@@ -20,17 +20,29 @@ user_roles = Table(
 class Permission(Base):
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, unique=True, index=True) # e.g. "sys:user:edit"
+    app_id = Column(String(50), index=True, default="portal")  # Multi-tenant isolation
+    code = Column(String, index=True)  # e.g. "portal.user.edit"
     description = Column(String)
+    created_at = Column(DateTime(timezone=True), nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint('app_id', 'code', name='uq_perm_app_code'),
+    )
 
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, unique=True, index=True) # e.g. "admin"
+    app_id = Column(String(50), index=True, default="portal")  # Multi-tenant isolation
+    code = Column(String, index=True)  # e.g. "admin"
     name = Column(String)
-    limit_scope = Column(Boolean, default=False) # potentially for future scope limits
+    limit_scope = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=True)
     
     permissions = relationship("Permission", secondary=role_permissions, backref="roles")
+    
+    __table_args__ = (
+        UniqueConstraint('app_id', 'code', name='uq_role_app_code'),
+    )
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -96,9 +108,20 @@ class User(Base):
     locked_until = Column(DateTime(timezone=True), nullable=True)
     name = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
-    role = Column(String, default="user") # Deprecated, keeping for migration safety for now
     
     roles = relationship("Role", secondary=user_roles, backref="users")
+
+    @property
+    def role(self):
+        """
+        Deprecated: Compatibility property for legacy 'role' field.
+        Returns 'admin' if user has admin role, else 'user'.
+        """
+        if self.roles:
+            for r in self.roles:
+                if r.code == 'admin':
+                    return 'admin'
+        return 'user'
 
 class SystemConfig(Base):
     __tablename__ = "system_config"
@@ -151,6 +174,7 @@ class BusinessLog(Base):
     detail = Column(Text, nullable=True)
     trace_id = Column(String, index=True, nullable=True)
     source = Column(String, default="WEB", nullable=True)  # 日志来源: WEB, API, SYSTEM, LOKI
+    domain = Column(String, default="BUSINESS", index=True) # BUSINESS / IAM / SYSTEM / AI
     timestamp = Column(String)
 
 class LogForwardingConfig(Base):

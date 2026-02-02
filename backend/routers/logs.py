@@ -8,6 +8,7 @@ import models
 import schemas
 from database import get_db
 from routers.auth import get_current_user
+from dependencies import PermissionChecker
 import datetime
 
 router = APIRouter(
@@ -45,36 +46,57 @@ async def read_system_logs(
 async def read_business_logs(
     operator: Optional[str] = None,
     action: Optional[str] = None,
+    domain: str = "BUSINESS", # Default filter by domain
     source: Optional[str] = Query("db", description="Log source: db, loki, or all"),
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    # RBAC: Only authorized users can read business logs
+    current_user: models.User = Depends(PermissionChecker("portal.logs.business.read"))
 ):
     """
-    Query business logs from specified source.
-    - source=db: Query from PostgreSQL (default)
-    - source=loki: Query from Loki
-    - source=all: Merge results from both, deduplicate by timestamp+operator+action
+    Query business logs from specified source (default domain=BUSINESS).
     """
-    db_logs_map = {}  # key: normalized (timestamp_sec, operator, action, target) -> log dict
+    db_logs_map = {}
     loki_logs_map = {}
     
+    # helper: convert timestamp to epoch_ms for sorting
+    def to_epoch_ms(ts_str: str) -> int:
+        if not ts_str: return 0
+        try:
+            # Handle ISO8601 variations (with/without Z, space, T)
+            # Simple normalization first
+            s = ts_str.replace("T", " ").replace("Z", "")
+            # Truncate fractional seconds for parsing if needed, or handle generically
+            # Using dateutil or basic datetime
+            # Fallback to simple string sort if parsing fails? No, requirement is epoch ms.
+            dt = datetime.datetime.fromisoformat(s)
+            return int(dt.timestamp() * 1000)
+        except Exception:
+            return 0 
+
     def normalize_key(ts, op, act, target):
-        """Normalize timestamp to second precision for dedup."""
-        # Handle various timestamp formats: 2026-02-01 04:47:39 or 2026-02-01T04:47:39.123Z
         ts_str = str(ts).replace('T', ' ').split('.')[0][:19] if ts else ""
         return (ts_str, op or "", act or "", target or "")
     
+    # Strategy: Fetch (limit + offset) from BOTH sources to ensure we cover the "window"
+    # Then merge, sort globally, and slice [offset:offset+limit]
+    fetch_limit = limit + offset
+    
     # Query from DB
     if source in ("db", "all"):
-        query = select(models.BusinessLog).order_by(desc(models.BusinessLog.id))
+        query = select(models.BusinessLog).order_by(desc(models.BusinessLog.timestamp))
+        
+        # Domain Filter (P0: Hard Isolation)
+        query = query.filter(models.BusinessLog.domain == domain)
+
         if operator:
             query = query.filter(models.BusinessLog.operator.contains(operator))
         if action:
             query = query.filter(models.BusinessLog.action == action)
         
-        db_result = await db.execute(query.limit(limit).offset(offset))
+        # NOTE: Fetching up to fetch_limit from DB
+        db_result = await db.execute(query.limit(fetch_limit))
         db_logs = db_result.scalars().all()
         for log in db_logs:
             log_dict = {
@@ -86,7 +108,8 @@ async def read_business_logs(
                 "status": log.status,
                 "detail": log.detail,
                 "timestamp": log.timestamp,
-                "source": "DB"
+                "source": "DB",
+                "_epoch": to_epoch_ms(log.timestamp) # Cache for sort
             }
             key = normalize_key(log.timestamp, log.operator, log.action, log.target)
             db_logs_map[key] = log_dict
@@ -95,72 +118,76 @@ async def read_business_logs(
     if source in ("loki", "all"):
         import os
         import httpx
-        loki_url = os.getenv("LOKI_PUSH_URL")
-        if loki_url:
-            try:
-                async with httpx.AsyncClient() as client:
-                    query_str = '{job="enterprise-portal",log_type="BUSINESS"}'
-                    resp = await client.get(
-                        f"{loki_url}/loki/api/v1/query_range",
-                        params={"query": query_str, "limit": limit},
-                        timeout=5.0
-                    )
-                    if resp.status_code == 200:
-                        import json
-                        data = resp.json()
-                        loki_id = 10000
-                        for stream in data.get("data", {}).get("result", []):
-                            for value in stream.get("values", []):
-                                try:
-                                    log_data = json.loads(value[1])
-                                    ts = log_data.get("timestamp", "")
-                                    op = log_data.get("username", "")
-                                    act = log_data.get("action", "")
-                                    target = log_data.get("target", "")
-                                    log_dict = {
-                                        "id": loki_id,
-                                        "operator": op,
-                                        "action": act,
-                                        "target": target,
-                                        "ip_address": log_data.get("ip_address", ""),
-                                        "status": log_data.get("status", "SUCCESS"),
-                                        "detail": log_data.get("detail", ""),
-                                        "timestamp": ts,
-                                        "source": "LOKI"
-                                    }
-                                    key = normalize_key(ts, op, act, target)
-                                    loki_logs_map[key] = log_dict
-                                    loki_id += 1
-                                except json.JSONDecodeError:
-                                    pass
-            except Exception as e:
-                import logging
-                logging.warning(f"Loki query failed: {e}")
+        # Split BASE URL (P1: Stability)
+        loki_base_url = os.getenv("LOKI_BASE_URL", "http://loki:3100")
+            
+        try:
+            async with httpx.AsyncClient() as client:
+                query_str = f'{{job="enterprise-portal",log_type="{domain}"}}'
+                resp = await client.get(
+                    f"{loki_base_url}/loki/api/v1/query_range",
+                    params={"query": query_str, "limit": fetch_limit}, # Fetch enough to cover offset
+                    timeout=5.0
+                )
+                if resp.status_code == 200:
+                    import json
+                    data = resp.json()
+                    loki_id = 10000
+                    for stream in data.get("data", {}).get("result", []):
+                        for value in stream.get("values", []):
+                            try:
+                                log_data = json.loads(value[1])
+                                ts = log_data.get("timestamp", "")
+                                op = log_data.get("username", "")
+                                act = log_data.get("action", "")
+                                target = log_data.get("target", "")
+                                
+                                log_dict = {
+                                    "id": loki_id,
+                                    "operator": op,
+                                    "action": act,
+                                    "target": target,
+                                    "ip_address": log_data.get("ip_address", ""),
+                                    "status": log_data.get("status", "SUCCESS"),
+                                    "detail": log_data.get("detail", ""),
+                                    "timestamp": ts,
+                                    "source": "LOKI",
+                                    "_epoch": to_epoch_ms(ts)
+                                }
+                                key = normalize_key(ts, op, act, target)
+                                loki_logs_map[key] = log_dict
+                                loki_id += 1
+                            except json.JSONDecodeError:
+                                pass
+        except Exception as e:
+            import logging
+            logging.warning(f"Loki query failed: {e}")
     
     # Merge and deduplicate
+    results = []
     if source == "all":
-        results = []
         all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
         for key in all_keys:
-            in_db = key in db_logs_map
-            in_loki = key in loki_logs_map
-            if in_db and in_loki:
-                # Both sources have this log - merge
-                merged = db_logs_map[key].copy()
-                merged["source"] = "DB,LOKI"
-                results.append(merged)
-            elif in_db:
+            if key in db_logs_map:
                 results.append(db_logs_map[key])
             else:
                 results.append(loki_logs_map[key])
-        # Sort by timestamp desc
-        results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     elif source == "db":
         results = list(db_logs_map.values())
     else:
         results = list(loki_logs_map.values())
     
-    return results[:limit]
+    # Sort by epoch desc (P1: Stable Sort)
+    results.sort(key=lambda x: x.get("_epoch", 0), reverse=True)
+    
+    # Remove temporary helper key before returning
+    final_results = []
+    for r in results:
+        r.pop("_epoch", None)
+        final_results.append(r)
+
+    # Correct slicing for pagination
+    return final_results[offset : offset + limit]
 
 @router.post("/business", response_model=schemas.BusinessLog)
 async def create_business_log(
@@ -180,7 +207,7 @@ async def create_business_log(
 @router.get("/config", response_model=List[schemas.LogForwardingConfig])
 async def read_log_configs(
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig))
     return result.scalars().all()
@@ -189,7 +216,7 @@ async def read_log_configs(
 async def create_log_config(
     config: schemas.LogForwardingConfigCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     db_config = models.LogForwardingConfig(**config.dict())
     db.add(db_config)
@@ -201,7 +228,7 @@ async def create_log_config(
 async def delete_log_config(
     config_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig).filter(models.LogForwardingConfig.id == config_id))
     db_config = result.scalars().first()
@@ -219,7 +246,7 @@ async def read_access_logs(
     path: Optional[str] = None,
     status_code: Optional[int] = None,
     limit: int = 100,
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.logs.system.read"))
 ):
     """
     Query access logs from Loki only.
@@ -272,7 +299,7 @@ async def read_ai_audit_logs(
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """
     Query AI audit logs from specified source.
@@ -283,6 +310,9 @@ async def read_ai_audit_logs(
     db_logs_map = {}  # key: event_id -> log dict
     loki_logs_map = {}
     
+    # Strategy: Fetch (limit + offset) from BOTH sources
+    fetch_limit = limit + offset
+
     # Query from DB
     if source in ("db", "all"):
         query = select(models.AIAuditLog).order_by(desc(models.AIAuditLog.ts))
@@ -310,132 +340,18 @@ async def read_ai_audit_logs(
         if status:
             query = query.filter(models.AIAuditLog.status == status)
         
-        db_result = await db.execute(query.limit(limit).offset(offset))
+        # Fetch limit + offset
+        db_result = await db.execute(query.limit(fetch_limit))
         db_logs = db_result.scalars().all()
         for log in db_logs:
-            db_logs_map[log.event_id] = log
-    
-    # Query from Loki (if enabled)
-    if source in ("loki", "all"):
-        import os
-        import httpx
-        loki_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
-        if loki_url:
-            try:
-                async with httpx.AsyncClient() as client:
-                    query_str = '{job="enterprise-portal",source="ai_audit"}'
-                    resp = await client.get(
-                        f"{loki_url}/loki/api/v1/query_range",
-                        params={"query": query_str, "limit": limit},
-                        timeout=5.0
-                    )
-                    if resp.status_code == 200:
-                        import json
-                        data = resp.json()
-                        loki_id = 100000
-                        for stream in data.get("data", {}).get("result", []):
-                            for value in stream.get("values", []):
-                                try:
-                                    log_data = json.loads(value[1])
-                                    event_id = log_data.get("event_id", "")
-                                    log_dict = {
-                                        "id": loki_id,
-                                        "event_id": event_id,
-                                        "ts": log_data.get("timestamp", datetime.datetime.now().isoformat()),
-                                        "actor_type": log_data.get("actor_type", "user"),
-                                        "actor_id": log_data.get("actor_id"),
-                                        "actor_ip": log_data.get("actor_ip"),
-                                        "action": log_data.get("action", "CHAT"),
-                                        "provider": log_data.get("provider"),
-                                        "model": log_data.get("model"),
-                                        "status": log_data.get("status", "SUCCESS"),
-                                        "latency_ms": log_data.get("latency_ms"),
-                                        "tokens_in": log_data.get("tokens_in"),
-                                        "tokens_out": log_data.get("tokens_out"),
-                                        "source": "loki"
-                                    }
-                                    loki_logs_map[event_id] = log_dict
-                                    loki_id += 1
-                                except json.JSONDecodeError:
-                                    pass
-            except Exception as e:
-                import logging
-                logging.warning(f"Loki AI audit query failed: {e}")
-    
-    # Merge and deduplicate
-    if source == "all":
-        results = []
-        all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
-        for key in all_keys:
-            in_db = key in db_logs_map
-            in_loki = key in loki_logs_map
-            if in_db and in_loki:
-                # Both sources have this log - use DB log with merged source
-                log = db_logs_map[key]
-                log_dict = {
-                    "id": log.id,
-                    "event_id": log.event_id,
-                    "ts": log.ts,
-                    "actor_type": log.actor_type,
-                    "actor_id": log.actor_id,
-                    "actor_ip": log.actor_ip,
-                    "action": log.action,
-                    "provider": log.provider,
-                    "model": log.model,
-                    "status": log.status,
-                    "latency_ms": log.latency_ms,
-                    "tokens_in": log.tokens_in,
-                    "tokens_out": log.tokens_out,
-                    "input_policy_result": log.input_policy_result,
-                    "output_policy_result": log.output_policy_result,
-                    "policy_hits": log.policy_hits,
-                    "prompt_hash": log.prompt_hash,
-                    "output_hash": log.output_hash,
-                    "prompt_preview": log.prompt_preview,
-                    "error_code": log.error_code,
-                    "error_reason": log.error_reason,
-                    "source": "db,loki"
-                }
-                results.append(log_dict)
-            elif in_db:
-                log = db_logs_map[key]
-                log_dict = {
-                    "id": log.id,
-                    "event_id": log.event_id,
-                    "ts": log.ts,
-                    "actor_type": log.actor_type,
-                    "actor_id": log.actor_id,
-                    "actor_ip": log.actor_ip,
-                    "action": log.action,
-                    "provider": log.provider,
-                    "model": log.model,
-                    "status": log.status,
-                    "latency_ms": log.latency_ms,
-                    "tokens_in": log.tokens_in,
-                    "tokens_out": log.tokens_out,
-                    "input_policy_result": log.input_policy_result,
-                    "output_policy_result": log.output_policy_result,
-                    "policy_hits": log.policy_hits,
-                    "prompt_hash": log.prompt_hash,
-                    "output_hash": log.output_hash,
-                    "prompt_preview": log.prompt_preview,
-                    "error_code": log.error_code,
-                    "error_reason": log.error_reason,
-                    "source": "db"
-                }
-                results.append(log_dict)
-            else:
-                results.append(loki_logs_map[key])
-        # Sort by ts desc
-        results.sort(key=lambda x: getattr(x, 'ts', None) or x.get("ts", ""), reverse=True)
-    elif source == "db":
-        # Convert ORM objects to dicts with source field
-        results = []
-        for log in db_logs_map.values():
+            # DB ts is datetime object
+            ts_epoch = int(log.ts.timestamp() * 1000) if log.ts else 0
+            
+            # Hybrid dict for merging
             log_dict = {
                 "id": log.id,
                 "event_id": log.event_id,
-                "ts": log.ts,
+                "ts": log.ts, # Keep original type for response model (Pydantic handles serialization)
                 "actor_type": log.actor_type,
                 "actor_id": log.actor_id,
                 "actor_ip": log.actor_ip,
@@ -454,13 +370,106 @@ async def read_ai_audit_logs(
                 "prompt_preview": log.prompt_preview,
                 "error_code": log.error_code,
                 "error_reason": log.error_reason,
-                "source": "db"
+                "source": "db",
+                "_epoch": ts_epoch
             }
-            results.append(log_dict)
+            db_logs_map[log.event_id] = log_dict
+    
+    # Query from Loki (if enabled)
+    if source in ("loki", "all"):
+        import os
+        import httpx
+        loki_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
+        if loki_url:
+            try:
+                async with httpx.AsyncClient() as client:
+                    query_str = '{job="enterprise-portal",source="ai_audit"}'
+                    resp = await client.get(
+                        f"{loki_url}/loki/api/v1/query_range",
+                        params={"query": query_str, "limit": fetch_limit},
+                        timeout=5.0
+                    )
+                    if resp.status_code == 200:
+                        import json
+                        data = resp.json()
+                        loki_id = 100000
+                        for stream in data.get("data", {}).get("result", []):
+                            for value in stream.get("values", []):
+                                try:
+                                    log_data = json.loads(value[1])
+                                    event_id = log_data.get("event_id", "")
+                                    
+                                    # Loki ts is string, parse to epoch
+                                    ts_str = log_data.get("timestamp", datetime.datetime.now().isoformat())
+                                    ts_epoch = 0
+                                    try:
+                                        dt = datetime.datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                                        ts_epoch = int(dt.timestamp() * 1000)
+                                        # Convert to object for compatibility if Pydantic expects datetime? 
+                                        # Or keep string if Schema allows. Schema usually expects datetime.
+                                        # Let's use datetime object for consistency.
+                                        ts_val = dt
+                                    except:
+                                        ts_val = ts_str
+                                    
+                                    log_dict = {
+                                        "id": loki_id,
+                                        "event_id": event_id,
+                                        "ts": ts_val,
+                                        "actor_type": log_data.get("actor_type", "user"),
+                                        "actor_id": log_data.get("actor_id"),
+                                        "actor_ip": log_data.get("actor_ip"),
+                                        "action": log_data.get("action", "CHAT"),
+                                        "provider": log_data.get("provider"),
+                                        "model": log_data.get("model"),
+                                        "status": log_data.get("status", "SUCCESS"),
+                                        "latency_ms": log_data.get("latency_ms"),
+                                        "tokens_in": log_data.get("tokens_in"),
+                                        "tokens_out": log_data.get("tokens_out"),
+                                        "source": "loki",
+                                        "_epoch": ts_epoch
+                                    }
+                                    loki_logs_map[event_id] = log_dict
+                                    loki_id += 1
+                                except json.JSONDecodeError:
+                                    pass
+            except Exception as e:
+                import logging
+                logging.warning(f"Loki AI audit query failed: {e}")
+    
+    # Merge and deduplicate
+    if source == "all":
+        results = []
+        all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
+        for key in all_keys:
+            in_db = key in db_logs_map
+            in_loki = key in loki_logs_map
+            if in_db and in_loki:
+                # Merge DB (base) with Loki (override if needed, but DB usually richer)
+                # Actually, current logic creates new dicts. Using DB dict is safe.
+                # Update source to indicate merged
+                log = db_logs_map[key] 
+                log["source"] = "db,loki"
+                results.append(log)
+            elif in_db:
+                results.append(db_logs_map[key])
+            else:
+                results.append(loki_logs_map[key])
+    elif source == "db":
+        results = list(db_logs_map.values())
     else:
         results = list(loki_logs_map.values())
+        
+    # Sort by epoch desc
+    results.sort(key=lambda x: x.get("_epoch", 0), reverse=True)
     
-    return results[:limit]
+    # Cleanup helper key
+    final_results = []
+    for r in results:
+        r.pop("_epoch", None)
+        final_results.append(r)
+    
+    return final_results[offset : offset + limit]
 
 
 

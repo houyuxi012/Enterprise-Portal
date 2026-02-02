@@ -7,8 +7,10 @@ from database import get_db
 import models, schemas, utils
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from routers.auth import get_current_user
-from dependencies import PermissionChecker
+from iam.identity.service import IdentityService
+from iam.deps import PermissionChecker
+from dependencies import get_current_user
+from iam.audit.service import IAMAuditService
 
 router = APIRouter(
     prefix="/users",
@@ -52,12 +54,21 @@ async def create_user(
     db_user = models.User(
         username=user.username, 
         email=user.email, 
-        hashed_password=pwd_hash, 
-        role=user.role, # Legacy support
+        hashed_password=pwd_hash,
         is_active=user.is_active
     )
-    
-    # Handle Roles
+
+    # Legacy 'role' field support: Map 'admin' string to RBAC Role if role_ids not provided
+    # Future TODO: Remove this block once frontend sends role_ids
+    if not user.role_ids and user.role:
+        role_code = user.role if user.role != 'user' else None # 'user' is default, strict map 'admin'
+        if role_code == 'admin':
+             role_result = await db.execute(select(models.Role).filter(models.Role.code == 'admin'))
+             admin_role = role_result.scalars().first()
+             if admin_role:
+                 db_user.roles = [admin_role]
+
+    # Handle Explicit Role IDs (Overrides legacy)
     if user.role_ids:
          role_result = await db.execute(select(models.Role).filter(models.Role.id.in_(user.role_ids)))
          roles = role_result.scalars().all()
@@ -65,11 +76,26 @@ async def create_user(
     
     db.add(db_user)
     await db.commit()
-    await db.refresh(db_user)
+    await db.commit()
+    # await db.refresh(db_user) 
+    # Re-fetch with eager roles to support 'role' property access without MissingGreenlet
+    result = await db.execute(
+        select(models.User)
+        .options(selectinload(models.User.roles))
+        .filter(models.User.id == db_user.id)
+    )
+    db_user = result.scalars().first()
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db, action="iam.user.create", target_type="user",
+        user_id=current_user.id, username=current_user.username,
+        target_id=db_user.id, target_name=db_user.username,
+        detail={"email": db_user.email, "role": db_user.role},
+        ip_address=ip, trace_id=trace_id
+    )
     await AuditService.log_business_action(
         db, 
         user_id=current_user.id, 
@@ -114,6 +140,12 @@ async def delete_user(
      # Audit Log
      trace_id = request.headers.get("X-Request-ID")
      ip = request.client.host if request.client else "unknown"
+     await IAMAuditService.log(
+        db, action="iam.user.delete", target_type="user",
+        user_id=current_user.id, username=current_user.username,
+        target_id=user_id, target_name=target_name,
+        ip_address=ip, trace_id=trace_id
+     )
      await AuditService.log_business_action(
         db,
         user_id=current_user.id,
@@ -147,8 +179,28 @@ async def update_user(
         if role_ids is not None:
              role_result = await db.execute(select(models.Role).filter(models.Role.id.in_(role_ids)))
              roles = role_result.scalars().all()
-             roles = role_result.scalars().all()
              user.roles = roles
+    
+    # Legacy 'role' field update support
+    # If frontend sends 'role', map it to RBAC roles (e.g. 'admin' -> admin role)
+    if 'role' in update_data:
+        legacy_role = update_data.pop('role')
+        if legacy_role == 'admin':
+             role_result = await db.execute(select(models.Role).filter(models.Role.code == 'admin'))
+             admin_role = role_result.scalars().first()
+             if admin_role:
+                 # Check if already has admin role to avoid dups or reset? 
+                 # Simple logic: Add if not present, or replace? 
+                 # Strategy: If legacy 'role' is sent, we assume it's the Primary intent.
+                 # But 'role_ids' takes precedence above.
+                 # Here we only act if role_ids was NOT in update_data (already popped)
+                 pass # Actually, let's Append ensure 'admin' role is present if requested
+                 
+                 # Better Strategy: Just ignore 'role' since we moved to RBAC. 
+                 # But to support legacy frontend switching "Admin" checkbox:
+                 if admin_role not in user.roles:
+                     user.roles.append(admin_role)
+        # Note: We do NOT write to user.role column anymore (update_data.pop removes it)
              
     # Log logic will be added below commit
 
@@ -159,6 +211,10 @@ async def update_user(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log_user_update(
+        db, operator=current_user, target_username=user.username,
+        changes=update_data, ip_address=ip, trace_id=trace_id
+    )
     await AuditService.log_business_action(
         db, 
         user_id=current_user.id, 
@@ -202,6 +258,12 @@ async def reset_password(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db, action="iam.user.password_reset", target_type="user",
+        user_id=current_user.id, username=current_user.username,
+        target_id=user.id, target_name=user.username,
+        ip_address=ip, trace_id=trace_id
+    )
     await AuditService.log_business_action(
         db, 
         user_id=current_user.id, 

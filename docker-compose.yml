@@ -91,6 +91,7 @@ services:
       MINIO_EXTERNAL_ENDPOINT: 127.0.0.1/minio # Routed via Nginx
       MINIO_EXTERNAL_PROTOCOL: https
       LOKI_PUSH_URL: http://loki:3100
+      LOKI_BASE_URL: http://loki:3100
     depends_on:
       - db
       - redis

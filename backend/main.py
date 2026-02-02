@@ -50,6 +50,10 @@ async def startup():
         loki_url=loki_url or "http://loki:3100"
     )
 
+    # Schedule IAM Audit Archiving Job
+    from services.iam_archiver import IAMAuditArchiver
+    asyncio.create_task(IAMAuditArchiver.run_archiving_job())
+
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -110,6 +114,10 @@ api_router.include_router(dashboard.router)
 
 from routers import ai_admin
 api_router.include_router(ai_admin.router)
+
+# IAM Module (New: /api/iam/auth/*, /api/iam/admin/*, /api/iam/audit/*)
+from iam import router as iam_router
+api_router.include_router(iam_router)
 
 # Include API Router in App
 app.include_router(api_router)

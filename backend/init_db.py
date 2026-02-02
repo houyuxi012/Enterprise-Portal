@@ -123,12 +123,21 @@ async def init_db():
             admin_user = User(
                 username="admin", 
                 email="admin@shiku.com",
-                hashed_password=get_password_hash("admin"), # Default password
-                role="admin",
+                hashed_password=get_password_hash("admin"),
+                is_active=True,
+            # role="admin"  <-- Deprecated, using roles relationship below"admin",
                 name="Administrator",
                 avatar=""
             )
             db.add(admin_user)
+            # Assign Admin Role (RBAC)
+            from models import Role
+            admin_role_res = await db.execute(select(Role).where(Role.code == "admin"))
+            admin_role = admin_role_res.scalars().first()
+            if admin_role:
+                 admin_user.roles.append(admin_role)
+            else:
+                 print("Warning: Admin role not found during seed.")
 
         # Seed Google Gemini Provider
         result_ai = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini"))

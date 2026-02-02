@@ -477,6 +477,11 @@ export const ApiClient = {
   updateAIModelQuota: async (data: any): Promise<any> => {
     const response = await api.post('/ai/admin/quotas', data);
     return response.data;
+  },
+
+  getIamAuditLogs: async (params: any): Promise<any> => {
+    const response = await api.get('/iam/audit/logs', { params });
+    return response.data;
   }
 };
 

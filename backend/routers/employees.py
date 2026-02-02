@@ -52,8 +52,9 @@ async def create_employee(
             username=employee.account,
             email=employee.email,
             hashed_password=default_pwd_hash,
-            role="user",
-            is_active=True
+            # role="user", # Deprecated legacy field
+            is_active=True,
+            employee_id=employee_iduser
         )
         db.add(new_user)
         
