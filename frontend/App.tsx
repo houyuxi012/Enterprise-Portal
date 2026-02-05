@@ -667,6 +667,7 @@ const App: React.FC = () => {
         {activeAdminTab === 'org' && <OrganizationList />}
         {activeAdminTab === 'business_logs' && <BusinessLogs />}
         {activeAdminTab === 'access_logs' && <AccessLogs />}
+        {activeAdminTab === 'iam_audit_logs' && <IAMAuditLogs />}
         {activeAdminTab === 'ai_audit' && <AIAudit />}
         {activeAdminTab === 'log_forwarding' && <LogForwarding />}
         {activeAdminTab === 'log_storage' && <LogStorage />}

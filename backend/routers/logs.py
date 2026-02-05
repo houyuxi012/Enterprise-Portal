@@ -89,6 +89,10 @@ async def read_business_logs(
         
         # Domain Filter (P0: Hard Isolation)
         query = query.filter(models.BusinessLog.domain == domain)
+        
+        # P1: Exclude IAM-related actions, these belong to IAM Audit page
+        iam_actions = ["用户登录", "UPDATE_USER", "CREATE_USER"]
+        query = query.filter(~models.BusinessLog.action.in_(iam_actions))
 
         if operator:
             query = query.filter(models.BusinessLog.operator.contains(operator))

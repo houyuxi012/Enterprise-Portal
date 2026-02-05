@@ -27,9 +27,11 @@ class IAMAuditService:
         result: str = "success",
         reason: Optional[str] = None
     ):
-        """通用日志记录"""
+        """通用日志记录 - 写入 DB 并推送到 Loki"""
         from iam.audit.models import IAMAuditLog
+        from datetime import datetime
         
+        # 1. Write to DB (primary)
         log_entry = IAMAuditLog(
             user_id=user_id,
             username=username,
@@ -47,6 +49,52 @@ class IAMAuditService:
         
         db.add(log_entry)
         # 不自动 Commit，由调用方控制事务
+        
+        # 2. Push to Loki (sidecar, non-blocking)
+        try:
+            import os
+            import httpx
+            import json
+            
+            loki_push_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
+            if loki_push_url:
+                timestamp_ns = str(int(datetime.now().timestamp() * 1e9))
+                log_line = json.dumps({
+                    "timestamp": datetime.now().isoformat(),
+                    "action": action,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "target_name": target_name,
+                    "user_id": user_id,
+                    "username": username,
+                    "result": result,
+                    "reason": reason,
+                    "ip_address": ip_address,
+                    "detail": detail,
+                    "trace_id": trace_id
+                }, ensure_ascii=False)
+                
+                payload = {
+                    "streams": [{
+                        "stream": {
+                            "job": "enterprise-portal",
+                            "log_type": "IAM",
+                            "source": "iam_audit"
+                        },
+                        "values": [[timestamp_ns, log_line]]
+                    }]
+                }
+                
+                # Fire-and-forget async push
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        f"{loki_push_url}/loki/api/v1/push",
+                        json=payload,
+                        timeout=2.0
+                    )
+        except Exception as e:
+            # Non-blocking: log warning and continue
+            logger.warning(f"Failed to push IAM audit log to Loki: {e}")
         
     # --- 预定义事件 ---
     
