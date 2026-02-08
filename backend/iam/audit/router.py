@@ -81,8 +81,16 @@ async def list_audit_logs(
             return 0
     
     # Helper: normalize key for deduplication
+    # Use minute-level precision (YYYY-MM-DD HH:MM) to merge DB and Loki records
     def normalize_key(ts, uname, act, target):
-        ts_str = str(ts).replace('T', ' ').split('.')[0][:19] if ts else ""
+        if ts is None:
+            ts_str = ""
+        elif isinstance(ts, datetime):
+            # Convert datetime to ISO string first
+            ts_str = ts.strftime("%Y-%m-%d %H:%M")
+        else:
+            # String: normalize T to space, then take first 16 chars (YYYY-MM-DD HH:MM)
+            ts_str = str(ts).replace('T', ' ')[:16]
         return (ts_str, uname or "", act or "", target or "")
     
     # Strategy: Fetch (page_size * page) from BOTH sources to ensure we cover the window
@@ -198,13 +206,17 @@ async def list_audit_logs(
             import logging
             logging.getLogger(__name__).warning(f"Failed to query Loki for IAM audit: {e}")
     
-    # Merge and deduplicate (DB priority)
+    # Merge and deduplicate (DB priority, with merge indicator)
     results = []
     if source == "all":
         all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
         for key in all_keys:
             if key in db_logs_map:
-                results.append(db_logs_map[key])
+                record = db_logs_map[key].copy()
+                # Mark as merged if also exists in Loki
+                if key in loki_logs_map:
+                    record["source"] = "DB+Loki"
+                results.append(record)
             else:
                 results.append(loki_logs_map[key])
     elif source == "db":

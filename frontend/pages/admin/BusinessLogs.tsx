@@ -60,16 +60,16 @@ const getActionCategory = (action: string): { label: string; color: string } => 
 };
 
 interface LogStats {
-    total: number;
-    success: number;
-    fail: number;
-    todayCount: number;
+    total: number;           // 操作总数
+    todayCount: number;      // 今日操作
+    createCount: number;     // 创建操作
+    modifyCount: number;     // 变更操作 (UPDATE + DELETE)
 }
 
 const BusinessLogs: React.FC = () => {
     const [logs, setLogs] = useState<BusinessLog[]>([]);
     const [loading, setLoading] = useState(false);
-    const [stats, setStats] = useState<LogStats>({ total: 0, success: 0, fail: 0, todayCount: 0 });
+    const [stats, setStats] = useState<LogStats>({ total: 0, todayCount: 0, createCount: 0, modifyCount: 0 });
     const [selectedLog, setSelectedLog] = useState<BusinessLog | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -77,7 +77,7 @@ const BusinessLogs: React.FC = () => {
     const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
     const [actionFilter, setActionFilter] = useState<string | undefined>();
     const [statusFilter, setStatusFilter] = useState<string | undefined>();
-    const [sourceFilter, setSourceFilter] = useState<string>('db');
+    const [sourceFilter, setSourceFilter] = useState<string>('all');
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -88,14 +88,18 @@ const BusinessLogs: React.FC = () => {
             });
             setLogs(data);
 
-            // Calculate stats from data
+            // Calculate business-specific stats
             const today = dayjs().format('YYYY-MM-DD');
             const todayLogs = data.filter((log: BusinessLog) => log.timestamp?.startsWith(today));
+            const createLogs = data.filter((log: BusinessLog) => log.action?.startsWith('CREATE'));
+            const modifyLogs = data.filter((log: BusinessLog) =>
+                log.action?.startsWith('UPDATE') || log.action?.startsWith('DELETE')
+            );
             setStats({
                 total: data.length,
-                success: data.filter((log: BusinessLog) => log.status === 'SUCCESS').length,
-                fail: data.filter((log: BusinessLog) => log.status === 'FAIL').length,
-                todayCount: todayLogs.length
+                todayCount: todayLogs.length,
+                createCount: createLogs.length,
+                modifyCount: modifyLogs.length
             });
         } catch (error) {
             console.error(error);
@@ -244,36 +248,46 @@ const BusinessLogs: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - Business Specific */}
             <Row gutter={16} className="mb-4">
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic title="日志总数" value={stats.total} prefix={<AuditOutlined />} />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="成功率"
-                            value={stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : 0}
-                            suffix="%"
-                            valueStyle={{ color: stats.success / stats.total > 0.9 ? '#52c41a' : '#faad14' }}
+                            title="操作总数"
+                            value={stats.total}
+                            prefix={<AuditOutlined />}
+                            valueStyle={{ color: '#1890ff' }}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="失败次数"
-                            value={stats.fail}
-                            prefix={<CloseCircleOutlined />}
-                            valueStyle={{ color: stats.fail > 0 ? '#ff4d4f' : '#52c41a' }}
+                            title="今日操作"
+                            value={stats.todayCount}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: '#52c41a' }}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic title="今日操作" value={stats.todayCount} prefix={<CheckCircleOutlined />} />
+                        <Statistic
+                            title="创建操作"
+                            value={stats.createCount}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: '#13c2c2' }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="变更操作"
+                            value={stats.modifyCount}
+                            prefix={<AuditOutlined />}
+                            valueStyle={{ color: '#722ed1' }}
+                        />
                     </Card>
                 </Col>
             </Row>

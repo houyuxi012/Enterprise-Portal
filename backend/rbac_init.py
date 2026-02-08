@@ -26,6 +26,7 @@ SYSTEM_PERMISSIONS = {
     "portal.logs.business.read": "查看业务日志",
     "portal.logs.forwarding.admin": "管理日志转发",
     "portal.ai_audit.read": "查看AI审计",
+    "portal.carousel.manage": "管理轮播图",
 }
 
 async def init_rbac(db: AsyncSession):

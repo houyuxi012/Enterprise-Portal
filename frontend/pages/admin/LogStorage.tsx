@@ -9,6 +9,8 @@ interface StorageConfig {
     log_retention_business_days: number;
     log_retention_login_days: number;
     log_retention_ai_days: number;
+    log_retention_iam_days: number;
+    log_retention_access_days: number;
     log_max_disk_usage: number;
 }
 
@@ -24,6 +26,8 @@ const LogStorage: React.FC = () => {
                 log_retention_business_days: config.log_retention_business_days || 30,
                 log_retention_login_days: config.log_retention_login_days || 90,
                 log_retention_ai_days: config.log_retention_ai_days || 30,
+                log_retention_iam_days: config.log_retention_iam_days || 90,
+                log_retention_access_days: config.log_retention_access_days || 7,
                 log_max_disk_usage: config.log_max_disk_usage || 80
             });
         } catch (error) {
@@ -43,6 +47,8 @@ const LogStorage: React.FC = () => {
                 log_retention_business_days: String(values.log_retention_business_days),
                 log_retention_login_days: String(values.log_retention_login_days),
                 log_retention_ai_days: String(values.log_retention_ai_days),
+                log_retention_iam_days: String(values.log_retention_iam_days),
+                log_retention_access_days: String(values.log_retention_access_days),
                 log_max_disk_usage: String(values.log_max_disk_usage)
             });
             message.success('存储策略已保存');
@@ -160,12 +166,46 @@ const LogStorage: React.FC = () => {
                         <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
                     </Form.Item>
 
+                    {/* IAM 审计 */}
+                    <Form.Item
+                        name="log_retention_iam_days"
+                        label={
+                            <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                                IAM 审计保留周期
+                                <Tooltip title="角色分配、权限变更、用户管理等">
+                                    <InfoCircleOutlined className="text-slate-400" />
+                                </Tooltip>
+                            </span>
+                        }
+                        rules={[{ required: true, message: '请输入保留天数' }]}
+                    >
+                        <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
+                    </Form.Item>
+
+                    {/* 访问日志 */}
+                    <Form.Item
+                        name="log_retention_access_days"
+                        label={
+                            <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                                访问日志保留周期
+                                <Tooltip title="HTTP 请求访问记录、API 调用等">
+                                    <InfoCircleOutlined className="text-slate-400" />
+                                </Tooltip>
+                            </span>
+                        }
+                        rules={[{ required: true, message: '请输入保留天数' }]}
+                    >
+                        <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
+                    </Form.Item>
+
                     {/* 磁盘占用 */}
                     <Form.Item
                         name="log_max_disk_usage"
                         label={
                             <span className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
                                 最大磁盘占用
                                 <Tooltip title="超出后将自动删除最早的日志，直到磁盘占用降至设定值以下">
                                     <InfoCircleOutlined className="text-slate-400" />
@@ -184,16 +224,6 @@ const LogStorage: React.FC = () => {
                         </Button>
                     </div>
                 </Form>
-            </div>
-
-            {/* Info Card */}
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-700/50">
-                <div className="flex items-start gap-3">
-                    <InfoCircleOutlined className="text-amber-500 text-lg mt-0.5" />
-                    <div className="text-sm text-amber-700 dark:text-amber-300">
-                        <strong>访问日志</strong>存储在 Loki 中，其保留周期由 <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">loki-config.yaml</code> 的 <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">retention_period</code> 配置控制（当前为 7 天）。
-                    </div>
-                </div>
             </div>
         </div>
     );

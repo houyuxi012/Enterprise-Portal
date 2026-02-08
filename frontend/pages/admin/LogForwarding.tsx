@@ -1,17 +1,17 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, message, Tooltip, Tag } from 'antd';
-import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
+import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, ApiOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { LogForwardingConfig } from '../../types';
 
-// 可选的日志类型
+// 可选的日志类型 - 与后端 log_type 保持一致
 const LOG_TYPE_OPTIONS = [
     { value: 'BUSINESS', label: '业务审计', color: 'blue' },
     { value: 'SYSTEM', label: '系统日志', color: 'default' },
     { value: 'ACCESS', label: '访问日志', color: 'green' },
     { value: 'AI', label: 'AI 审计', color: 'purple' },
-    { value: 'LOGIN', label: '登录审计', color: 'orange' },
+    { value: 'IAM', label: 'IAM 审计', color: 'orange' },
 ];
 
 const LogForwarding: React.FC = () => {
@@ -67,12 +67,11 @@ const LogForwarding: React.FC = () => {
         }
     };
 
-    // Helper for tag since I didn't import Tag above
-    const CustomTag = ({ color, children }: any) => (
-        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${color === 'geekblue' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
-            {children}
-        </span>
-    );
+    // Calculate stats
+    const totalConfigs = configs.length;
+    const enabledCount = configs.filter(c => c.enabled).length;
+    const syslogCount = configs.filter(c => c.type === 'SYSLOG').length;
+    const webhookCount = configs.filter(c => c.type === 'WEBHOOK').length;
 
     const columns = [
         {
@@ -80,7 +79,7 @@ const LogForwarding: React.FC = () => {
             dataIndex: 'type',
             key: 'type',
             width: 120,
-            render: (text: string) => <CustomTag color="geekblue">{text}</CustomTag>
+            render: (text: string) => <Tag color="geekblue">{text}</Tag>
         },
         {
             title: '外发日志类型',
@@ -156,6 +155,50 @@ const LogForwarding: React.FC = () => {
                     新增外发配置
                 </Button>
             </div>
+
+            {/* Stats Cards */}
+            <Row gutter={16} className="mb-4">
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="配置总数"
+                            value={totalConfigs}
+                            prefix={<SettingOutlined />}
+                            valueStyle={{ color: '#1890ff' }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="已启用"
+                            value={enabledCount}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: '#52c41a' }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="Syslog"
+                            value={syslogCount}
+                            prefix={<SendOutlined />}
+                            valueStyle={{ color: '#13c2c2' }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="Webhook"
+                            value={webhookCount}
+                            prefix={<ApiOutlined />}
+                            valueStyle={{ color: '#722ed1' }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
 
 

@@ -57,16 +57,16 @@ interface AuditLog {
 }
 
 interface LogStats {
-    total: number;
-    success: number;
-    fail: number;
-    todayCount: number;
+    loginCount: number;      // 登录次数
+    todayLogins: number;     // 今日登录
+    failedAttempts: number;  // 失败尝试
+    activeUsers: number;     // 活跃用户数
 }
 
 const AuditLogs: React.FC = () => {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(false);
-    const [stats, setStats] = useState<LogStats>({ total: 0, success: 0, fail: 0, todayCount: 0 });
+    const [stats, setStats] = useState<LogStats>({ loginCount: 0, todayLogins: 0, failedAttempts: 0, activeUsers: 0 });
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [total, setTotal] = useState(0);
@@ -78,7 +78,7 @@ const AuditLogs: React.FC = () => {
     const [actionFilter, setActionFilter] = useState<string | undefined>();
     const [resultFilter, setResultFilter] = useState<string | undefined>();
     const [usernameFilter, setUsernameFilter] = useState<string>('');
-    const [sourceFilter, setSourceFilter] = useState<string>('db');
+    const [sourceFilter, setSourceFilter] = useState<string>('all');
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -101,14 +101,23 @@ const AuditLogs: React.FC = () => {
             setLogs(data);
             setTotal(res.total || 0);
 
-            // Calculate stats from data
+            // Calculate IAM-specific stats
             const today = dayjs().format('YYYY-MM-DD');
-            const todayLogs = data.filter((log: AuditLog) => log.timestamp?.startsWith(today));
+            const allLogs = data as AuditLog[];
+
+            // Login count (all login attempts)
+            const loginLogs = allLogs.filter(log => log.action?.includes('login'));
+            const todayLoginLogs = loginLogs.filter(log => log.timestamp?.startsWith(today));
+            const failedLogs = allLogs.filter(log => log.result === 'fail' || log.result === 'failure');
+
+            // Unique active users
+            const uniqueUsers = new Set(allLogs.map(log => log.username).filter(Boolean));
+
             setStats({
-                total: res.total || data.length,
-                success: data.filter((log: AuditLog) => log.result === 'success').length,
-                fail: data.filter((log: AuditLog) => log.result === 'fail' || log.result === 'failure').length,
-                todayCount: todayLogs.length
+                loginCount: loginLogs.length,
+                todayLogins: todayLoginLogs.length,
+                failedAttempts: failedLogs.length,
+                activeUsers: uniqueUsers.size
             });
         } catch (error) {
             console.error("Failed to fetch audit logs", error);
@@ -251,36 +260,46 @@ const AuditLogs: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - IAM Specific */}
             <Row gutter={16} className="mb-4">
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic title="日志总数" value={stats.total} prefix={<KeyOutlined />} />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="成功率"
-                            value={stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : 0}
-                            suffix="%"
-                            valueStyle={{ color: stats.success / stats.total > 0.9 ? '#52c41a' : '#faad14' }}
+                            title="登录次数"
+                            value={stats.loginCount}
+                            prefix={<KeyOutlined />}
+                            valueStyle={{ color: '#1890ff' }}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="失败次数"
-                            value={stats.fail}
+                            title="今日登录"
+                            value={stats.todayLogins}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: '#52c41a' }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card className="rounded-2xl shadow-sm">
+                        <Statistic
+                            title="失败尝试"
+                            value={stats.failedAttempts}
                             prefix={<CloseCircleOutlined />}
-                            valueStyle={{ color: stats.fail > 0 ? '#ff4d4f' : '#52c41a' }}
+                            valueStyle={{ color: stats.failedAttempts > 0 ? '#ff4d4f' : '#52c41a' }}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic title="今日操作" value={stats.todayCount} prefix={<CheckCircleOutlined />} />
+                        <Statistic
+                            title="活跃用户"
+                            value={stats.activeUsers}
+                            prefix={<UserOutlined />}
+                            valueStyle={{ color: '#722ed1' }}
+                        />
                     </Card>
                 </Col>
             </Row>

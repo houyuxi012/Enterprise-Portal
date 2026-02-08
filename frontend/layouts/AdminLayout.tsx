@@ -116,7 +116,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         },
         {
             key: 'sub_users',
-            label: '用户管理',
+            label: '用户中心',
             icon: <TeamOutlined />,
             children: [
                 {

@@ -8,7 +8,11 @@ from routers.auth import get_current_user
 from dependencies import PermissionChecker
 from fastapi import Request
 from services.audit_service import AuditService
+from services.loki_config import update_loki_retention
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/system",
@@ -39,6 +43,17 @@ async def update_system_config(
         else:
             new_config = models.SystemConfig(key=key, value=value)
             db.add(new_config)
+    
+    # Sync Loki retention if access log retention is updated
+    if "log_retention_access_days" in config:
+        try:
+            retention_days = int(config["log_retention_access_days"])
+            if update_loki_retention(retention_days):
+                logger.info(f"Loki retention synced to {retention_days} days")
+            else:
+                logger.warning("Loki retention sync failed - config may not be mounted")
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid access log retention value: {e}")
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")

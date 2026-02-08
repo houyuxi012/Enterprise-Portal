@@ -6,16 +6,19 @@ from sqlalchemy.future import select
 from sqlalchemy import delete, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import models
+from iam.audit.models import IAMAuditLog
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 日志类型保留周期配置 (config_key, default_days, model_class)
+# 日志类型保留周期配置 (config_key, default_days, model_class, timestamp_field, field_type)
+# field_type: 'str' = Column is String, 'dt' = Column is DateTime
 LOG_RETENTION_CONFIG = {
-    "system": ("log_retention_system_days", 7, models.SystemLog),
-    "business": ("log_retention_business_days", 30, models.BusinessLog),
-    "login": ("log_retention_login_days", 90, models.LoginAuditLog),
-    "ai": ("log_retention_ai_days", 30, models.AIAuditLog),
+    "system": ("log_retention_system_days", 7, models.SystemLog, "timestamp", "str"),
+    "business": ("log_retention_business_days", 30, models.BusinessLog, "timestamp", "str"),
+    "login": ("log_retention_login_days", 90, models.LoginAuditLog, "created_at", "str"),
+    "ai": ("log_retention_ai_days", 30, models.AIAuditLog, "ts", "dt"),
+    "iam": ("log_retention_iam_days", 90, IAMAuditLog, "timestamp", "dt"),
 }
 
 async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
@@ -39,7 +42,7 @@ async def cleanup_logs(db_session_factory):
                 max_disk_usage_percent = 80.0
 
             # 2. Per-type cleanup based on retention policy
-            for log_type, (config_key, default_days, model_class) in LOG_RETENTION_CONFIG.items():
+            for log_type, (config_key, default_days, model_class, ts_field, field_type) in LOG_RETENTION_CONFIG.items():
                 retention_days_str = await get_config_value(db, config_key, str(default_days))
                 try:
                     retention_days = int(retention_days_str)
@@ -49,13 +52,18 @@ async def cleanup_logs(db_session_factory):
                 
                 if retention_days > 0:
                     cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
-                    cutoff_str = cutoff_date.isoformat()
                     
-                    # LoginAuditLog uses 'login_time' instead of 'timestamp'
-                    if model_class == models.LoginAuditLog:
-                        await db.execute(delete(model_class).where(model_class.login_time < cutoff_str))
+                    # Use the correct timestamp field for each model
+                    ts_column = getattr(model_class, ts_field)
+                    
+                    # Handle different column types: String vs DateTime
+                    if field_type == "str":
+                        # String columns need isoformat comparison
+                        cutoff_str = cutoff_date.isoformat()
+                        await db.execute(delete(model_class).where(ts_column < cutoff_str))
                     else:
-                        await db.execute(delete(model_class).where(model_class.timestamp < cutoff_str))
+                        # DateTime columns use datetime object directly
+                        await db.execute(delete(model_class).where(ts_column < cutoff_date))
                     
                     logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
             
@@ -78,13 +86,11 @@ async def cleanup_logs(db_session_factory):
                     deleted_any = False
                     
                     # Find and delete oldest logs from each type
-                    for log_type, (_, _, model_class) in LOG_RETENTION_CONFIG.items():
+                    for log_type, (_, _, model_class, ts_field, _) in LOG_RETENTION_CONFIG.items():
                         try:
-                            # Find oldest records
-                            if model_class == models.LoginAuditLog:
-                                oldest_query = select(model_class.id).order_by(model_class.login_time).limit(batch_size)
-                            else:
-                                oldest_query = select(model_class.id).order_by(model_class.timestamp).limit(batch_size)
+                            # Find oldest records using the correct timestamp field
+                            ts_column = getattr(model_class, ts_field)
+                            oldest_query = select(model_class.id).order_by(ts_column).limit(batch_size)
                             
                             result = await db.execute(oldest_query)
                             oldest_ids = [row[0] for row in result.fetchall()]

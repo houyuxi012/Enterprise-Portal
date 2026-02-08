@@ -75,8 +75,9 @@ async def read_business_logs(
         except Exception:
             return 0 
 
+    # Helper: normalize key for deduplication (minute-level precision)
     def normalize_key(ts, op, act, target):
-        ts_str = str(ts).replace('T', ' ').split('.')[0][:19] if ts else ""
+        ts_str = str(ts).replace('T', ' ').split('.')[0][:16] if ts else ""
         return (ts_str, op or "", act or "", target or "")
     
     # Strategy: Fetch (limit + offset) from BOTH sources to ensure we cover the "window"
@@ -167,13 +168,17 @@ async def read_business_logs(
             import logging
             logging.warning(f"Loki query failed: {e}")
     
-    # Merge and deduplicate
+    # Merge and deduplicate (DB priority, with merge indicator)
     results = []
     if source == "all":
         all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
         for key in all_keys:
             if key in db_logs_map:
-                results.append(db_logs_map[key])
+                record = db_logs_map[key].copy()
+                # Mark as merged if also exists in Loki
+                if key in loki_logs_map:
+                    record["source"] = "DB+LOKI"
+                results.append(record)
             else:
                 results.append(loki_logs_map[key])
     elif source == "db":

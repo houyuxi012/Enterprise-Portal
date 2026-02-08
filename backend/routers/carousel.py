@@ -6,7 +6,7 @@ from typing import List
 import database
 import models
 import schemas
-from routers.auth import get_current_user
+from iam.deps import PermissionChecker
 
 router = APIRouter(
     prefix="/carousel",
@@ -20,23 +20,10 @@ async def get_carousel_items(db: AsyncSession = Depends(database.get_db)):
     return result.scalars().all()
 
 @router.get("/admin", response_model=List[schemas.CarouselItem])
-async def get_all_carousel_items(db: AsyncSession = Depends(database.get_db), current_user: schemas.User = Depends(get_current_user)):
-    # Note: RBAC check is implicit if get_current_user is used, but for specifically 'admin' role:
-    # However, user models.User might not have 'role' attribute easy to check if it's M:N.
-    # But based on seed.py, User has a 'role' column (likely string) for simpler cases or migration.
-    # Let's check permissions if possible, or fallback to simple check.
-    # For now, simplistic check if user model has 'role' field.
-    # Check for 'admin' role or specific permission
-    is_admin = False
-    if hasattr(current_user, 'roles'):
-        for r in current_user.roles:
-            if r.code == 'admin':
-                is_admin = True
-                break
-    
-    if not is_admin:
-         raise HTTPException(status_code=403, detail="Not authorized")
-    
+async def get_all_carousel_items(
+    db: AsyncSession = Depends(database.get_db), 
+    _: models.User = Depends(PermissionChecker("portal.carousel.manage"))
+):
     result = await db.execute(select(models.CarouselItem).order_by(models.CarouselItem.sort_order))
     return result.scalars().all()
 
@@ -45,17 +32,8 @@ async def create_carousel_item(
     request: Request,
     item: schemas.CarouselItemCreate, 
     db: AsyncSession = Depends(database.get_db), 
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.carousel.manage"))
 ):
-    is_admin = False
-    if hasattr(current_user, 'roles'):
-        for r in current_user.roles:
-            if r.code == 'admin':
-                is_admin = True
-                break
-    if not is_admin:
-         raise HTTPException(status_code=403, detail="Not authorized")
-    
     db_item = models.CarouselItem(**item.model_dump())
     db.add(db_item)
     await db.commit()
@@ -83,17 +61,8 @@ async def update_carousel_item(
     item_id: int, 
     item: schemas.CarouselItemUpdate, 
     db: AsyncSession = Depends(database.get_db), 
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.carousel.manage"))
 ):
-    is_admin = False
-    if hasattr(current_user, 'roles'):
-        for r in current_user.roles:
-            if r.code == 'admin':
-                is_admin = True
-                break
-    if not is_admin:
-         raise HTTPException(status_code=403, detail="Not authorized")
-        
     result = await db.execute(select(models.CarouselItem).filter(models.CarouselItem.id == item_id))
     db_item = result.scalars().first()
     if not db_item:
@@ -126,10 +95,8 @@ async def delete_carousel_item(
     request: Request,
     item_id: int, 
     db: AsyncSession = Depends(database.get_db), 
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.carousel.manage"))
 ):
-    if hasattr(current_user, 'role') and current_user.role != 'admin':
-         raise HTTPException(status_code=403, detail="Not authorized")
         
     result = await db.execute(select(models.CarouselItem).filter(models.CarouselItem.id == item_id))
     db_item = result.scalars().first()
