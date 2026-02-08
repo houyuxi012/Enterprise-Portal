@@ -38,14 +38,13 @@ class AuthService {
         return this.getCurrentUser();
     }
 
-    async logout() {
+    async logout(redirectUrl: string = '/') {
         try {
             await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
         } catch (e) {
             console.error("Logout failed", e);
         }
-        // Redirect to admin login page (backend) instead of frontend
-        window.location.href = '/admin/login';
+        window.location.href = redirectUrl;
     }
 
     async getCurrentUser(): Promise<User> {

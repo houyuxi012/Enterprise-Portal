@@ -50,7 +50,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             return;
         }
         if (e.key === 'logout') {
-            AuthService.logout();
+            AuthService.logout('/admin/login');
             return;
         }
     };
