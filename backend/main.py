@@ -20,7 +20,7 @@ async def startup():
     await cache.init()
 
     # Init RBAC
-    from rbac_init import init_rbac
+    from test_db.rbac_init import init_rbac
     async with database.SessionLocal() as session:
         await init_rbac(session)
 

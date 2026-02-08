@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { App } from 'antd';
 import { Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ApiClient from '../services/api';
@@ -9,6 +10,7 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const { login } = useAuth();
+    const { message } = App.useApp();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -60,19 +62,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         try {
             await login(username, password);
+            message.success('登录成功');
             onLoginSuccess();
         } catch (err: any) {
             // Parse backend error response
             const detail = err?.response?.data?.detail || '';
+            let msg = '登录失败，请检查网络连接';
+
             if (detail.includes('locked')) {
-                setError('账户已被锁定，请稍后再试');
+                msg = '账户已被锁定，请稍后再试';
             } else if (detail.includes('IP')) {
-                setError('当前 IP 地址无访问权限');
+                msg = '当前 IP 地址无访问权限';
             } else if (err?.response?.status === 401) {
-                setError('用户名或密码错误');
-            } else {
-                setError('登录失败，请检查网络连接');
+                msg = '用户名或密码错误';
             }
+
+            setError(msg);
+            message.error(msg);
         } finally {
             setIsLoading(false);
         }

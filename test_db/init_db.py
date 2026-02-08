@@ -140,7 +140,7 @@ async def init_db():
                  print("Warning: Admin role not found during seed.")
 
         # Seed Google Gemini Provider
-        result_ai = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini"))
+        result_ai = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini 2.0 flash"))
         if not result_ai.scalars().first():
             print("Creating testing Gemini model...")
             api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")

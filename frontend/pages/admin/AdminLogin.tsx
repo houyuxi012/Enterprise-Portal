@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { App } from 'antd';
 import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ApiClient from '../../services/api';
@@ -9,6 +10,7 @@ interface AdminLoginProps {
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const { login, logout } = useAuth();
+    const { message } = App.useApp();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -36,23 +38,29 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         try {
             const user = await login(username, password);
             if (user.role !== 'admin') {
-                setError('权限不足：需要管理员权限');
+                const msg = '权限不足：需要管理员权限';
+                setError(msg);
+                message.error(msg);
                 logout(); // Clear invalid session
             } else {
+                message.success('管理员登录成功');
                 onLoginSuccess();
             }
         } catch (err: any) {
             // Parse backend error response
             const detail = err?.response?.data?.detail || '';
+            let msg = '登录失败，请检查网络连接';
+
             if (detail.includes('locked')) {
-                setError('账户已被锁定，请稍后再试');
+                msg = '账户已被锁定，请稍后再试';
             } else if (detail.includes('IP')) {
-                setError('当前 IP 地址无访问权限');
+                msg = '当前 IP 地址无访问权限';
             } else if (err?.response?.status === 401) {
-                setError('用户名或密码错误');
-            } else {
-                setError('登录失败，请检查网络连接');
+                msg = '用户名或密码错误';
             }
+
+            setError(msg);
+            message.error(msg);
         } finally {
             setIsLoading(false);
         }
