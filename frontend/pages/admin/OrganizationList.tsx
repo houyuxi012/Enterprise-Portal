@@ -57,8 +57,6 @@ const OrganizationList: React.FC = () => {
             ),
             key: dept.id,
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
-            icon: ({ expanded }: any) =>
-                expanded ? <FolderOutlined className="text-blue-500" /> : <FolderOutlined className="text-slate-400" />
         }));
     };
 
@@ -175,7 +173,6 @@ const OrganizationList: React.FC = () => {
                                 onSelect={handleSelect}
                                 expandedKeys={expandedKeys}
                                 onExpand={(keys) => setExpandedKeys(keys)}
-                                showIcon
                                 blockNode
                                 className="bg-transparent"
                                 selectedKeys={selectedDept ? [selectedDept.id] : []}

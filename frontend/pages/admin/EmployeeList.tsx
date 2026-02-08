@@ -66,8 +66,6 @@ const EmployeeList: React.FC = () => {
             ),
             key: dept.name, // Use name as key for easier filtering since Employee has dept name
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
-            icon: ({ expanded }: any) =>
-                expanded ? <FolderOutlined className="text-blue-500" /> : <FolderOutlined className="text-slate-400" />
         }));
     };
 
@@ -336,7 +334,6 @@ const EmployeeList: React.FC = () => {
                                     }}
                                     selectedKeys={selectedDeptName ? [selectedDeptName] : []}
                                     blockNode
-                                    showIcon
                                     defaultExpandAll
                                 />
                             ) : (
