@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip, Badge } from 'antd';
+import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip, Badge } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, ApiOutlined, KeyOutlined, RobotOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
 import { AIProvider } from '../../../types';
+import AppButton from '../../../components/AppButton';
 
 
 const ModelConfig: React.FC = () => {
@@ -121,9 +122,9 @@ const ModelConfig: React.FC = () => {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: AIProvider) => (
-                <div className="flex gap-2">
-                    <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                    <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(record.id)} />
+                <div className="flex gap-1">
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                    <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
                 </div>
             )
         }
@@ -136,15 +137,7 @@ const ModelConfig: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">AI 模型配置</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">管理 AI 服务提供商及其连接参数</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAdd}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
-                >
-                    添加模型
-                </Button>
+                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>添加模型</AppButton>
             </div>
 
             <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -164,7 +157,7 @@ const ModelConfig: React.FC = () => {
                 onCancel={() => setIsModalVisible(false)}
                 className="rounded-2xl overflow-hidden"
                 footer={[
-                    <Button key="test" icon={<ApiOutlined />} onClick={async () => {
+                    <AppButton key="test" intent="secondary" icon={<ApiOutlined />} onClick={async () => {
                         try {
                             const values = await form.validateFields();
                             const hide = message.loading('Testing connection...', 0);
@@ -183,15 +176,9 @@ const ModelConfig: React.FC = () => {
                         } catch (e) {
                             // Validation failed
                         }
-                    }}>
-                        测试连接
-                    </Button>,
-                    <Button key="cancel" onClick={() => setIsModalVisible(false)}>
-                        取消
-                    </Button>,
-                    <Button key="submit" type="primary" onClick={handleOk} className="bg-indigo-600">
-                        保存
-                    </Button>,
+                    }}>测试连接</AppButton>,
+                    <AppButton key="cancel" intent="secondary" onClick={() => setIsModalVisible(false)}>取消</AppButton>,
+                    <AppButton key="submit" intent="primary" onClick={handleOk}>保存</AppButton>,
                 ]}
             >
                 <Form form={form} layout="vertical" className="mt-4">

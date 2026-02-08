@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, Button, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip } from 'antd';
+import { Table, Tag, Select, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DatabaseOutlined, CloudOutlined, UserOutlined, AuditOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { BusinessLog } from '../../types';
 import dayjs from 'dayjs';
+import AppButton from '../../components/AppButton';
 
 const ACTION_MAP: Record<string, string> = {
     'LOGIN': '用户登录',
@@ -222,9 +223,7 @@ const BusinessLogs: React.FC = () => {
             key: 'actions',
             width: 80,
             render: (_: any, record: BusinessLog) => (
-                <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
-                    详情
-                </Button>
+                <AppButton intent="tertiary" size="sm" onClick={() => handleViewDetail(record)}>详情</AppButton>
             )
         }
     ];
@@ -243,9 +242,7 @@ const BusinessLogs: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">业务日志</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">审计关键业务操作与安全记录</p>
                 </div>
-                <Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    刷新
-                </Button>
+                <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>刷新</AppButton>
             </div>
 
             {/* Stats Cards - Business Specific */}
@@ -329,9 +326,7 @@ const BusinessLogs: React.FC = () => {
                         { value: 'all', label: '全部' },
                     ]}
                 />
-                <Button type="primary" onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    查询
-                </Button>
+                <AppButton intent="primary" onClick={fetchLogs} loading={loading}>查询</AppButton>
             </div>
 
             {/* Table */}

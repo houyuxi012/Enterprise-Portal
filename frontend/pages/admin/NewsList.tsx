@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, DatePicker, Select, Popconfirm, message, Tag, Upload, Space, Tooltip, Switch, Image } from 'antd';
+import { Table, Modal, Form, Input, DatePicker, Select, Popconfirm, message, Tag, Upload, Space, Tooltip, Switch, Image } from 'antd';
 import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, PictureOutlined } from '@ant-design/icons';
 import { NewsItem } from '../../types';
 import ApiClient from '../../services/api';
 import dayjs from 'dayjs';
+import AppButton from '../../components/AppButton';
 
 type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
 
@@ -218,25 +219,18 @@ const NewsList: React.FC = () => {
             width: '15%',
             render: (_: any, record: NewsItem) => (
                 <Space size="small">
-                    <Button
-                        type="text"
-                        size="small"
+                    <AppButton
+                        intent="tertiary"
+                        size="sm"
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-bold rounded-lg"
                     >
                         编辑
-                    </Button>
+                    </AppButton>
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
-                        <Button
-                            type="text"
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                            className="hover:bg-red-50 font-bold rounded-lg"
-                        >
+                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>
                             删除
-                        </Button>
+                        </AppButton>
                     </Popconfirm>
                 </Space>
             ),
@@ -251,15 +245,13 @@ const NewsList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">资讯内容管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">发布和编辑企业新闻动态</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     发布资讯
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}

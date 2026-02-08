@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Input, Select, Card, Button } from 'antd';
+import { Table, Tag, Input, Select, Card } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { SystemLog } from '../../types';
+import AppButton from '../../components/AppButton';
 
 const SystemLogs: React.FC = () => {
     const [logs, setLogs] = useState<SystemLog[]>([]);
@@ -84,13 +85,7 @@ const SystemLogs: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">访问日志</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">记录系统所有 API 请求与访问详情</p>
                 </div>
-                <Button
-                    icon={<ReloadOutlined />}
-                    onClick={fetchLogs}
-                    className="rounded-xl px-4 border-slate-200 shadow-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200"
-                >
-                    刷新
-                </Button>
+                <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs}>刷新</AppButton>
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">

@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
+import { Table, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
 import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, ApiOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { LogForwardingConfig } from '../../types';
+import AppButton from '../../components/AppButton';
 
 // 可选的日志类型 - 与后端 log_type 保持一致
 const LOG_TYPE_OPTIONS = [
@@ -124,15 +125,7 @@ const LogForwarding: React.FC = () => {
             key: 'action',
             width: 80,
             render: (_: any, record: LogForwardingConfig) => (
-                <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => handleDelete(record.id)}
-                    className="font-bold hover:bg-rose-50 rounded-lg"
-                >
-                    删除
-                </Button>
+                <AppButton intent="danger" size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</AppButton>
             )
         }
     ];
@@ -145,15 +138,7 @@ const LogForwarding: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">配置日志转发至第三方 SIEM / 日志平台</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => setIsModalOpen(true)}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
-                >
-                    新增外发配置
-                </Button>
+                <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>新增外发配置</AppButton>
             </div>
 
             {/* Stats Cards */}
@@ -281,8 +266,8 @@ const LogForwarding: React.FC = () => {
                     </Form.Item>
 
                     <div className="flex justify-end space-x-2">
-                        <Button onClick={() => setIsModalOpen(false)}>取消</Button>
-                        <Button type="primary" htmlType="submit">保存</Button>
+                        <AppButton intent="secondary" onClick={() => setIsModalOpen(false)}>取消</AppButton>
+                        <AppButton intent="primary" htmlType="submit">保存</AppButton>
                     </div>
                 </Form>
             </Modal>

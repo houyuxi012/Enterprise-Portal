@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, message, Switch, InputNumber, Divider } from 'antd';
+import { Form, Input, message, Switch, InputNumber, Divider } from 'antd';
 import { SaveOutlined, SafetyCertificateOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
+import AppButton from '../../components/AppButton';
 
 const SecuritySettings: React.FC = () => {
     const [form] = Form.useForm();
@@ -57,16 +58,14 @@ const SecuritySettings: React.FC = () => {
                     <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">安全设置</h2>
                     <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">Security Policies</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<SaveOutlined />}
                     onClick={() => form.submit()}
                     loading={loading}
-                    size="middle"
-                    className="rounded-lg px-6 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/30 border-0 font-bold"
                 >
                     保存策略
-                </Button>
+                </AppButton>
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-[1.25rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">

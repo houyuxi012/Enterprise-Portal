@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Button, Form, InputNumber, message, Tooltip } from 'antd';
+import { Form, InputNumber, message, Tooltip } from 'antd';
 import { DatabaseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
+import AppButton from '../../components/AppButton';
 
 interface StorageConfig {
     log_retention_system_days: number;
@@ -77,13 +78,7 @@ const LogStorage: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">存储设置</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">配置各类型日志的保留周期与磁盘占用限制</p>
                 </div>
-                <Button
-                    icon={<DatabaseOutlined />}
-                    onClick={handleOptimize}
-                    className="rounded-xl px-4 border-slate-200 shadow-sm font-bold text-slate-600 hover:text-green-600 hover:border-green-200"
-                >
-                    立即优化
-                </Button>
+                <AppButton intent="secondary" icon={<DatabaseOutlined />} onClick={handleOptimize}>立即优化</AppButton>
             </div>
 
             {/* Storage Policy Card */}
@@ -219,9 +214,7 @@ const LogStorage: React.FC = () => {
 
                     {/* 提交按钮 */}
                     <div className="md:col-span-2 flex justify-end pt-4">
-                        <Button type="primary" htmlType="submit" loading={storageLoading} className="rounded-xl px-8 font-bold bg-blue-600">
-                            保存策略
-                        </Button>
+                        <AppButton intent="primary" htmlType="submit" loading={storageLoading}>保存策略</AppButton>
                     </div>
                 </Form>
             </div>

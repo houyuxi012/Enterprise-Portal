@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X, Shield, Star } from 'lucide-react';
 import { Role, Permission } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Tag, Checkbox, Card, Empty, Tooltip, Button } from 'antd';
+import { message, Tag, Checkbox, Card, Empty, Tooltip } from 'antd';
+import AppButton from '../../components/AppButton';
 
 const RoleList: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
@@ -120,15 +121,13 @@ const RoleList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">角色定义与权限</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理系统用户角色及其对应权限</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<Plus size={18} />}
+                <AppButton
+                    intent="primary"
+                    icon={<Plus size={16} />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     新增角色
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}
@@ -149,14 +148,10 @@ const RoleList: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredRoles.map(role => (
                         <div key={role.id} className="mica rounded-3xl p-6 border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group relative">
-                            <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEdit(role)} className="p-2 rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 dark:bg-slate-700 dark:text-blue-400">
-                                    <Edit size={14} />
-                                </button>
+                            <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <AppButton intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(role)} />
                                 {role.code !== 'admin' && (
-                                    <button onClick={() => handleDelete(role.id)} className="p-2 rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-slate-700 dark:text-rose-400">
-                                        <Trash2 size={14} />
-                                    </button>
+                                    <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} onClick={() => handleDelete(role.id)} />
                                 )}
                             </div>
 
@@ -274,10 +269,10 @@ const RoleList: React.FC = () => {
                             </div>
 
                             <div className="pt-4 flex justify-end space-x-3">
-                                <button type="button" onClick={() => setIsEditorOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">取消</button>
-                                <button type="submit" disabled={loading} className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50">
-                                    {loading ? '保存中...' : (editingRole ? '保存修改' : '创建角色')}
-                                </button>
+                                <AppButton intent="secondary" onClick={() => setIsEditorOpen(false)}>取消</AppButton>
+                                <AppButton intent="primary" htmlType="submit" loading={loading}>
+                                    {editingRole ? '保存修改' : '创建角色'}
+                                </AppButton>
                             </div>
                         </form>
                     </div>

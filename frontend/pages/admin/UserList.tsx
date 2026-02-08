@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X, Shield, Lock, Key } from 'lucide-react';
 import { User, Role } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Select, Tag, Switch, Button } from 'antd'; // Importing Select for multi-choice
+import { message, Select, Tag, Switch } from 'antd';
+import AppButton from '../../components/AppButton';
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -130,15 +131,13 @@ const UserList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统账户管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理系统登录账户及权限分配</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<Plus size={18} />}
+                <AppButton
+                    intent="primary"
+                    icon={<Plus size={16} />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     新增账户
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}
@@ -217,16 +216,10 @@ const UserList: React.FC = () => {
                                 </td>
                                 <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
                                 <td className="py-4 pr-4 text-right">
-                                    <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                        <button onClick={() => handleEdit(user)} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="编辑">
-                                            <Edit size={16} />
-                                        </button>
-                                        <button onClick={() => handleResetPassword(user.username)} className="p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="重置密码">
-                                            <Key size={16} />
-                                        </button>
-                                        <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors" title="删除">
-                                            <Trash2 size={16} />
-                                        </button>
+                                    <div className="flex justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <AppButton intent="tertiary" iconOnly icon={<Edit size={16} />} onClick={() => handleEdit(user)} title="编辑" />
+                                        <AppButton intent="tertiary" iconOnly icon={<Key size={16} />} onClick={() => handleResetPassword(user.username)} title="重置密码" />
+                                        <AppButton intent="danger" iconOnly icon={<Trash2 size={16} />} onClick={() => handleDelete(user.id)} title="删除" />
                                     </div>
                                 </td>
                             </tr>
@@ -299,10 +292,10 @@ const UserList: React.FC = () => {
                             </div>
 
                             <div className="pt-4 flex justify-end space-x-3">
-                                <button type="button" onClick={() => setIsEditorOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">取消</button>
-                                <button type="submit" className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30">
+                                <AppButton intent="secondary" onClick={() => setIsEditorOpen(false)}>取消</AppButton>
+                                <AppButton intent="primary" htmlType="submit">
                                     {editingUser ? '保存修改' : '创建账户'}
-                                </button>
+                                </AppButton>
                             </div>
                         </form>
                     </div>

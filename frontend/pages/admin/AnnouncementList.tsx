@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Popconfirm, message, Switch, Tag, Space, Tooltip, AutoComplete } from 'antd';
+import { Table, Modal, Form, Input, Select, Popconfirm, message, Switch, Tag, Space, Tooltip, AutoComplete } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Announcement } from '../../types';
 import ApiClient from '../../services/api';
+import AppButton from '../../components/AppButton';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -147,23 +148,9 @@ const AnnouncementList: React.FC = () => {
             width: '15%',
             render: (_: any, record: Announcement) => (
                 <Space size="small">
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
-                    >
-                        编辑
-                    </Button>
+                    <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</AppButton>
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            className="hover:bg-red-50 font-bold rounded-lg"
-                        >
-                            删除
-                        </Button>
+                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>删除</AppButton>
                     </Popconfirm>
                 </Space>
             ),
@@ -178,15 +165,13 @@ const AnnouncementList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">公告管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理发布到首页的大屏通知</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     发布公告
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Switch, message, Upload, Avatar, Select } from 'antd';
+import { Card, Form, Input, Switch, message, Upload, Avatar, Select } from 'antd';
 import { SaveOutlined, UploadOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
+import AppButton from '../../../components/AppButton';
 
 const AISettings: React.FC = () => {
     const [loading, setLoading] = useState(false);
@@ -75,15 +76,12 @@ const AISettings: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">基础设置</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">配置 AI 助手的基本信息与功能开关</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<SaveOutlined />}
                     onClick={() => form.submit()}
                     loading={loading}
-                    className="bg-indigo-600 hover:bg-indigo-500 border-indigo-600 hover:border-indigo-500 h-10 px-6 rounded-xl shadow-lg shadow-indigo-500/20 font-bold"
-                >
-                    保存设置
-                </Button>
+                >保存设置</AppButton>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -172,12 +170,7 @@ const AISettings: React.FC = () => {
                                             }
                                         }}
                                     >
-                                        <Button
-                                            icon={<UploadOutlined />}
-                                            className="h-10 rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                                        >
-                                            上传 PNG
-                                        </Button>
+                                        <AppButton intent="secondary" icon={<UploadOutlined />}>上传 PNG</AppButton>
                                     </Upload>
                                 </div>
                             </Form.Item>

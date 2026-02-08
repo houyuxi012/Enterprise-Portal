@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Card, Button, Input, Select, DatePicker, message, Modal } from 'antd';
+import { Table, Tag, Card, Input, Select, DatePicker, message, Modal } from 'antd';
 import { SearchOutlined, ReloadOutlined, BugOutlined, ExclamationCircleOutlined, InfoCircleOutlined, ConsoleSqlOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { SystemLog } from '../../types';
+import AppButton from '../../components/AppButton';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -94,9 +95,7 @@ const ApplicationLogs: React.FC = () => {
             key: 'action',
             width: 100,
             render: (_: any, record: SystemLog) => (
-                <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
-                    查看详情
-                </Button>
+                <AppButton intent="tertiary" size="sm" onClick={() => handleViewDetail(record)}>查看详情</AppButton>
             )
         }
     ];
@@ -120,14 +119,7 @@ const ApplicationLogs: React.FC = () => {
                         <Option value="WARN">WARN (警告)</Option>
                         <Option value="ERROR">ERROR (错误)</Option>
                     </Select>
-                    <Button
-                        icon={<ReloadOutlined />}
-                        onClick={fetchLogs}
-                        loading={loading}
-                        className="rounded-xl font-bold"
-                    >
-                        刷新
-                    </Button>
+                    <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>刷新</AppButton>
                 </div>
             </div>
 
@@ -152,9 +144,7 @@ const ApplicationLogs: React.FC = () => {
                 }
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
-                footer={[
-                    <Button key="close" onClick={() => setIsModalOpen(false)}>关闭</Button>
-                ]}
+                footer={[<AppButton key="close" intent="secondary" onClick={() => setIsModalOpen(false)}>关闭</AppButton>]}
                 width={800}
                 className="rounded-2xl"
             >

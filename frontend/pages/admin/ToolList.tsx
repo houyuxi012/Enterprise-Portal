@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { List, Button, Modal, Form, Input, Select, Popconfirm, message, Card, Tag, Upload, Image } from 'antd';
+import { List, Modal, Form, Input, Select, Popconfirm, message, Card, Tag, Upload, Image } from 'antd';
 import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { QuickToolDTO } from '../../services/api';
@@ -7,6 +7,7 @@ import ApiClient from '../../services/api';
 import * as LucideIcons from 'lucide-react';
 import { getIcon } from '../../utils/iconMap';
 import { getColorClass } from '../../utils/colorMap';
+import AppButton from '../../components/AppButton';
 
 const { Option } = Select;
 
@@ -146,15 +147,13 @@ const ToolList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">应用中心管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理首页快捷方式与工具卡片</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     新增应用
-                </Button>
+                </AppButton>
             </div>
 
             <List

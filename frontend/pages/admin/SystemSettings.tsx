@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, message, Card, Upload } from 'antd';
+import { Form, Input, message, Card, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
+import AppButton from '../../components/AppButton';
 
 const SystemSettings: React.FC = () => {
     const [form] = Form.useForm();
@@ -43,16 +44,14 @@ const SystemSettings: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统设置</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">配置全局站点参数与品牌显示</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<SaveOutlined />}
                     onClick={() => form.submit()}
                     loading={loading}
-                    size="large"
-                    className="rounded-xl px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     保存更改
-                </Button>
+                </AppButton>
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">
@@ -113,7 +112,7 @@ const SystemSettings: React.FC = () => {
                                         return false;
                                     }}
                                 >
-                                    <Button size="large" icon={<UploadOutlined />} className="rounded-xl h-[42px] font-bold">本地上传</Button>
+                                    <AppButton intent="secondary" icon={<UploadOutlined />}>本地上传</AppButton>
                                 </Upload>
                             </div>
                         </div>
@@ -145,7 +144,7 @@ const SystemSettings: React.FC = () => {
                                         return false;
                                     }}
                                 >
-                                    <Button size="large" icon={<UploadOutlined />} className="rounded-xl h-[42px] font-bold">本地上传</Button>
+                                    <AppButton intent="secondary" icon={<UploadOutlined />}>本地上传</AppButton>
                                 </Upload>
                             </div>
                         </div>

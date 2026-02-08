@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, ChevronRight, Folder, FolderOpen, Building2, FolderTree } from 'lucide-react';
 import { Department } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Tree, Empty, Button, Modal, Form, Input, Select, Popconfirm } from 'antd';
+import { message, Tree, Empty, Modal, Form, Input, Select, Popconfirm } from 'antd';
 import { TeamOutlined, UserOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
+import AppButton from '../../components/AppButton';
 
 const { TextArea } = Input;
 
@@ -146,14 +147,13 @@ const OrganizationList: React.FC = () => {
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">组织架构管理</h2>
                     <p className="text-xs text-slate-400 mt-0.5">管理企业部门层级与结构</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<Plus size={16} />}
                     onClick={() => openCreateModal(null)}
-                    className="rounded-lg bg-slate-900 hover:bg-slate-800 border-0 font-medium"
                 >
                     新增根部门
-                </Button>
+                </AppButton>
             </div>
 
             <div className="flex flex-1 min-h-0 gap-4">
@@ -208,14 +208,14 @@ const OrganizationList: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button
-                                        size="small"
+                                    <AppButton
+                                        intent="tertiary"
+                                        size="sm"
                                         onClick={() => openEditModal(selectedDept)}
                                         icon={<Edit size={14} />}
-                                        className="rounded-lg"
                                     >
                                         编辑
-                                    </Button>
+                                    </AppButton>
                                     <Popconfirm
                                         title="确认删除"
                                         description="删除后无法恢复"
@@ -223,9 +223,9 @@ const OrganizationList: React.FC = () => {
                                         okText="确定"
                                         cancelText="取消"
                                     >
-                                        <Button size="small" danger icon={<Trash2 size={14} />} className="rounded-lg">
+                                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>
                                             删除
-                                        </Button>
+                                        </AppButton>
                                     </Popconfirm>
                                 </div>
                             </div>
@@ -247,15 +247,14 @@ const OrganizationList: React.FC = () => {
                                             <TeamOutlined className="text-blue-500" />
                                             下级部门 ({selectedDept.children?.length || 0})
                                         </h4>
-                                        <Button
-                                            type="link"
-                                            size="small"
+                                        <AppButton
+                                            intent="tertiary"
+                                            size="sm"
                                             onClick={() => openCreateModal(selectedDept.id)}
                                             icon={<Plus size={12} />}
-                                            className="text-blue-500 p-0 h-auto"
                                         >
                                             添加
-                                        </Button>
+                                        </AppButton>
                                     </div>
                                     <div className="space-y-2">
                                         {selectedDept.children?.map(child => (
@@ -286,14 +285,14 @@ const OrganizationList: React.FC = () => {
                         <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
                             <Building2 size={36} className="text-slate-300 mb-3" />
                             <p className="text-sm mb-4">选择左侧部门查看详情</p>
-                            <Button
-                                size="small"
+                            <AppButton
+                                intent="secondary"
+                                size="sm"
                                 onClick={() => openCreateModal(null)}
                                 icon={<Plus size={14} />}
-                                className="rounded-lg"
                             >
                                 创建根部门
-                            </Button>
+                            </AppButton>
                         </div>
                     )}
                 </div>

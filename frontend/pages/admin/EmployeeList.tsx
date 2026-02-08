@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Modal, Form, Select, Avatar, Tag, Space, Popconfirm, message, Upload } from 'antd';
+import { Table, Input, Modal, Form, Select, Avatar, Tag, Space, Popconfirm, message, Upload } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, UserOutlined, KeyOutlined } from '@ant-design/icons';
 import { Employee } from '../../types';
 import ApiClient from '../../services/api';
+import AppButton from '../../components/AppButton';
 
 const { Option } = Select;
 
@@ -140,27 +141,12 @@ const EmployeeList: React.FC = () => {
             width: '15%',
             render: (_: any, record: Employee) => (
                 <Space size="small">
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
-                    />
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <Popconfirm title="确定重置密码为 123456 吗?" onConfirm={() => handleResetPassword(record.account)}>
-                        <Button
-                            type="text"
-                            icon={<KeyOutlined />}
-                            title="重置密码"
-                            className="text-amber-500 hover:bg-amber-50 font-bold rounded-lg"
-                        />
+                        <AppButton intent="tertiary" iconOnly size="sm" icon={<KeyOutlined />} title="重置密码" />
                     </Popconfirm>
                     <Popconfirm title="确定要删除吗?" onConfirm={() => handleDelete(record.id)}>
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            className="hover:bg-red-50 font-bold rounded-lg"
-                        />
+                        <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
                     </Popconfirm>
                 </Space>
             ),
@@ -180,15 +166,13 @@ const EmployeeList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">用户管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理企业员工基本信息与职位</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     新增员工
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}
@@ -250,7 +234,7 @@ const EmployeeList: React.FC = () => {
                                 }}
                                 showUploadList={false}
                             >
-                                <Button icon={<UploadOutlined />}>更换头像</Button>
+                                <AppButton intent="secondary" icon={<UploadOutlined />}>更换头像</AppButton>
                             </Upload>
                         </div>
                     </Form.Item>

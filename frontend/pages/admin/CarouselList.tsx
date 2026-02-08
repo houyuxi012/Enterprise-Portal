@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Switch, Upload, message, Tag, Popconfirm } from 'antd';
+import { Table, Modal, Form, Input, InputNumber, Switch, Upload, message, Tag, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { CarouselItem } from '../../types';
+import AppButton from '../../components/AppButton';
 
 const CarouselList: React.FC = () => {
     const [items, setItems] = useState<CarouselItem[]>([]);
@@ -136,20 +137,10 @@ const CarouselList: React.FC = () => {
             key: 'action',
             width: '15%',
             render: (_: any, record: CarouselItem) => (
-                <div className="flex space-x-2">
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
-                    />
+                <div className="flex space-x-1">
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            className="hover:bg-red-50 font-bold rounded-lg"
-                        />
+                        <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
                     </Popconfirm>
                 </div>
             ),
@@ -164,15 +155,13 @@ const CarouselList: React.FC = () => {
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">轮播管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">管理首页顶部轮播图展示内容</p>
                 </div>
-                <Button
-                    type="primary"
+                <AppButton
+                    intent="primary"
                     icon={<PlusOutlined />}
                     onClick={handleAdd}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
                 >
                     新增轮播
-                </Button>
+                </AppButton>
             </div>
 
             {/* Content Card */}

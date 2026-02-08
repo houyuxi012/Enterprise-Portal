@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip } from 'antd';
+import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
 import { AISecurityPolicy } from '../../../types';
+import AppButton from '../../../components/AppButton';
 
 const SecurityPolicy: React.FC = () => {
     const [policies, setPolicies] = useState<AISecurityPolicy[]>([]);
@@ -136,9 +137,9 @@ const SecurityPolicy: React.FC = () => {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: AISecurityPolicy) => (
-                <div className="flex gap-2">
-                    <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                    <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(record.id)} />
+                <div className="flex gap-1">
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                    <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
                 </div>
             )
         }
@@ -151,15 +152,7 @@ const SecurityPolicy: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">安全策略</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">配置内容拦截、关键词过滤与敏感信息脱敏规则</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAdd}
-                    size="large"
-                    className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 border-0 h-10 font-bold transition-all hover:scale-105 active:scale-95"
-                >
-                    添加策略
-                </Button>
+                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>添加策略</AppButton>
             </div>
 
             <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch } from 'antd';
+import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch } from 'antd';
 import { EditOutlined, BarChartOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
+import AppButton from '../../../components/AppButton';
 
 const ModelUsagePage: React.FC = () => {
     const [data, setData] = useState<any[]>([]);
@@ -122,9 +123,7 @@ const ModelUsagePage: React.FC = () => {
             title: '操作',
             key: 'action',
             render: (_: any, record: any) => (
-                <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-                    设置限额
-                </Button>
+                <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>设置限额</AppButton>
             )
         }
     ];
