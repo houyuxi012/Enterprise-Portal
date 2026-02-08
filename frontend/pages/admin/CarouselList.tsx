@@ -1,17 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Modal, Form, Input, InputNumber, Switch, Upload, message, Tag, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import { Input, InputNumber, Switch, Upload, message, Popconfirm, Card } from 'antd';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { PlusOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import { CarouselItem } from '../../types';
-import AppButton from '../../components/AppButton';
+import type { ColumnsType } from 'antd/es/table';
+import {
+    AppButton,
+    AppTable,
+    AppModal,
+    AppForm,
+    AppTag,
+    AppPageHeader,
+} from '../../components/admin';
 
 const CarouselList: React.FC = () => {
     const [items, setItems] = useState<CarouselItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CarouselItem | null>(null);
-    const [form] = Form.useForm();
+    const [form] = AppForm.useForm();
     const [imageUrl, setImageUrl] = useState<string>('');
+    const [submitLoading, setSubmitLoading] = useState(false);
 
     const fetchItems = async () => {
         setLoading(true);
@@ -53,10 +63,10 @@ const CarouselList: React.FC = () => {
         }
     };
 
-    const handleOk = async () => {
+    const handleSubmit = async (values: any) => {
         try {
-            const values = await form.validateFields();
-            values.image = imageUrl; // Ensure image is set
+            setSubmitLoading(true);
+            values.image = imageUrl;
 
             if (editingItem) {
                 await ApiClient.updateCarouselItem(editingItem.id, values);
@@ -68,9 +78,10 @@ const CarouselList: React.FC = () => {
             setIsModalOpen(false);
             fetchItems();
         } catch (error: any) {
-            console.error('Carousel operation error:', error);
             const errorMsg = error?.response?.data?.detail || error?.message || '未知错误';
             message.error('操作失败: ' + (typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg));
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -87,11 +98,12 @@ const CarouselList: React.FC = () => {
         }
     };
 
-    const columns = [
+    const columns: ColumnsType<CarouselItem> = [
         {
             title: '预览',
             dataIndex: 'image',
             key: 'image',
+            width: 150,
             render: (text: string) => (
                 <div className="w-32 h-20 rounded-xl overflow-hidden shadow-md relative group cursor-pointer">
                     <img src={text} alt="preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -108,7 +120,8 @@ const CarouselList: React.FC = () => {
             title: '徽标',
             dataIndex: 'badge',
             key: 'badge',
-            render: (text: string) => <Tag color="blue" className="rounded-lg font-bold border-0 px-2">{text}</Tag>
+            width: 100,
+            render: (text: string) => <AppTag status="info">{text}</AppTag>
         },
         {
             title: '链接',
@@ -120,27 +133,29 @@ const CarouselList: React.FC = () => {
             title: '排序',
             dataIndex: 'sort_order',
             key: 'sort_order',
+            width: 80,
             render: (text: number) => <span className="font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{text}</span>
         },
         {
             title: '状态',
             dataIndex: 'is_active',
             key: 'is_active',
+            width: 100,
             render: (active: boolean) => (
-                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                <AppTag status={active ? 'success' : 'default'}>
                     {active ? '显示中' : '已隐藏'}
-                </span>
+                </AppTag>
             )
         },
         {
             title: '操作',
             key: 'action',
-            width: '15%',
+            width: 120,
             render: (_: any, record: CarouselItem) => (
-                <div className="flex space-x-1">
-                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                <div className="flex gap-1">
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)} />
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
+                        <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} />
                     </Popconfirm>
                 </div>
             ),
@@ -148,45 +163,39 @@ const CarouselList: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">轮播管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">管理首页顶部轮播图展示内容</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAdd}
-                >
-                    新增轮播
-                </AppButton>
-            </div>
+        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+            <AppPageHeader
+                title="轮播管理"
+                subtitle="管理首页顶部轮播图展示内容"
+                action={
+                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAdd}>
+                        新增轮播
+                    </AppButton>
+                }
+            />
 
-            {/* Content Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <Table
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={items}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 10, className: 'font-bold' }}
-                    className="ant-table-custom"
+                    emptyText="暂无轮播图数据"
                 />
-            </div>
+            </Card>
 
-            <Modal
+            <AppModal
                 title={editingItem ? "编辑轮播图" : "新增轮播图"}
                 open={isModalOpen}
-                onOk={handleOk}
+                onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
+                confirmLoading={submitLoading}
             >
-                <Form form={form} layout="vertical">
-                    <Form.Item label="标题" name="title" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item label="图片">
+                <AppForm form={form} onFinish={handleSubmit}>
+                    <AppForm.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
+                        <Input placeholder="请输入轮播标题" />
+                    </AppForm.Item>
+                    <AppForm.Item label="图片">
                         <Upload
                             customRequest={handleUpload}
                             showUploadList={false}
@@ -199,21 +208,21 @@ const CarouselList: React.FC = () => {
                                 </div>
                             )}
                         </Upload>
-                    </Form.Item>
-                    <Form.Item label="徽标 (如: 焦点新闻)" name="badge" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item label="链接URL" name="url" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item label="排序 (越小越前)" name="sort_order" initialValue={0}>
-                        <InputNumber style={{ width: '100%' }} />
-                    </Form.Item>
-                    <Form.Item label="是否显示" name="is_active" valuePropName="checked" initialValue={true}>
-                        <Switch />
-                    </Form.Item>
-                </Form>
-            </Modal>
+                    </AppForm.Item>
+                    <AppForm.Item label="徽标 (如: 焦点新闻)" name="badge" rules={[{ required: true, message: '请输入徽标' }]}>
+                        <Input placeholder="如: 焦点新闻、热门动态" />
+                    </AppForm.Item>
+                    <AppForm.Item label="链接URL" name="url" rules={[{ required: true, message: '请输入链接' }]}>
+                        <Input placeholder="点击跳转的链接地址" />
+                    </AppForm.Item>
+                    <AppForm.Item label="排序 (越小越前)" name="sort_order" initialValue={0}>
+                        <InputNumber style={{ width: '100%' }} min={0} />
+                    </AppForm.Item>
+                    <AppForm.Item label="是否显示" name="is_active" valuePropName="checked" initialValue={true}>
+                        <Switch checkedChildren="显示" unCheckedChildren="隐藏" />
+                    </AppForm.Item>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

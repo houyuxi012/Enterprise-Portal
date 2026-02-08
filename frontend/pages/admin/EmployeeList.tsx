@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Modal, Form, Select, Avatar, Tag, Space, Popconfirm, message, Upload } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UploadOutlined, UserOutlined, KeyOutlined } from '@ant-design/icons';
+import { Input, Select, Avatar, Popconfirm, message, Upload, Card } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 import { Employee } from '../../types';
 import ApiClient from '../../services/api';
-import AppButton from '../../components/AppButton';
+import {
+    AppButton,
+    AppTable,
+    AppModal,
+    AppForm,
+    AppTag,
+    AppPageHeader,
+    AppFilterBar,
+} from '../../components/admin';
 
 const { Option } = Select;
 
@@ -12,8 +21,9 @@ const EmployeeList: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [searchText, setSearchText] = useState('');
-    const [form] = Form.useForm();
+    const [form] = AppForm.useForm();
     const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         fetchEmployees();
@@ -26,7 +36,7 @@ const EmployeeList: React.FC = () => {
             setEmployees(data);
         } catch (error) {
             console.error(error);
-            message.error('Failed to fetch employees');
+            message.error('加载员工数据失败');
         } finally {
             setLoading(false);
         }
@@ -35,10 +45,10 @@ const EmployeeList: React.FC = () => {
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteEmployee(id);
-            message.success('Employee deleted successfully');
+            message.success('员工已删除');
             fetchEmployees();
         } catch (error) {
-            message.error('Failed to delete employee');
+            message.error('删除失败');
         }
     };
 
@@ -60,50 +70,52 @@ const EmployeeList: React.FC = () => {
     const handleAddNew = () => {
         setEditingEmployee(null);
         form.resetFields();
-        form.setFieldsValue({
-            gender: '男',
-        });
+        form.setFieldsValue({ gender: '男' });
         setIsModalOpen(true);
     };
 
-    const handleOk = async () => {
+    const handleSubmit = async (values: any) => {
+        setSubmitting(true);
         try {
-            const values = await form.validateFields();
             if (editingEmployee) {
                 await ApiClient.updateEmployee(Number(editingEmployee.id), values);
-                message.success('Employee updated');
+                message.success('员工信息更新成功');
             } else {
                 await ApiClient.createEmployee(values);
-                message.success('Employee created');
+                message.success('员工创建成功');
             }
             setIsModalOpen(false);
             fetchEmployees();
         } catch (error) {
-            console.error('Validate Failed:', error);
+            message.error('保存失败');
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const columns = [
+    const columns: ColumnsType<Employee> = [
         {
             title: '基本信息',
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: Employee) => (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                     <Avatar
                         src={record.avatar}
                         size={40}
                         icon={<UserOutlined />}
-                        className="border border-slate-200 shadow-sm"
+                        className="border border-slate-200"
                     />
                     <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                        <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             {text}
-                            <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${record.gender === '男' ? 'bg-blue-50 text-blue-500' : 'bg-rose-50 text-rose-500'}`}>
+                            <AppTag status={record.gender === '男' ? 'info' : 'error'}>
                                 {record.gender}
-                            </span>
+                            </AppTag>
                         </div>
-                        <div className="text-xs text-slate-400 font-medium">#{record.job_number} · @{record.account}</div>
+                        <div className="text-xs text-slate-400">
+                            #{record.job_number} · @{record.account}
+                        </div>
                     </div>
                 </div>
             ),
@@ -114,8 +126,8 @@ const EmployeeList: React.FC = () => {
             key: 'role',
             render: (text: string, record: Employee) => (
                 <div>
-                    <div className="font-bold text-slate-700 dark:text-slate-300">{text}</div>
-                    <div className="text-xs text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md inline-block mt-0.5">{record.department}</div>
+                    <div className="font-medium text-slate-700 dark:text-slate-300">{text}</div>
+                    <AppTag status="info">{record.department}</AppTag>
                 </div>
             ),
         },
@@ -124,7 +136,7 @@ const EmployeeList: React.FC = () => {
             key: 'contact',
             render: (_: any, record: Employee) => (
                 <div className="space-y-0.5">
-                    <div className="text-xs font-bold text-slate-600 dark:text-slate-400">{record.email}</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">{record.email}</div>
                     <div className="text-xs text-slate-400">{record.phone}</div>
                 </div>
             ),
@@ -133,22 +145,56 @@ const EmployeeList: React.FC = () => {
             title: '位置',
             dataIndex: 'location',
             key: 'location',
-            render: (text: string) => <span className="text-xs font-bold text-slate-500">{text}</span>
+            render: (text: string) => (
+                <span className="text-sm text-slate-500">{text || '-'}</span>
+            ),
         },
         {
             title: '操作',
             key: 'action',
-            width: '15%',
+            width: 140,
+            align: 'right',
             render: (_: any, record: Employee) => (
-                <Space size="small">
-                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-                    <Popconfirm title="确定重置密码为 123456 吗?" onConfirm={() => handleResetPassword(record.account)}>
-                        <AppButton intent="tertiary" iconOnly size="sm" icon={<KeyOutlined />} title="重置密码" />
+                <div className="flex justify-end gap-1">
+                    <AppButton
+                        intent="tertiary"
+                        iconOnly
+                        size="sm"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(record)}
+                        title="编辑"
+                    />
+                    <Popconfirm
+                        title="重置密码"
+                        description={`确定将 ${record.account} 的密码重置为 123456 吗？`}
+                        onConfirm={() => handleResetPassword(record.account)}
+                        okText="确定"
+                        cancelText="取消"
+                    >
+                        <AppButton
+                            intent="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<KeyOutlined />}
+                            title="重置密码"
+                        />
                     </Popconfirm>
-                    <Popconfirm title="确定要删除吗?" onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
+                    <Popconfirm
+                        title="删除员工"
+                        description="确定要删除该员工吗？"
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="删除"
+                        cancelText="取消"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <AppButton
+                            intent="danger"
+                            iconOnly
+                            size="sm"
+                            icon={<DeleteOutlined />}
+                        />
                     </Popconfirm>
-                </Space>
+                </div>
             ),
         },
     ];
@@ -159,58 +205,58 @@ const EmployeeList: React.FC = () => {
     );
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header - Outside Card */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">用户管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">管理企业员工基本信息与职位</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAddNew}
-                >
-                    新增员工
-                </AppButton>
-            </div>
+        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+            {/* Page Header */}
+            <AppPageHeader
+                title="用户管理"
+                subtitle="管理企业员工基本信息与职位"
+                action={
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
+                        新增员工
+                    </AppButton>
+                }
+            />
 
-            {/* Content Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <div className="mb-8 flex space-x-4">
-                    <Input
-                        placeholder="搜索姓名或部门..."
-                        prefix={<SearchOutlined className="text-slate-400" />}
-                        onChange={e => setSearchText(e.target.value)}
-                        className="w-full max-w-sm rounded-xl border-slate-200 bg-slate-50 hover:bg-white focus:bg-white transition-all h-10 font-medium"
-                        size="large"
-                    />
-                </div>
+            {/* Filter Bar */}
+            <AppFilterBar>
+                <AppFilterBar.Search
+                    placeholder="搜索姓名或部门..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onSearch={setSearchText}
+                />
+            </AppFilterBar>
 
-                <Table
+            {/* Data Table */}
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={filteredData}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 8, className: 'font-bold' }}
-                    className="ant-table-custom"
+                    emptyText="暂无员工数据"
+                    pageSize={10}
                 />
-            </div>
+            </Card>
 
-            <Modal
+            {/* Edit/Create Modal */}
+            <AppModal
                 title={editingEmployee ? '编辑用户' : '新增用户'}
                 open={isModalOpen}
-                onOk={handleOk}
                 onCancel={() => setIsModalOpen(false)}
+                onOk={() => form.submit()}
+                confirmLoading={submitting}
+                okText={editingEmployee ? '保存修改' : '创建员工'}
                 width={700}
             >
-                <Form form={form} layout="vertical" name="employee_form">
-                    <Form.Item label="头像" required>
-                        <div className="flex items-center space-x-4">
-                            <Form.Item name="avatar" noStyle>
+                <AppForm form={form} onFinish={handleSubmit} initialValues={{ gender: '男' }}>
+                    {/* Avatar Upload */}
+                    <AppForm.Item label="头像">
+                        <div className="flex items-center gap-4">
+                            <AppForm.Item name="avatar" noStyle>
                                 <Input hidden />
-                            </Form.Item>
-                            <Form.Item shouldUpdate={(prev, curr) => prev.avatar !== curr.avatar} noStyle>
+                            </AppForm.Item>
+                            <AppForm.Item shouldUpdate={(prev, curr) => prev.avatar !== curr.avatar} noStyle>
                                 {() => (
                                     <Avatar
                                         size={64}
@@ -219,7 +265,7 @@ const EmployeeList: React.FC = () => {
                                         style={{ backgroundColor: form.getFieldValue('avatar') ? 'transparent' : '#bfbfbf' }}
                                     />
                                 )}
-                            </Form.Item>
+                            </AppForm.Item>
                             <Upload
                                 customRequest={async ({ file, onSuccess, onError }) => {
                                     try {
@@ -237,53 +283,84 @@ const EmployeeList: React.FC = () => {
                                 <AppButton intent="secondary" icon={<UploadOutlined />}>更换头像</AppButton>
                             </Upload>
                         </div>
-                    </Form.Item>
+                    </AppForm.Item>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="job_number" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
+                        <AppForm.Item
+                            name="job_number"
+                            label="工号"
+                            rules={[{ required: true, message: '请输入工号' }]}
+                        >
                             <Input placeholder="输入工号 (例如: 1001)" />
-                        </Form.Item>
-                        <Form.Item name="account" label="账户" rules={[{ required: true, message: '请输入账户用户名' }]}>
+                        </AppForm.Item>
+                        <AppForm.Item
+                            name="account"
+                            label="账户"
+                            rules={[{ required: true, message: '请输入账户用户名' }]}
+                        >
                             <Input placeholder="输入账户 (例如: zhangsan)" />
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+                        <AppForm.Item
+                            name="name"
+                            label="姓名"
+                            rules={[{ required: true, message: '请输入姓名' }]}
+                        >
                             <Input />
-                        </Form.Item>
-                        <Form.Item name="gender" label="性别" rules={[{ required: true }]}>
+                        </AppForm.Item>
+                        <AppForm.Item
+                            name="gender"
+                            label="性别"
+                            rules={[{ required: true }]}
+                        >
                             <Select>
                                 <Option value="男">男</Option>
                                 <Option value="女">女</Option>
                             </Select>
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="department" label="部门" rules={[{ required: true, message: '请输入部门' }]}>
+                        <AppForm.Item
+                            name="department"
+                            label="部门"
+                            rules={[{ required: true, message: '请输入部门' }]}
+                        >
                             <Input />
-                        </Form.Item>
-                        <Form.Item name="role" label="职位" rules={[{ required: true, message: '请输入职位' }]}>
+                        </AppForm.Item>
+                        <AppForm.Item
+                            name="role"
+                            label="职位"
+                            rules={[{ required: true, message: '请输入职位' }]}
+                        >
                             <Input />
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email', message: '请输入有效邮箱' }]}>
+                        <AppForm.Item
+                            name="email"
+                            label="邮箱"
+                            rules={[{ required: true, type: 'email', message: '请输入有效邮箱' }]}
+                        >
                             <Input />
-                        </Form.Item>
-                        <Form.Item name="phone" label="手机号码" rules={[{ required: true, message: '请输入手机号码' }]}>
+                        </AppForm.Item>
+                        <AppForm.Item
+                            name="phone"
+                            label="手机号码"
+                            rules={[{ required: true, message: '请输入手机号码' }]}
+                        >
                             <Input />
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
 
-                    <Form.Item name="location" label="办公地点">
+                    <AppForm.Item name="location" label="办公地点">
                         <Input placeholder="例如: 杭州总部 A座 302" />
-                    </Form.Item>
-
-                </Form>
-            </Modal>
+                    </AppForm.Item>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

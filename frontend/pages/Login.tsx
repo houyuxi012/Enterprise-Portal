@@ -61,8 +61,18 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         try {
             await login(username, password);
             onLoginSuccess();
-        } catch (err) {
-            setError('用户名或密码错误');
+        } catch (err: any) {
+            // Parse backend error response
+            const detail = err?.response?.data?.detail || '';
+            if (detail.includes('locked')) {
+                setError('账户已被锁定，请稍后再试');
+            } else if (detail.includes('IP')) {
+                setError('当前 IP 地址无访问权限');
+            } else if (err?.response?.status === 401) {
+                setError('用户名或密码错误');
+            } else {
+                setError('登录失败，请检查网络连接');
+            }
         } finally {
             setIsLoading(false);
         }

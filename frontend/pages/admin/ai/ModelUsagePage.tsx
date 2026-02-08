@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch } from 'antd';
+import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch, Card } from 'antd';
 import { EditOutlined, BarChartOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
 import AppButton from '../../../components/AppButton';
@@ -64,10 +64,10 @@ const ModelUsagePage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                     <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
                     {!record.is_active && (
-                        <Tag color="default" bordered={false} className="text-xs">历史</Tag>
+                        <Tag color="default" variant="filled" className="text-xs">历史</Tag>
                     )}
                     {record.is_active && (
-                        <Tag color="blue" bordered={false} className="text-xs">配置中</Tag>
+                        <Tag color="blue" variant="filled" className="text-xs">配置中</Tag>
                     )}
                 </div>
             )
@@ -131,46 +131,46 @@ const ModelUsagePage: React.FC = () => {
     const filteredData = showAllModels ? data : data.filter(item => item.is_active);
 
     return (
-        <div className="space-y-6">
-            <div className="mica rounded-[2.5rem] p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3">
-                            <BarChartOutlined className="text-blue-600" />
-                            模型用量监控
-                        </h1>
-                        <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">监控各 AI 模型的历史峰值用量与限额对比</p>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <Select
-                            value={timeRange}
-                            onChange={setTimeRange}
-                            style={{ width: 140 }}
-                            className="font-bold"
-                            options={[
-                                { label: '过去1小时', value: 1 },
-                                { label: '过去24小时', value: 24 },
-                                { label: '过去7天', value: 7 * 24 },
-                                { label: '过去30天', value: 30 * 24 },
-                                { label: '过去90天', value: 90 * 24 },
-                            ]}
-                        />
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <span className="text-sm font-bold text-slate-600 dark:text-slate-300">显示历史模型</span>
-                            <Switch checked={showAllModels} onChange={setShowAllModels} />
-                        </div>
+        <div className="animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+                        <BarChartOutlined className="text-blue-600" />
+                        模型用量监控
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">监控各 AI 模型的历史峰值用量与限额对比</p>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <Select
+                        value={timeRange}
+                        onChange={setTimeRange}
+                        style={{ width: 140 }}
+                        className="font-bold"
+                        options={[
+                            { label: '过去1小时', value: 1 },
+                            { label: '过去24小时', value: 24 },
+                            { label: '过去7天', value: 7 * 24 },
+                            { label: '过去30天', value: 30 * 24 },
+                            { label: '过去90天', value: 90 * 24 },
+                        ]}
+                    />
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300">显示历史模型</span>
+                        <Switch checked={showAllModels} onChange={setShowAllModels} />
                     </div>
                 </div>
+            </div>
 
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
                 <Table
                     columns={columns}
                     dataSource={filteredData}
                     rowKey="model_name"
                     loading={loading}
                     pagination={false}
-                    className="rounded-2xl overflow-hidden"
+                    className="align-middle"
                 />
-            </div>
+            </Card>
 
             <Modal
                 title={`设置限额 - ${editingModel?.model_name}`}

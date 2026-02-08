@@ -6,17 +6,7 @@ import zhCN from 'antd/locale/zh_CN';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
-
-// Unified theme tokens
-const themeConfig = {
-  token: {
-    colorPrimary: '#1677ff',
-    borderRadius: 8,
-    controlHeight: 32,
-    controlHeightSM: 24,
-    controlHeightLG: 40,
-  },
-};
+import { themeConfig } from './theme';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

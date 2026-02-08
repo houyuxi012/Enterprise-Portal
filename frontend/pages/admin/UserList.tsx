@@ -1,31 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, X, Shield, Lock, Key } from 'lucide-react';
+import { Plus, Edit, Trash2, Key } from 'lucide-react';
 import { User, Role } from '../../types';
 import ApiClient from '../../services/api';
-import { message, Select, Tag, Switch } from 'antd';
-import AppButton from '../../components/AppButton';
+import { message, Select, Switch, Input, Popconfirm, Card } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+    AppButton,
+    AppTable,
+    AppModal,
+    AppForm,
+    AppTag,
+    AppPageHeader,
+    AppFilterBar,
+} from '../../components/admin';
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [loading, setLoading] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [search, setSearch] = useState('');
-    const [errorMessage, setErrorMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-    // Form State
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        password: '',
-        role_ids: [] as number[],
-    });
+    const [form] = AppForm.useForm();
 
     useEffect(() => {
         fetchData();
     }, []);
 
     const fetchData = async () => {
+        setLoading(true);
         try {
             const [usersData, rolesData] = await Promise.all([
                 ApiClient.getUsers(),
@@ -35,86 +40,77 @@ const UserList: React.FC = () => {
             setRoles(rolesData);
         } catch (error) {
             console.error(error);
-            message.error("Failed to load users or roles");
+            message.error('加载数据失败');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (confirm('Are you sure you want to delete this user?')) {
-            try {
-                await ApiClient.deleteUser(id);
-                fetchData();
-                message.success('User deleted');
-            } catch (e) {
-                message.error('Failed to delete user');
-            }
+        try {
+            await ApiClient.deleteUser(id);
+            fetchData();
+            message.success('用户已删除');
+        } catch (e) {
+            message.error('删除失败');
         }
     };
 
     const handleResetPassword = async (username: string) => {
-        if (confirm(`Are you sure you want to reset password for ${username} to '123456'?`)) {
-            try {
-                await ApiClient.resetPassword(username);
-                message.success(`Password for ${username} reset successfully`);
-            } catch (error) {
-                message.error('Failed to reset password');
-            }
+        try {
+            await ApiClient.resetPassword(username);
+            message.success(`${username} 密码重置成功`);
+        } catch (error) {
+            message.error('密码重置失败');
         }
     };
 
     const handleEdit = (user: User) => {
         setEditingUser(user);
-        setFormData({
+        form.setFieldsValue({
             username: user.username,
             email: user.email,
             password: '',
             role_ids: user.roles?.map(r => r.id) || []
         });
-        setErrorMessage('');
         setIsEditorOpen(true);
     };
 
     const handleAddNew = () => {
         setEditingUser(null);
-        setFormData({
-            username: '',
-            email: '',
-            password: '',
-            role_ids: [] // Default empty? Or default to user role if known
-        });
-        setErrorMessage('');
+        form.resetFields();
         setIsEditorOpen(true);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setErrorMessage('');
+    const handleSubmit = async (values: any) => {
+        setSubmitting(true);
         try {
             if (editingUser) {
-                const updatePayload: any = {
-                    email: formData.email,
-                    role_ids: formData.role_ids
-                };
-                await ApiClient.updateUser(editingUser.id, updatePayload);
-                message.success('User updated successfully');
+                await ApiClient.updateUser(editingUser.id, {
+                    email: values.email,
+                    role_ids: values.role_ids
+                });
+                message.success('用户更新成功');
             } else {
-                await ApiClient.createUser(formData);
-                message.success('User created successfully');
+                await ApiClient.createUser(values);
+                message.success('用户创建成功');
             }
             setIsEditorOpen(false);
             fetchData();
         } catch (error: any) {
-            setErrorMessage(error.response?.data?.detail || 'Failed to save');
+            message.error(error.response?.data?.detail || '保存失败');
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleStatusChange = async (user: User, isActive: boolean) => {
         try {
             await ApiClient.updateUser(user.id, { is_active: isActive });
-            message.success(`User ${isActive ? 'enabled' : 'disabled'}`);
+            message.success(`用户已${isActive ? '启用' : '禁用'}`);
             fetchData();
         } catch (error) {
-            message.error("Failed to update status");
+            message.error('状态更新失败');
         }
     };
 
@@ -123,184 +119,223 @@ const UserList: React.FC = () => {
         u.email.toLowerCase().includes(search.toLowerCase())
     );
 
-    return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header - Outside Card */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统账户管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">管理系统登录账户及权限分配</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<Plus size={16} />}
-                    onClick={handleAddNew}
-                >
-                    新增账户
-                </AppButton>
-            </div>
-
-            {/* Content Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <div className="flex items-center space-x-3 mb-8">
-                    <div className="relative w-full max-w-sm">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="搜索用户名或邮箱..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <table className="w-full text-left">
-                    <thead className="border-b border-slate-100 dark:border-slate-700">
-                        <tr>
-                            <th className="pb-4 pl-4 text-xs font-black uppercase text-slate-400 tracking-wider">用户名</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">角色 (Roles)</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">状态</th>
-                            <th className="pb-4 text-xs font-black uppercase text-slate-400 tracking-wider">邮箱</th>
-                            <th className="pb-4 pr-4 text-right text-xs font-black uppercase text-slate-400 tracking-wider">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                        {filteredUsers.map(user => (
-                            <tr key={user.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-200">
-                                <td className="py-4 pl-4">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shadow-sm border border-indigo-100 dark:border-indigo-800 overflow-hidden">
-                                            {(user.username === 'admin' || user.username === 'Admin') ? (
-                                                <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
-                                            ) : (
-                                                user.avatar ? (
-                                                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    user.username[0].toUpperCase()
-                                                )
-                                            )}
-                                        </div>
-                                        <span className="font-bold text-slate-700 dark:text-slate-200">{user.username}</span>
-                                    </div>
-                                </td>
-                                <td className="py-4">
-                                    <div className="flex flex-wrap gap-2">
-                                        {user.roles && user.roles.length > 0 ? user.roles.map(role => (
-                                            <span
-                                                key={role.id}
-                                                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${role.code === 'admin'
-                                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                                    : 'bg-blue-50 text-blue-600 border-blue-100'
-                                                    }`}
-                                            >
-                                                {role.name}
-                                            </span>
-                                        )) : (
-                                            <span className="text-xs text-slate-400 italic">No Roles</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="py-4">
-                                    <div className="flex items-center">
-                                        <Switch
-                                            checked={user.is_active}
-                                            onChange={(checked) => handleStatusChange(user, checked)}
-                                            size="small"
-                                            className="mr-2"
-                                        />
-                                        <span className={`text-xs font-bold ${user.is_active ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                            {user.is_active ? 'Active' : 'Disabled'}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td className="py-4 text-sm font-medium text-slate-500">{user.email}</td>
-                                <td className="py-4 pr-4 text-right">
-                                    <div className="flex justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                        <AppButton intent="tertiary" iconOnly icon={<Edit size={16} />} onClick={() => handleEdit(user)} title="编辑" />
-                                        <AppButton intent="tertiary" iconOnly icon={<Key size={16} />} onClick={() => handleResetPassword(user.username)} title="重置密码" />
-                                        <AppButton intent="danger" iconOnly icon={<Trash2 size={16} />} onClick={() => handleDelete(user.id)} title="删除" />
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {isEditorOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                                {editingUser ? '编辑用户' : '新增账户'}
-                            </h3>
-                            <button onClick={() => setIsEditorOpen(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {errorMessage && (
-                            <div className="mb-4 p-3 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold flex items-center">
-                                <Lock size={16} className="mr-2" /> {errorMessage}
-                            </div>
+    const columns: ColumnsType<User> = [
+        {
+            title: '用户名',
+            dataIndex: 'username',
+            key: 'username',
+            width: 200,
+            render: (text: string, record: User) => (
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-medium text-slate-600 dark:text-slate-300 text-sm overflow-hidden">
+                        {(record.username === 'admin' || record.username === 'Admin') ? (
+                            <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
+                        ) : (
+                            record.avatar ? (
+                                <img src={record.avatar} alt={record.username} className="w-full h-full object-cover" />
+                            ) : (
+                                text[0].toUpperCase()
+                            )
                         )}
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase">用户名</label>
-                                <input
-                                    required
-                                    disabled={!!editingUser}
-                                    className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50 ${editingUser ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    value={formData.username}
-                                    onChange={e => setFormData({ ...formData, username: e.target.value })}
-                                />
-                            </div>
-                            {!editingUser && (
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">初始密码</label>
-                                    <input required type="password" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-                                </div>
-                            )}
-                            <div className="grid grid-cols-1 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">分配角色</label>
-                                    <Select
-                                        mode="multiple"
-                                        style={{ width: '100%' }}
-                                        placeholder="选择角色"
-                                        value={formData.role_ids}
-                                        onChange={(values) => setFormData({ ...formData, role_ids: values })}
-                                        optionLabelProp="label"
-                                        className="h-10"
-                                    >
-                                        {roles.map(role => (
-                                            <Select.Option key={role.id} value={role.id} label={role.name}>
-                                                <div className="flex justify-between items-center">
-                                                    <span>{role.name}</span>
-                                                    <span className="text-slate-400 text-xs">{role.code}</span>
-                                                </div>
-                                            </Select.Option>
-                                        ))}
-                                    </Select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">邮箱</label>
-                                    <input type="email" required className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500/50" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                </div>
-                            </div>
-
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <AppButton intent="secondary" onClick={() => setIsEditorOpen(false)}>取消</AppButton>
-                                <AppButton intent="primary" htmlType="submit">
-                                    {editingUser ? '保存修改' : '创建账户'}
-                                </AppButton>
-                            </div>
-                        </form>
                     </div>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{text}</span>
                 </div>
-            )}
+            ),
+        },
+        {
+            title: '角色',
+            dataIndex: 'roles',
+            key: 'roles',
+            width: 200,
+            render: (roles: Role[]) => (
+                <div className="flex flex-wrap gap-1">
+                    {roles && roles.length > 0 ? roles.map(role => (
+                        <AppTag
+                            key={role.id}
+                            status={role.code === 'admin' ? 'error' : 'info'}
+                        >
+                            {role.name}
+                        </AppTag>
+                    )) : (
+                        <span className="text-slate-400 text-sm">暂无角色</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            title: '状态',
+            dataIndex: 'is_active',
+            key: 'is_active',
+            width: 120,
+            render: (isActive: boolean, record: User) => (
+                <div className="flex items-center gap-2">
+                    <Switch
+                        checked={isActive}
+                        onChange={(checked) => handleStatusChange(record, checked)}
+                        size="small"
+                    />
+                    <AppTag status={isActive ? 'success' : 'default'}>
+                        {isActive ? '启用' : '禁用'}
+                    </AppTag>
+                </div>
+            ),
+        },
+        {
+            title: '邮箱',
+            dataIndex: 'email',
+            key: 'email',
+            render: (text: string) => (
+                <span className="text-slate-500">{text}</span>
+            ),
+        },
+        {
+            title: '操作',
+            key: 'action',
+            width: 140,
+            align: 'right',
+            render: (_: any, record: User) => (
+                <div className="flex justify-end gap-1">
+                    <AppButton
+                        intent="tertiary"
+                        iconOnly
+                        size="sm"
+                        icon={<Edit size={15} />}
+                        onClick={() => handleEdit(record)}
+                        title="编辑"
+                    />
+                    <Popconfirm
+                        title="重置密码"
+                        description={`确定将 ${record.username} 的密码重置为 123456 吗？`}
+                        onConfirm={() => handleResetPassword(record.username)}
+                        okText="确定"
+                        cancelText="取消"
+                    >
+                        <AppButton
+                            intent="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<Key size={15} />}
+                            title="重置密码"
+                        />
+                    </Popconfirm>
+                    <Popconfirm
+                        title="删除用户"
+                        description="确定要删除该用户吗？此操作不可恢复。"
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="删除"
+                        cancelText="取消"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <AppButton
+                            intent="danger"
+                            iconOnly
+                            size="sm"
+                            icon={<Trash2 size={15} />}
+                            title="删除"
+                        />
+                    </Popconfirm>
+                </div>
+            ),
+        },
+    ];
+
+    return (
+        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+            {/* Page Header */}
+            <AppPageHeader
+                title="系统账户管理"
+                subtitle="管理系统登录账户及权限分配"
+                action={
+                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                        新增账户
+                    </AppButton>
+                }
+            />
+
+            {/* Filter Bar */}
+            <AppFilterBar>
+                <AppFilterBar.Search
+                    placeholder="搜索用户名或邮箱..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onSearch={setSearch}
+                />
+            </AppFilterBar>
+
+            {/* Data Table */}
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                <AppTable
+                    columns={columns}
+                    dataSource={filteredUsers}
+                    rowKey="id"
+                    loading={loading}
+                    emptyText="暂无用户数据"
+                />
+            </Card>
+
+            {/* Edit/Create Modal */}
+            <AppModal
+                title={editingUser ? '编辑用户' : '新增账户'}
+                open={isEditorOpen}
+                onCancel={() => setIsEditorOpen(false)}
+                onOk={() => form.submit()}
+                confirmLoading={submitting}
+                okText={editingUser ? '保存修改' : '创建账户'}
+                width={480}
+            >
+                <AppForm
+                    form={form}
+                    onFinish={handleSubmit}
+                    initialValues={{ role_ids: [] }}
+                >
+                    <AppForm.Item
+                        label="用户名"
+                        name="username"
+                        rules={[{ required: true, message: '请输入用户名' }]}
+                    >
+                        <Input
+                            placeholder="请输入用户名"
+                            disabled={!!editingUser}
+                        />
+                    </AppForm.Item>
+
+                    {!editingUser && (
+                        <AppForm.Item
+                            label="初始密码"
+                            name="password"
+                            rules={[{ required: true, message: '请输入初始密码' }]}
+                        >
+                            <Input.Password placeholder="请输入初始密码" />
+                        </AppForm.Item>
+                    )}
+
+                    <AppForm.Item
+                        label="邮箱"
+                        name="email"
+                        rules={[
+                            { required: true, message: '请输入邮箱' },
+                            { type: 'email', message: '请输入有效的邮箱地址' }
+                        ]}
+                    >
+                        <Input placeholder="请输入邮箱" />
+                    </AppForm.Item>
+
+                    <AppForm.Item
+                        label="分配角色"
+                        name="role_ids"
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="选择角色"
+                            optionLabelProp="label"
+                            options={roles.map(role => ({
+                                value: role.id,
+                                label: role.name,
+                            }))}
+                        />
+                    </AppForm.Item>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

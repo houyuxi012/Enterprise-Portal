@@ -27,17 +27,15 @@ class AuthService {
         params.append('password', password);
 
         // Relative path used as per global rule
-        const response = await axios.post<AuthResponse>(`${API_URL}/auth/token`, params, {
+        await axios.post<AuthResponse>(`${API_URL}/auth/token`, params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
-            }
+            },
+            withCredentials: true
         });
 
-        if (response.status === 200) {
-            // Cookie is set by backend automatically
-            return this.getCurrentUser();
-        }
-        throw new Error('Login failed');
+        // If we get here, login was successful - cookie is set by backend
+        return this.getCurrentUser();
     }
 
     async logout() {

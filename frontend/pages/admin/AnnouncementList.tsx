@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Modal, Form, Input, Select, Popconfirm, message, Switch, Tag, Space, Tooltip, AutoComplete } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Input, Select, Popconfirm, message, Switch, AutoComplete, Tooltip, Card } from 'antd';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Announcement } from '../../types';
 import ApiClient from '../../services/api';
-import AppButton from '../../components/AppButton';
+import type { ColumnsType } from 'antd/es/table';
+import {
+    AppButton,
+    AppTable,
+    AppModal,
+    AppForm,
+    AppTag,
+    AppPageHeader,
+} from '../../components/admin';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -13,7 +21,8 @@ const AnnouncementList: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Announcement | null>(null);
     const [loading, setLoading] = useState(false);
-    const [form] = Form.useForm();
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [form] = AppForm.useForm();
 
     useEffect(() => {
         fetchData();
@@ -25,7 +34,7 @@ const AnnouncementList: React.FC = () => {
             const data = await ApiClient.getAnnouncements();
             setAnnouncements(data);
         } catch (error) {
-            message.error('Failed to fetch announcements');
+            message.error('加载公告失败');
         } finally {
             setLoading(false);
         }
@@ -34,10 +43,10 @@ const AnnouncementList: React.FC = () => {
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteAnnouncement(id);
-            message.success('Deleted successfully');
+            message.success('公告已删除');
             fetchData();
         } catch (error) {
-            message.error('Failed to delete');
+            message.error('删除失败');
         }
     };
 
@@ -59,73 +68,57 @@ const AnnouncementList: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleOk = async () => {
+    const handleSubmit = async (values: any) => {
         try {
-            // DEBUG: Check if function starts
-            // alert('Debug: Starting submission...'); 
-            const values = await form.validateFields();
-            // alert('Debug: Validation passed. Values: ' + JSON.stringify(values));
-
+            setSubmitLoading(true);
             if (editingItem) {
                 await ApiClient.updateAnnouncement(Number(editingItem.id), values);
-                message.success('Updated successfully');
+                message.success('公告已更新');
             } else {
                 await ApiClient.createAnnouncement(values);
-                message.success('Created successfully');
+                message.success('公告已发布');
             }
             setIsModalOpen(false);
             fetchData();
         } catch (error: any) {
-            console.error(error);
-
-            // Check if it's a form validation error (Ant Design format)
-            if (error.errorFields) {
-                message.warning('请检查表单中标记红色的必填项');
-                return;
-            }
-
-            // Real API or System Error
-            // Show detailed error in alert to help debugging
-            const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
-            alert('Debug Error: ' + errorMsg);
+            const errorMsg = error.response?.data?.detail || error.message || '未知错误';
             message.error('操作失败: ' + errorMsg);
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
-    const columns = [
+    const columns: ColumnsType<Announcement> = [
         {
             title: '标题',
             dataIndex: 'title',
             key: 'title',
-            width: '20%',
             render: (text: string) => <span className="font-black text-slate-800 dark:text-slate-200">{text}</span>
         },
         {
             title: '内容',
             dataIndex: 'content',
             key: 'content',
-            ellipsis: {
-                showTitle: false,
-            },
+            ellipsis: { showTitle: false },
             render: (content: string) => (
                 <Tooltip placement="topLeft" title={content}>
-                    <span className="text-slate-500">{content}</span>
+                    <span className="text-slate-500 text-sm">{content}</span>
                 </Tooltip>
             ),
         },
         {
             title: '标签',
             key: 'tag',
-            width: '10%',
+            width: 100,
             render: (_: any, record: Announcement) => (
-                <Tag color={record.color} className="rounded-lg font-bold border-0 px-2 py-0.5">{record.tag}</Tag>
+                <AppTag status="info">{record.tag}</AppTag>
             ),
         },
         {
             title: '状态',
             dataIndex: 'is_urgent',
             key: 'is_urgent',
-            width: '10%',
+            width: 100,
             render: (urgent: boolean) => (
                 urgent ?
                     <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-lg text-xs font-black border border-rose-100 flex items-center w-fit">
@@ -139,69 +132,62 @@ const AnnouncementList: React.FC = () => {
             title: '发布时间',
             dataIndex: 'time',
             key: 'time',
-            width: '12%',
+            width: 120,
             render: (text: string) => <span className="text-xs font-bold text-slate-400">{text}</span>
         },
         {
             title: '操作',
             key: 'action',
-            width: '15%',
+            width: 160,
             render: (_: any, record: Announcement) => (
-                <Space size="small">
-                    <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</AppButton>
+                <div className="flex gap-2">
+                    <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)}>编辑</AppButton>
                     <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>删除</AppButton>
+                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>删除</AppButton>
                     </Popconfirm>
-                </Space>
+                </div>
             ),
         },
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">公告管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">管理发布到首页的大屏通知</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAddNew}
-                >
-                    发布公告
-                </AppButton>
-            </div>
+        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+            <AppPageHeader
+                title="公告管理"
+                subtitle="管理发布到首页的大屏通知"
+                action={
+                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                        发布公告
+                    </AppButton>
+                }
+            />
 
-            {/* Content Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <Table
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={announcements}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 8, className: 'font-bold' }}
-                    className="ant-table-custom"
+                    emptyText="暂无公告数据"
                 />
-            </div>
+            </Card>
 
-            <Modal
+            <AppModal
                 title={editingItem ? '编辑公告' : '发布公告'}
                 open={isModalOpen}
-                onOk={handleOk}
+                onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
-                className="rounded-2xl overflow-hidden"
+                confirmLoading={submitLoading}
             >
-                <Form form={form} layout="vertical" className="pt-4">
-                    <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-                        <Input className="rounded-lg" />
-                    </Form.Item>
-                    <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
-                        <TextArea rows={4} className="rounded-lg" />
-                    </Form.Item>
+                <AppForm form={form} onFinish={handleSubmit}>
+                    <AppForm.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+                        <Input placeholder="请输入公告标题" />
+                    </AppForm.Item>
+                    <AppForm.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
+                        <TextArea rows={4} placeholder="请输入公告内容" />
+                    </AppForm.Item>
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="tag" label="标签" rules={[{ required: true, message: '请选择或输入标签' }]}>
+                        <AppForm.Item name="tag" label="标签" rules={[{ required: true, message: '请选择或输入标签' }]}>
                             <AutoComplete
                                 options={[
                                     { value: '通知' },
@@ -212,28 +198,27 @@ const AnnouncementList: React.FC = () => {
                                     { value: '招聘' }
                                 ]}
                                 placeholder="选择或输入新标签"
-                                className="rounded-lg"
                             />
-                        </Form.Item>
-                        <Form.Item name="color" label="颜色主题" rules={[{ required: true, message: '请选择颜色' }]}>
-                            <Select>
-                                <Option value="blue">Blue</Option>
-                                <Option value="yellow">Yellow</Option>
-                                <Option value="red">Red</Option>
-                                <Option value="green">Green</Option>
+                        </AppForm.Item>
+                        <AppForm.Item name="color" label="颜色主题" rules={[{ required: true, message: '请选择颜色' }]}>
+                            <Select placeholder="选择颜色">
+                                <Option value="blue">蓝色</Option>
+                                <Option value="yellow">黄色</Option>
+                                <Option value="red">红色</Option>
+                                <Option value="green">绿色</Option>
                             </Select>
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="time" label="显示时间" rules={[{ required: true, message: '请输入显示时间' }]}>
+                        <AppForm.Item name="time" label="显示时间" rules={[{ required: true, message: '请输入显示时间' }]}>
                             <Input placeholder="例如: 10分钟前" />
-                        </Form.Item>
-                        <Form.Item name="is_urgent" label="紧急提醒" valuePropName="checked">
-                            <Switch />
-                        </Form.Item>
+                        </AppForm.Item>
+                        <AppForm.Item name="is_urgent" label="紧急提醒" valuePropName="checked">
+                            <Switch checkedChildren="紧急" unCheckedChildren="普通" />
+                        </AppForm.Item>
                     </div>
-                </Form>
-            </Modal>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

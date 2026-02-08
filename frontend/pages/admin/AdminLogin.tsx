@@ -36,13 +36,23 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         try {
             const user = await login(username, password);
             if (user.role !== 'admin') {
-                setError('Access Denied: Administrator privileges required.');
+                setError('权限不足：需要管理员权限');
                 logout(); // Clear invalid session
             } else {
                 onLoginSuccess();
             }
-        } catch (err) {
-            setError('Invalid credentials. Please try again.');
+        } catch (err: any) {
+            // Parse backend error response
+            const detail = err?.response?.data?.detail || '';
+            if (detail.includes('locked')) {
+                setError('账户已被锁定，请稍后再试');
+            } else if (detail.includes('IP')) {
+                setError('当前 IP 地址无访问权限');
+            } else if (err?.response?.status === 401) {
+                setError('用户名或密码错误');
+            } else {
+                setError('登录失败，请检查网络连接');
+            }
         } finally {
             setIsLoading(false);
         }

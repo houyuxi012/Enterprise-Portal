@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { List, Modal, Form, Input, Select, Popconfirm, message, Card, Tag, Upload, Image } from 'antd';
+import { Input, Select, Popconfirm, message, Card, Upload, Image, List, InputNumber } from 'antd';
 import type { GetProp, UploadFile, UploadProps } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { PlusOutlined } from '@ant-design/icons';
 import { QuickToolDTO } from '../../services/api';
 import ApiClient from '../../services/api';
-import * as LucideIcons from 'lucide-react';
 import { getIcon } from '../../utils/iconMap';
 import { getColorClass } from '../../utils/colorMap';
-import AppButton from '../../components/AppButton';
+import {
+    AppButton,
+    AppModal,
+    AppForm,
+    AppPageHeader,
+} from '../../components/admin';
 
 const { Option } = Select;
 
@@ -45,7 +50,8 @@ const ToolList: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTool, setEditingTool] = useState<QuickToolDTO | null>(null);
     const [loading, setLoading] = useState(false);
-    const [form] = Form.useForm();
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [form] = AppForm.useForm();
 
     // Upload state
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -62,7 +68,7 @@ const ToolList: React.FC = () => {
             const data = await ApiClient.getTools();
             setTools(data);
         } catch (error) {
-            message.error('Failed to fetch tools');
+            message.error('加载应用失败');
         } finally {
             setLoading(false);
         }
@@ -71,10 +77,10 @@ const ToolList: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteTool(id);
-            message.success('Tool deleted');
+            message.success('应用已删除');
             fetchTools();
         } catch (error) {
-            message.error('Failed to delete tool');
+            message.error('删除失败');
         }
     };
 
@@ -121,40 +127,36 @@ const ToolList: React.FC = () => {
     const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) =>
         setFileList(newFileList);
 
-    const handleOk = async () => {
+    const handleSubmit = async (values: any) => {
         try {
-            const values = await form.validateFields();
+            setSubmitLoading(true);
             if (editingTool) {
                 await ApiClient.updateTool(editingTool.id, values);
-                message.success('Tool updated');
+                message.success('应用已更新');
             } else {
                 await ApiClient.createTool(values);
-                message.success('Tool created');
+                message.success('应用已创建');
             }
             setIsModalOpen(false);
             fetchTools();
         } catch (error) {
-            console.error('Failed to save tool:', error);
             message.error('操作失败，请检查网络或联系管理员');
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">应用中心管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">管理首页快捷方式与工具卡片</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAddNew}
-                >
-                    新增应用
-                </AppButton>
-            </div>
+        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+            <AppPageHeader
+                title="应用中心管理"
+                subtitle="管理首页快捷方式与工具卡片"
+                action={
+                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                        新增应用
+                    </AppButton>
+                }
+            />
 
             <List
                 grid={{ gutter: 24, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 6 }}
@@ -165,11 +167,11 @@ const ToolList: React.FC = () => {
                     <List.Item>
                         <Card
                             hoverable
-                            className="rounded-[1.5rem] overflow-hidden border-0 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 bg-white dark:bg-slate-800 group"
+                            className="rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 bg-white dark:bg-slate-800 group"
                             actions={[
-                                <EditOutlined key="edit" onClick={() => handleEdit(item)} className="text-slate-400 hover:text-blue-500 transition-colors" />,
-                                <Popconfirm title="确定删除?" onConfirm={() => handleDelete(item.id)}>
-                                    <DeleteOutlined key="delete" className="text-slate-400 hover:text-rose-500 transition-colors" />
+                                <AppButton key="edit" intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(item)} />,
+                                <Popconfirm key="delete" title="确定删除?" onConfirm={() => handleDelete(item.id)}>
+                                    <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} />
                                 </Popconfirm>,
                             ]}
                         >
@@ -178,9 +180,7 @@ const ToolList: React.FC = () => {
                                     <IconPreview iconName={item.icon_name} color={item.color} image={item.image} />
                                 </div>
                                 <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg mb-1">{item.name}</h3>
-                                <div className="flex items-center space-x-2 justify-center w-full">
-                                    <Tag className="rounded-lg mr-0 font-bold border-0 bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">{item.category}</Tag>
-                                </div>
+                                <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 px-2 py-0.5 rounded-lg">{item.category}</span>
                                 <p className="text-xs text-slate-400 mt-3 truncate w-full px-2">{item.url}</p>
                             </div>
                         </Card>
@@ -188,18 +188,19 @@ const ToolList: React.FC = () => {
                 )}
             />
 
-            <Modal
+            <AppModal
                 title={editingTool ? '编辑应用' : '新增应用'}
                 open={isModalOpen}
-                onOk={handleOk}
+                onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
+                confirmLoading={submitLoading}
             >
-                <Form form={form} layout="vertical">
+                <AppForm form={form} onFinish={handleSubmit}>
                     {/* Image Upload Area */}
-                    <Form.Item label="应用图标 (优先显示自定义图片)">
-                        <Form.Item name="image" noStyle>
+                    <AppForm.Item label="应用图标 (优先显示自定义图片)">
+                        <AppForm.Item name="image" noStyle>
                             <Input hidden />
-                        </Form.Item>
+                        </AppForm.Item>
                         <Upload
                             listType="picture-card"
                             fileList={fileList}
@@ -236,44 +237,44 @@ const ToolList: React.FC = () => {
                                 src={previewImage}
                             />
                         )}
-                    </Form.Item>
+                    </AppForm.Item>
 
-                    <Form.Item name="name" label="应用名称" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="url" label="链接 URL" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
+                    <AppForm.Item name="name" label="应用名称" rules={[{ required: true, message: '请输入应用名称' }]}>
+                        <Input placeholder="请输入应用名称" />
+                    </AppForm.Item>
+                    <AppForm.Item name="url" label="链接 URL" rules={[{ required: true, message: '请输入链接' }]}>
+                        <Input placeholder="应用跳转链接" />
+                    </AppForm.Item>
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="category" label="分类">
-                            <Select>
+                        <AppForm.Item name="category" label="分类">
+                            <Select placeholder="选择分类">
                                 <Option value="办公">办公</Option>
                                 <Option value="开发">开发</Option>
                                 <Option value="设计">设计</Option>
                                 <Option value="其它">其它</Option>
                             </Select>
-                        </Form.Item>
-                        <Form.Item name="color" label="颜色主题 (无图片时生效)">
-                            <Select>
-                                <Option value="blue">Blue</Option>
-                                <Option value="purple">Purple</Option>
-                                <Option value="emerald">Emerald</Option>
-                                <Option value="rose">Rose</Option>
-                                <Option value="orange">Orange</Option>
+                        </AppForm.Item>
+                        <AppForm.Item name="color" label="颜色主题 (无图片时生效)">
+                            <Select placeholder="选择颜色">
+                                <Option value="blue">蓝色</Option>
+                                <Option value="purple">紫色</Option>
+                                <Option value="emerald">翠绿</Option>
+                                <Option value="rose">玫红</Option>
+                                <Option value="orange">橙色</Option>
                             </Select>
-                        </Form.Item>
+                        </AppForm.Item>
                     </div>
-                    <Form.Item name="sort_order" label="显示优先级 (数值越大越靠前)">
-                        <Input type="number" placeholder="0" />
-                    </Form.Item>
-                    <Form.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
+                    <AppForm.Item name="sort_order" label="显示优先级 (数值越大越靠前)">
+                        <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+                    </AppForm.Item>
+                    <AppForm.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
                         <Input placeholder="e.g. Mail, Github, Slack" />
-                    </Form.Item>
-                    <Form.Item name="description" label="描述">
-                        <Input.TextArea />
-                    </Form.Item>
-                </Form>
-            </Modal>
+                    </AppForm.Item>
+                    <AppForm.Item name="description" label="描述">
+                        <Input.TextArea rows={3} placeholder="应用描述（可选）" />
+                    </AppForm.Item>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };
