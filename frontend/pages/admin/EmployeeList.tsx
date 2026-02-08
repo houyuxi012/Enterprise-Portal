@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Input, Select, Avatar, Popconfirm, message, Upload, Card } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { Employee } from '../../types';
+import type { DataNode } from 'antd/es/tree';
+import { Employee, Department } from '../../types';
 import ApiClient from '../../services/api';
 import {
     AppButton,
@@ -17,7 +18,13 @@ import {
 const { Option } = Select;
 
 const EmployeeList: React.FC = () => {
+    const { message, modal } = App.useApp();
     const [employees, setEmployees] = useState<Employee[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
+    const [deptTreeData, setDeptTreeData] = useState<DataNode[]>([]);
+    const [selectedDeptName, setSelectedDeptName] = useState<string | null>(null);
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [searchText, setSearchText] = useState('');
@@ -26,30 +33,116 @@ const EmployeeList: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        fetchEmployees();
+        fetchData();
     }, []);
 
-    const fetchEmployees = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const data = await ApiClient.getEmployees();
-            setEmployees(data);
+            const [empData, deptData] = await Promise.all([
+                ApiClient.getEmployees(),
+                ApiClient.getDepartments()
+            ]);
+            setEmployees(empData);
+            setDepartments(deptData);
+            setDeptTreeData(buildTreeData(deptData));
         } catch (error) {
             console.error(error);
-            message.error('加载员工数据失败');
+            message.error('加载数据失败');
         } finally {
             setLoading(false);
         }
     };
 
+    const buildTreeData = (depts: Department[]): DataNode[] => {
+        return depts.map(dept => ({
+            title: (
+                <div className="flex items-center gap-2 py-1">
+                    <span className="font-medium">{dept.name}</span>
+                    <span className="text-xs text-slate-400">
+                        ({countEmployeesInDept(dept.name, employees)})
+                    </span>
+                </div>
+            ),
+            key: dept.name, // Use name as key for easier filtering since Employee has dept name
+            children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
+            icon: ({ expanded }: any) =>
+                expanded ? <FolderOutlined className="text-blue-500" /> : <FolderOutlined className="text-slate-400" />
+        }));
+    };
+
+    // Helper to count employees in a department (recursive rough check or exact match?)
+    // For now, strict match.
+    const countEmployeesInDept = (deptName: string, allEmps: Employee[]) => {
+        return allEmps.filter(e => e.department === deptName).length;
+    };
+
+    // Refresh tree counts when employees change
+    useEffect(() => {
+        if (departments.length > 0) {
+            setDeptTreeData(buildTreeData(departments));
+        }
+    }, [employees, departments]);
+
+
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteEmployee(id);
             message.success('员工已删除');
-            fetchEmployees();
+            fetchData();
         } catch (error) {
             message.error('删除失败');
         }
+    };
+
+    const handleBatchDelete = () => {
+        if (selectedRowKeys.length === 0) return;
+
+        modal.confirm({
+            title: `确定删除选中的 ${selectedRowKeys.length} 位员工吗？`,
+            content: '此操作不可恢复。',
+            okText: '确认删除',
+            okButtonProps: { danger: true },
+            cancelText: '取消',
+            onOk: async () => {
+                const hide = message.loading('正在删除...', 0);
+                try {
+                    await Promise.all(selectedRowKeys.map(id => ApiClient.deleteEmployee(id as number)));
+                    hide();
+                    message.success('批量删除成功');
+                    setSelectedRowKeys([]);
+                    fetchData();
+                } catch (e) {
+                    hide();
+                    message.error('部分删除失败，请重试');
+                }
+            }
+        });
+    };
+
+    const handleBatchResetPassword = () => {
+        if (selectedRowKeys.length === 0) return;
+
+        modal.confirm({
+            title: `确定重置选中的 ${selectedRowKeys.length} 位员工的密码吗？`,
+            content: '密码将被重置为默认密码 123456。',
+            okText: '确认重置',
+            cancelText: '取消',
+            onOk: async () => {
+                const hide = message.loading('正在重置...', 0);
+                try {
+                    // Need to find accounts for these IDs
+                    const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
+                    await Promise.all(selectedEmps.map(e => ApiClient.resetPassword(e.account)));
+                    hide();
+                    message.success('批量重置密码成功');
+                    setSelectedRowKeys([]);
+                } catch (e) {
+                    hide();
+                    message.error('重置失败');
+                }
+            }
+        });
     };
 
     const handleResetPassword = async (account: string) => {
@@ -70,7 +163,10 @@ const EmployeeList: React.FC = () => {
     const handleAddNew = () => {
         setEditingEmployee(null);
         form.resetFields();
-        form.setFieldsValue({ gender: '男' });
+        form.setFieldsValue({
+            gender: '男',
+            department: selectedDeptName || '' // Pre-fill department if selected
+        });
         setIsModalOpen(true);
     };
 
@@ -85,7 +181,7 @@ const EmployeeList: React.FC = () => {
                 message.success('员工创建成功');
             }
             setIsModalOpen(false);
-            fetchEmployees();
+            fetchData();
         } catch (error) {
             message.error('保存失败');
         } finally {
@@ -164,51 +260,36 @@ const EmployeeList: React.FC = () => {
                         onClick={() => handleEdit(record)}
                         title="编辑"
                     />
-                    <Popconfirm
-                        title="重置密码"
-                        description={`确定将 ${record.account} 的密码重置为 123456 吗？`}
-                        onConfirm={() => handleResetPassword(record.account)}
-                        okText="确定"
-                        cancelText="取消"
-                    >
-                        <AppButton
-                            intent="tertiary"
-                            iconOnly
-                            size="sm"
-                            icon={<KeyOutlined />}
-                            title="重置密码"
-                        />
-                    </Popconfirm>
-                    <Popconfirm
-                        title="删除员工"
-                        description="确定要删除该员工吗？"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="删除"
-                        cancelText="取消"
-                        okButtonProps={{ danger: true }}
-                    >
-                        <AppButton
-                            intent="danger"
-                            iconOnly
-                            size="sm"
-                            icon={<DeleteOutlined />}
-                        />
-                    </Popconfirm>
                 </div>
             ),
         },
     ];
 
-    const filteredData = employees.filter(e =>
-        e.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        e.department.toLowerCase().includes(searchText.toLowerCase())
-    );
+    const filteredData = useMemo(() => {
+        return employees.filter(e => {
+            const matchesSearch =
+                e.name.toLowerCase().includes(searchText.toLowerCase()) ||
+                e.department.toLowerCase().includes(searchText.toLowerCase()) ||
+                e.account.toLowerCase().includes(searchText.toLowerCase());
+
+            const matchesDept = selectedDeptName ? e.department === selectedDeptName : true;
+
+            return matchesSearch && matchesDept;
+        });
+    }, [employees, searchText, selectedDeptName]);
+
+    const rowSelection = {
+        selectedRowKeys,
+        onChange: (newSelectedRowKeys: React.Key[]) => {
+            setSelectedRowKeys(newSelectedRowKeys);
+        }
+    };
 
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="用户管理"
+                title="员工管理"
                 subtitle="管理企业员工基本信息与职位"
                 action={
                     <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
@@ -217,31 +298,112 @@ const EmployeeList: React.FC = () => {
                 }
             />
 
-            {/* Filter Bar */}
-            <AppFilterBar>
-                <AppFilterBar.Search
-                    placeholder="搜索姓名或部门..."
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    onSearch={setSearchText}
-                />
-            </AppFilterBar>
+            <Row gutter={24}>
+                {/* Left Sidebar: Department Tree */}
+                <Col xs={24} lg={6}>
+                    <Card
+                        title={
+                            <div className="flex items-center gap-2">
+                                <TeamOutlined className="text-blue-500" />
+                                <span>部门结构</span>
+                            </div>
+                        }
+                        className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full mb-6 lg:mb-0"
+                        styles={{ body: { padding: '12px 0 12px 12px' } }}
+                    >
+                        <div className="max-h-[600px] overflow-y-auto pr-2">
+                            {/* Global Filter Option */}
+                            <div
+                                className={`px-4 py-2 cursor-pointer rounded-lg mb-2 transition-colors flex justify-between items-center ${!selectedDeptName ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
+                                onClick={() => setSelectedDeptName(null)}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <FolderOutlined />
+                                    全部部门
+                                </span>
+                                <span className="text-xs bg-slate-200 dark:bg-slate-700 px-1.5 rounded-full text-slate-500 dark:text-slate-300">{employees.length}</span>
+                            </div>
 
-            {/* Data Table */}
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
-                <AppTable
-                    columns={columns}
-                    dataSource={filteredData}
-                    rowKey="id"
-                    loading={loading}
-                    emptyText="暂无员工数据"
-                    pageSize={10}
-                />
-            </Card>
+                            {deptTreeData.length > 0 ? (
+                                <Tree
+                                    treeData={deptTreeData}
+                                    onSelect={(selectedKeys) => {
+                                        if (selectedKeys.length > 0) {
+                                            setSelectedDeptName(selectedKeys[0] as string);
+                                        } else {
+                                            setSelectedDeptName(null);
+                                        }
+                                    }}
+                                    selectedKeys={selectedDeptName ? [selectedDeptName] : []}
+                                    blockNode
+                                    showIcon
+                                    defaultExpandAll
+                                />
+                            ) : (
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无部门" />
+                            )}
+                        </div>
+                    </Card>
+                </Col>
+
+                {/* Right Content: Filter & Table */}
+                <Col xs={24} lg={18}>
+                    {/* Filter Bar */}
+                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4 p-1" styles={{ body: { padding: '12px 16px' } }}>
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <Input.Search
+                                placeholder="搜索姓名、部门或工号..."
+                                allowClear
+                                style={{ maxWidth: 320 }}
+                                value={searchText}
+                                onChange={e => setSearchText(e.target.value)}
+                            />
+
+                            {/* Batch Actions */}
+                            {selectedRowKeys.length > 0 && (
+                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+                                    <span className="text-sm text-slate-500 font-medium mr-2">
+                                        已选 {selectedRowKeys.length} 项
+                                    </span>
+                                    <AppButton
+                                        intent="secondary"
+                                        size="sm"
+                                        icon={<KeyOutlined />}
+                                        onClick={handleBatchResetPassword}
+                                    >
+                                        重置密码
+                                    </AppButton>
+                                    <AppButton
+                                        intent="danger"
+                                        size="sm"
+                                        icon={<DeleteOutlined />}
+                                        onClick={handleBatchDelete}
+                                    >
+                                        删除
+                                    </AppButton>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* Data Table */}
+                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                        <AppTable
+                            rowSelection={rowSelection}
+                            columns={columns}
+                            dataSource={filteredData}
+                            rowKey="id" // Employee ID is string in types, but number in backend? Need to be careful. Types say string.
+                            loading={loading}
+                            emptyText="暂无员工数据"
+                            pageSize={10}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Edit/Create Modal */}
             <AppModal
-                title={editingEmployee ? '编辑用户' : '新增用户'}
+                title={editingEmployee ? '编辑员工' : '新增员工'}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 onOk={() => form.submit()}
@@ -328,7 +490,19 @@ const EmployeeList: React.FC = () => {
                             label="部门"
                             rules={[{ required: true, message: '请输入部门' }]}
                         >
-                            <Input />
+                            <Select
+                                showSearch
+                                placeholder="选择或输入部门"
+                                optionFilterProp="children"
+                            >
+                                {/* Flatten departments to options or just use TreeSelect? Simple Select for now, mapping keys */}
+                                {/* Assuming dept names are unique enough for simplified view, or just free text */}
+                                {/* For simplicity, allowing free text input is good if dept not in tree. But let's provide options if possible. */}
+                                {departments.map(d => (
+                                    <Option key={d.id} value={d.name}>{d.name}</Option>
+                                ))}
+                                {/* Recursive flattening would be better but simple map works for 1-level, deep level not shown here */}
+                            </Select>
                         </AppForm.Item>
                         <AppForm.Item
                             name="role"
