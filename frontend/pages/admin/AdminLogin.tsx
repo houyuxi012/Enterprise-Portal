@@ -93,8 +93,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             <Lock size={16} />
                         </div>
                         <div>
-                            <p className="text-white text-xs font-bold uppercase tracking-wider">ENTERPRISE SECURE</p>
-                            <p className="text-slate-500 text-[10px]">AES-256 Multi-Layer Encryption</p>
+                            <p className="text-white text-xs font-bold uppercase tracking-wider">企业级身份与访问治理</p>
+                            <p className="text-slate-500 text-[10px]">零信任架构 · 身份驱动安全 · 全链路审计</p>
                         </div>
                     </div>
                 </div>
@@ -110,7 +110,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">企业邮箱 / 工号</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">企业邮箱 / 企业账号</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                                     <MailIcon size={18} />
@@ -177,7 +177,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         >
                             {isLoading ? <Loader2 size={20} className="animate-spin" /> : (
                                 <>
-                                    <span className="mr-2">安全登录</span>
+                                    <span className="mr-2">登录</span>
                                     <ArrowRight size={16} />
                                 </>
                             )}
@@ -186,7 +186,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
                     <div className="mt-12 flex justify-between items-center text-[10px] text-slate-300 font-medium uppercase tracking-widest">
                         <div className="flex items-center space-x-1">
-                            <Sparkles size={12} className="text-blue-400" />
                             <span>© 2025 侯钰熙. All Rights Reserved.</span>
                         </div>
                         <a href="#" className="hover:text-slate-500 transition-colors">隐私权政策</a>
