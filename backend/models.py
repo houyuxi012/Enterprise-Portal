@@ -84,6 +84,7 @@ class QuickTool(Base):
     description = Column(String)
     image = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
+    visible_to_departments = Column(Text, nullable=True) # JSON list of allowed department names
 
 class Announcement(Base):
     __tablename__ = "announcements"

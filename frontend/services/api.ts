@@ -34,6 +34,7 @@ export interface QuickToolDTO {
   category: string;
   description: string;
   image?: string;
+  visible_to_departments?: string;
 }
 
 export const ApiClient = {
@@ -61,8 +62,8 @@ export const ApiClient = {
     return response.data.map(n => ({ ...n, id: String(n.id) }));
   },
 
-  getTools: async (): Promise<QuickToolDTO[]> => {
-    const response = await api.get<QuickToolDTO[]>('/tools/');
+  getTools: async (adminView?: boolean): Promise<QuickToolDTO[]> => {
+    const response = await api.get<QuickToolDTO[]>('/tools/', { params: { admin_view: adminView } });
     return response.data;
   },
 

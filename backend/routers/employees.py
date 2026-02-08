@@ -52,9 +52,7 @@ async def create_employee(
             username=employee.account,
             email=employee.email,
             hashed_password=default_pwd_hash,
-            # role="user", # Deprecated legacy field
-            is_active=True,
-            employee_id=employee_iduser
+            is_active=True
         )
         db.add(new_user)
         
@@ -66,7 +64,7 @@ async def create_employee(
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_EMPLOYEE", 
-        target=f"员工:{db_employee.name}", 
+        target=f"用户:{db_employee.name}", 
         ip_address=ip,
         trace_id=trace_id
     )
@@ -117,7 +115,7 @@ async def delete_employee(
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_EMPLOYEE", 
-        target=f"员工:{employee.name}", 
+        target=f"用户:{employee.name}", 
         ip_address=ip,
         trace_id=trace_id
     )

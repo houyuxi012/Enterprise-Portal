@@ -41,7 +41,7 @@ const SystemSettings: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">系统设置</h2>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">客户化管理</h2>
                     <p className="text-xs text-slate-400 font-bold mt-1">配置全局站点参数与品牌显示</p>
                 </div>
                 <AppButton
@@ -155,6 +155,23 @@ const SystemSettings: React.FC = () => {
                             className="mt-4"
                         >
                             <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="© 2025 侯钰熙. All Rights Reserved." />
+                        </Form.Item>
+                    </div>
+
+                    <div>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
+                            隐私与条款
+                        </h3>
+                        <Form.Item
+                            name="privacy_policy"
+                            label={<span className="font-bold text-slate-600 dark:text-slate-300">隐私协议内容</span>}
+                            help="支持纯文本或Simple HTML。将显示在登录页的“隐私权政策”弹窗中。"
+                        >
+                            <Input.TextArea
+                                rows={10}
+                                className="rounded-xl bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20 font-mono text-sm leading-relaxed"
+                                placeholder="在此输入隐私政策内容..."
+                            />
                         </Form.Item>
                     </div>
                 </Form>

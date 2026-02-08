@@ -44,7 +44,8 @@ class IdentityService:
         except JWTError:
             raise credentials_exception
         
-        result = await db.execute(select(models.User).filter(models.User.username == username))
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles)))
         user = result.scalars().first()
         if user is None:
             raise credentials_exception
@@ -182,12 +183,8 @@ class IdentityService:
         # So I should PROBABLY keep both or update frontend. Frontend update is out of scope.
         # So I will **keep both** for now to ensure "Backward Compatibility" principal #1.
         
-        from services.audit_service import AuditService
-        await AuditService.log_business_action(
-            db, user_id=user_id, username=username,
-            action="用户登录", target=f"用户 {username}",
-            ip_address=ip, trace_id=trace_id
-        )
+
+
         await db.commit()
 
         access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)

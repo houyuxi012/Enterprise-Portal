@@ -74,6 +74,7 @@ class QuickToolBase(BaseModel):
     description: Optional[str] = None
     image: Optional[str] = None
     sort_order: Optional[int] = 0
+    visible_to_departments: Optional[str] = None # JSON string of allowed departments
 
 class QuickToolCreate(QuickToolBase):
     pass

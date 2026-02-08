@@ -243,7 +243,7 @@ const UserList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="系统账户管理"
+                title="系统账户"
                 subtitle="管理系统登录账户及权限分配"
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>

@@ -18,7 +18,7 @@ const SecurityPolicy: React.FC = () => {
             const data = await ApiClient.getAIPolicies();
             setPolicies(data);
         } catch (error) {
-            message.error('Failed to fetch policies');
+            message.error('获取策略列表失败');
         } finally {
             setLoading(false);
         }
@@ -45,10 +45,10 @@ const SecurityPolicy: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteAIPolicy(id);
-            message.success('Policy deleted');
+            message.success('策略已删除');
             fetchPolicies();
         } catch (error) {
-            message.error('Failed to delete policy');
+            message.error('删除策略失败');
         }
     };
 
@@ -65,38 +65,38 @@ const SecurityPolicy: React.FC = () => {
                         const list = values.content.split(/,|，/).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
                         values.content = JSON.stringify(list);
                     } catch (err) {
-                        message.error('Invalid Rules format. Must be JSON array or comma-separated list.');
+                        message.error('规则格式无效，必须是 JSON 数组或逗号分隔列表');
                         return;
                     }
                 } else {
-                    message.error('Invalid JSON format for rules. Example: ["rule1", "rule2"]');
+                    message.error('JSON 格式无效，示例: ["规则1", "规则2"]');
                     return;
                 }
             }
 
             if (editingPolicy) {
                 await ApiClient.updateAIPolicy(editingPolicy.id, values);
-                message.success('Policy updated');
+                message.success('策略已更新');
             } else {
                 await ApiClient.createAIPolicy(values);
-                message.success('Policy created');
+                message.success('策略已创建');
             }
             setIsModalVisible(false);
             fetchPolicies();
         } catch (error) {
-            message.error('Operation failed');
+            message.error('操作失败');
         }
     };
 
     const columns = [
         {
-            title: 'Name',
+            title: '策略名称',
             dataIndex: 'name',
             key: 'name',
             render: (text: string) => <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
         },
         {
-            title: 'Type',
+            title: '规则类型',
             dataIndex: 'type',
             key: 'type',
             render: (text: string) => (
@@ -106,7 +106,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: 'Action',
+            title: '执行动作',
             dataIndex: 'action',
             key: 'action',
             render: (text: string) => (
@@ -116,7 +116,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: 'Content Preview',
+            title: '规则内容',
             dataIndex: 'content',
             key: 'content',
             render: (text: string) => (
@@ -126,7 +126,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: 'Status',
+            title: '状态',
             dataIndex: 'is_enabled',
             key: 'is_enabled',
             render: (enabled: boolean) => (
@@ -134,7 +134,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: 'Actions',
+            title: '操作',
             key: 'actions',
             render: (_: any, record: AISecurityPolicy) => (
                 <div className="flex gap-1">

@@ -3,6 +3,7 @@ import logging
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, exists
+from sqlalchemy.orm import selectinload
 from sqlalchemy.dialects.postgresql import insert
 import models
 import utils
@@ -111,7 +112,7 @@ async def init_rbac(db: AsyncSession):
     
     # Select Users where NOT EXISTS in user_roles
     subq = select(1).where(models.user_roles.c.user_id == models.User.id)
-    stmt = select(models.User).where(~exists(subq))
+    stmt = select(models.User).where(~exists(subq)).options(selectinload(models.User.roles))
     
     result = await db.execute(stmt)
     users_without_roles = result.scalars().all()

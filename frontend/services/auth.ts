@@ -44,7 +44,8 @@ class AuthService {
         } catch (e) {
             console.error("Logout failed", e);
         }
-        window.location.href = '/';
+        // Redirect to admin login page (backend) instead of frontend
+        window.location.href = '/admin/login';
     }
 
     async getCurrentUser(): Promise<User> {

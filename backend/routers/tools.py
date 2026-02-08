@@ -13,12 +13,55 @@ router = APIRouter(
     tags=["tools"]
 )
 
+import json
+
 @router.get("/", response_model=List[schemas.QuickTool])
-async def read_tools(db: AsyncSession = Depends(get_db)):
+async def read_tools(
+    admin_view: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     # Sort by priority (high to low), then by ID (newest first)
     result = await db.execute(select(models.QuickTool).order_by(models.QuickTool.sort_order.desc(), models.QuickTool.id.desc()))
     tools = result.scalars().all()
-    return tools
+    
+    # Determine if user is admin
+    is_admin = False
+    if current_user.roles:
+        for role in current_user.roles:
+            if role.code == 'admin':
+                is_admin = True
+                break
+                
+    # If admin view requested and user is admin, return all tools
+    if admin_view and is_admin:
+        return tools
+        
+    # Get Employee info to find department
+    emp_result = await db.execute(select(models.Employee).filter(models.Employee.account == current_user.username))
+    employee = emp_result.scalars().first()
+    user_dept = employee.department if employee else None
+    
+    allowed_tools = []
+    for tool in tools:
+        # If visible_to_departments is empty/null, it's visible to everyone
+        if not tool.visible_to_departments:
+            allowed_tools.append(tool)
+            continue
+            
+        try:
+            allowed_depts = json.loads(tool.visible_to_departments)
+            # If the list is empty, treat as specific restriction (no one sees it)
+            if not allowed_depts:
+                continue
+
+            if user_dept and user_dept in allowed_depts:
+                 allowed_tools.append(tool)
+        except:
+             # On error, default to hide
+             pass
+             
+    return allowed_tools
 
 @router.post("/", response_model=schemas.QuickTool, dependencies=[Depends(PermissionChecker("content:tool:edit"))])
 async def create_tool(
@@ -76,14 +119,21 @@ async def update_tool(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
+    
+    action = "UPDATE_APP"
+    # Check if this was a permission update
+    if "visible_to_departments" in tool_update.dict(exclude_unset=True):
+         action = "UPDATE_APP_PERMISSION"
+    
     await AuditService.log_business_action(
         db, 
         user_id=current_user.id, 
         username=current_user.username, 
-        action="UPDATE_APP", 
+        action=action, 
         target=f"应用:{tool.id} ({tool.name})", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        detail=f"权限变更: {tool.visible_to_departments}" if action == "UPDATE_APP_PERMISSION" else None
     )
     await db.commit()
 

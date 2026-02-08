@@ -16,7 +16,8 @@ import {
     IdcardOutlined,
     RobotOutlined,
     ApiOutlined,
-    BarChartOutlined
+    BarChartOutlined,
+    KeyOutlined
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -107,10 +108,23 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     icon: <PictureOutlined />,
                     label: '轮播管理',
                 },
+
+            ],
+        },
+        {
+            key: 'sub_apps',
+            label: '应用中心',
+            icon: <AppstoreOutlined />,
+            children: [
                 {
                     key: 'tools',
                     icon: <AppstoreOutlined />,
                     label: '应用管理',
+                },
+                {
+                    key: 'app_permissions',
+                    icon: <KeyOutlined />,
+                    label: '应用权限',
                 },
             ],
         },
@@ -128,6 +142,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     key: 'org',
                     icon: <AppstoreOutlined />,
                     label: '组织机构',
+                },
+                {
+                    key: 'users',
+                    icon: <UserOutlined />,
+                    label: '系统账户',
+                },
+                {
+                    key: 'roles',
+                    icon: <SafetyCertificateOutlined />,
+                    label: '角色管理',
                 },
             ],
         },
@@ -155,16 +179,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     icon: <SafetyCertificateOutlined />,
                     label: '安全设置',
                 },
-                {
-                    key: 'users',
-                    icon: <UserOutlined />,
-                    label: '账户管理',
-                },
-                {
-                    key: 'roles',
-                    icon: <SafetyCertificateOutlined />,
-                    label: '角色管理',
-                },
+
                 {
                     key: 'settings',
                     icon: <SettingOutlined />,

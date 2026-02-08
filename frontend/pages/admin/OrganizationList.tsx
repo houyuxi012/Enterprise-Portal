@@ -194,9 +194,7 @@ const OrganizationList: React.FC = () => {
                                 {/* Header */}
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                            <Building2 size={28} className="text-white" />
-                                        </div>
+
                                         <div>
                                             <h2 className="text-xl font-black text-slate-900 dark:text-white">{selectedDept.name}</h2>
                                             <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
@@ -265,7 +263,7 @@ const OrganizationList: React.FC = () => {
                                                     className="bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl flex justify-between items-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors group"
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <Folder size={16} className="text-blue-500" />
+
                                                         <span className="font-medium text-slate-700 dark:text-slate-200">{child.name}</span>
                                                         {child.manager && <Tag>{child.manager}</Tag>}
                                                     </div>

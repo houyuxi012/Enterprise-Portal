@@ -4,6 +4,8 @@ import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles } 
 import { useAuth } from '../../contexts/AuthContext';
 import ApiClient from '../../services/api';
 
+import { AppModal, AppButton } from '../../components/admin';
+
 interface AdminLoginProps {
     onLoginSuccess: () => void;
 }
@@ -17,6 +19,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
+    const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
     React.useEffect(() => {
         const fetchConfig = async () => {
@@ -196,14 +199,38 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         <div className="flex items-center space-x-1">
                             <span>© 2025 侯钰熙. All Rights Reserved.</span>
                         </div>
-                        <a href="#" className="hover:text-slate-500 transition-colors">隐私权政策</a>
+                        <a
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); setIsPrivacyOpen(true); }}
+                            className="hover:text-slate-500 transition-colors"
+                        >
+                            隐私权政策
+                        </a>
                     </div>
 
                 </div>
             </div>
+
+            <AppModal
+                title="隐私权政策"
+                open={isPrivacyOpen}
+                onCancel={() => setIsPrivacyOpen(false)}
+                footer={[
+                    <AppButton key="close" onClick={() => setIsPrivacyOpen(false)}>
+                        已阅读并关闭
+                    </AppButton>
+                ]}
+                width={700}
+                styles={{ body: { maxHeight: '60vh', overflowY: 'auto' } }}
+            >
+                <div className="prose prose-slate dark:prose-invert max-w-none p-4 whitespace-pre-wrap text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {systemConfig.privacy_policy || '暂无隐私政策内容。请在系统设置中配置。'}
+                </div>
+            </AppModal>
         </div>
     );
 };
+
 
 // Start Icon Helper (since I used MailIcon above but didn't import distinct one, usually just Mail)
 const MailIcon: React.FC<{ size?: number }> = ({ size }) => (

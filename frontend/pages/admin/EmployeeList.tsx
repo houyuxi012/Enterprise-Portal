@@ -58,7 +58,7 @@ const EmployeeList: React.FC = () => {
         return depts.map(dept => ({
             title: (
                 <div className="flex items-center gap-2 py-1">
-                    <span className="font-medium">{dept.name}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{dept.name}</span>
                     <span className="text-xs text-slate-400">
                         ({countEmployeesInDept(dept.name, employees)})
                     </span>
@@ -86,7 +86,7 @@ const EmployeeList: React.FC = () => {
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteEmployee(id);
-            message.success('员工已删除');
+            message.success('用户已删除');
             fetchData();
         } catch (error) {
             message.error('删除失败');
@@ -97,7 +97,7 @@ const EmployeeList: React.FC = () => {
         if (selectedRowKeys.length === 0) return;
 
         modal.confirm({
-            title: `确定删除选中的 ${selectedRowKeys.length} 位员工吗？`,
+            title: `确定删除选中的 ${selectedRowKeys.length} 位用户吗？`,
             content: '此操作不可恢复。',
             okText: '确认删除',
             okButtonProps: { danger: true },
@@ -122,7 +122,7 @@ const EmployeeList: React.FC = () => {
         if (selectedRowKeys.length === 0) return;
 
         modal.confirm({
-            title: `确定重置选中的 ${selectedRowKeys.length} 位员工的密码吗？`,
+            title: `确定重置选中的 ${selectedRowKeys.length} 位用户的密码吗？`,
             content: '密码将被重置为默认密码 123456。',
             okText: '确认重置',
             cancelText: '取消',
@@ -173,10 +173,10 @@ const EmployeeList: React.FC = () => {
         try {
             if (editingEmployee) {
                 await ApiClient.updateEmployee(Number(editingEmployee.id), values);
-                message.success('员工信息更新成功');
+                message.success('用户信息更新成功');
             } else {
                 await ApiClient.createEmployee(values);
-                message.success('员工创建成功');
+                message.success('用户创建成功');
             }
             setIsModalOpen(false);
             fetchData();
@@ -287,11 +287,11 @@ const EmployeeList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="员工管理"
-                subtitle="管理企业员工基本信息与职位"
+                title="用户管理"
+                subtitle="管理企业用户基本信息与职位"
                 action={
                     <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
-                        新增员工
+                        新增用户
                     </AppButton>
                 }
             />
@@ -311,16 +311,7 @@ const EmployeeList: React.FC = () => {
                     >
                         <div className="max-h-[600px] overflow-y-auto pr-2">
                             {/* Global Filter Option */}
-                            <div
-                                className={`px-4 py-2 cursor-pointer rounded-lg mb-2 transition-colors flex justify-between items-center ${!selectedDeptName ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
-                                onClick={() => setSelectedDeptName(null)}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <FolderOutlined />
-                                    全部部门
-                                </span>
-                                <span className="text-xs bg-slate-200 dark:bg-slate-700 px-1.5 rounded-full text-slate-500 dark:text-slate-300">{employees.length}</span>
-                            </div>
+
 
                             {deptTreeData.length > 0 ? (
                                 <Tree
@@ -391,7 +382,7 @@ const EmployeeList: React.FC = () => {
                             dataSource={filteredData}
                             rowKey="id" // Employee ID is string in types, but number in backend? Need to be careful. Types say string.
                             loading={loading}
-                            emptyText="暂无员工数据"
+                            emptyText="暂无用户数据"
                             pageSize={10}
                         />
                     </Card>
@@ -400,12 +391,12 @@ const EmployeeList: React.FC = () => {
 
             {/* Edit/Create Modal */}
             <AppModal
-                title={editingEmployee ? '编辑员工' : '新增员工'}
+                title={editingEmployee ? '编辑用户' : '新增用户'}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 onOk={() => form.submit()}
                 confirmLoading={submitting}
-                okText={editingEmployee ? '保存修改' : '创建员工'}
+                okText={editingEmployee ? '保存修改' : '创建用户'}
                 width={700}
             >
                 <AppForm form={form} onFinish={handleSubmit} initialValues={{ gender: '男' }}>

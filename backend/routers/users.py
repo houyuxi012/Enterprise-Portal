@@ -76,8 +76,6 @@ async def create_user(
     
     db.add(db_user)
     await db.commit()
-    await db.commit()
-    # await db.refresh(db_user) 
     # Re-fetch with eager roles to support 'role' property access without MissingGreenlet
     result = await db.execute(
         select(models.User)
@@ -96,15 +94,7 @@ async def create_user(
         detail={"email": db_user.email, "role": db_user.role},
         ip_address=ip, trace_id=trace_id
     )
-    await AuditService.log_business_action(
-        db, 
-        user_id=current_user.id, 
-        username=current_user.username, 
-        action="CREATE_USER", 
-        target=f"用户:{db_user.username}", 
-        ip_address=ip,
-        trace_id=trace_id
-    )
+
     await db.commit()
 
     # Re-fetch with roles loaded
@@ -146,16 +136,7 @@ async def delete_user(
         target_id=user_id, target_name=target_name,
         ip_address=ip, trace_id=trace_id
      )
-     await AuditService.log_business_action(
-        db,
-        user_id=current_user.id,
-        username=current_user.username,
-        action="DELETE_USER",
-        target=f"用户:{target_name}",
-        detail=f"Deleted user id={user_id}",
-        ip_address=ip,
-        trace_id=trace_id
-    )
+
      await db.commit()
 
 @router.put("/{user_id}", response_model=schemas.User, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
@@ -215,15 +196,7 @@ async def update_user(
         db, operator=current_user, target_username=user.username,
         changes=update_data, ip_address=ip, trace_id=trace_id
     )
-    await AuditService.log_business_action(
-        db, 
-        user_id=current_user.id, 
-        username=current_user.username, 
-        action="UPDATE_USER", 
-        target=f"用户:{user.username}", 
-        ip_address=ip,
-        trace_id=trace_id
-    )
+
         
     await db.commit()
     await db.refresh(user)
@@ -264,15 +237,7 @@ async def reset_password(
         target_id=user.id, target_name=user.username,
         ip_address=ip, trace_id=trace_id
     )
-    await AuditService.log_business_action(
-        db, 
-        user_id=current_user.id, 
-        username=current_user.username, 
-        action="RESET_PASSWORD", 
-        target=f"用户:{user.username}", 
-        ip_address=ip,
-        trace_id=trace_id
-    )
+
     
     await db.commit()
     return {"message": f"Password for {user.username} has been reset"}

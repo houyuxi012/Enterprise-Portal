@@ -28,6 +28,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import NewsList from './pages/admin/NewsList';
 import EmployeeList from './pages/admin/EmployeeList';
 import ToolList from './pages/admin/ToolList';
+import AppPermissions from './pages/admin/AppPermissions';
 import CarouselList from './pages/admin/CarouselList';
 import AnnouncementList from './pages/admin/AnnouncementList';
 import SystemSettings from './pages/admin/SystemSettings';
@@ -85,7 +86,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -662,6 +663,7 @@ const App: React.FC = () => {
         {activeAdminTab === 'users' && <UserList />}
         {activeAdminTab === 'roles' && <RoleList />}
         {activeAdminTab === 'tools' && <ToolList />}
+        {activeAdminTab === 'app_permissions' && <AppPermissions />}
         {activeAdminTab === 'settings' && <SystemSettings />}
         {activeAdminTab === 'security' && <SecuritySettings />}
         {activeAdminTab === 'org' && <OrganizationList />}

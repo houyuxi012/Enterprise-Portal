@@ -19,7 +19,7 @@ const ModelConfig: React.FC = () => {
             const data = await ApiClient.getAIProviders();
             setProviders(data);
         } catch (error) {
-            message.error('Failed to fetch providers');
+            message.error('获取模型列表失败');
         } finally {
             setLoading(false);
         }
@@ -44,10 +44,10 @@ const ModelConfig: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteAIProvider(id);
-            message.success('Provider deleted');
+            message.success('模型已删除');
             fetchProviders();
         } catch (error) {
-            message.error('Failed to delete provider');
+            message.error('删除模型失败');
         }
     };
 
@@ -60,22 +60,22 @@ const ModelConfig: React.FC = () => {
 
             if (editingProvider) {
                 await ApiClient.updateAIProvider(editingProvider.id, values);
-                message.success('Provider updated');
+                message.success('模型已更新');
             } else {
                 await ApiClient.createAIProvider(values);
-                message.success('Provider created');
+                message.success('模型已创建');
             }
             setIsModalVisible(false);
             fetchProviders();
         } catch (error) {
             console.error(error);
-            message.error('Operation failed');
+            message.error('操作失败');
         }
     };
 
     const columns = [
         {
-            title: 'Name',
+            title: '模型名称',
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: AIProvider) => (
@@ -86,7 +86,7 @@ const ModelConfig: React.FC = () => {
             )
         },
         {
-            title: 'Type',
+            title: '厂商类型',
             dataIndex: 'type',
             key: 'type',
             render: (text: string) => {
@@ -101,7 +101,7 @@ const ModelConfig: React.FC = () => {
             }
         },
         {
-            title: 'Model',
+            title: '模型标识',
             dataIndex: 'model',
             key: 'model',
             render: (text: string) => (
@@ -111,15 +111,15 @@ const ModelConfig: React.FC = () => {
             )
         },
         {
-            title: 'Status',
+            title: '状态',
             dataIndex: 'is_active',
             key: 'is_active',
             render: (isActive: boolean) => (
-                <Badge status={isActive ? 'success' : 'default'} text={isActive ? 'Enabled' : 'Disabled'} />
+                <Badge status={isActive ? 'success' : 'default'} text={isActive ? '已启用' : '已禁用'} />
             )
         },
         {
-            title: 'Actions',
+            title: '操作',
             key: 'actions',
             render: (_: any, record: AIProvider) => (
                 <div className="flex gap-1">
@@ -160,18 +160,18 @@ const ModelConfig: React.FC = () => {
                     <AppButton key="test" intent="secondary" icon={<ApiOutlined />} onClick={async () => {
                         try {
                             const values = await form.validateFields();
-                            const hide = message.loading('Testing connection...', 0);
+                            const hide = message.loading('正在测试连接...', 0);
                             try {
                                 const res = await ApiClient.testAIProvider(values);
                                 hide();
                                 if (res.status === 'success') {
-                                    message.success('Connection successful');
+                                    message.success('连接成功');
                                 } else {
-                                    message.error(res.message || 'Connection failed');
+                                    message.error(res.message || '连接失败');
                                 }
                             } catch (err: any) {
                                 hide();
-                                message.error(err.response?.data?.detail || 'Connection failed');
+                                message.error(err.response?.data?.detail || '连接失败');
                             }
                         } catch (e) {
                             // Validation failed
