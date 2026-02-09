@@ -15,13 +15,22 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[schemas.Employee])
-async def read_employees(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def read_employees(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     result = await db.execute(select(models.Employee).offset(skip).limit(limit))
     employees = result.scalars().all()
     return employees
 
 @router.get("/{employee_id}", response_model=schemas.Employee)
-async def read_employee(employee_id: int, db: AsyncSession = Depends(get_db)):
+async def read_employee(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
     employee = result.scalars().first()
     if employee is None:

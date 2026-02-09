@@ -27,7 +27,7 @@ async def read_system_logs(
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.logs.system.read"))
 ):
     query = select(models.SystemLog).order_by(desc(models.SystemLog.id))
     if level:

@@ -18,6 +18,8 @@ SYSTEM_PERMISSIONS = {
     "sys:user:view": "查看用户及角色",
     "sys:user:edit": "管理用户及角色",
     "sys:user:reset_pwd": "重置用户密码",
+    "sys:role:view": "查看角色与权限",
+    "sys:role:edit": "管理角色与权限",
     "content:news:edit": "管理新闻资讯",
     "content:announcement:edit": "管理通知公告",
     "content:tool:edit": "管理应用工具",

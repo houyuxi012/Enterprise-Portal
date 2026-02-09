@@ -3,10 +3,11 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
-from typing import List, Optional
+from typing import List
 from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest, AIModelOption
 from database import get_db
 from dependencies import PermissionChecker
+from routers.auth import get_current_user
 from models import Employee, NewsItem, QuickTool, AIProvider, User
 from services.ai_engine import AIEngine
 from middleware.trace_context import get_trace_id
@@ -19,7 +20,10 @@ router = APIRouter(
 )
 
 @router.get("/models", response_model=List[AIModelOption])
-async def get_models(db: AsyncSession = Depends(get_db)):
+async def get_models(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     result = await db.execute(select(AIProvider).where(AIProvider.is_active == True))
     providers = result.scalars().all()
     return [
@@ -58,20 +62,21 @@ async def test_provider(
         raise HTTPException(status_code=400, detail="Provider test failed")
 
 @router.post("/chat", response_model=AIChatResponse)
-async def chat(request_body: AIChatRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def chat(
+    request_body: AIChatRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
         query = request_body.prompt.lower()
         context_parts = []
         
         # 提取用户信息用于审计
-        user_id = None
+        user_id = current_user.id
         user_ip = request.client.host if request.client else None
         trace_id = get_trace_id()
         session_id = request.cookies.get("session_id")
-        
-        # 尝试从 request.state 获取用户 ID (由 Auth 中间件设置)
-        if hasattr(request.state, "user") and request.state.user:
-            user_id = request.state.user.id
         
         engine = AIEngine(
             db, 
@@ -131,7 +136,12 @@ async def chat(request_body: AIChatRequest, request: Request, db: AsyncSession =
         context = "\n\n".join(context_parts)
         
         # 3. Get AI Response via Engine (with audit logging)
-        response_text = await engine.chat(request_body.prompt, context, model_id=request_body.model_id)
+        response_text = await engine.chat(
+            request_body.prompt,
+            context,
+            model_id=request_body.model_id,
+            image_url=request_body.image_url,
+        )
         
         return AIChatResponse(response=response_text)
         

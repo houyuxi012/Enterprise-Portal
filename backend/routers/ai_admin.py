@@ -8,7 +8,7 @@ from datetime import datetime
 from database import get_db
 import models
 import schemas
-from routers.auth import get_current_user
+from dependencies import PermissionChecker
 from fastapi import Request
 import uuid
 from services.audit_service import AuditService
@@ -17,7 +17,7 @@ from services.crypto_service import CryptoService
 router = APIRouter(
     prefix="/ai/admin",
     tags=["ai-admin"],
-    dependencies=[Depends(get_current_user)] # Ideally check for admin role
+    dependencies=[Depends(PermissionChecker("sys:settings:view"))]
 )
 
 # --- Providers Management ---
@@ -32,7 +32,7 @@ async def create_provider(
     request: Request,
     provider: schemas.AIProviderCreate, 
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     # Check duplicate name
     existing = await db.execute(select(models.AIProvider).where(models.AIProvider.name == provider.name))
@@ -95,7 +95,7 @@ async def update_provider(
     request: Request,
     provider: schemas.AIProviderUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     db_provider = await db.get(models.AIProvider, id)
     if not db_provider:
@@ -160,7 +160,7 @@ async def delete_provider(
     id: int, 
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     db_provider = await db.get(models.AIProvider, id)
     if not db_provider:
@@ -200,7 +200,7 @@ async def create_policy(
     request: Request,
     policy: schemas.AISecurityPolicyCreate, 
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     existing = await db.execute(select(models.AISecurityPolicy).where(models.AISecurityPolicy.name == policy.name))
     if existing.scalars().first():
@@ -236,7 +236,7 @@ async def update_policy(
     request: Request,
     policy: schemas.AISecurityPolicyUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     db_policy = await db.get(models.AISecurityPolicy, id)
     if not db_policy:
@@ -270,7 +270,7 @@ async def delete_policy(
     id: int, 
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     db_policy = await db.get(models.AISecurityPolicy, id)
     if not db_policy:
@@ -405,7 +405,7 @@ async def update_quota(
     quota: schemas.AIModelQuotaCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     # Check if exists
     result = await db.execute(select(models.AIModelQuota).where(models.AIModelQuota.model_name == quota.model_name))

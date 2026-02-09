@@ -127,6 +127,7 @@ class IAMAuditService:
     async def log_logout(
         db: AsyncSession,
         username: str,
+        user_id: int = None,
         ip_address: str = None,
         user_agent: str = None
     ):
@@ -134,6 +135,7 @@ class IAMAuditService:
             db=db,
             action="iam.logout",
             target_type="session",
+            user_id=user_id,
             username=username,
             target_name=username,
             ip_address=ip_address,

@@ -4,7 +4,6 @@ from sqlalchemy import select
 from typing import Dict
 import database
 import models
-from routers.auth import get_current_user
 from dependencies import PermissionChecker
 from fastapi import Request
 from services.audit_service import AuditService
@@ -22,18 +21,18 @@ router = APIRouter(
 @router.get("/config", response_model=Dict[str, str])
 async def get_system_config(
     db: AsyncSession = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    _: models.User = Depends(PermissionChecker("sys:settings:view"))
 ):
     result = await db.execute(select(models.SystemConfig))
     configs = result.scalars().all()
     return {c.key: c.value for c in configs}
 
-@router.post("/config", response_model=Dict[str, str], dependencies=[Depends(PermissionChecker("sys:settings:edit"))])
+@router.post("/config", response_model=Dict[str, str])
 async def update_system_config(
     request: Request,
     config: Dict[str, str], 
     db: AsyncSession = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     # Permission checked by dependency
     
@@ -80,7 +79,10 @@ async def update_system_config(
     return {c.key: c.value for c in configs}
 
 @router.get("/info")
-async def get_system_info(db: AsyncSession = Depends(database.get_db)):
+async def get_system_info(
+    db: AsyncSession = Depends(database.get_db),
+    _: models.User = Depends(PermissionChecker("sys:settings:view"))
+):
     """
     Get system version and status information.
     """
@@ -109,7 +111,9 @@ _last_net_io = None
 _last_net_time = None
 
 @router.get("/resources", response_model=schemas.SystemResources)
-async def get_system_resources():
+async def get_system_resources(
+    _: models.User = Depends(PermissionChecker("sys:settings:view"))
+):
     global _last_net_io, _last_net_time
     
     # 1. CPU
@@ -159,7 +163,7 @@ async def get_system_resources():
 from services.storage import storage
 
 @router.get("/storage")
-async def get_storage_stats(current_user: models.User = Depends(get_current_user)):
+async def get_storage_stats(_: models.User = Depends(PermissionChecker("sys:settings:view"))):
     """
     Get storage usage statistics from MinIO or Local storage.
     Returns: used_bytes, total_bytes, free_bytes, used_percent, bucket_count, object_count.
@@ -167,11 +171,11 @@ async def get_storage_stats(current_user: models.User = Depends(get_current_user
     return storage.get_stats()
 
 
-@router.post("/optimize-storage", dependencies=[Depends(PermissionChecker("sys:settings:edit"))])
+@router.post("/optimize-storage")
 async def optimize_storage(
     request: Request,
     db: AsyncSession = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
     """
     Trigger immediate log cleanup + database optimization.

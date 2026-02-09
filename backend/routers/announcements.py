@@ -14,7 +14,10 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[schemas.Announcement])
-async def read_announcements(db: AsyncSession = Depends(get_db)):
+async def read_announcements(
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     result = await db.execute(select(models.Announcement))
     return result.scalars().all()
 

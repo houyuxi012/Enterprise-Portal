@@ -152,14 +152,8 @@ async def login_handler(
 # ========== Logout Handler ==========
 async def logout_handler(response: Response):
     """核心登出逻辑"""
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        domain=utils.COOKIE_DOMAIN,
-        secure=utils.COOKIE_SECURE,
-        samesite=utils.COOKIE_SAMESITE
-    )
-    return {"message": "Logout successful"}
+    from iam.identity.service import IdentityService
+    return await IdentityService.logout(response)
 
 
 # ========== Me Handler ==========
@@ -197,8 +191,13 @@ async def login_for_access_token(
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    return await logout_handler(response)
+async def logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    from iam.identity.service import IdentityService
+    return await IdentityService.logout(response, request=request, db=db)
 
 
 @router.get("/me", response_model=schemas.UserMeResponse)

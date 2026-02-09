@@ -26,9 +26,13 @@ async def login(
 
 
 @router.post("/logout", response_model=LogoutResponse)
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     """用户登出"""
-    return await IdentityService.logout(response)
+    return await IdentityService.logout(response, request=request, db=db)
 
 
 @router.get("/me", response_model=UserMeResponse)

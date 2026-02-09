@@ -207,9 +207,33 @@ class IdentityService:
         return {"message": "Login successful", "token_type": "bearer"}
     
     @staticmethod
-    async def logout(response: Response) -> dict:
+    async def logout(
+        response: Response,
+        request: Request | None = None,
+        db: AsyncSession | None = None
+    ) -> dict:
         """登出核心逻辑"""
         import utils
+        from iam.audit.service import IAMAuditService
+
+        if request and db:
+            try:
+                current_user = await IdentityService.get_current_user(request, db)
+                ip = request.client.host if request.client else "unknown"
+                user_agent = request.headers.get("User-Agent", "unknown")
+                await IAMAuditService.log_logout(
+                    db,
+                    username=current_user.username,
+                    user_id=current_user.id,
+                    ip_address=ip,
+                    user_agent=user_agent,
+                )
+                await db.commit()
+            except HTTPException:
+                # Logout should still succeed even if token is already invalid.
+                pass
+            except Exception as e:
+                logger.warning("Failed to write logout audit log: %s", e)
         
         response.delete_cookie(
             key="access_token",

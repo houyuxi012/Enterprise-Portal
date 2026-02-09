@@ -7,6 +7,7 @@ import database
 import models
 import schemas
 from iam.deps import PermissionChecker
+from routers.auth import get_current_user
 
 router = APIRouter(
     prefix="/carousel",
@@ -15,7 +16,10 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[schemas.CarouselItem])
-async def get_carousel_items(db: AsyncSession = Depends(database.get_db)):
+async def get_carousel_items(
+    db: AsyncSession = Depends(database.get_db),
+    _: models.User = Depends(get_current_user),
+):
     result = await db.execute(select(models.CarouselItem).filter(models.CarouselItem.is_active == True).order_by(models.CarouselItem.sort_order))
     return result.scalars().all()
 
