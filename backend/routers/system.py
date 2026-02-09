@@ -20,7 +20,10 @@ router = APIRouter(
 )
 
 @router.get("/config", response_model=Dict[str, str])
-async def get_system_config(db: AsyncSession = Depends(database.get_db)):
+async def get_system_config(
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     result = await db.execute(select(models.SystemConfig))
     configs = result.scalars().all()
     return {c.key: c.value for c in configs}
@@ -164,3 +167,35 @@ async def get_storage_stats(current_user: models.User = Depends(get_current_user
     return storage.get_stats()
 
 
+@router.post("/optimize-storage", dependencies=[Depends(PermissionChecker("sys:settings:edit"))])
+async def optimize_storage(
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Trigger immediate log cleanup + database optimization.
+    """
+    from services.log_storage import cleanup_logs, optimize_database
+
+    await cleanup_logs(database.SessionLocal)
+    optimize_ok = await optimize_database(database.SessionLocal, database.engine)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="OPTIMIZE_STORAGE",
+        target="日志与数据库",
+        detail=f"optimize_database_success={optimize_ok}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+
+    return {
+        "ok": optimize_ok,
+        "message": "Storage optimization completed" if optimize_ok else "Storage cleanup completed, database optimize partially failed"
+    }

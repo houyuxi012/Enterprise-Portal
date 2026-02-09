@@ -487,7 +487,7 @@ async def read_ai_audit_logs(
 async def get_ai_audit_detail(
     event_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """Get detailed AI audit log by event_id"""
     result = await db.execute(
@@ -503,7 +503,7 @@ async def get_ai_audit_detail(
 async def get_ai_audit_stats(
     days: int = 7,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """Get AI audit statistics summary"""
     from sqlalchemy import func
@@ -640,4 +640,3 @@ async def get_ai_audit_stats(
         "total_tokens_prev": total_tokens_prev,
         "trend_percentage": round(trend_percentage, 1)
     }
-

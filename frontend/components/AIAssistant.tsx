@@ -147,8 +147,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     // Upload image if selected
     if (selectedImage) {
       try {
-        const result = await ApiClient.uploadImage(selectedImage);
-        imageUrl = result.url;
+        imageUrl = await ApiClient.uploadImage(selectedImage);
       } catch (e) {
         console.error("Upload failed", e);
         setMessages(prev => [...prev, { role: 'user', text: userMsg }, { role: 'ai', text: "❌ 图片上传失败，请重试。" }]);

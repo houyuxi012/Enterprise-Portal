@@ -1,8 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Spin } from 'antd';
-import Navbar from './components/Navbar';
-import Dashboard from './components/Dashboard';
-import AIAssistant from './components/AIAssistant';
 import { AppView, Employee, NewsItem, QuickToolDTO } from './types';
 import ApiClient from './services/api';
 import { getIcon } from './utils/iconMap';
@@ -10,7 +7,6 @@ import { getColorClass } from './utils/colorMap';
 import {
   Mail, Monitor, Moon, Sun, Laptop, Sparkles
 } from 'lucide-react';
-import { TeamOutlined } from '@ant-design/icons';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -18,40 +14,43 @@ interface FilterState {
   departments: string[];
 }
 
-import Login from './pages/Login';
-import AdminLogin from './pages/admin/AdminLogin';
 import { useAuth } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
 
-import AdminLayout from './layouts/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import NewsList from './pages/admin/NewsList';
-import EmployeeList from './pages/admin/EmployeeList';
-import ToolList from './pages/admin/ToolList';
-import AppPermissions from './pages/admin/AppPermissions';
-import CarouselList from './pages/admin/CarouselList';
-import AnnouncementList from './pages/admin/AnnouncementList';
-import SystemSettings from './pages/admin/SystemSettings';
-import SecuritySettings from './pages/admin/SecuritySettings';
+const Navbar = lazy(() => import('./components/Navbar'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AIAssistant = lazy(() => import('./components/AIAssistant'));
+const Login = lazy(() => import('./pages/Login'));
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const NewsList = lazy(() => import('./pages/admin/NewsList'));
+const EmployeeList = lazy(() => import('./pages/admin/EmployeeList'));
+const ToolList = lazy(() => import('./pages/admin/ToolList'));
+const AppPermissions = lazy(() => import('./pages/admin/AppPermissions'));
+const CarouselList = lazy(() => import('./pages/admin/CarouselList'));
+const AnnouncementList = lazy(() => import('./pages/admin/AnnouncementList'));
+const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'));
+const SecuritySettings = lazy(() => import('./pages/admin/SecuritySettings'));
+const UserList = lazy(() => import('./pages/admin/UserList'));
+const RoleList = lazy(() => import('./pages/admin/RoleList'));
+const OrganizationList = lazy(() => import('./pages/admin/OrganizationList'));
+const BusinessLogs = lazy(() => import('./pages/admin/BusinessLogs'));
+const AccessLogs = lazy(() => import('./pages/admin/logs/AccessLogs'));
+const AboutUs = lazy(() => import('./pages/admin/AboutUs'));
+const LogForwarding = lazy(() => import('./pages/admin/LogForwarding'));
+const LogStorage = lazy(() => import('./pages/admin/LogStorage'));
+const AIAudit = lazy(() => import('./pages/admin/logs/AIAudit'));
+const ModelConfig = lazy(() => import('./pages/admin/ai/ModelConfig'));
+const SecurityPolicy = lazy(() => import('./pages/admin/ai/SecurityPolicy'));
+const AISettings = lazy(() => import('./pages/admin/ai/AISettings'));
+const ModelUsagePage = lazy(() => import('./pages/admin/ai/ModelUsagePage'));
+const IAMAuditLogs = lazy(() => import('./pages/iam/AuditLogs'));
 
-import UserList from './pages/admin/UserList';
-import RoleList from './pages/admin/RoleList';
-
-import OrganizationList from './pages/admin/OrganizationList';
-
-import SystemLogs from './pages/admin/SystemLogs';
-import BusinessLogs from './pages/admin/BusinessLogs';
-import AccessLogs from './pages/admin/logs/AccessLogs';
-import AboutUs from './pages/admin/AboutUs';
-import LogForwarding from './pages/admin/LogForwarding';
-import LogStorage from './pages/admin/LogStorage';
-import AIAudit from './pages/admin/logs/AIAudit';
-import ApplicationLogs from './pages/admin/ApplicationLogs';
-import ModelConfig from './pages/admin/ai/ModelConfig';
-import SecurityPolicy from './pages/admin/ai/SecurityPolicy';
-import AISettings from './pages/admin/ai/AISettings';
-import ModelUsagePage from './pages/admin/ai/ModelUsagePage';
-import IAMAuditLogs from './pages/iam/AuditLogs';
+const SuspenseFallback: React.FC<{ fullScreen?: boolean }> = ({ fullScreen = false }) => (
+  <div className={fullScreen ? 'min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900' : 'flex items-center justify-center py-16'}>
+    <Spin size="large" />
+  </div>
+);
 
 const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: string }> = ({ src, name, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
@@ -139,34 +138,36 @@ const App: React.FC = () => {
         setIsAdminMode(true);
       }
 
-      // Fetch App Data
-      try {
-        const fetchedEmployees = await ApiClient.getEmployees();
-        setEmployees(fetchedEmployees);
-      } catch (e) {
-        console.error("Failed to fetch employees", e);
+      const [employeesResult, newsResult, toolsResult, configResult] = await Promise.allSettled([
+        ApiClient.getEmployees(),
+        ApiClient.getNews(),
+        ApiClient.getTools(),
+        ApiClient.getSystemConfig(),
+      ]);
+
+      if (employeesResult.status === 'fulfilled') {
+        setEmployees(employeesResult.value);
+      } else {
+        console.error('Failed to fetch employees', employeesResult.reason);
       }
 
-      try {
-        const fetchedNews = await ApiClient.getNews();
-        setNewsList(fetchedNews);
-      } catch (e) {
-        console.error("Failed to fetch news", e);
+      if (newsResult.status === 'fulfilled') {
+        setNewsList(newsResult.value);
+      } else {
+        console.error('Failed to fetch news', newsResult.reason);
       }
 
-      try {
-        const fetchedTools = await ApiClient.getTools();
-        setTools(fetchedTools);
-      } catch (e) {
-        console.error("Failed to fetch tools", e);
+      if (toolsResult.status === 'fulfilled') {
+        setTools(toolsResult.value);
+      } else {
+        console.error('Failed to fetch tools', toolsResult.reason);
       }
 
-      let fetchedConfig: any = {};
-      try {
-        fetchedConfig = await ApiClient.getSystemConfig();
+      const fetchedConfig = configResult.status === 'fulfilled' ? configResult.value : {};
+      if (configResult.status === 'fulfilled') {
         setSystemConfig(fetchedConfig);
-      } catch (e) {
-        console.error("Failed to fetch config", e);
+      } else {
+        console.error('Failed to fetch config', configResult.reason);
       }
 
       // Apply Config
@@ -187,7 +188,7 @@ const App: React.FC = () => {
     };
 
     fetchAppData();
-  }, [isAuthenticated, currentUser]);
+  }, [isAuthenticated, currentUser?.role]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -632,87 +633,105 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-      return <AdminLogin onLoginSuccess={() => {
-        // Auth state is updated via context after successful login
-        setIsAdminMode(true);
-      }} />;
+      return (
+        <Suspense fallback={<SuspenseFallback fullScreen />}>
+          <AdminLogin onLoginSuccess={() => {
+            // Auth state is updated via context after successful login
+            setIsAdminMode(true);
+          }} />
+        </Suspense>
+      );
     }
-    return <Login onLoginSuccess={() => {
-      // Auth state is updated via context after successful login
-    }} />;
+    return (
+      <Suspense fallback={<SuspenseFallback fullScreen />}>
+        <Login onLoginSuccess={() => {
+          // Auth state is updated via context after successful login
+        }} />
+      </Suspense>
+    );
   }
 
   if (isAdminMode) {
     return (
-      <AdminLayout
-        activeTab={activeAdminTab as any}
-        onTabChange={(tab: any) => setActiveAdminTab(tab)}
-        onExit={() => {
-          setIsAdminMode(false);
-          window.history.pushState({}, '', '/');
-        }}
-        footerText={systemConfig.footer_text}
-        logoUrl={systemConfig.logo_url}
-        appName={systemConfig.app_name}
-      >
-        {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
-        {activeAdminTab === 'news' && <NewsList />}
-        {activeAdminTab === 'carousel' && <CarouselList />}
-        {activeAdminTab === 'announcements' && <AnnouncementList />}
-        {activeAdminTab === 'employees' && <EmployeeList />}
-        {activeAdminTab === 'users' && <UserList />}
-        {activeAdminTab === 'roles' && <RoleList />}
-        {activeAdminTab === 'tools' && <ToolList />}
-        {activeAdminTab === 'app_permissions' && <AppPermissions />}
-        {activeAdminTab === 'settings' && <SystemSettings />}
-        {activeAdminTab === 'security' && <SecuritySettings />}
-        {activeAdminTab === 'org' && <OrganizationList />}
-        {activeAdminTab === 'business_logs' && <BusinessLogs />}
-        {activeAdminTab === 'access_logs' && <AccessLogs />}
-        {activeAdminTab === 'iam_audit_logs' && <IAMAuditLogs />}
-        {activeAdminTab === 'ai_audit' && <AIAudit />}
-        {activeAdminTab === 'log_forwarding' && <LogForwarding />}
-        {activeAdminTab === 'log_storage' && <LogStorage />}
-        {activeAdminTab === 'ai_models' && <ModelConfig />}
-        {activeAdminTab === 'ai_security' && <SecurityPolicy />}
-        {activeAdminTab === 'ai_settings' && <AISettings />}
-        {activeAdminTab === 'ai_usage' && <ModelUsagePage />}
-        {activeAdminTab === 'about_us' && <AboutUs />}
-      </AdminLayout >
+      <Suspense fallback={<SuspenseFallback fullScreen />}>
+        <AdminLayout
+          activeTab={activeAdminTab as any}
+          onTabChange={(tab: any) => setActiveAdminTab(tab)}
+          onExit={() => {
+            setIsAdminMode(false);
+            window.history.pushState({}, '', '/');
+          }}
+          footerText={systemConfig.footer_text}
+          logoUrl={systemConfig.logo_url}
+          appName={systemConfig.app_name}
+        >
+          {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
+          {activeAdminTab === 'news' && <NewsList />}
+          {activeAdminTab === 'carousel' && <CarouselList />}
+          {activeAdminTab === 'announcements' && <AnnouncementList />}
+          {activeAdminTab === 'employees' && <EmployeeList />}
+          {activeAdminTab === 'users' && <UserList />}
+          {activeAdminTab === 'roles' && <RoleList />}
+          {activeAdminTab === 'tools' && <ToolList />}
+          {activeAdminTab === 'app_permissions' && <AppPermissions />}
+          {activeAdminTab === 'settings' && <SystemSettings />}
+          {activeAdminTab === 'security' && <SecuritySettings />}
+          {activeAdminTab === 'org' && <OrganizationList />}
+          {activeAdminTab === 'business_logs' && <BusinessLogs />}
+          {activeAdminTab === 'access_logs' && <AccessLogs />}
+          {activeAdminTab === 'iam_audit_logs' && <IAMAuditLogs />}
+          {activeAdminTab === 'ai_audit' && <AIAudit />}
+          {activeAdminTab === 'log_forwarding' && <LogForwarding />}
+          {activeAdminTab === 'log_storage' && <LogStorage />}
+          {activeAdminTab === 'ai_models' && <ModelConfig />}
+          {activeAdminTab === 'ai_security' && <SecurityPolicy />}
+          {activeAdminTab === 'ai_settings' && <AISettings />}
+          {activeAdminTab === 'ai_usage' && <ModelUsagePage />}
+          {activeAdminTab === 'about_us' && <AboutUs />}
+        </AdminLayout>
+      </Suspense>
     );
   }
 
   // If authenticated but visiting /admin as non-admin, force Admin Login to allow switch
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-    return <AdminLogin onLoginSuccess={() => {
-      // Reload to refresh token and user state
-      window.location.reload();
-    }} />;
+    return (
+      <Suspense fallback={<SuspenseFallback fullScreen />}>
+        <AdminLogin onLoginSuccess={() => {
+          // Reload to refresh token and user state
+          window.location.reload();
+        }} />
+      </Suspense>
+    );
   }
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-600 selection:text-white transition-colors">
       {isAuthenticated && (
-        <Navbar
-          currentView={currentView}
-          setView={setCurrentView}
-          globalSearch={globalSearch}
-          setGlobalSearch={setGlobalSearch}
-          onAskAI={(prompt) => {
-            setIsAssistantOpen(true);
-            setAssistantInitialPrompt(prompt);
-          }}
-          onLogout={handleLogout}
-          tools={tools}
-          news={newsList}
-          employees={employees}
-          currentUser={currentUser}
-          systemConfig={systemConfig}
-        />
+        <Suspense fallback={<SuspenseFallback />}>
+          <Navbar
+            currentView={currentView}
+            setView={setCurrentView}
+            globalSearch={globalSearch}
+            setGlobalSearch={setGlobalSearch}
+            onAskAI={(prompt) => {
+              setIsAssistantOpen(true);
+              setAssistantInitialPrompt(prompt);
+            }}
+            onLogout={handleLogout}
+            tools={tools}
+            news={newsList}
+            employees={employees}
+            currentUser={currentUser}
+            systemConfig={systemConfig}
+          />
+        </Suspense>
       )}
       <main className="flex-1 mt-24 px-6 sm:px-8 pb-16">
         <div className="max-w-7xl mx-auto">
-          {renderView()}
+          <Suspense fallback={<SuspenseFallback />}>
+            {renderView()}
+          </Suspense>
         </div>
       </main>
 
@@ -721,11 +740,13 @@ const App: React.FC = () => {
         {systemConfig.footer_text || '© 2025 侯钰熙. All Rights Reserved.'}
       </footer>
 
-      <AIAssistant
-        isOpen={isAssistantOpen}
-        setIsOpen={setIsAssistantOpen}
-        initialPrompt={assistantInitialPrompt}
-      />
+      <Suspense fallback={null}>
+        <AIAssistant
+          isOpen={isAssistantOpen}
+          setIsOpen={setIsAssistantOpen}
+          initialPrompt={assistantInitialPrompt}
+        />
+      </Suspense>
     </div>
   );
 };

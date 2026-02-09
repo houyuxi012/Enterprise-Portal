@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Empty } from 'antd';
-import type { TableProps } from 'antd';
+import type { TablePaginationConfig, TableProps } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 
 export interface AppTableProps<T = any> extends Omit<TableProps<T>, 'pagination'> {
@@ -30,19 +30,18 @@ function AppTable<T extends object = any>({
     locale,
     ...rest
 }: AppTableProps<T>) {
-    const paginationConfig = showPagination
+    const paginationConfig: false | TablePaginationConfig = showPagination
         ? {
             pageSize,
             showSizeChanger: true,
             showTotal: (total: number) => `共 ${total} 条`,
-            size: 'default' as const,
         }
         : false;
 
-    const mergedRowClassName = (record: T, index: number) => {
+    const mergedRowClassName = (record: T, index: number, indent: number) => {
         const baseClass = 'app-table-row group';
         if (typeof rowClassName === 'function') {
-            return `${baseClass} ${rowClassName(record, index)}`;
+            return `${baseClass} ${rowClassName(record, index, indent)}`;
         }
         if (typeof rowClassName === 'string') {
             return `${baseClass} ${rowClassName}`;

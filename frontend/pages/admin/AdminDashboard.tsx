@@ -352,7 +352,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                             paddingAngle={0}
                                             dataKey="value"
                                             stroke="none"
-                                            activeIndex={activeStorageIndex !== null ? activeStorageIndex : undefined}
                                             activeShape={renderActiveShape}
                                             onClick={(_, index) => setActiveStorageIndex(index === activeStorageIndex ? null : index)}
                                             cursor="pointer"

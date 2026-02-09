@@ -76,6 +76,8 @@ async def upload_image(
         return {"url": url}
 
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.exception("Upload failed unexpectedly")
         raise HTTPException(status_code=500, detail="Image upload failed")
 
@@ -108,5 +110,4 @@ async def view_file(
         if not os.path.exists(file_path):
              raise HTTPException(status_code=404, detail="File not found")
         return FileResponse(file_path)
-
 

@@ -129,7 +129,7 @@ async def run_log_cleanup_scheduler(db_session_factory):
         # Run every hour
         await asyncio.sleep(3600)
 
-async def optimize_database(db_session_factory):
+async def optimize_database(db_session_factory, engine=None):
     """
     Performs database optimization:
     1. Creates missing indexes on timestamps (for existing DBs).
@@ -143,7 +143,7 @@ async def optimize_database(db_session_factory):
             # PostgreSQL specific syntax
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_system_logs_timestamp ON system_logs (timestamp)"))
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_business_logs_timestamp ON business_logs (timestamp)"))
-            await db.execute(text("CREATE INDEX IF NOT EXISTS ix_login_audit_logs_login_time ON login_audit_logs (login_time)"))
+            await db.execute(text("CREATE INDEX IF NOT EXISTS ix_login_audit_logs_created_at ON login_audit_logs (created_at)"))
             await db.commit()
             
             # 2. Run VACUUM & ANALYZE
@@ -155,16 +155,21 @@ async def optimize_database(db_session_factory):
             pass
         except Exception as e:
             logger.error(f"Error during index creation: {e}")
+            await db.rollback()
 
     # For VACUUM, use a separate connection with autocommit
     # This part depends on the engine/driver access. 
     # Since we are using asyncpg, we can try via engine.
     try:
         # We need to access the engine from the session factory binding or pass it in
-        engine = db_session_factory.kw['bind'] 
+        if engine is None:
+            engine = getattr(db_session_factory, "kw", {}).get("bind")
+        if engine is None:
+            logger.error("No database engine available for VACUUM")
+            return False
         async with engine.connect() as conn:
             # Set isolation level to AUTOCOMMIT for VACUUM
-            await conn.execution_options(isolation_level="AUTOCOMMIT")
+            conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
             await conn.execute(text("VACUUM"))
             await conn.execute(text("ANALYZE"))
             logger.info("Database optimization (VACUUM, ANALYZE) completed.")

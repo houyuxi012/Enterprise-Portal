@@ -3,13 +3,16 @@ import time
 import hashlib
 from typing import List, Optional
 import json
+import ipaddress
 import httpx
+import os
+import socket
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import models
-import models
 import services.gemini_service
 import re
+from urllib.parse import urlparse
 from google import genai
 from google.genai import types
 
@@ -244,18 +247,8 @@ class AIEngine:
             return response.text
 
         elif provider.type in ["openai", "deepseek", "qwen", "zhipu", "dashscope"]:
-            base_url = provider.base_url
-            if not base_url:
-                if provider.type == "deepseek": base_url = "https://api.deepseek.com/v1"
-                elif provider.type == "openai": base_url = "https://api.openai.com/v1"
-            
-            if not base_url.endswith("/v1") and not base_url.endswith("/chat/completions"):
-                 pass
-
-            if not base_url.endswith("/chat/completions"):
-                 url = f"{base_url}/chat/completions"
-            else:
-                 url = base_url
+            base_url = self._resolve_and_validate_base_url(provider.type, provider.base_url)
+            url = base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
 
             headers = {
                 "Authorization": f"Bearer {api_key}",
@@ -277,3 +270,66 @@ class AIEngine:
                 return data['choices'][0]['message']['content']
 
         return "Unsupported Provider Type"
+
+    @staticmethod
+    def _is_forbidden_ip(host: str) -> bool:
+        """Reject local/private/special addresses to mitigate SSRF."""
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return False
+        return any([
+            ip.is_loopback,
+            ip.is_private,
+            ip.is_link_local,
+            ip.is_multicast,
+            ip.is_reserved,
+            ip.is_unspecified,
+        ])
+
+    def _resolve_and_validate_base_url(self, provider_type: str, base_url: Optional[str]) -> str:
+        """
+        Enforce safe outbound provider URLs:
+        - HTTPS only
+        - no localhost/private/special destinations
+        """
+        defaults = {
+            "deepseek": "https://api.deepseek.com/v1",
+            "openai": "https://api.openai.com/v1",
+        }
+
+        resolved = (base_url or defaults.get(provider_type, "")).strip()
+        if not resolved:
+            raise ValueError("Missing provider base_url")
+
+        parsed = urlparse(resolved)
+        if parsed.scheme.lower() != "https":
+            raise ValueError("Only HTTPS provider base_url is allowed")
+
+        host = (parsed.hostname or "").strip().lower()
+        if not host:
+            raise ValueError("Invalid provider base_url host")
+
+        blocked_hostnames = {
+            "localhost",
+            "localhost.localdomain",
+            "host.docker.internal",
+            "gateway.docker.internal",
+        }
+        if host in blocked_hostnames or host.endswith(".local"):
+            raise ValueError("Provider base_url cannot target local/internal hosts")
+
+        allow_private = os.getenv("AI_PROVIDER_ALLOW_PRIVATE_NETWORK", "false").lower() == "true"
+        if not allow_private:
+            if self._is_forbidden_ip(host):
+                raise ValueError("Provider base_url cannot target private or special IP addresses")
+
+            try:
+                resolved_ips = {item[4][0].split("%")[0] for item in socket.getaddrinfo(host, None)}
+            except socket.gaierror as e:
+                raise ValueError("Provider base_url hostname could not be resolved") from e
+
+            if any(self._is_forbidden_ip(ip) for ip in resolved_ips):
+                raise ValueError("Provider base_url resolves to private or special IP addresses")
+
+        return resolved.rstrip("/")

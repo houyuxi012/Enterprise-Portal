@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -5,9 +6,12 @@ from sqlalchemy import or_
 from typing import List, Optional
 from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest, AIModelOption
 from database import get_db
-from models import Employee, NewsItem, QuickTool, AIProvider
+from dependencies import PermissionChecker
+from models import Employee, NewsItem, QuickTool, AIProvider, User
 from services.ai_engine import AIEngine
 from middleware.trace_context import get_trace_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ai",
@@ -28,7 +32,11 @@ async def get_models(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.post("/admin/providers/test")
-async def test_provider(request_body: AIProviderTestRequest, db: AsyncSession = Depends(get_db)):
+async def test_provider(
+    request_body: AIProviderTestRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("sys:settings:edit"))
+):
     try:
         engine = AIEngine(db)
         temp_provider = AIProvider(
@@ -42,9 +50,12 @@ async def test_provider(request_body: AIProviderTestRequest, db: AsyncSession = 
         
         response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
         return {"status": "success", "message": "Connection successful", "response": response}
-    except Exception as e:
-        print(f"Test Provider Error: {e}")
+    except ValueError as e:
+        logger.warning("Provider test blocked for user %s: %s", getattr(current_user, "username", "unknown"), e)
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Provider test failed for user %s", getattr(current_user, "username", "unknown"))
+        raise HTTPException(status_code=400, detail="Provider test failed")
 
 @router.post("/chat", response_model=AIChatResponse)
 async def chat(request_body: AIChatRequest, request: Request, db: AsyncSession = Depends(get_db)):
