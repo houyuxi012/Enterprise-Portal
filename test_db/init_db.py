@@ -5,8 +5,8 @@ import os
 # Add parent directory to sys.path to allow importing from backend modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import engine, Base, SessionLocal
-from models import Employee, NewsItem, QuickTool, Announcement, Department, User, Role, AIProvider, SystemConfig
-from sqlalchemy import select
+from models import Employee, NewsItem, QuickTool, Announcement, Department, User, Role, AIProvider, SystemConfig, user_roles
+from sqlalchemy import select, insert
 from datetime import datetime
 import os
 from utils import get_password_hash
@@ -214,9 +214,9 @@ async def init_db():
                 db.add(emp_user)
                 await db.flush()
                 
-                # Assign User Role
+                # Assign User Role via direct insert (avoid lazy-load in async)
                 if user_role:
-                    emp_user.roles.append(user_role)
+                    await db.execute(insert(user_roles).values(user_id=emp_user.id, role_id=user_role.id))
                 
                 print(f" > Created user: {emp_username}")
 
