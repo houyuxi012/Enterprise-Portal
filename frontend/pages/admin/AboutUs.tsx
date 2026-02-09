@@ -39,7 +39,7 @@ const AboutUs: React.FC = () => {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
                 <span className="text-[10px] font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-300 uppercase">
-                    Since 2018 · Leading Innovation
+                    零信任架构 · 身份驱动安全 · 全链路审计
                 </span>
             </div>
 
@@ -48,7 +48,7 @@ const AboutUs: React.FC = () => {
                 关于
             </h1>
             <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-8 text-center drop-shadow-sm">
-                ShiKu Home
+                Next-Gen Enterprise Portal
             </h1>
 
             {/* Description */}
