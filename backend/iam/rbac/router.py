@@ -19,7 +19,7 @@ router = APIRouter(prefix="/admin", tags=["iam-rbac"])
 
 
 # ========== Users CRUD ==========
-@router.get("/users", response_model=List[schemas.Role])
+@router.get("/users", response_model=List[schemas.UserOut])
 async def list_users(
     db: AsyncSession = Depends(get_db),
     _=Depends(PermissionChecker("sys:user:view"))
@@ -35,34 +35,63 @@ async def list_users(
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: Request,
-    user_data: dict,
+    user_data: schemas.UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:user:edit"))
 ):
-    existing = await db.execute(select(models.User).filter(models.User.username == user_data.get("username")))
+    existing = await db.execute(select(models.User).filter(models.User.username == user_data.username))
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail="Username already registered")
-    
+
+    if user_data.email:
+        email_exists = await db.execute(select(models.User).filter(models.User.email == user_data.email))
+        if email_exists.scalars().first():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
     config_result = await db.execute(select(models.SystemConfig))
     configs = {c.key: c.value for c in config_result.scalars().all()}
     min_length = int(configs.get("security_password_min_length", 8))
-    
-    password = user_data.get("password", "")
+
+    password = user_data.password
     if len(password) < min_length:
         raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters")
-    
+
     db_user = models.User(
-        username=user_data.get("username"),
-        email=user_data.get("email"),
+        username=user_data.username,
+        email=user_data.email,
         hashed_password=utils.get_password_hash(password),
-        role=user_data.get("role", "user"),
-        is_active=user_data.get("is_active", True)
+        is_active=user_data.is_active,
+        name=user_data.name,
+        avatar=user_data.avatar,
     )
-    
-    role_ids = user_data.get("role_ids", [])
+    assigned_role_codes: List[str] = []
+
+    role_ids = list(user_data.role_ids or [])
     if role_ids:
-        role_result = await db.execute(select(models.Role).filter(models.Role.id.in_(role_ids)))
-        db_user.roles = role_result.scalars().all()
+        role_result = await db.execute(
+            select(models.Role).filter(
+                models.Role.id.in_(role_ids),
+                models.Role.app_id == "portal",
+            )
+        )
+        matched_roles = role_result.scalars().all()
+        if len(matched_roles) != len(set(role_ids)):
+            raise HTTPException(status_code=400, detail="Some role_ids are invalid")
+        db_user.roles = matched_roles
+        assigned_role_codes = [role.code for role in matched_roles]
+    else:
+        target_role = user_data.role or "user"
+        default_role_result = await db.execute(
+            select(models.Role).filter(
+                models.Role.code == target_role,
+                models.Role.app_id == "portal",
+            )
+        )
+        default_role = default_role_result.scalars().first()
+        if not default_role:
+            raise HTTPException(status_code=400, detail=f"Role '{target_role}' not found")
+        db_user.roles = [default_role]
+        assigned_role_codes = [default_role.code]
     
     db.add(db_user)
     await db.commit()
@@ -74,7 +103,7 @@ async def create_user(
         db, action="iam.user.create", target_type="user",
         user_id=current_user.id, username=current_user.username,
         target_id=db_user.id, target_name=db_user.username,
-        detail={"email": db_user.email, "role": db_user.role},
+        detail={"email": db_user.email, "roles": assigned_role_codes},
         ip_address=ip, trace_id=trace_id
     )
     await AuditService.log_business_action(
@@ -91,7 +120,7 @@ async def create_user(
 async def update_user(
     user_id: int,
     request: Request,
-    user_update: dict,
+    user_update: schemas.UserUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:user:edit"))
 ):
@@ -103,23 +132,62 @@ async def update_user(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    if 'role_ids' in user_update:
-        role_ids = user_update.pop('role_ids')
+
+    update_data = user_update.dict(exclude_unset=True)
+    changes = {}
+
+    if 'role_ids' in update_data:
+        role_ids = update_data.pop('role_ids')
         if role_ids is not None:
-            role_result = await db.execute(select(models.Role).filter(models.Role.id.in_(role_ids)))
-            user.roles = role_result.scalars().all()
+            role_result = await db.execute(
+                select(models.Role).filter(
+                    models.Role.id.in_(role_ids),
+                    models.Role.app_id == "portal",
+                )
+            )
+            matched_roles = role_result.scalars().all()
+            if len(matched_roles) != len(set(role_ids)):
+                raise HTTPException(status_code=400, detail="Some role_ids are invalid")
+            user.roles = matched_roles
             await RBACService.invalidate_user(user_id)
-    
-    for key, value in user_update.items():
-        if hasattr(user, key):
-            setattr(user, key, value)
-    
+            changes["role_ids"] = role_ids
+
+    config_result = await db.execute(select(models.SystemConfig))
+    configs = {c.key: c.value for c in config_result.scalars().all()}
+    min_length = int(configs.get("security_password_min_length", 8))
+
+    if "password" in update_data:
+        new_password = update_data.pop("password")
+        if new_password is not None:
+            if len(new_password) < min_length:
+                raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters")
+            user.hashed_password = utils.get_password_hash(new_password)
+            changes["password"] = "***"
+
+    if "username" in update_data and update_data["username"] and update_data["username"] != user.username:
+        username_exists = await db.execute(select(models.User).filter(models.User.username == update_data["username"]))
+        if username_exists.scalars().first():
+            raise HTTPException(status_code=400, detail="Username already registered")
+    elif "username" in update_data and not update_data["username"]:
+        raise HTTPException(status_code=400, detail="Username cannot be empty")
+
+    if "email" in update_data and update_data["email"] != user.email:
+        if update_data["email"]:
+            email_exists = await db.execute(select(models.User).filter(models.User.email == update_data["email"]))
+            if email_exists.scalars().first():
+                raise HTTPException(status_code=400, detail="Email already registered")
+
+    allowed_fields = {"username", "email", "is_active", "name", "avatar"}
+    for key in list(update_data.keys()):
+        if key in allowed_fields:
+            setattr(user, key, update_data[key])
+            changes[key] = update_data[key]
+
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
     await IAMAuditService.log_user_update(
         db, operator=current_user, target_username=user.username,
-        changes=user_update, ip_address=ip, trace_id=trace_id
+        changes=changes, ip_address=ip, trace_id=trace_id
     )
     await AuditService.log_business_action(
         db, user_id=current_user.id, username=current_user.username,
@@ -181,8 +249,6 @@ async def create_role(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:role:edit"))
 ):
-    from sqlalchemy.dialects.postgresql import insert
-    
     app_id = role.app_id or 'portal'
     existing = await db.execute(
         select(models.Role).filter(

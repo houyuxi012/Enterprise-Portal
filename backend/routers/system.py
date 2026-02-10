@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Dict
+import os
 import database
 import models
 from dependencies import PermissionChecker
@@ -80,6 +81,7 @@ async def update_system_config(
 
 @router.get("/info")
 async def get_system_info(
+    request: Request,
     db: AsyncSession = Depends(database.get_db),
     _: models.User = Depends(PermissionChecker("sys:settings:view"))
 ):
@@ -92,12 +94,24 @@ async def get_system_info(
         db_status = "已连接"
     except Exception:
         db_status = "连接失败"
-        
+
+    configured_public_base = os.getenv("PORTAL_PUBLIC_BASE_URL", "").strip()
+    if configured_public_base:
+        access_address = configured_public_base.rstrip("/")
+    else:
+        # For zero-trust deployments, avoid reflecting arbitrary Host header values.
+        host = request.url.hostname or ""
+        access_address = str(request.base_url).rstrip("/") if host in {"localhost", "127.0.0.1"} else "未配置"
+
     return {
-        "version": "1.0.0",
+        "software_name": "Next-Gen Enterprise Portal",
+        "version": "2.5.0", # Updated version
         "status": "运行中",
         "database": db_status,
-        "environment": "生产环境", # Could be fetched from env vars
+        "license_id": "EP-2026-X892-L7",
+        "authorized_unit": "ShiKu Inc.",
+        "access_address": access_address,
+        "environment": "生产环境",
         "copyright": "© 2026 ShiKu Inc. All rights reserved."
     }
 

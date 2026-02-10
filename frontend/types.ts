@@ -227,3 +227,15 @@ export interface AISecurityPolicy {
   action: string; // 'block' | 'mask' | 'audit'
   is_active: boolean;
 }
+
+export interface SystemInfo {
+  software_name: string;
+  version: string;
+  status: string;
+  database: string;
+  license_id: string;
+  authorized_unit: string;
+  access_address: string;
+  environment: string;
+  copyright: string;
+}

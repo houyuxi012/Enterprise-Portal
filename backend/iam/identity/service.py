@@ -47,7 +47,7 @@ class IdentityService:
         from sqlalchemy.orm import selectinload
         result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles)))
         user = result.scalars().first()
-        if user is None:
+        if user is None or not user.is_active:
             raise credentials_exception
         return user
     
@@ -144,6 +144,25 @@ class IdentityService:
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        # Disabled accounts are not allowed to establish sessions.
+        if not user.is_active:
+            await IAMAuditService.log_login(
+                db,
+                username=form_data.username,
+                success=False,
+                ip_address=ip,
+                user_agent=user_agent,
+                user_id=user.id,
+                reason="Account disabled",
+                trace_id=trace_id,
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         username = user.username
         user_id = user.id
@@ -160,34 +179,6 @@ class IdentityService:
             db, username=username, success=True,
             ip_address=ip, user_agent=user_agent, user_id=user_id, trace_id=trace_id
         )
-        # Keeps internal Business Audit call as requested (or remove if P2 says "Switch entire audit")
-        # P2 says "必须纳入审计的事件：登录...". It implies IAM audit is the primary for these.
-        # But 'log_business_action' writes to 'audit_logs' (business). 
-        # Typically we keep business audit if it feeds a different view, but user said "IAM dedicated audit".
-        # Let's keep business audit for backward compatibility of Admin Panel "Operation Log" view unless told otherwise.
-        # However, plan says "服务迁移 -> 替换为 IAMAuditService". Strict replacement means remove old.
-        # But old audit log is used by frontend 'sys:log:view'.
-        # I will keep business audit call for now to avoid breaking existing frontend view, but ensuring IAM audit is ALSO called.
-        # Actually, user said "IAM Module Restructuring" -> "Independent evolution".
-        # Let me Comment out the old audit log to follow "Migration" instruction strictly, or safer: keep both.
-        # User prompt: "你现在 AuditService 是'通用审计'，但 IAM 要合规... 建议新增表 iam_audit_logs".
-        # It doesn't explicitly say "Delete old logging".
-        # But implementation plan says "iam/identity/service.py -> 替换为 IAMAuditService". 
-        # I will replace it. If they want both, the new service could call the old one or we log twice.
-        # Best practice: log to new dedicated table. Old table loses these events.
-        # IF frontend relies on old table for login history, this breaks it.
-        # But user objective is "IAM Audit Compliance".
-        # I'll stick to REPLACEMENT as per plan header "iam/identity/service.py -> 替换为 IAMAuditService".
-        # Wait, if I replace, the admin panel logs will be empty for logins.
-        # The user said "P2 (建议) 整改：IAM 专用审计表".
-        # I will keep the old one for now to be safe (commented out or parallel) to avoid regression in "Legacy Compatible Phase".
-        # Actually, let's remove the old one to force usage of new table.
-        # But wait, does the frontend view the new table? No.
-        # So I should PROBABLY keep both or update frontend. Frontend update is out of scope.
-        # So I will **keep both** for now to ensure "Backward Compatibility" principal #1.
-        
-
-
         await db.commit()
 
         access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)

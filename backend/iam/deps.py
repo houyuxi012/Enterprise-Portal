@@ -5,8 +5,6 @@ IAM 依赖注入模块
 import logging
 from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +42,24 @@ class PermissionChecker:
     def __init__(self, required_permission: str):
         self.required_permission = required_permission
 
+    @staticmethod
+    def _normalize_permission_code(required_permission: str, default_app_id: str = "portal") -> str:
+        required = required_permission.strip()
+        if "." in required:
+            return required
+        return f"{default_app_id}.{required}"
+
     async def __call__(
         self,
         request: Request,
         db: AsyncSession = Depends(get_db)
     ):
         user, permissions_set, _ = await get_permissions(request, db)
-        
-        # 检查权限：支持完整码和旧格式码
-        if self.required_permission not in permissions_set:
-            # 尝试添加默认 app_id 前缀
-            full_code = f"portal.{self.required_permission}"
-            if full_code not in permissions_set:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Operation not permitted. Required: {self.required_permission}"
-                )
+
+        required_code = self._normalize_permission_code(self.required_permission)
+        if required_code not in permissions_set:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Operation not permitted. Required: {required_code}"
+            )
         return user

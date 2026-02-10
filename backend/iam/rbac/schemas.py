@@ -1,9 +1,10 @@
 """
 RBAC Schemas - 角色/权限数据结构
 """
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class PermissionBase(BaseModel):
@@ -32,7 +33,7 @@ class RoleBase(BaseModel):
 
 
 class RoleCreate(RoleBase):
-    permission_ids: List[int] = []
+    permission_ids: List[int] = Field(default_factory=list)
 
 
 class RoleUpdate(BaseModel):
@@ -43,7 +44,7 @@ class RoleUpdate(BaseModel):
 
 class Role(RoleBase):
     id: int
-    permissions: List[Permission] = []
+    permissions: List[Permission] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     
     class Config:
@@ -59,3 +60,44 @@ class RoleOut(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class UserOut(BaseModel):
+    """用户输出模型（用于 IAM 用户列表）"""
+    id: int
+    username: str
+    email: Optional[str] = None
+    is_active: bool = True
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    roles: List[RoleOut] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: Optional[str] = None
+    password: str
+    is_active: bool = True
+    role: Optional[str] = None
+    role_ids: List[int] = Field(default_factory=list)
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
+
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+    role_ids: Optional[List[int]] = None
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+
+    class Config:
+        extra = "forbid"

@@ -116,9 +116,14 @@ class RBACService:
             })
             for perm in role.permissions:
                 app_id = getattr(perm, 'app_id', 'portal')
-                full_code = f"{app_id}.{perm.code}" if not perm.code.startswith(f"{app_id}.") else perm.code
+                full_code = perm.code
+                if "." not in full_code:
+                    full_code = f"{app_id}.{perm.code}"
+                elif not full_code.startswith(f"{app_id}."):
+                    # Keep already namespaced third-party code as-is.
+                    full_code = perm.code
+
                 permissions_set.add(full_code)
-                permissions_set.add(perm.code)
         
         await cls.set_permissions_to_cache(user_id, version, roles_out, list(permissions_set))
         

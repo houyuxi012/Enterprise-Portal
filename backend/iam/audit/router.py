@@ -2,20 +2,24 @@
 IAM Audit Router - IAM 审计日志查询路由
 /iam/admin/audit-logs
 """
-from fastapi import APIRouter, Depends, Query
-from typing import Optional, List
-from datetime import datetime
+import json
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from pydantic import BaseModel
 
 from iam.deps import get_db, PermissionChecker
+from iam.audit.service import IAMAuditService
 from .models import IAMAuditLog
 
 router = APIRouter(prefix="/audit", tags=["iam-audit"])
-
-
-from typing import Optional, List, Dict, Any
+logger = logging.getLogger(__name__)
 
 class AuditLogResponse(BaseModel):
     id: int
@@ -46,6 +50,7 @@ class AuditLogListResponse(BaseModel):
 
 @router.get("/logs", response_model=AuditLogListResponse)
 async def list_audit_logs(
+    request: Request,
     action: Optional[str] = None,
     username: Optional[str] = None,
     target_type: Optional[str] = None,
@@ -56,16 +61,11 @@ async def list_audit_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _=Depends(PermissionChecker("sys:settings:view"))
+    current_user=Depends(PermissionChecker("portal.logs.system.read"))
 ):
     """查询 IAM 审计日志 - 支持 DB/Loki 来源选择 (业务日志模式)"""
-    import os
-    import httpx
-    import json
-    from datetime import timezone
-    
-    db_logs_map = {}
-    loki_logs_map = {}
+    db_records: List[Dict[str, Any]] = []
+    loki_records: List[Dict[str, Any]] = []
     
     # Helper: convert timestamp to epoch_ms for sorting
     def to_epoch_ms(ts) -> int:
@@ -79,19 +79,28 @@ async def list_audit_logs(
             return int(dt.timestamp() * 1000)
         except Exception:
             return 0
-    
-    # Helper: normalize key for deduplication
-    # Use minute-level precision (YYYY-MM-DD HH:MM) to merge DB and Loki records
-    def normalize_key(ts, uname, act, target):
-        if ts is None:
-            ts_str = ""
-        elif isinstance(ts, datetime):
-            # Convert datetime to ISO string first
-            ts_str = ts.strftime("%Y-%m-%d %H:%M")
-        else:
-            # String: normalize T to space, then take first 16 chars (YYYY-MM-DD HH:MM)
-            ts_str = str(ts).replace('T', ' ')[:16]
-        return (ts_str, uname or "", act or "", target or "")
+
+    def build_merge_key(record: Dict[str, Any]) -> str:
+        """Build stable dedupe key with trace_id priority to avoid dropping real events."""
+        trace_id = record.get("trace_id")
+        if trace_id:
+            return f"trace:{trace_id}:{record.get('action')}:{record.get('target_type')}:{record.get('target_id')}"
+
+        stable = {
+            "timestamp": (
+                record.get("timestamp").isoformat()
+                if isinstance(record.get("timestamp"), datetime)
+                else str(record.get("timestamp"))
+            ),
+            "username": record.get("username"),
+            "action": record.get("action"),
+            "target_type": record.get("target_type"),
+            "target_id": record.get("target_id"),
+            "target_name": record.get("target_name"),
+            "result": record.get("result"),
+            "reason": record.get("reason"),
+        }
+        return json.dumps(stable, sort_keys=True, ensure_ascii=False, default=str)
     
     # Strategy: Fetch (page_size * page) from BOTH sources to ensure we cover the window
     # Then merge, sort globally, and slice for pagination
@@ -137,8 +146,7 @@ async def list_audit_logs(
                 "source": "DB",
                 "_epoch": to_epoch_ms(item.timestamp)
             }
-            key = normalize_key(item.timestamp, item.username, item.action, item.target_name)
-            db_logs_map[key] = log_dict
+            db_records.append(log_dict)
     
     # Query from Loki
     if source in ("loki", "all"):
@@ -186,9 +194,13 @@ async def list_audit_logs(
                                     continue
                                 
                                 ts = log_line.get("timestamp", now.isoformat())
+                                if isinstance(ts, str):
+                                    ts_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                                else:
+                                    ts_dt = ts
                                 log_dict = {
                                     "id": loki_id,
-                                    "timestamp": datetime.fromisoformat(ts) if isinstance(ts, str) else ts,
+                                    "timestamp": ts_dt,
                                     "user_id": log_line.get("user_id"),
                                     "username": log_line.get("username"),
                                     "action": log_line.get("action", ""),
@@ -203,32 +215,32 @@ async def list_audit_logs(
                                     "source": "Loki",
                                     "_epoch": to_epoch_ms(ts)
                                 }
-                                key = normalize_key(ts, log_line.get("username"), log_line.get("action"), log_line.get("target_name"))
-                                loki_logs_map[key] = log_dict
+                                loki_records.append(log_dict)
                                 loki_id += 1
                             except Exception:
                                 continue
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Failed to query Loki for IAM audit: {e}")
+            logger.warning(f"Failed to query Loki for IAM audit: {e}")
     
     # Merge and deduplicate (DB priority, with merge indicator)
     results = []
     if source == "all":
-        all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
-        for key in all_keys:
-            if key in db_logs_map:
-                record = db_logs_map[key].copy()
-                # Mark as merged if also exists in Loki
-                if key in loki_logs_map:
-                    record["source"] = "DB+Loki"
-                results.append(record)
+        merged_map: Dict[str, Dict[str, Any]] = {}
+        for record in loki_records:
+            merged_map[build_merge_key(record)] = record
+        for record in db_records:
+            merge_key = build_merge_key(record)
+            if merge_key in merged_map:
+                merged_record = record.copy()
+                merged_record["source"] = "DB+Loki"
+                merged_map[merge_key] = merged_record
             else:
-                results.append(loki_logs_map[key])
+                merged_map[merge_key] = record
+        results = list(merged_map.values())
     elif source == "db":
-        results = list(db_logs_map.values())
+        results = db_records
     else:
-        results = list(loki_logs_map.values())
+        results = loki_records
     
     # Sort by epoch desc
     results.sort(key=lambda x: x.get("_epoch", 0), reverse=True)
@@ -244,6 +256,34 @@ async def list_audit_logs(
     for r in paginated:
         r.pop("_epoch", None)
         items.append(AuditLogResponse(**r))
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db=db,
+        action="iam.audit.read",
+        target_type="iam_audit_logs",
+        user_id=current_user.id,
+        username=current_user.username,
+        detail={
+            "query": {
+                "action": action,
+                "username": username,
+                "target_type": target_type,
+                "result": result,
+                "source": source,
+                "page": page,
+                "page_size": page_size,
+                "start_time": start_time.isoformat() if start_time else None,
+                "end_time": end_time.isoformat() if end_time else None,
+            },
+            "returned": len(items),
+            "total": total,
+        },
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+    await db.commit()
     
     return AuditLogListResponse(
         items=items,
