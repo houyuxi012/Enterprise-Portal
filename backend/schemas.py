@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import date, datetime
 from enum import Enum
@@ -190,10 +190,10 @@ class UserMeResponse(BaseModel):
 
 # AI Schemas
 class AIChatRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., min_length=1, max_length=4000)
     history: Optional[List[dict]] = None
     model_id: Optional[int] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = Field(None, max_length=2048)
 
 class AIModelOption(BaseModel):
     id: int
@@ -330,6 +330,19 @@ class AIProviderUpdate(BaseModel):
 class AIProvider(AIProviderBase):
     id: int
     created_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class AIProviderRead(BaseModel):
+    id: int
+    name: str
+    type: str
+    base_url: Optional[str] = None
+    model: str
+    is_active: bool = False
+    created_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 

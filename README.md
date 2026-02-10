@@ -101,7 +101,21 @@ Enterprise Portal/
 
 ---
 
-## 📝 License
+## � 构建与发布 (Build & Release)
+
+在构建 Docker 镜像前，需运行版本生成脚本以注入 Git SHA 和构建时间：
+
+```bash
+# 生成后端版本信息 (backend/VERSION.json)
+./scripts/gen_version.sh
+
+# 构建镜像
+docker-compose build
+```
+
+---
+
+## �📝 License
 
 MIT License © 2025 侯钰熙  
 https://www.houyuxi.com

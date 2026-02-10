@@ -29,6 +29,7 @@ SYSTEM_PERMISSIONS = {
     "portal.logs.business.read": "查看业务日志",
     "portal.logs.forwarding.admin": "管理日志转发",
     "portal.ai_audit.read": "查看AI审计",
+    "portal.ai.chat.use": "使用AI对话助手",
     "portal.carousel.manage": "管理轮播图",
     # Knowledge Base
     "kb:manage": "管理知识库文档",
@@ -150,6 +151,16 @@ async def init_rbac(db: AsyncSession):
         stmt = stmt.on_conflict_do_nothing(
             index_elements=['user_id', 'role_id']
         )
+        await db.execute(stmt)
+
+    # 6.1 Bind baseline permissions to regular user role
+    user_role_id = role_map.get("user")
+    ai_chat_permission_id = perm_map.get("portal.ai.chat.use")
+    if user_role_id and ai_chat_permission_id:
+        stmt = insert(models.role_permissions).values([
+            {"role_id": user_role_id, "permission_id": ai_chat_permission_id}
+        ])
+        stmt = stmt.on_conflict_do_nothing(index_elements=['role_id', 'permission_id'])
         await db.execute(stmt)
 
     await db.commit()

@@ -4,15 +4,17 @@ from sqlalchemy.future import select
 from sqlalchemy import func, cast, Date
 from typing import List, Optional
 from datetime import datetime
+import logging
 
 from database import get_db
 import models
 import schemas
 from dependencies import PermissionChecker
 from fastapi import Request
-import uuid
 from services.audit_service import AuditService
 from services.crypto_service import CryptoService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ai/admin",
@@ -22,12 +24,12 @@ router = APIRouter(
 
 # --- Providers Management ---
 
-@router.get("/providers", response_model=List[schemas.AIProvider])
+@router.get("/providers", response_model=List[schemas.AIProviderRead])
 async def get_providers(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.AIProvider).order_by(models.AIProvider.created_at))
     return result.scalars().all()
 
-@router.post("/providers", response_model=schemas.AIProvider)
+@router.post("/providers", response_model=schemas.AIProviderRead)
 async def create_provider(
     request: Request,
     provider: schemas.AIProviderCreate, 
@@ -49,7 +51,9 @@ async def create_provider(
          pass
 
     # API Key is sent as plain text (TLS protected)
-    plain_api_key = provider.api_key 
+    plain_api_key = (provider.api_key or "").strip()
+    if not plain_api_key:
+        raise HTTPException(status_code=400, detail="API Key is required")
     
     # Foolproof check: Do not allow ciphertext or placeholders
     if plain_api_key.startswith("gAAAA") or "***" in plain_api_key or "placeholder" in plain_api_key.lower():
@@ -89,7 +93,7 @@ async def create_provider(
 
     return db_provider
 
-@router.put("/providers/{id}", response_model=schemas.AIProvider)
+@router.put("/providers/{id}", response_model=schemas.AIProviderRead)
 async def update_provider(
     id: int, 
     request: Request,
@@ -108,26 +112,30 @@ async def update_provider(
     if provider.base_url is not None:
          db_provider.base_url = provider.base_url
     if provider.api_key is not None:
-         input_key = provider.api_key
-         # 1. Idempotency Check: exact match
-         if input_key == db_provider.api_key:
-             pass # No change
-         
-         # 2. Foolproof Check: Starts with Fernet prefix 'gAAAA'
-         # If it starts with gAAAA, assume it's the existing ciphertext being returned by UI.
-         # Do NOT re-encrypt. Do NOT update.
-         elif input_key.startswith("gAAAA"):
-             print(f"Ignored encrypted key update for Provider {id}")
+         input_key = (provider.api_key or "").strip()
+         if not input_key:
+             # keep original key unchanged on empty input
              pass
-             
-         # 3. Foolproof Check: Masked chars or obvious placeholders
-         elif "***" in input_key or "placeholder" in input_key.lower():
-             print(f"Ignored masked/invalid key update for Provider {id}")
-             pass
-             
          else:
-             # Plain text key (TLS) -> Encrypt
-             db_provider.api_key = CryptoService.encrypt_data(input_key)
+             # 1. Idempotency Check: exact match
+             if input_key == db_provider.api_key:
+                 pass # No change
+         
+             # 2. Foolproof Check: Starts with Fernet prefix 'gAAAA'
+             # If it starts with gAAAA, assume it's the existing ciphertext being returned by UI.
+             # Do NOT re-encrypt. Do NOT update.
+             elif input_key.startswith("gAAAA"):
+                 logger.info("Ignored encrypted key update for provider %s", id)
+                 pass
+             
+             # 3. Foolproof Check: Masked chars or obvious placeholders
+             elif "***" in input_key or "placeholder" in input_key.lower():
+                 logger.info("Ignored masked/invalid key update for provider %s", id)
+                 pass
+             
+             else:
+                 # Plain text key (TLS) -> Encrypt
+                 db_provider.api_key = CryptoService.encrypt_data(input_key)
     if provider.model is not None:
          db_provider.model = provider.model
     if provider.is_active is not None:

@@ -322,6 +322,7 @@ class KBDocument(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     source_type = Column(String(20), default="text")  # md, pdf, text
+    content = Column(Text, nullable=True)  # 原始文档内容（用于无损重建索引）
     tags = Column(Text, nullable=True)  # JSON list
     app_id = Column(String(50), default="portal", index=True)
     acl = Column(Text, default='["*"]')  # JSON list: ["*"] = public, ["role:admin"]

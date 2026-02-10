@@ -202,8 +202,17 @@ const ModelConfig: React.FC = () => {
                         </Form.Item>
                     </div>
 
-                    <Form.Item name="api_key" label="API Key" rules={[{ required: true }]}>
-                        <Input.Password prefix={<KeyOutlined className="text-slate-400" />} placeholder="sk-..." className="h-10 rounded-lg" />
+                    <Form.Item
+                        name="api_key"
+                        label="API Key"
+                        rules={[{ required: !editingProvider, message: '请输入 API Key' }]}
+                        tooltip={editingProvider ? "留空表示保持当前密钥不变" : undefined}
+                    >
+                        <Input.Password
+                            prefix={<KeyOutlined className="text-slate-400" />}
+                            placeholder={editingProvider ? "留空则不更新" : "sk-..."}
+                            className="h-10 rounded-lg"
+                        />
                     </Form.Item>
 
                     <Form.Item name="base_url" label="Base URL (可选)" tooltip="如果使用代理或兼容接口，请输入完整 URL">

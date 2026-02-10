@@ -18,6 +18,13 @@ async def startup():
     # Create Tables
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
+
+    # Apply startup migrations/indexes for existing deployments
+    try:
+        await database.apply_startup_migrations()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Startup migrations skipped due to error: %s", e)
     
     # Init Cache (Redis / Memory) First
     from services.cache_manager import cache
@@ -57,6 +64,14 @@ async def startup():
     # Schedule IAM Audit Archiving Job
     from services.iam_archiver import IAMAuditArchiver
     asyncio.create_task(IAMAuditArchiver.run_archiving_job())
+
+    # Version Audit Check
+    try:
+        from routers.system import check_version_upgrade
+        # Run in background to avoid blocking startup
+        asyncio.create_task(check_version_upgrade(database.SessionLocal))
+    except Exception as e:
+        print(f"Startup Version Check Failed: {e}")
 
 
 @app.on_event("shutdown")

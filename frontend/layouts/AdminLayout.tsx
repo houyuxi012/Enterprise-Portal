@@ -23,6 +23,8 @@ import {
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
 
+import VersionModal from '../components/VersionModal';
+
 const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
@@ -37,6 +39,7 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText, logoUrl, appName }) => {
     const [collapsed, setCollapsed] = useState(false);
+    const [versionModalOpen, setVersionModalOpen] = useState(false);
 
     // We are overriding Antd token themes with CSS classes, but keeping this for safety
     const { token: { borderRadiusLG } } = theme.useToken();
@@ -52,6 +55,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         }
         if (e.key === 'logout') {
             AuthService.logout('/admin/login');
+            return;
+        }
+        if (e.key === 'about') {
+            setVersionModalOpen(true);
             return;
         }
     };
@@ -188,6 +195,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             label: '返回前台',
         },
         {
+            key: 'about',
+            icon: <InfoCircleOutlined />,
+            label: '关于系统',
+        },
+        {
             type: 'divider',
         },
         {
@@ -275,6 +287,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     {footerText || '© 2025 侯钰熙. All Rights Reserved.'}
                 </Footer>
             </Layout>
+
+            <VersionModal open={versionModalOpen} onClose={() => setVersionModalOpen(false)} />
 
             {/* Global Styles specific to Admin to override Antd defaults directly */}
             <style>{`

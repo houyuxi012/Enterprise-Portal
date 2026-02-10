@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, conint
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,7 +47,7 @@ class DocumentResponse(BaseModel):
 
 class KBQueryRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: conint(ge=1, le=20) = 5
 
 
 class ChunkResultResponse(BaseModel):
@@ -159,31 +159,23 @@ async def get_document_detail(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
-    """获取文档详情 (含内容) - 重组 Chunks"""
+    """获取文档详情 (含内容) - 优先返回原文，缺失时兼容旧数据。"""
     from sqlalchemy import select
     
     doc = await db.get(KBDocument, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
         
-    # Reconstruct content from chunks
-    result = await db.execute(
-        select(KBChunk)
-        .where(KBChunk.doc_id == doc_id)
-        .order_by(KBChunk.chunk_index)
-    )
-    chunks = result.scalars().all()
-    # Simple reconstruction
-    if chunks:
-        # Note: If overlaps exist, this might duplicate text. 
-        # But for editing, we might just have to give what we have.
-        # Ideally we store original content.
-        # Check if chunks have metadata about original offsets? No.
-        # Best effort: join with newlines or try to merge.
-        # For now, simplistic join.
-        content = "\n\n".join([c.content for c in chunks])
-    else:
-        content = ""
+    content = (doc.content or "").strip()
+    if not content:
+        # Backward compatibility for old rows created before `content` field was introduced.
+        result = await db.execute(
+            select(KBChunk)
+            .where(KBChunk.doc_id == doc_id)
+            .order_by(KBChunk.chunk_index)
+        )
+        chunks = result.scalars().all()
+        content = "\n\n".join([c.content for c in chunks]) if chunks else ""
 
     return DocumentCreateRequest(
         title=doc.title,

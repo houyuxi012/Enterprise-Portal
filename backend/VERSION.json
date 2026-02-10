@@ -1,0 +1,15 @@
+{
+  "product": "Next-Gen Enterprise Portal",
+  "product_id": "enterprise-portal",
+  "version": "0.0.0-dev.20260210164035",
+  "semver": "0.0.0",
+  "channel": "dev",
+  "git_sha": "03b2953-dirty",
+  "dirty": true,
+  "build_time": "2026-02-10T16:40:35Z",
+  "build_number": "0",
+  "build_id": "20260210164035",
+  "release_id": "R20260210-20260210164035",
+  "api_version": "v1",
+  "db_schema_version": "unknown"
+}

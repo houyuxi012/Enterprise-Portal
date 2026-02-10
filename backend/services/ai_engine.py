@@ -1,14 +1,15 @@
 import logging
 import time
-import hashlib
 from typing import List, Optional
 import json
+from datetime import datetime, timezone
 import ipaddress
 import httpx
 import os
 import socket
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 import models
 import services.gemini_service
 import re
@@ -82,7 +83,15 @@ class AIEngine:
 
         return check_result
 
-    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None, image_url: Optional[str] = None, extra_meta: Optional[dict] = None) -> str:
+    async def chat(
+        self,
+        prompt: str,
+        context: str = "",
+        model_id: Optional[int] = None,
+        image_url: Optional[str] = None,
+        extra_meta: Optional[dict] = None,
+        allowed_image_hosts: Optional[set[str]] = None,
+    ) -> str:
         from services.ai_audit_writer import AIAuditEntry, log_ai_audit
         from services.crypto_service import CryptoService
         
@@ -122,11 +131,21 @@ class AIEngine:
             image_data = None
             mime_type = None
             if image_url:
-                image_data, mime_type = await self._download_image(image_url)
+                image_data, mime_type = await self._download_image(
+                    image_url, allowed_hosts=allowed_image_hosts
+                )
 
             # 2. Get Provider
             if model_id:
-                 provider = await self.db.get(models.AIProvider, model_id)
+                 provider_result = await self.db.execute(
+                     select(models.AIProvider).where(
+                         models.AIProvider.id == model_id,
+                         models.AIProvider.is_active == True
+                     )
+                 )
+                 provider = provider_result.scalar_one_or_none()
+                 if not provider:
+                     raise ValueError("Selected AI model is not active or does not exist")
             else:
                  provider = await self.get_active_provider()
             
@@ -147,11 +166,20 @@ class AIEngine:
                 except Exception:
                     pass
                 audit_entry.api_key = api_key_raw  # 存储用于生成指纹，不会直接写入 DB
-            
-            if not provider:
+            else:
                 logger.info("No active provider, using default Gemini service")
                 audit_entry.provider = "gemini"
                 audit_entry.model = "gemini-pro"
+
+            # 2.5. Quota Guard (per model/day)
+            quota_ok, quota_reason = await self._enforce_model_quota(audit_entry.model or "")
+            if not quota_ok:
+                audit_entry.status = "BLOCKED"
+                audit_entry.error_code = "QUOTA_EXCEEDED"
+                audit_entry.error_reason = quota_reason
+                return f"【系统限流】{quota_reason}"
+            
+            if not provider:
                 response_text = await services.gemini_service.get_ai_response(safe_prompt, context, image_data, mime_type)
             else:
                 try:
@@ -199,21 +227,170 @@ class AIEngine:
                 await log_ai_audit(audit_entry)
             except Exception as e:
                 logger.error(f"Failed to write AI audit log: {e}")
+
+    async def _enforce_model_quota(self, model_name: str) -> tuple[bool, str]:
+        """
+        Enforce daily quota by model.
+        Returns (allowed, reason_if_blocked).
+        """
+        if not model_name:
+            return True, ""
+
+        result = await self.db.execute(
+            select(models.AIModelQuota).where(models.AIModelQuota.model_name == model_name)
+        )
+        quota = result.scalar_one_or_none()
+        if not quota:
+            return True, ""
+
+        daily_token_limit = int(quota.daily_token_limit or 0)
+        daily_request_limit = int(quota.daily_request_limit or 0)
+        if daily_token_limit <= 0 and daily_request_limit <= 0:
+            return True, ""
+
+        day_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        usage_result = await self.db.execute(
+            select(
+                func.count(models.AIAuditLog.id),
+                func.coalesce(
+                    func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out),
+                    0,
+                ),
+            ).where(
+                models.AIAuditLog.model == model_name,
+                models.AIAuditLog.ts >= day_start,
+            )
+        )
+        row = usage_result.first()
+        request_count = int(row[0] or 0) if row else 0
+        token_count = int(row[1] or 0) if row else 0
+
+        if daily_request_limit > 0 and request_count >= daily_request_limit:
+            return False, f"模型 {model_name} 今日请求次数已达上限 ({daily_request_limit})"
+
+        if daily_token_limit > 0 and token_count >= daily_token_limit:
+            return False, f"模型 {model_name} 今日 Token 用量已达上限 ({daily_token_limit})"
+
+        return True, ""
     
-    async def _download_image(self, url: str):
-        """Helper to download image from URL (local or remote)"""
+    def _resolve_and_validate_image_url(self, raw_url: str, allowed_hosts: Optional[set[str]]) -> str:
+        """
+        Validate image URL for vision input:
+        - only trusted hosts
+        - HTTPS by default (HTTP only for localhost)
+        - block local/internal hosts unless explicitly trusted
+        """
+        raw = (raw_url or "").strip()
+        if not raw:
+            raise ValueError("Image URL cannot be empty")
+
+        parsed = urlparse(raw)
+        trusted_hosts = {h.lower() for h in (allowed_hosts or set()) if h}
+
+        def _rewrite_minio_gateway_url(path: str, query: str) -> Optional[str]:
+            minio_endpoint = (os.getenv("MINIO_ENDPOINT") or "").strip()
+            if not minio_endpoint:
+                return None
+            internal_scheme = "https" if os.getenv("MINIO_SECURE", "false").lower() == "true" else "http"
+            internal_path = path[len("/minio"):] if path.startswith("/minio") else path
+            rewritten = f"{internal_scheme}://{minio_endpoint}{internal_path}"
+            if query:
+                rewritten = f"{rewritten}?{query}"
+            return rewritten
+
+        # Relative path: only allow internal upload/minio gateway path
+        if not parsed.netloc:
+            if not raw.startswith("/"):
+                raise ValueError("Image URL must be absolute or start with '/'")
+            if not (raw.startswith("/api/upload/files/") or raw.startswith("/minio/")):
+                raise ValueError("Image URL path is not allowed")
+
+            # Prefer direct internal MinIO access to avoid external TLS/cert issues.
+            if parsed.path.startswith("/minio/"):
+                rewritten = _rewrite_minio_gateway_url(parsed.path, parsed.query)
+                if rewritten:
+                    return rewritten
+
+            public_base = (os.getenv("PORTAL_PUBLIC_BASE_URL") or os.getenv("PUBLIC_BASE_URL") or "").strip()
+            if not public_base:
+                raise ValueError("Relative image URL requires PUBLIC_BASE_URL or PORTAL_PUBLIC_BASE_URL")
+            return f"{public_base.rstrip('/')}{raw}"
+
+        if parsed.scheme.lower() not in {"http", "https"}:
+            raise ValueError("Image URL scheme must be HTTP or HTTPS")
+
+        host = (parsed.hostname or "").strip().lower()
+        if not host:
+            raise ValueError("Invalid image URL host")
+
+        if trusted_hosts and host not in trusted_hosts:
+            raise ValueError("Image URL host is not in trusted allowlist")
+
+        # HTTPS required unless localhost debug
+        if parsed.scheme.lower() == "http":
+            localhost_set = {"localhost", "127.0.0.1", "::1"}
+            if host not in localhost_set and not host.endswith(".localhost"):
+                raise ValueError("Only HTTPS image URLs are allowed")
+
+        blocked_hostnames = {
+            "localhost",
+            "localhost.localdomain",
+            "host.docker.internal",
+            "gateway.docker.internal",
+        }
+        allow_private = os.getenv("AI_IMAGE_ALLOW_PRIVATE_NETWORK", "false").lower() == "true"
+        if not allow_private and host not in trusted_hosts:
+            if host in blocked_hostnames or host.endswith(".local"):
+                raise ValueError("Image URL cannot target local/internal hosts")
+
+            if self._is_forbidden_ip(host):
+                raise ValueError("Image URL cannot target private/special IP addresses")
+
+            try:
+                resolved_ips = {item[4][0].split("%")[0] for item in socket.getaddrinfo(host, None)}
+            except socket.gaierror as e:
+                raise ValueError("Image URL hostname could not be resolved") from e
+
+            if any(self._is_forbidden_ip(ip) for ip in resolved_ips):
+                raise ValueError("Image URL resolves to private/special IP addresses")
+
+        # If URL points to public MinIO gateway route, rewrite to internal endpoint.
+        if parsed.path.startswith("/minio/"):
+            rewritten = _rewrite_minio_gateway_url(parsed.path, parsed.query)
+            if rewritten:
+                return rewritten
+
+        return raw
+
+    async def _download_image(self, url: str, allowed_hosts: Optional[set[str]] = None):
+        """Download image with strict SSRF guardrails and response size limits."""
+        validated_url = self._resolve_and_validate_image_url(url, allowed_hosts)
+        max_bytes = int(os.getenv("AI_MAX_IMAGE_DOWNLOAD_BYTES", str(5 * 1024 * 1024)))
+        timeout_seconds = float(os.getenv("AI_IMAGE_DOWNLOAD_TIMEOUT_SECONDS", "10"))
+
         try:
-             if "uploads/" in url:
-                   pass
-             
-             async with httpx.AsyncClient() as client:
-                 resp = await client.get(url, timeout=10.0)
-                 resp.raise_for_status()
-                 content_type = resp.headers.get("content-type")
-                 return resp.content, content_type
+            async with httpx.AsyncClient(follow_redirects=False) as client:
+                async with client.stream("GET", validated_url, timeout=timeout_seconds) as resp:
+                    resp.raise_for_status()
+                    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+                    if not content_type.startswith("image/"):
+                        raise ValueError("Downloaded resource is not an image")
+
+                    content = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        if not chunk:
+                            continue
+                        content.extend(chunk)
+                        if len(content) > max_bytes:
+                            raise ValueError(f"Image exceeds max allowed size ({max_bytes} bytes)")
+                    return bytes(content), content_type
+        except ValueError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to download image {url}: {e}")
-            return None, None
+            logger.error(f"Failed to download image {validated_url}: {e}")
+            raise ValueError("Image download failed")
 
     async def _call_provider(self, provider: models.AIProvider, prompt: str, context: str) -> str:
         from services.crypto_service import CryptoService

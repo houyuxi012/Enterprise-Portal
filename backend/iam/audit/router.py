@@ -57,7 +57,7 @@ async def list_audit_logs(
     result: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
-    source: str = Query("db", regex="^(db|loki|all)$"),
+    source: str = Query("db", pattern="^(db|loki|all)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),

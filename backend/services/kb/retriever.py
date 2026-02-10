@@ -48,6 +48,7 @@ async def search(
     向量相似度检索 + ACL 过滤。
     score = 1 - cosine_distance (越高越相似)
     """
+    top_k = max(1, min(int(top_k), 20))
     embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
     # 基础 SQL: cosine 相似度检索
@@ -56,6 +57,7 @@ async def search(
             c.id AS chunk_id,
             c.doc_id,
             d.title AS doc_title,
+            d.acl AS doc_acl,
             COALESCE(c.section, '') AS section,
             c.content,
             1 - (c.embedding <=> CAST(:embedding AS vector)) AS score
@@ -87,17 +89,13 @@ async def search(
         # ACL 检查
         if acl_filter:
             try:
-                doc_result = await db.execute(
-                    text("SELECT acl FROM kb_documents WHERE id = :doc_id"),
-                    {"doc_id": row.doc_id},
-                )
-                doc_row = doc_result.fetchone()
-                if doc_row:
-                    doc_acl = json.loads(doc_row.acl or '["*"]')
-                    if "*" not in doc_acl and not any(a in doc_acl for a in acl_filter):
-                        continue
-            except Exception:
-                pass
+                doc_acl = json.loads(row.doc_acl or '["*"]')
+                if "*" not in doc_acl and not any(a in doc_acl for a in acl_filter):
+                    continue
+            except Exception as e:
+                # Fail-closed: ACL parse failure must not expose chunks.
+                logger.warning("Skip chunk %s due to ACL parse failure: %s", row.chunk_id, e)
+                continue
 
         chunks.append(chunk)
 

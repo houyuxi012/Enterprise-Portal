@@ -1,9 +1,11 @@
 import logging
+import os
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
 from typing import List
+from urllib.parse import urlparse
 from schemas import AIChatRequest, AIChatResponse, AIProviderTestRequest, AIModelOption
 from database import get_db
 from dependencies import PermissionChecker
@@ -18,6 +20,35 @@ router = APIRouter(
     prefix="/ai",
     tags=["ai"]
 )
+
+
+def _build_allowed_image_hosts(request: Request) -> set[str]:
+    """
+    Build trusted image hosts for AI vision input.
+    Priority:
+    1) AI_IMAGE_ALLOWED_HOSTS (comma-separated)
+    2) PORTAL_PUBLIC_BASE_URL / PUBLIC_BASE_URL host
+    3) request host as local dev fallback
+    """
+    hosts: set[str] = set()
+
+    raw_hosts = os.getenv("AI_IMAGE_ALLOWED_HOSTS", "")
+    if raw_hosts:
+        hosts.update({h.strip().lower() for h in raw_hosts.split(",") if h.strip()})
+
+    for env_key in ("PORTAL_PUBLIC_BASE_URL", "PUBLIC_BASE_URL"):
+        value = os.getenv(env_key, "").strip()
+        if not value:
+            continue
+        parsed = urlparse(value)
+        if parsed.hostname:
+            hosts.add(parsed.hostname.lower())
+
+    if not hosts and request.url.hostname:
+        hosts.add(request.url.hostname.lower())
+
+    return hosts
+
 
 @router.get("/models", response_model=List[AIModelOption])
 async def get_models(
@@ -66,7 +97,7 @@ async def chat(
     request_body: AIChatRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(PermissionChecker("portal.ai.chat.use")),
 ):
     try:
         query = request_body.prompt.lower()
@@ -85,6 +116,17 @@ async def chat(
             trace_id=trace_id, 
             session_id=session_id
         )
+
+        if request_body.model_id is not None:
+            model_result = await db.execute(
+                select(AIProvider).where(
+                    AIProvider.id == request_body.model_id,
+                    AIProvider.is_active == True,
+                )
+            )
+            selected_provider = model_result.scalars().first()
+            if not selected_provider:
+                raise HTTPException(status_code=400, detail="Selected AI model is not active or does not exist")
 
         # ──── 1. KB 向量检索 (优先) ────
         kb_hit_level = "miss"
@@ -118,7 +160,7 @@ async def chat(
                 kb_hit_level = "disabled"
                 rag_meta["hit_level"] = "disabled"
                 rag_meta["rag_strategy"] = "disabled"
-                print(f"DEBUG: KB Retrieval Skipped (kb_enabled=false)")
+                logger.debug("KB retrieval skipped because kb_enabled=false")
 
             if query_vec:
                 # ACL 过滤
@@ -133,7 +175,7 @@ async def chat(
                 # Update Meta Info
                 rag_meta["hit_level"] = kb_hit_level
                 rag_meta["doc_ids"] = [c.doc_id for c in kb_chunks]
-                print(f"DEBUG: Query '{request_body.prompt}' -> Hit Level: {kb_hit_level}")
+                logger.debug("KB retrieval hit_level=%s for query", kb_hit_level)
 
                 # 审计日志
                 kb_log = KBQueryLog(
@@ -150,11 +192,11 @@ async def chat(
         except Exception as e:
             logger.warning(f"KB retrieval failed, falling back: {e}")
             rag_meta["error"] = str(e)
-            print(f"DEBUG: KB Retrieval Failed: {e}")
+            logger.debug("KB retrieval failed and fallback activated")
 
         # ──── 2. 强命中: 仅基于 chunks 回答 ────
         if kb_hit_level == "strong" and kb_chunks:
-            print("DEBUG: Entering Strong Hit Block")
+            logger.debug("Using strong-hit KB direct response path")
             citations = []
             kb_context = []
             for i, c in enumerate(kb_chunks[:3], 1):
@@ -192,7 +234,7 @@ async def chat(
             # But let's assume KB content is safe.
             audit_entry.output = response_text
             await log_ai_audit(audit_entry)
-            print(f"DEBUG: Logged Strong Audit Entry: {rag_meta}")
+            logger.debug("Strong-hit audit log persisted")
             
             await db.commit()
             return AIChatResponse(
@@ -273,13 +315,18 @@ async def chat(
             context,
             model_id=request_body.model_id,
             image_url=request_body.image_url,
-            extra_meta=rag_meta  # Pass RAG meta info to audit log
+            extra_meta=rag_meta,  # Pass RAG meta info to audit log
+            allowed_image_hosts=_build_allowed_image_hosts(request),
         )
         
         await db.commit()
         return AIChatResponse(response=response_text)
+    except ValueError as e:
+        logger.warning("AI chat request rejected: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
         
     except Exception as e:
-        print(f"Chat Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+        logger.exception("Chat request failed")
+        raise HTTPException(status_code=500, detail="AI chat failed")

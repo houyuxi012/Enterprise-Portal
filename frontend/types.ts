@@ -239,3 +239,19 @@ export interface SystemInfo {
   environment: string;
   copyright: string;
 }
+
+export interface SystemVersion {
+  product: string;
+  product_id?: string;
+  version: string; // Full version (e.g. 2.5.0-beta.1)
+  semver: string;  // Base version (e.g. 2.5.0)
+  channel: string; // stable, beta, dev
+  git_sha: string;
+  dirty?: boolean;
+  build_time: string;
+  build_number?: string;
+  build_id?: string;
+  release_id?: string;
+  api_version?: string;
+  db_schema_version?: string;
+}
