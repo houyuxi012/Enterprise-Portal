@@ -87,6 +87,26 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                     )
                     db.add(sys_log)
                     await db.commit()
+
+                    try:
+                        from services.log_forwarder import emit_log_fire_and_forget
+                        emit_log_fire_and_forget(
+                            "SYSTEM",
+                            {
+                                "level": level_str,
+                                "module": "api.access",
+                                "message": f"{request.method} {request.url.path} - {response.status_code}",
+                                "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                                "ip_address": log_data["ip"],
+                                "path": log_data["path"],
+                                "method": log_data["method"],
+                                "status_code": log_data["status"],
+                                "duration": log_data["duration"],
+                                "user_agent": log_data["ua"],
+                            }
+                        )
+                    except Exception:
+                        pass
             except Exception as e:
                 # Fallback if DB fails, don't break request
                 print(f"Failed to write system log to DB: {e}")

@@ -97,6 +97,7 @@ class IdentityService:
                         db, username=form_data.username, success=False,
                         ip_address=ip, user_agent=user_agent, reason="IP not allowed", trace_id=trace_id
                     )
+                    await db.commit()
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access denied from this IP address.")
 
         # Check if user is locked
@@ -106,6 +107,7 @@ class IdentityService:
                     db, username=form_data.username, success=False,
                     ip_address=ip, user_agent=user_agent, reason="Account locked", trace_id=trace_id
                 )
+                await db.commit()
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is locked. Please try again later.")
             else:
                 user.locked_until = None
@@ -136,6 +138,7 @@ class IdentityService:
                 db, username=form_data.username, success=False,
                 ip_address=ip, user_agent=user_agent, reason=reason_msg, trace_id=trace_id
             )
+            await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",

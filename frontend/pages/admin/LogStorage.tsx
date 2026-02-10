@@ -8,7 +8,6 @@ import AppButton from '../../components/AppButton';
 interface StorageConfig {
     log_retention_system_days: number;
     log_retention_business_days: number;
-    log_retention_login_days: number;
     log_retention_ai_days: number;
     log_retention_iam_days: number;
     log_retention_access_days: number;
@@ -25,7 +24,6 @@ const LogStorage: React.FC = () => {
             storageForm.setFieldsValue({
                 log_retention_system_days: config.log_retention_system_days || 7,
                 log_retention_business_days: config.log_retention_business_days || 30,
-                log_retention_login_days: config.log_retention_login_days || 90,
                 log_retention_ai_days: config.log_retention_ai_days || 30,
                 log_retention_iam_days: config.log_retention_iam_days || 90,
                 log_retention_access_days: config.log_retention_access_days || 7,
@@ -46,7 +44,6 @@ const LogStorage: React.FC = () => {
             await ApiClient.updateSystemConfig({
                 log_retention_system_days: String(values.log_retention_system_days),
                 log_retention_business_days: String(values.log_retention_business_days),
-                log_retention_login_days: String(values.log_retention_login_days),
                 log_retention_ai_days: String(values.log_retention_ai_days),
                 log_retention_iam_days: String(values.log_retention_iam_days),
                 log_retention_access_days: String(values.log_retention_access_days),
@@ -81,17 +78,23 @@ const LogStorage: React.FC = () => {
                 <AppButton intent="secondary" icon={<DatabaseOutlined />} onClick={handleOptimize}>立即优化</AppButton>
             </div>
 
-            {/* Storage Policy Card */}
+            {/* Database Storage Policy Card */}
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 mb-6">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center">
-                    <span className="w-1 h-6 bg-blue-500 rounded-full mr-3"></span>
-                    日志保留策略
-                </h3>
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center">
+                        <span className="w-1 h-6 bg-blue-500 rounded-full mr-3"></span>
+                        数据库存储策略 (Hot Storage)
+                    </h3>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-lg text-xs font-medium">
+                        结构化查询数据
+                    </div>
+                </div>
+
                 <Form
                     form={storageForm}
                     layout="vertical"
                     onFinish={handleSaveStorage}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4"
                 >
                     {/* 系统日志 */}
                     <Form.Item
@@ -99,7 +102,7 @@ const LogStorage: React.FC = () => {
                         label={
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                                系统日志保留周期
+                                系统日志
                                 <Tooltip title="系统运行日志、错误堆栈等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
@@ -116,25 +119,8 @@ const LogStorage: React.FC = () => {
                         label={
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                业务审计保留周期
+                                业务审计
                                 <Tooltip title="用户操作审计、内容变更等">
-                                    <InfoCircleOutlined className="text-slate-400" />
-                                </Tooltip>
-                            </span>
-                        }
-                        rules={[{ required: true, message: '请输入保留天数' }]}
-                    >
-                        <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
-                    </Form.Item>
-
-                    {/* 登录审计 */}
-                    <Form.Item
-                        name="log_retention_login_days"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                登录审计保留周期
-                                <Tooltip title="登录/登出记录、失败尝试等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
                             </span>
@@ -150,7 +136,7 @@ const LogStorage: React.FC = () => {
                         label={
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                                AI 审计保留周期
+                                AI 审计
                                 <Tooltip title="AI 对话、生成记录、Token 消耗等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
@@ -161,14 +147,14 @@ const LogStorage: React.FC = () => {
                         <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
                     </Form.Item>
 
-                    {/* IAM 审计 */}
+                    {/* IAM 与登录审计 */}
                     <Form.Item
                         name="log_retention_iam_days"
                         label={
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                                IAM 审计保留周期
-                                <Tooltip title="角色分配、权限变更、用户管理等">
+                                IAM 与登录审计
+                                <Tooltip title="包含用户登录、角色分配、权限变更等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>
                             </span>
@@ -178,45 +164,78 @@ const LogStorage: React.FC = () => {
                         <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
                     </Form.Item>
 
-                    {/* 访问日志 */}
-                    <Form.Item
-                        name="log_retention_access_days"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
-                                访问日志保留周期
-                                <Tooltip title="HTTP 请求访问记录、API 调用等">
-                                    <InfoCircleOutlined className="text-slate-400" />
-                                </Tooltip>
-                            </span>
-                        }
-                        rules={[{ required: true, message: '请输入保留天数' }]}
-                    >
-                        <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
-                    </Form.Item>
 
-                    {/* 磁盘占用 */}
-                    <Form.Item
-                        name="log_max_disk_usage"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                                最大磁盘占用
-                                <Tooltip title="超出后将自动删除最早的日志，直到磁盘占用降至设定值以下">
-                                    <InfoCircleOutlined className="text-slate-400" />
-                                </Tooltip>
-                            </span>
-                        }
-                        rules={[{ required: true, message: '请输入百分比' }]}
-                    >
-                        <InputNumber min={50} max={95} addonAfter="%" className="w-full rounded-xl" />
-                    </Form.Item>
+
+                    {/* Placeholder for grid alignment if needed */}
+                    <div className="hidden lg:block"></div>
+
+                    {/* 磁盘占用 - 单独一行 */}
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-6">
+                        <div className="flex items-center mb-4">
+                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">数据库磁盘安全阈值</h4>
+                        </div>
+                        <Form.Item
+                            name="log_max_disk_usage"
+                            label={
+                                <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                    最大磁盘占用
+                                    <Tooltip title="超出后将自动删除最早的日志，直到磁盘占用降至设定值以下">
+                                        <InfoCircleOutlined className="text-slate-400" />
+                                    </Tooltip>
+                                </span>
+                            }
+                            rules={[{ required: true, message: '请输入百分比' }]}
+                            className="max-w-md"
+                        >
+                            <InputNumber min={50} max={95} addonAfter="%" className="w-full rounded-xl" />
+                        </Form.Item>
+                    </div>
 
                     {/* 提交按钮 */}
-                    <div className="md:col-span-2 flex justify-end pt-4">
-                        <AppButton intent="primary" htmlType="submit" loading={storageLoading}>保存策略</AppButton>
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-end pt-4">
+                        <AppButton intent="primary" htmlType="submit" loading={storageLoading}>保存数据库策略</AppButton>
                     </div>
                 </Form>
+            </div>
+
+            {/* File/Object Storage Info Card */}
+            <div className="bg-slate-100 dark:bg-slate-800/50 rounded-[1.5rem] p-8 border border-slate-200 dark:border-slate-700/50">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center">
+                        <span className="w-1 h-6 bg-slate-400 rounded-full mr-3"></span>
+                        文件与对象存储 (Warm/Cold Storage)
+                    </h3>
+                    <div className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-lg text-xs font-medium">
+                        只读归档数据
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <h4 className="font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
+                            <DatabaseOutlined /> Access Logs (访问日志)
+                        </h4>
+                        <p className="text-slate-500 dark:text-slate-400 mb-2">
+                            HTTP 请求产生的海量访问日志不存储在数据库中，而是流式传输至 <strong>Loki</strong> 文件存储。
+                        </p>
+                        <div className="text-xs text-slate-400 mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800 font-mono">
+                            Retention Policy: Managed by Loki config (default: 30d)
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <h4 className="font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
+                            <DatabaseOutlined /> Archive Data (原始归档)
+                        </h4>
+                        <p className="text-slate-500 dark:text-slate-400 mb-2">
+                            长期未访问的历史日志和非结构化数据可能会归档至 <strong>MinIO</strong> 对象存储。
+                        </p>
+                        <div className="text-xs text-slate-400 mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800 font-mono">
+                            Lifecycle Rule: Managed by Bucket Policy
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

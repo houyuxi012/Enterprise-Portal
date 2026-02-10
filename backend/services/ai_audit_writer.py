@@ -7,6 +7,7 @@ import hashlib
 import uuid
 import json
 import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Optional, List, Protocol
 from dataclasses import dataclass, field, asdict
@@ -206,7 +207,8 @@ class LokiAuditWriter:
                 resp = await client.post(
                     f"{self.loki_url}/loki/api/v1/push",
                     json=payload,
-                    timeout=5.0
+                    timeout=5.0,
+                    headers={"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
                 )
                 if resp.status_code not in (200, 204):
                     logger.warning(f"Loki push failed: {resp.status_code}")
@@ -226,6 +228,33 @@ class CompositeAuditWriter:
     async def write(self, entry: AIAuditEntry) -> None:
         # DB 写入 (主，同步等待)
         await self.db_writer.write(entry)
+
+        # Log forwarding sidecar (non-blocking, based on config)
+        try:
+            from services.log_forwarder import emit_log_fire_and_forget
+            emit_log_fire_and_forget(
+                "AI",
+                {
+                    "event_id": entry.event_id,
+                    "trace_id": entry.trace_id,
+                    "actor_type": entry.actor_type,
+                    "actor_id": entry.actor_id,
+                    "actor_ip": entry.actor_ip,
+                    "action": entry.action,
+                    "provider": entry.provider,
+                    "model": entry.model,
+                    "status": entry.status,
+                    "latency_ms": entry.latency_ms,
+                    "tokens_in": entry.tokens_in,
+                    "tokens_out": entry.tokens_out,
+                    "input_policy_result": entry.input_policy_result,
+                    "output_policy_result": entry.output_policy_result,
+                    "error_code": entry.error_code,
+                    "timestamp": entry.ts.isoformat() if entry.ts else None,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to forward AI audit log (non-blocking): {e}")
         
         # Loki 写入 (旁路，非阻塞)
         if self.loki_writer:

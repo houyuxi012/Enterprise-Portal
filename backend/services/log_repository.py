@@ -27,6 +27,14 @@ from sqlalchemy import select, desc
 logger = logging.getLogger(__name__)
 
 
+def _loki_headers() -> Dict[str, str]:
+    """
+    Loki multi-tenant auth header.
+    Required when loki auth_enabled=true.
+    """
+    return {"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
+
+
 # =============================================================================
 # Data Models
 # =============================================================================
@@ -182,7 +190,7 @@ class LokiLogWriter(LogWriter):
     
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=5.0)
+            self._client = httpx.AsyncClient(timeout=5.0, headers=_loki_headers())
         return self._client
     
     async def write(self, entry: LogEntry) -> bool:
@@ -313,7 +321,7 @@ class LokiLogReader(LogReader):
     
     async def query(self, q: LogQuery) -> List[Dict[str, Any]]:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=5.0, headers=_loki_headers()) as client:
                 # Build LogQL query
                 labels = ['job="enterprise-portal"']
                 if q.log_type:

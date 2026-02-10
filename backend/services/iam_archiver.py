@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from iam.audit.models import IAMAuditLog
+import models
 # from services.minio_service import MinioService # To be corrected
 from database import SessionLocal
 
@@ -18,22 +19,65 @@ class IAMAuditArchiver:
     """
     
     BUCKET_NAME = "archive-iam-logs"
-    RETENTION_DAYS = 30 # 保留 30 天热数据
+    RETENTION_DAYS = 30 # 默认保留 30 天热数据
+    DEFAULT_INTERVAL_SECONDS = 24 * 3600
     
     @staticmethod
     async def run_archiving_job():
-        """定时任务入口"""
-        logger.info("Starting IAM Audit Archiving Job...")
+        """定时任务入口（循环执行）"""
+        interval_seconds = IAMAuditArchiver._get_interval_seconds()
+        logger.info(f"Starting IAM Audit Archiving Scheduler, interval={interval_seconds}s")
+        while True:
+            try:
+                await IAMAuditArchiver.run_archiving_once()
+            except asyncio.CancelledError:
+                logger.info("IAM Archiving Scheduler cancelled.")
+                raise
+            except Exception as e:
+                logger.error(f"IAM Archiving Job failed: {e}", exc_info=True)
+            await asyncio.sleep(interval_seconds)
+
+    @staticmethod
+    async def run_archiving_once():
+        """执行一次归档任务"""
+        async with SessionLocal() as db:
+            await IAMAuditArchiver.archive_old_logs(db)
+
+    @staticmethod
+    def _get_interval_seconds() -> int:
+        raw = os.getenv("IAM_ARCHIVE_INTERVAL_SECONDS")
+        if not raw:
+            return IAMAuditArchiver.DEFAULT_INTERVAL_SECONDS
         try:
-            async with SessionLocal() as db:
-                await IAMAuditArchiver.archive_old_logs(db)
+            return max(300, int(raw))
+        except ValueError:
+            logger.warning(
+                f"Invalid IAM_ARCHIVE_INTERVAL_SECONDS={raw}, "
+                f"fallback={IAMAuditArchiver.DEFAULT_INTERVAL_SECONDS}"
+            )
+            return IAMAuditArchiver.DEFAULT_INTERVAL_SECONDS
+
+    @staticmethod
+    async def _get_retention_days(db: AsyncSession) -> int:
+        """
+        Read retention days from system config key: log_retention_iam_days.
+        Fallback to class default.
+        """
+        try:
+            stmt = select(models.SystemConfig).where(models.SystemConfig.key == "log_retention_iam_days")
+            result = await db.execute(stmt)
+            cfg = result.scalars().first()
+            if cfg and cfg.value:
+                return max(1, int(cfg.value))
         except Exception as e:
-            logger.error(f"IAM Archiving Job failed: {e}", exc_info=True)
+            logger.warning(f"Failed to read log_retention_iam_days, fallback default: {e}")
+        return IAMAuditArchiver.RETENTION_DAYS
 
     @staticmethod
     async def archive_old_logs(db: AsyncSession):
-        cutoff_date = datetime.now() - timedelta(days=IAMAuditArchiver.RETENTION_DAYS)
-        logger.info(f"Archiving logs older than {cutoff_date}")
+        retention_days = await IAMAuditArchiver._get_retention_days(db)
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        logger.info(f"Archiving IAM logs older than {cutoff_date} (retention_days={retention_days})")
         
         # 1. Fetch old logs (Limit batch size to avoid OOM)
         count_stmt = select(func.count()).where(IAMAuditLog.timestamp < cutoff_date)

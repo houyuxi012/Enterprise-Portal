@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 LOG_RETENTION_CONFIG = {
     "system": ("log_retention_system_days", 7, models.SystemLog, "timestamp", "str"),
     "business": ("log_retention_business_days", 30, models.BusinessLog, "timestamp", "str"),
-    "login": ("log_retention_login_days", 90, models.LoginAuditLog, "created_at", "str"),
     "ai": ("log_retention_ai_days", 30, models.AIAuditLog, "ts", "dt"),
     "iam": ("log_retention_iam_days", 90, IAMAuditLog, "timestamp", "dt"),
 }
@@ -25,6 +24,68 @@ async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
     result = await db.execute(select(models.SystemConfig).filter(models.SystemConfig.key == key))
     config = result.scalars().first()
     return config.value if config else default
+
+
+def _parse_string_timestamp(value: str):
+    if not value:
+        return None
+
+    text_value = str(value).strip()
+    if not text_value:
+        return None
+
+    # ISO8601 fallback normalization
+    if text_value.endswith("Z"):
+        text_value = text_value[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.datetime.fromisoformat(text_value)
+    except Exception:
+        return None
+
+    # Normalize to naive UTC for comparison consistency
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+async def _collect_expired_ids_from_string_ts(
+    db: AsyncSession,
+    model_class,
+    ts_field: str,
+    cutoff_date: datetime.datetime,
+):
+    ts_column = getattr(model_class, ts_field)
+    result = await db.execute(select(model_class.id, ts_column))
+    rows = result.fetchall()
+
+    expired_ids = []
+    for row_id, raw_ts in rows:
+        parsed_ts = _parse_string_timestamp(raw_ts)
+        if parsed_ts and parsed_ts < cutoff_date:
+            expired_ids.append(row_id)
+
+    return expired_ids
+
+
+async def _collect_oldest_ids_from_string_ts(
+    db: AsyncSession,
+    model_class,
+    ts_field: str,
+    batch_size: int,
+):
+    ts_column = getattr(model_class, ts_field)
+    result = await db.execute(select(model_class.id, ts_column))
+    rows = result.fetchall()
+
+    parsed_rows = []
+    for row_id, raw_ts in rows:
+        parsed_ts = _parse_string_timestamp(raw_ts)
+        if parsed_ts:
+            parsed_rows.append((parsed_ts, row_id))
+
+    parsed_rows.sort(key=lambda x: x[0])
+    return [row_id for _, row_id in parsed_rows[:batch_size]]
 
 async def cleanup_logs(db_session_factory):
     """
@@ -58,14 +119,17 @@ async def cleanup_logs(db_session_factory):
                     
                     # Handle different column types: String vs DateTime
                     if field_type == "str":
-                        # String columns need isoformat comparison
-                        cutoff_str = cutoff_date.isoformat()
-                        await db.execute(delete(model_class).where(ts_column < cutoff_str))
+                        # Parse string timestamps to avoid lexical comparison mismatch.
+                        expired_ids = await _collect_expired_ids_from_string_ts(
+                            db, model_class, ts_field, cutoff_date
+                        )
+                        if expired_ids:
+                            await db.execute(delete(model_class).where(model_class.id.in_(expired_ids)))
+                        logger.info(f"Cleaned up {len(expired_ids)} {log_type} logs by parsed timestamp.")
                     else:
                         # DateTime columns use datetime object directly
                         await db.execute(delete(model_class).where(ts_column < cutoff_date))
-                    
-                    logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
+                        logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
             
             await db.commit()
 
@@ -86,14 +150,18 @@ async def cleanup_logs(db_session_factory):
                     deleted_any = False
                     
                     # Find and delete oldest logs from each type
-                    for log_type, (_, _, model_class, ts_field, _) in LOG_RETENTION_CONFIG.items():
+                    for log_type, (_, _, model_class, ts_field, field_type) in LOG_RETENTION_CONFIG.items():
                         try:
-                            # Find oldest records using the correct timestamp field
-                            ts_column = getattr(model_class, ts_field)
-                            oldest_query = select(model_class.id).order_by(ts_column).limit(batch_size)
-                            
-                            result = await db.execute(oldest_query)
-                            oldest_ids = [row[0] for row in result.fetchall()]
+                            if field_type == "str":
+                                oldest_ids = await _collect_oldest_ids_from_string_ts(
+                                    db, model_class, ts_field, batch_size
+                                )
+                            else:
+                                # Find oldest records using the correct timestamp field
+                                ts_column = getattr(model_class, ts_field)
+                                oldest_query = select(model_class.id).order_by(ts_column).limit(batch_size)
+                                result = await db.execute(oldest_query)
+                                oldest_ids = [row[0] for row in result.fetchall()]
                             
                             if oldest_ids:
                                 await db.execute(delete(model_class).where(model_class.id.in_(oldest_ids)))
@@ -143,7 +211,7 @@ async def optimize_database(db_session_factory, engine=None):
             # PostgreSQL specific syntax
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_system_logs_timestamp ON system_logs (timestamp)"))
             await db.execute(text("CREATE INDEX IF NOT EXISTS ix_business_logs_timestamp ON business_logs (timestamp)"))
-            await db.execute(text("CREATE INDEX IF NOT EXISTS ix_login_audit_logs_created_at ON login_audit_logs (created_at)"))
+            # await db.execute(text("CREATE INDEX IF NOT EXISTS ix_login_audit_logs_created_at ON login_audit_logs (created_at)"))
             await db.commit()
             
             # 2. Run VACUUM & ANALYZE

@@ -1,6 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List, Optional
@@ -10,6 +9,11 @@ from database import get_db
 from routers.auth import get_current_user
 from dependencies import PermissionChecker
 import datetime
+import ast
+import json
+import os
+import logging
+from services.audit_service import AuditService
 
 router = APIRouter(
     prefix="/logs",
@@ -17,10 +21,85 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+logger = logging.getLogger(__name__)
+
+
+def _loki_headers() -> dict[str, str]:
+    return {"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
+
+
+def _parse_log_types_field(raw_value) -> List[str]:
+    default_types = ["BUSINESS", "SYSTEM", "ACCESS"]
+    if raw_value is None:
+        return default_types
+
+    parsed = raw_value
+    if isinstance(raw_value, str):
+        text = raw_value.strip()
+        if not text:
+            return default_types
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(text)
+            except Exception:
+                cleaned = text.strip("{}")
+                parsed = [part.strip().strip('"').strip("'") for part in cleaned.split(",") if part.strip()]
+
+    if isinstance(parsed, str):
+        parsed = [parsed]
+
+    if isinstance(parsed, (list, tuple, set)):
+        normalized = [str(item).upper().strip() for item in parsed if str(item).strip()]
+        return normalized or default_types
+
+    return default_types
+
+
+def _get_client_ip(request: Optional[Request]) -> str:
+    if request is None:
+        return "unknown"
+    x_real_ip = request.headers.get("X-Real-IP")
+    x_forwarded_for = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    return x_real_ip or x_forwarded_for or (request.client.host if request.client else "unknown")
+
+
+async def _record_log_query_audit(
+    db: AsyncSession,
+    request: Request,
+    current_user: models.User,
+    audit_action: str,
+    target: str,
+    detail: str,
+    domain: str
+):
+    """
+    Audit who queried logs, with filters and result count.
+    This is best-effort and should never break read APIs.
+    """
+    try:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action=audit_action,
+            target=target,
+            detail=detail,
+            ip_address=_get_client_ip(request),
+            trace_id=request.headers.get("X-Request-ID") if request else None,
+            domain=domain,
+        )
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to persist log query audit ({audit_action}): {e}")
+        await db.rollback()
+
 # --- System Logs ---
 
 @router.get("/system", response_model=List[schemas.SystemLog])
 async def read_system_logs(
+    request: Request,
     level: Optional[str] = None,
     module: Optional[str] = None,
     exclude_module: Optional[str] = None,
@@ -38,12 +117,27 @@ async def read_system_logs(
         query = query.filter(models.SystemLog.module != exclude_module)
     
     result = await db.execute(query.limit(limit).offset(offset))
-    return result.scalars().all()
+    logs = result.scalars().all()
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_SYSTEM_LOGS",
+        target="系统日志",
+        detail=(
+            f"level={level or '*'}, module={module or '*'}, "
+            f"exclude_module={exclude_module or '-'}, limit={limit}, "
+            f"offset={offset}, result_count={len(logs)}"
+        ),
+        domain="SYSTEM",
+    )
+    return logs
 
 # --- Business Logs ---
 
 @router.get("/business", response_model=List[schemas.BusinessLog])
 async def read_business_logs(
+    request: Request,
     operator: Optional[str] = None,
     action: Optional[str] = None,
     domain: str = "BUSINESS", # Default filter by domain
@@ -132,7 +226,8 @@ async def read_business_logs(
                 resp = await client.get(
                     f"{loki_base_url}/loki/api/v1/query_range",
                     params={"query": query_str, "limit": fetch_limit}, # Fetch enough to cover offset
-                    timeout=5.0
+                    timeout=5.0,
+                    headers=_loki_headers()
                 )
                 if resp.status_code == 200:
                     import json
@@ -195,8 +290,21 @@ async def read_business_logs(
         r.pop("_epoch", None)
         final_results.append(r)
 
-    # Correct slicing for pagination
-    return final_results[offset : offset + limit]
+    page = final_results[offset : offset + limit]
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_BUSINESS_LOGS",
+        target="业务日志",
+        detail=(
+            f"domain={domain}, source={source}, operator={operator or '*'}, "
+            f"action={action or '*'}, limit={limit}, offset={offset}, "
+            f"result_count={len(page)}"
+        ),
+        domain="SYSTEM",
+    )
+    return page
 
 @router.post("/business", response_model=schemas.BusinessLog)
 async def create_business_log(
@@ -219,7 +327,19 @@ async def read_log_configs(
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig))
-    return result.scalars().all()
+    configs = result.scalars().all()
+    return [
+        {
+            "id": cfg.id,
+            "type": cfg.type,
+            "endpoint": cfg.endpoint,
+            "port": cfg.port,
+            "secret_token": cfg.secret_token,
+            "enabled": cfg.enabled,
+            "log_types": _parse_log_types_field(cfg.log_types),
+        }
+        for cfg in configs
+    ]
 
 @router.post("/config", response_model=schemas.LogForwardingConfig)
 async def create_log_config(
@@ -227,11 +347,28 @@ async def create_log_config(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
-    db_config = models.LogForwardingConfig(**config.dict())
+    from services.log_forwarder import invalidate_forwarding_cache
+
+    normalized_log_types = _parse_log_types_field(config.log_types)
+    payload = config.dict()
+    payload["log_types"] = json.dumps(
+        normalized_log_types,
+        ensure_ascii=False
+    )
+    db_config = models.LogForwardingConfig(**payload)
     db.add(db_config)
     await db.commit()
     await db.refresh(db_config)
-    return db_config
+    invalidate_forwarding_cache()
+    return {
+        "id": db_config.id,
+        "type": db_config.type,
+        "endpoint": db_config.endpoint,
+        "port": db_config.port,
+        "secret_token": db_config.secret_token,
+        "enabled": db_config.enabled,
+        "log_types": normalized_log_types,
+    }
 
 @router.delete("/config/{config_id}")
 async def delete_log_config(
@@ -239,6 +376,8 @@ async def delete_log_config(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
+    from services.log_forwarder import invalidate_forwarding_cache
+
     result = await db.execute(select(models.LogForwardingConfig).filter(models.LogForwardingConfig.id == config_id))
     db_config = result.scalars().first()
     if not db_config:
@@ -246,6 +385,7 @@ async def delete_log_config(
         
     await db.delete(db_config)
     await db.commit()
+    invalidate_forwarding_cache()
     return {"message": "Config deleted"}
 
 # --- Access Logs (Loki Only) ---
@@ -298,6 +438,7 @@ async def read_access_logs(
 
 @router.get("/ai-audit", response_model=List[schemas.AIAuditLog])
 async def read_ai_audit_logs(
+    request: Request,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     actor_id: Optional[int] = None,
@@ -408,7 +549,8 @@ async def read_ai_audit_logs(
                     resp = await client.get(
                         f"{loki_url}/loki/api/v1/query_range",
                         params=params,
-                        timeout=5.0
+                        timeout=5.0,
+                        headers=_loki_headers()
                     )
                     if resp.status_code == 200:
                         import json
@@ -485,7 +627,22 @@ async def read_ai_audit_logs(
         r.pop("_epoch", None)
         final_results.append(r)
     
-    return final_results[offset : offset + limit]
+    page = final_results[offset : offset + limit]
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_AI_AUDIT_LOGS",
+        target="AI审计日志",
+        detail=(
+            f"source={source}, actor_id={actor_id or '*'}, provider={provider or '*'}, "
+            f"model={model or '*'}, status={status or '*'}, start_time={start_time or '-'}, "
+            f"end_time={end_time or '-'}, limit={limit}, offset={offset}, "
+            f"result_count={len(page)}"
+        ),
+        domain="SYSTEM",
+    )
+    return page
 
 
 

@@ -49,6 +49,29 @@ class IAMAuditService:
         
         db.add(log_entry)
         # 不自动 Commit，由调用方控制事务
+
+        # 1.5 Forward to external sinks (non-blocking)
+        try:
+            from services.log_forwarder import emit_log_fire_and_forget
+            emit_log_fire_and_forget(
+                "IAM",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "action": action,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "target_name": target_name,
+                    "user_id": user_id,
+                    "username": username,
+                    "result": result,
+                    "reason": reason,
+                    "ip_address": ip_address,
+                    "detail": detail,
+                    "trace_id": trace_id,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to forward IAM audit log (non-blocking): {e}")
         
         # 2. Push to Loki (sidecar, non-blocking)
         try:
@@ -90,7 +113,8 @@ class IAMAuditService:
                     await client.post(
                         f"{loki_push_url}/loki/api/v1/push",
                         json=payload,
-                        timeout=2.0
+                        timeout=2.0,
+                        headers={"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
                     )
         except Exception as e:
             # Non-blocking: log warning and continue

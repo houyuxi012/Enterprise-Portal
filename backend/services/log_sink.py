@@ -23,6 +23,10 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+def _loki_headers() -> dict[str, str]:
+    return {"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
+
+
 @dataclass
 class LogEntry:
     """Standardized log entry for all log types."""
@@ -169,7 +173,7 @@ class LokiSink(LogSink):
                     f"{self.loki_url}/loki/api/v1/push",
                     json=payload,
                     timeout=5.0,
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json", **_loki_headers()}
                 )
                 if resp.status_code >= 400:
                     logger.warning(f"Loki push failed: {resp.status_code} - {resp.text}")

@@ -58,6 +58,7 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
         # Use LogRepository for unified logging
         try:
             from services.log_repository import get_log_repository, LogEntry
+            from services.log_forwarder import emit_log_fire_and_forget
             repo = get_log_repository()
             if repo:
                 log_entry = LogEntry(
@@ -78,6 +79,21 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
                 )
                 # Fire-and-forget (ACCESS logs go to Loki only via repository)
                 asyncio.create_task(repo.write(log_entry))
+
+                emit_log_fire_and_forget(
+                    "ACCESS",
+                    {
+                        "trace_id": trace_id,
+                        "path": request.url.path,
+                        "method": request.method,
+                        "status_code": response.status_code,
+                        "status": status,
+                        "ip_address": client_ip,
+                        "user_agent": request.headers.get("User-Agent", ""),
+                        "latency_ms": latency_ms,
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                    }
+                )
         except Exception as e:
             import logging
             logging.warning(f"AccessLoggingMiddleware log failed: {e}")

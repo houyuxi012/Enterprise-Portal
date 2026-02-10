@@ -201,18 +201,7 @@ class CarouselItem(Base):
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
 
-class LoginAuditLog(Base):
-    __tablename__ = "login_audit_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=True) # Valid user ID if exists
-    username = Column(String, index=True) # Input username
-    ip_address = Column(String, nullable=True)
-    user_agent = Column(String, nullable=True)
-    success = Column(Boolean, default=False, index=True)
-    reason = Column(String, nullable=True) 
-    trace_id = Column(String, index=True, nullable=True)
-    created_at = Column(String, index=True)
 
 class FileMetadata(Base):
     __tablename__ = "file_metadata"

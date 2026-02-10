@@ -144,6 +144,7 @@ async def list_audit_logs(
     if source in ("loki", "all"):
         try:
             loki_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
+            loki_headers = {"X-Scope-OrgID": os.getenv("LOKI_TENANT_ID", "enterprise-portal")}
             
             # Build LogQL query
             label_filters = ['job="enterprise-portal"', 'log_type="IAM"']
@@ -162,7 +163,12 @@ async def list_audit_logs(
             }
             
             async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{loki_url}/loki/api/v1/query_range", params=params, timeout=5.0)
+                resp = await client.get(
+                    f"{loki_url}/loki/api/v1/query_range",
+                    params=params,
+                    timeout=5.0,
+                    headers=loki_headers
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     loki_id = 100000
@@ -245,4 +251,3 @@ async def list_audit_logs(
         page=page,
         page_size=page_size
     )
-

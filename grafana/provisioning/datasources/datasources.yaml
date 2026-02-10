@@ -14,6 +14,9 @@ datasources:
     editable: false
     jsonData:
       maxLines: 1000
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: enterprise-portal
 
   # Redis - 缓存数据源 (需要安装 redis-datasource 插件)
   - name: Redis
