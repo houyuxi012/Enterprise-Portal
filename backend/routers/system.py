@@ -64,12 +64,80 @@ def _load_version_info() -> Dict:
     return {**VERSION_DEFAULTS, **payload}
 
 
-async def check_version_upgrade(_session_factory):
+async def check_version_upgrade(session_factory):
     """
-    Reserved startup hook for future online version checks.
-    Keep as a no-op to avoid startup import failures in `main.py`.
+    Check if the system version has changed since the last run.
+    If changed, log a system audit event.
     """
-    return None
+    # Local import to avoid circular dependency with AuditService which might import other routers
+    from services.audit_service import AuditService
+
+    version_info = _load_version_info()
+    current_version = version_info.get("version", "unknown")
+    current_build = version_info.get("build_id", "unknown")
+    product_name = version_info.get("product", "System")
+
+    try:
+        async with session_factory() as db:
+            # Check stored version
+            result = await db.execute(
+                select(models.SystemConfig).filter(models.SystemConfig.key == "system_version")
+            )
+            version_config = result.scalars().first()
+            stored_version = version_config.value if version_config else "new_install"
+
+            # Check stored build
+            result = await db.execute(
+                select(models.SystemConfig).filter(models.SystemConfig.key == "system_build_id")
+            )
+            build_config = result.scalars().first()
+            stored_build = build_config.value if build_config else "unknown"
+
+            # Compare (Ignore if both are unknown/dev defaults potentially, but good to track)
+            if stored_version != current_version or stored_build != current_build:
+                logger.info(
+                    "System Upgrade Detected: %s (%s) -> %s (%s)",
+                    stored_version,
+                    stored_build,
+                    current_version,
+                    current_build,
+                )
+
+                # 1. Update Config (Version)
+                if version_config:
+                    version_config.value = current_version
+                else:
+                    db.add(models.SystemConfig(key="system_version", value=current_version))
+
+                # 2. Update Config (Build ID)
+                if build_config:
+                    build_config.value = current_build
+                else:
+                    db.add(models.SystemConfig(key="system_build_id", value=current_build))
+
+                # 3. Audit Log
+                # We try to attribute this to system (ID 1 usually Admin, or 0 if supported)
+                # If ID 1 doesn't exist, this might fail, so we wrap in try/except or assume seeded DB
+                try:
+                    await AuditService.log_business_action(
+                        db,
+                        user_id=1,  # Assume Admin ID 1 exists
+                        username="system_auto",
+                        action="SYSTEM_UPGRADE",
+                        target=product_name,
+                        detail=f"Upgrade: {stored_version} -> {current_version} (Build {stored_build} -> {current_build})",
+                        ip_address="127.0.0.1",
+                        trace_id=f"upgrade-{int(time.time())}",
+                    )
+                except Exception as audit_err:
+                    logger.warning("Failed to write upgrade audit log: %s", audit_err)
+
+                await db.commit()
+            else:
+                logger.debug("System version matches stored version (%s). No action.", current_version)
+
+    except Exception as e:
+        logger.error("Failed to perform startup version check: %s", e)
 
 
 @router.get("/config", response_model=Dict[str, str])

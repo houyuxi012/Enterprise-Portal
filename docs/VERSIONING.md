@@ -1,19 +1,24 @@
 # Enterprise Versioning Strategy
 
-## 1. Version Format (SemVer + Metadata)
+## 1. Version Format
 
-We adhere to [Semantic Versioning 2.0.0](https://semver.org/) extended with build metadata.
+We adhere to [Semantic Versioning 2.0.0](https://semver.org/) extended with build metadata and channel info.
 
-Format: `MAJOR.MINOR.PATCH-[CHANNEL].[BUILD_NUMBER]`
+Format: `MAJOR.MINOR.PATCH-[CHANNEL].[BUILD_ID]`
 
 ### Components
 - **MAJOR**: Incompatible API changes.
 - **MINOR**: Backward-compatible functionality.
 - **PATCH**: Backward-compatible bug fixes.
 - **CHANNEL**: Release channel (`stable`, `beta`, `dev`, `nightly`).
-- **BUILD_NUMBER**: CI/CD build identifier (timestamp or job ID) for traceability.
+- **BUILD_ID**: Globally unique build identifier (Format: `YYYYMMDDHHMMSS`).
 
-**Example:** `2.5.0-beta.2026021101`
+**Example:** `2.5.0-beta.20260211163045`
+
+### Extended Metadata
+- **Product ID**: `enterprise-portal`
+- **Release ID**: `R{DATE}-{BUILD_ID}` (e.g., `R20260211-...`)
+- **Dirty Flag**: Indicates if the build was generated from a source tree with uncommitted changes.
 
 ---
 
@@ -23,26 +28,41 @@ Format: `MAJOR.MINOR.PATCH-[CHANNEL].[BUILD_NUMBER]`
 |-----------|----------------|-------------|
 | **Product** | `VERSION` env | The overall product release version. |
 | **Backend API** | `api_version` | Current API definition version (e.g., `v1`). |
-| **Database** | `db_schema_version` | Schema migration version (e.g., `1.0.2`). |
+| **Database** | `db_schema_version` | Schema migration version (e.g., `1.0.2` or Alembic revision). |
 
 ---
 
 ## 3. Automation Workflow
 
-The `scripts/gen_version.sh` script is the single source of truth for build artifacts. It generates `backend/VERSION.json`.
+The `scripts/gen_version.sh` script is the single source of truth.
 
-### CI/CD Integration
+### Usage
 ```bash
-# Production Build
+# Development (Default)
+./scripts/gen_version.sh
+
+# Production / CI
 export VERSION="2.5.0"
 export CHANNEL="stable"
 export BUILD_NUMBER="${CI_JOB_ID}"
 ./scripts/gen_version.sh
+```
 
-# Nightly Build
-export VERSION="2.6.0"
-export CHANNEL="nightly"
-./scripts/gen_version.sh
+### Generated Artifact (`backend/VERSION.json`)
+```json
+{
+  "product": "Next-Gen Enterprise Portal",
+  "product_id": "enterprise-portal",
+  "version": "2.5.0-beta.20260211...",
+  "semver": "2.5.0",
+  "channel": "beta",
+  "git_sha": "03b2953",
+  "dirty": false,
+  "build_id": "20260211...",
+  "release_id": "R20260211-...",
+  "api_version": "v1",
+  "db_schema_version": "1.0.2"
+}
 ```
 
 ---
