@@ -25,6 +25,7 @@ const AISettings: React.FC = () => {
                 ai_icon: config.ai_icon || '',
                 ai_enabled: config.ai_enabled !== 'false', // Default true implies enabled unless explicitly false
                 search_ai_enabled: config.search_ai_enabled !== 'false',
+                kb_enabled: config.kb_enabled !== 'false',
                 default_ai_model: config.default_ai_model ? Number(config.default_ai_model) : (modelList.length > 0 ? modelList[0].id : undefined)
             });
             setImageUrl(config.ai_icon || '');
@@ -49,6 +50,7 @@ const AISettings: React.FC = () => {
                 ai_icon: values.ai_icon,
                 ai_enabled: String(values.ai_enabled),
                 search_ai_enabled: String(values.search_ai_enabled),
+                kb_enabled: String(values.kb_enabled),
                 default_ai_model: values.default_ai_model ? String(values.default_ai_model) : '',
             };
             await ApiClient.updateSystemConfig(configToSave);
@@ -107,6 +109,15 @@ const AISettings: React.FC = () => {
                                 label="启用搜索栏 AI 增强"
                                 valuePropName="checked"
                                 help="在搜索栏提供 AI 智能预览结果以及搜索建议"
+                            >
+                                <Switch />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="kb_enabled"
+                                label="启用本地知识库"
+                                valuePropName="checked"
+                                help="开启后，AI 助手将优先从本地知识库检索信息以回答问题"
                             >
                                 <Switch />
                             </Form.Item>

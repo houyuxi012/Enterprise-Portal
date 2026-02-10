@@ -69,27 +69,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             children: [
                 {
                     key: 'ai_settings',
-                    icon: <SettingOutlined />,
                     label: '基础设置',
                 },
                 {
                     key: 'ai_models',
-                    icon: <ApiOutlined />,
                     label: '模型配置',
                 },
                 {
                     key: 'ai_usage',
-                    icon: <BarChartOutlined />,
                     label: '模型用量',
                 },
                 {
                     key: 'ai_security',
-                    icon: <SafetyCertificateOutlined />,
                     label: '安全策略',
                 },
                 {
                     key: 'kb_manage',
-                    icon: <BookOutlined />,
                     label: '知识库',
                 },
             ],
@@ -101,17 +96,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             children: [
                 {
                     key: 'news',
-                    icon: <FileTextOutlined />,
                     label: '新闻资讯',
                 },
                 {
                     key: 'announcements',
-                    icon: <NotificationOutlined />,
                     label: '实时公告',
                 },
                 {
                     key: 'carousel',
-                    icon: <PictureOutlined />,
                     label: '轮播管理',
                 },
 
@@ -124,12 +116,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             children: [
                 {
                     key: 'tools',
-                    icon: <AppstoreOutlined />,
                     label: '应用管理',
                 },
                 {
                     key: 'app_permissions',
-                    icon: <KeyOutlined />,
                     label: '应用权限',
                 },
             ],
@@ -141,22 +131,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             children: [
                 {
                     key: 'employees',
-                    icon: <IdcardOutlined />,
                     label: '用户管理',
                 },
                 {
                     key: 'org',
-                    icon: <AppstoreOutlined />,
                     label: '组织机构',
                 },
                 {
                     key: 'users',
-                    icon: <UserOutlined />,
                     label: '系统账户',
                 },
                 {
                     key: 'roles',
-                    icon: <SafetyCertificateOutlined />,
                     label: '角色管理',
                 },
             ],
@@ -182,18 +168,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             children: [
                 {
                     key: 'security',
-                    icon: <SafetyCertificateOutlined />,
                     label: '安全设置',
                 },
 
                 {
                     key: 'settings',
-                    icon: <SettingOutlined />,
                     label: '客户化设置',
                 },
                 {
                     key: 'about_us',
-                    icon: <InfoCircleOutlined />,
                     label: '关于我们',
                 },
             ],

@@ -32,9 +32,10 @@ if os.getenv("GEMINI_API_KEY"):
     WEAK_HIT_THRESHOLD = 0.65
 else:
     # Mock N-gram 向量因稀疏性导致分数极低
-    # 典型值：完全匹配约 0.1-0.2，部分匹配 0.05
-    STRONG_HIT_THRESHOLD = 0.1
-    WEAK_HIT_THRESHOLD = 0.01
+    # 典型值：完全匹配约 0.15+，部分匹配 0.12+
+    # 噪音（哈希冲突）通常在 0.05-0.07 之间
+    STRONG_HIT_THRESHOLD = 0.12
+    WEAK_HIT_THRESHOLD = 0.08
 
 
 async def search(

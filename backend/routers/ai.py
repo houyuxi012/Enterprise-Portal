@@ -100,13 +100,26 @@ async def chat(
         try:
             from services.kb.embedder import get_embedding
             from services.kb.retriever import search as kb_search, classify_hit
-            from models import KBQueryLog
+            from models import KBQueryLog, SystemConfig
             # Ensure correct import for audit log
             from services.ai_audit_writer import AIAuditEntry, log_ai_audit
             from datetime import datetime, timezone
             import json
 
-            query_vec = await get_embedding(request_body.prompt)
+            # Check if KB is enabled in system config
+            kb_config = await db.execute(select(SystemConfig).where(SystemConfig.key == "kb_enabled"))
+            kb_enabled = kb_config.scalars().first()
+            is_kb_enabled = kb_enabled.value != "false" if kb_enabled else True
+
+            query_vec = None
+            if is_kb_enabled:
+                query_vec = await get_embedding(request_body.prompt)
+            else:
+                kb_hit_level = "disabled"
+                rag_meta["hit_level"] = "disabled"
+                rag_meta["rag_strategy"] = "disabled"
+                print(f"DEBUG: KB Retrieval Skipped (kb_enabled=false)")
+
             if query_vec:
                 # ACL 过滤
                 acl_filter = ["*", f"user:{current_user.id}"]

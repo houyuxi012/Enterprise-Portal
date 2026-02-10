@@ -110,7 +110,7 @@ async def create_document(
             target=f"文档:{doc.title}", 
             ip_address=ip,
             trace_id=trace_id,
-            domain="AI"
+            domain="BUSINESS"
         )
         await db.commit()
     except Exception as e:
@@ -220,7 +220,7 @@ async def delete_document(
             target=f"文档:{doc.title}", 
             ip_address=ip,
             trace_id=trace_id,
-            domain="AI"
+            domain="BUSINESS"
         )
     except Exception as e:
         logger.error(f"Audit log failed: {e}")
@@ -267,7 +267,7 @@ async def update_document(
             target=f"文档:{doc.title}", 
             ip_address=ip,
             trace_id=trace_id,
-            domain="AI"
+            domain="BUSINESS"
         )
         await db.commit()
     except Exception as e:
@@ -311,7 +311,7 @@ async def reindex_document(
             target=f"文档ID:{doc_id}", 
             ip_address=ip,
             trace_id=trace_id,
-            domain="AI"
+            domain="BUSINESS"
         )
         await db.commit()
     except Exception as e:

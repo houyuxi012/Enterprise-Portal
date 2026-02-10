@@ -45,8 +45,9 @@ def _mock_embedding_ngram(text: str) -> List[float]:
         hash_val = int(hashlib.md5(gram.encode('utf-8')).hexdigest(), 16)
         dim_index = hash_val % EMBEDDING_DIMS
         
-        # Bigram 权重 2.0，Unigram 权重 1.0
-        weight = 2.0 if len(gram) > 1 else 1.0
+        # Bigram 权重 2.0 (主导)，Unigram 权重 0.1 (仅作微弱平滑/冷启动)
+        # 强行降低单字匹配的影响，避免 "今日天气" 因为 "日" 字匹配到 "入职指南"
+        weight = 2.0 if len(gram) > 1 else 0.1
         vec[dim_index] += weight
         
     # L2 Norm
