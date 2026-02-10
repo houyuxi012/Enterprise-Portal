@@ -14,6 +14,7 @@ Next-Gen Enterprise Portal 是一个集成了**统一身份认证、RBAC 权限�
 - **应用中心**: 统一管理企业内部工具，支持分类、搜索与权限控制
 - **团队通讯录**: 可视化组织架构树，快速查找同事
 - **AI 智能助手**: 集成 Google Gemini，支持多模态图片上传分析
+- **AI 知识库**: RAG 检索增强生成，支持文档入库、切片与向量检索
 
 ### 🛡️ 管理后台
 - **IAM 身份管理**:
@@ -23,8 +24,8 @@ Next-Gen Enterprise Portal 是一个集成了**统一身份认证、RBAC 权限�
 - **全链路日志审计**:
   - **访问日志**: HTTP 请求记录 (存储于 Loki)
   - **登录审计**: 登录尝试、防爆破检测
-  - **业务日志**: 关键操作记录
-  - **AI 审计**: AI 调用追踪与用量统计
+  - **业务日志**: 关键操作记录 (含知识库管理审计)
+  - **AI 审计**: AI 调用追踪、Token 用量统计与来源筛选 (DB + Loki)
   - **日志外发**: Syslog/Webhook 转发至 SIEM
 - **监控体系**: Grafana + Loki 全栈可观测
 - **存储服务**: MinIO 对象存储 (S3 兼容)
@@ -38,7 +39,7 @@ Next-Gen Enterprise Portal 是一个集成了**统一身份认证、RBAC 权限�
 |------|------|
 | **Frontend** | React 19, Vite 7, Ant Design 6, TailwindCSS 3 |
 | **Backend** | FastAPI, Python 3.12+, SQLAlchemy AsyncIO |
-| **Database** | PostgreSQL 17, Redis 8 |
+| **Database** | PostgreSQL 17 (pgvector), Redis 8 |
 | **Storage** | MinIO (S3 兼容) |
 | **Observability** | Grafana, Loki |
 | **Infrastructure** | Docker Compose, Nginx (HTTPS) |

@@ -11,6 +11,10 @@ app = FastAPI(title="ShiKu Portal API", version="1.0.0")
 
 @app.on_event("startup")
 async def startup():
+    # Enable pgvector extension
+    from database import init_pgvector
+    await init_pgvector()
+
     # Create Tables
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
@@ -114,6 +118,9 @@ api_router.include_router(dashboard.router)
 
 from routers import ai_admin
 api_router.include_router(ai_admin.router)
+
+from routers import kb
+api_router.include_router(kb.router)
 
 # IAM Module (New: /api/iam/auth/*, /api/iam/admin/*, /api/iam/audit/*)
 from iam import router as iam_router

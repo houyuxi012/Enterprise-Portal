@@ -204,7 +204,7 @@ class IdentityService:
             path="/"
         )
         
-        return {"message": "Login successful", "token_type": "bearer"}
+        return {"message": "Login successful", "token_type": "bearer", "access_token": access_token}
     
     @staticmethod
     async def logout(

@@ -44,6 +44,7 @@ const ModelConfig = lazy(() => import('./pages/admin/ai/ModelConfig'));
 const SecurityPolicy = lazy(() => import('./pages/admin/ai/SecurityPolicy'));
 const AISettings = lazy(() => import('./pages/admin/ai/AISettings'));
 const ModelUsagePage = lazy(() => import('./pages/admin/ai/ModelUsagePage'));
+const KnowledgeBase = lazy(() => import('./pages/admin/ai/KnowledgeBase'));
 const IAMAuditLogs = lazy(() => import('./pages/iam/AuditLogs'));
 
 const SuspenseFallback: React.FC<{ fullScreen?: boolean }> = ({ fullScreen = false }) => (
@@ -85,7 +86,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -687,6 +688,7 @@ const App: React.FC = () => {
           {activeAdminTab === 'ai_security' && <SecurityPolicy />}
           {activeAdminTab === 'ai_settings' && <AISettings />}
           {activeAdminTab === 'ai_usage' && <ModelUsagePage />}
+          {activeAdminTab === 'kb_manage' && <KnowledgeBase />}
           {activeAdminTab === 'about_us' && <AboutUs />}
         </AdminLayout>
       </Suspense>

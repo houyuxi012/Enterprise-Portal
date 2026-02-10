@@ -63,6 +63,9 @@ class AIAuditEntry:
     prompt: Optional[str] = None  # 临时，不存储
     output: Optional[str] = None  # 临时，不存储
     
+    # 元数据 (RAG 引用、搜索结果等)
+    meta_info: Optional[dict] = None
+    
     # 来源
     source: str = "ai_audit"
     
@@ -147,7 +150,8 @@ class DbAuditWriter:
                     prompt_hash=entry.prompt_hash,
                     output_hash=entry.output_hash,
                     prompt_preview=entry.prompt_preview,
-                    source=entry.source
+                    source=entry.source,
+                    meta_info=entry.meta_info  # Support JSON meta info
                 )
                 db.add(log_entry)
                 await db.commit()
@@ -183,6 +187,7 @@ class LokiAuditWriter:
                 "input_policy_result": entry.input_policy_result,
                 "output_policy_result": entry.output_policy_result,
                 "error_code": entry.error_code,
+                "meta_info": entry.meta_info  # Include meta info in Loki log
             })
             
             payload = {

@@ -41,4 +41,7 @@ run_script "rbac_init.py"
 # 3. Seed AI Audit Logs (Mock Data)
 run_script "seed_ai_data.py"
 
+# 4. Seed Knowledge Base (Documents + Query Logs)
+run_script "seed_kb_data.py"
+
 echo -e "${GREEN}All test data imported successfully!${NC}"

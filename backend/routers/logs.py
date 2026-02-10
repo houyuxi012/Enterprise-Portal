@@ -393,33 +393,39 @@ async def read_ai_audit_logs(
             try:
                 async with httpx.AsyncClient() as client:
                     query_str = '{job="enterprise-portal",source="ai_audit"}'
+                    params = {"query": query_str, "limit": fetch_limit}
+                    if start_time:
+                         try:
+                             s_dt = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                             params["start"] = str(int(s_dt.timestamp() * 1e9))
+                         except: pass
+                    if end_time:
+                         try:
+                             e_dt = datetime.datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+                             params["end"] = str(int(e_dt.timestamp() * 1e9))
+                         except: pass
+
                     resp = await client.get(
                         f"{loki_url}/loki/api/v1/query_range",
-                        params={"query": query_str, "limit": fetch_limit},
+                        params=params,
                         timeout=5.0
                     )
                     if resp.status_code == 200:
                         import json
                         data = resp.json()
                         loki_id = 100000
-                        for stream in data.get("data", {}).get("result", []):
+                        result_streams = data.get("data", {}).get("result", [])
+                        
+                        for stream in result_streams:
                             for value in stream.get("values", []):
                                 try:
                                     log_data = json.loads(value[1])
                                     event_id = log_data.get("event_id", "")
                                     
-                                    # Loki ts is string, parse to epoch
-                                    ts_str = log_data.get("timestamp", datetime.datetime.now().isoformat())
-                                    ts_epoch = 0
-                                    try:
-                                        dt = datetime.datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                                        ts_epoch = int(dt.timestamp() * 1000)
-                                        # Convert to object for compatibility if Pydantic expects datetime? 
-                                        # Or keep string if Schema allows. Schema usually expects datetime.
-                                        # Let's use datetime object for consistency.
-                                        ts_val = dt
-                                    except:
-                                        ts_val = ts_str
+                                    # Fix: Use Loki timestamp (value[0] is ns string)
+                                    loki_ts_ns = int(value[0])
+                                    ts_val = datetime.datetime.fromtimestamp(loki_ts_ns / 1e9, tz=datetime.timezone.utc)
+                                    ts_epoch = int(loki_ts_ns / 1e6) # ms for sorting
                                     
                                     log_dict = {
                                         "id": loki_id,
@@ -436,7 +442,8 @@ async def read_ai_audit_logs(
                                         "tokens_in": log_data.get("tokens_in"),
                                         "tokens_out": log_data.get("tokens_out"),
                                         "source": "loki",
-                                        "_epoch": ts_epoch
+                                        "_epoch": ts_epoch,
+                                        "meta_info": log_data.get("meta_info")
                                     }
                                     loki_logs_map[event_id] = log_dict
                                     loki_id += 1

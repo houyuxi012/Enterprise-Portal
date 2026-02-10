@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship, backref
 from database import Base
 
@@ -303,6 +303,9 @@ class AIAuditLog(Base):
     prompt_hash = Column(String(64), nullable=True)   # SHA256
     output_hash = Column(String(64), nullable=True)   # SHA256
     
+    # 元数据 (JSON): RAG 引用、搜索结果、上下文 IDs 等
+    meta_info = Column(JSON, nullable=True)
+    
     # 脱敏预览 (可选，仅前 200 字符)
     prompt_preview = Column(String(200), nullable=True)
     
@@ -318,3 +321,54 @@ class AIModelQuota(Base):
     daily_token_limit = Column(Integer, default=0)  # 每日 Token 限额 (0表示无限制)
     daily_request_limit = Column(Integer, default=0) # 每日调用次数限额
     updated_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# ──── Knowledge Base Models ────
+from pgvector.sqlalchemy import Vector
+
+class KBDocument(Base):
+    """知识库文档元数据"""
+    __tablename__ = "kb_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    source_type = Column(String(20), default="text")  # md, pdf, text
+    tags = Column(Text, nullable=True)  # JSON list
+    app_id = Column(String(50), default="portal", index=True)
+    acl = Column(Text, default='["*"]')  # JSON list: ["*"] = public, ["role:admin"]
+    status = Column(String(20), default="processing", index=True)  # processing/ready/error
+    chunk_count = Column(Integer, default=0)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+    chunks = relationship("KBChunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class KBChunk(Base):
+    """文档分段 + 向量"""
+    __tablename__ = "kb_chunks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doc_id = Column(Integer, ForeignKey("kb_documents.id", ondelete="CASCADE"), index=True)
+    section = Column(String, nullable=True)
+    content = Column(Text)
+    chunk_index = Column(Integer, default=0)
+    embedding = Column(Vector(768))  # Gemini text-embedding-004 = 768 dims
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+    document = relationship("KBDocument", back_populates="chunks")
+
+
+class KBQueryLog(Base):
+    """KB 检索审计日志"""
+    __tablename__ = "kb_query_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    query = Column(Text)
+    top_score = Column(Float, nullable=True)
+    hit_level = Column(String(10), nullable=True)  # strong/weak/miss
+    hit_doc_ids = Column(Text, nullable=True)  # JSON list
+    called_llm = Column(Boolean, default=False)
+    trace_id = Column(String(64), index=True, nullable=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=True)

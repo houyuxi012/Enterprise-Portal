@@ -37,6 +37,7 @@ class TokenResponse(BaseModel):
     """登录成功响应"""
     message: str = "Login successful"
     token_type: str = "bearer"
+    access_token: Optional[str] = None
 
 
 class LogoutResponse(BaseModel):

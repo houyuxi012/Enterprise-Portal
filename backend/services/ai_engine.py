@@ -82,7 +82,7 @@ class AIEngine:
 
         return check_result
 
-    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None, image_url: Optional[str] = None) -> str:
+    async def chat(self, prompt: str, context: str = "", model_id: Optional[int] = None, image_url: Optional[str] = None, extra_meta: Optional[dict] = None) -> str:
         from services.ai_audit_writer import AIAuditEntry, log_ai_audit
         from services.crypto_service import CryptoService
         
@@ -97,6 +97,7 @@ class AIEngine:
             session_id=self.session_id,
             action="CHAT",
             prompt=prompt,
+            meta_info=extra_meta,  # Initialize with extra metadata
         )
         
         response_text = ""

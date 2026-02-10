@@ -39,3 +39,8 @@ Base = declarative_base()
 async def get_db():
     async with SessionLocal() as session:
         yield session
+
+async def init_pgvector():
+    """Enable pgvector extension on startup."""
+    async with engine.begin() as conn:
+        await conn.execute(__import__('sqlalchemy').text("CREATE EXTENSION IF NOT EXISTS vector"))

@@ -43,6 +43,10 @@ const ACTION_MAP: Record<string, string> = {
     'CREATE_DEPARTMENT': '新增部门',
     'UPDATE_DEPARTMENT': '更新部门',
     'DELETE_DEPARTMENT': '删除部门',
+    'CREATE_KB_DOC': '新增知识库文档',
+    'UPDATE_KB_DOC': '更新知识库文档',
+    'DELETE_KB_DOC': '删除知识库文档',
+    'REINDEX_KB_DOC': '重建知识库索引',
 };
 
 const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {
@@ -50,6 +54,7 @@ const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {
     'CREATE': { label: '创建', color: 'green' },
     'UPDATE': { label: '更新', color: 'blue' },
     'DELETE': { label: '删除', color: 'red' },
+    'REINDEX': { label: '索引', color: 'purple' },
     'OTHER': { label: '其他', color: 'default' }
 };
 
@@ -57,6 +62,7 @@ const getActionCategory = (action: string): { label: string; color: string } => 
     if (action.startsWith('CREATE')) return ACTION_CATEGORIES['CREATE'];
     if (action.startsWith('UPDATE')) return ACTION_CATEGORIES['UPDATE'];
     if (action.startsWith('DELETE')) return ACTION_CATEGORIES['DELETE'];
+    if (action.startsWith('REINDEX')) return ACTION_CATEGORIES['REINDEX'];
     if (action === 'LOGIN') return ACTION_CATEGORIES['LOGIN'];
     return ACTION_CATEGORIES['OTHER'];
 };

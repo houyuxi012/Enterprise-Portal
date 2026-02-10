@@ -30,6 +30,9 @@ SYSTEM_PERMISSIONS = {
     "portal.logs.forwarding.admin": "管理日志转发",
     "portal.ai_audit.read": "查看AI审计",
     "portal.carousel.manage": "管理轮播图",
+    # Knowledge Base
+    "kb:manage": "管理知识库文档",
+    "kb:query": "知识库检索",
 }
 
 async def init_rbac(db: AsyncSession):

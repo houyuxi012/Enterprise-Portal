@@ -483,6 +483,46 @@ export const ApiClient = {
   getIamAuditLogs: async (params: any): Promise<any> => {
     const response = await api.get('/iam/audit/logs', { params });
     return response.data;
+  },
+
+  // Knowledge Base
+  getKBDocuments: async (): Promise<any[]> => {
+    const response = await api.get('/kb/documents');
+    return response.data;
+  },
+
+  getKBDocumentDetail: async (id: number): Promise<any> => {
+    const response = await api.get(`/kb/documents/${id}`);
+    return response.data;
+  },
+
+  getKBStats: async (): Promise<any> => {
+    const response = await api.get('/kb/stats');
+    return response.data;
+  },
+
+  createKBDocument: async (data: any): Promise<any> => {
+    const response = await api.post('/kb/documents', data);
+    return response.data;
+  },
+
+  updateKBDocument: async (id: number, data: any): Promise<any> => {
+    const response = await api.put(`/kb/documents/${id}`, data);
+    return response.data;
+  },
+
+  deleteKBDocument: async (id: number): Promise<void> => {
+    await api.delete(`/kb/documents/${id}`);
+  },
+
+  reindexKBDocument: async (id: number): Promise<any> => {
+    const response = await api.post(`/kb/documents/${id}/reindex`);
+    return response.data;
+  },
+
+  queryKB: async (query: string, topK: number = 5): Promise<any> => {
+    const response = await api.post('/kb/query', { query, top_k: topK });
+    return response.data;
   }
 };
 
