@@ -4,6 +4,7 @@ import { AppView, Employee, NewsItem, QuickToolDTO } from './types';
 import ApiClient from './services/api';
 import { getIcon } from './utils/iconMap';
 import { getColorClass } from './utils/colorMap';
+import { hasAdminAccess } from './utils/adminAccess';
 import {
   Mail, Monitor, Moon, Sun, Laptop, Sparkles
 } from 'lucide-react';
@@ -31,7 +32,7 @@ const CarouselList = lazy(() => import('./pages/admin/CarouselList'));
 const AnnouncementList = lazy(() => import('./pages/admin/AnnouncementList'));
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'));
 const SecuritySettings = lazy(() => import('./pages/admin/SecuritySettings'));
-const UserList = lazy(() => import('./pages/admin/UserList'));
+const SystemUserList = lazy(() => import('./pages/admin/SystemUserList'));
 const RoleList = lazy(() => import('./pages/admin/RoleList'));
 const OrganizationList = lazy(() => import('./pages/admin/OrganizationList'));
 const BusinessLogs = lazy(() => import('./pages/admin/BusinessLogs'));
@@ -136,21 +137,24 @@ const App: React.FC = () => {
     if (!isAuthenticated) return;
 
     const fetchAppData = async () => {
+      const isAdminPath = window.location.pathname.startsWith('/admin');
+      const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+
       // Check for Admin Mode preference or URL
-      if (window.location.pathname.startsWith('/admin') && currentUser?.role === 'admin') {
+      if (canUseAdminPlane) {
         setIsAdminMode(true);
       }
 
       const [employeesResult, newsResult, toolsResult, configResult] = await Promise.allSettled([
-        ApiClient.getEmployees(),
+        canUseAdminPlane ? ApiClient.getEmployees() : Promise.resolve([] as Employee[]),
         ApiClient.getNews(),
         ApiClient.getTools(),
-        ApiClient.getSystemConfig(),
+        canUseAdminPlane ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
       ]);
 
-      if (employeesResult.status === 'fulfilled') {
+      if (employeesResult.status === 'fulfilled' && canUseAdminPlane) {
         setEmployees(employeesResult.value);
-      } else {
+      } else if (canUseAdminPlane) {
         console.error('Failed to fetch employees', employeesResult.reason);
       }
 
@@ -167,9 +171,9 @@ const App: React.FC = () => {
       }
 
       const fetchedConfig = configResult.status === 'fulfilled' ? configResult.value : {};
-      if (configResult.status === 'fulfilled') {
+      if (configResult.status === 'fulfilled' && canUseAdminPlane) {
         setSystemConfig(fetchedConfig);
-      } else {
+      } else if (canUseAdminPlane) {
         console.error('Failed to fetch config', configResult.reason);
       }
 
@@ -191,7 +195,7 @@ const App: React.FC = () => {
     };
 
     fetchAppData();
-  }, [isAuthenticated, currentUser?.role]);
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -304,12 +308,15 @@ const App: React.FC = () => {
             </div>
 
             {/* Admin Entry Point */}
-            {currentUser?.role === 'admin' && (
+            {hasAdminAccess(currentUser) && (
               <div className="mica rounded-[2.5rem] p-8 shadow-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/10">
                 <h3 className="text-lg font-bold mb-4 text-blue-800 dark:text-blue-300">管理员专区</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">您拥有管理员权限，可以进入后台管理系统。</p>
                 <button
-                  onClick={() => setIsAdminMode(true)}
+                  onClick={() => {
+                    setIsAdminMode(true);
+                    window.history.pushState({}, '', '/admin');
+                  }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
                 >
                   进入后台管理
@@ -649,6 +656,7 @@ const App: React.FC = () => {
           <AdminLogin onLoginSuccess={() => {
             // Auth state is updated via context after successful login
             setIsAdminMode(true);
+            window.history.pushState({}, '', '/admin');
           }} />
         </Suspense>
       );
@@ -681,7 +689,7 @@ const App: React.FC = () => {
           {activeAdminTab === 'carousel' && <CarouselList />}
           {activeAdminTab === 'announcements' && <AnnouncementList />}
           {activeAdminTab === 'employees' && <EmployeeList />}
-          {activeAdminTab === 'users' && <UserList />}
+          {activeAdminTab === 'users' && <SystemUserList />}
           {activeAdminTab === 'roles' && <RoleList />}
           {activeAdminTab === 'tools' && <ToolList />}
           {activeAdminTab === 'app_permissions' && <AppPermissions />}

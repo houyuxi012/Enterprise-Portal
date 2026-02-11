@@ -26,11 +26,11 @@ export interface NewsItem {
 export interface Employee {
   id: string;
   account: string;
-  job_number: string;
+  job_number?: string;
   name: string;
   gender: string;
   department: string;
-  role: string;
+  role?: string;
   email: string;
   phone: string;
   location: string;
@@ -118,9 +118,10 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  account_type?: 'PORTAL' | 'SYSTEM';
   name?: string;
   avatar?: string;
-  role: string; // Deprecated
+  role?: string; // Deprecated
   roles: Role[];
   is_active: boolean;
 }

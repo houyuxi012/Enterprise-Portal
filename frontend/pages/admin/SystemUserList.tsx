@@ -13,6 +13,7 @@ import {
     AppPageHeader,
     AppFilterBar,
 } from '../../components/admin';
+import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n';
 
 const UserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -22,6 +23,7 @@ const UserList: React.FC = () => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [search, setSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const currentLocale = getCurrentLocale();
 
     const [form] = AppForm.useForm();
 
@@ -32,11 +34,13 @@ const UserList: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [usersData, rolesData] = await Promise.all([
+            const [usersData, rolesData, employeeData] = await Promise.all([
                 ApiClient.getUsers(),
-                ApiClient.getRoles()
+                ApiClient.getRoles(),
+                ApiClient.getEmployees().catch(() => [])
             ]);
-            setUsers(usersData);
+            const employeeAccounts = new Set((employeeData || []).map(emp => emp.account));
+            setUsers(usersData.filter(user => !employeeAccounts.has(user.username)));
             setRoles(rolesData);
         } catch (error) {
             console.error(error);
@@ -58,10 +62,15 @@ const UserList: React.FC = () => {
 
     const handleResetPassword = async (username: string) => {
         try {
-            await ApiClient.resetPassword(username);
-            message.success(`${username} 密码重置成功`);
-        } catch (error) {
-            message.error('密码重置失败');
+            const result = await ApiClient.resetPassword(username);
+            const resetPassword = result?.new_password;
+            if (resetPassword) {
+                message.success(`${username} 密码已重置为 ${resetPassword}`);
+            } else {
+                message.success(`${username} 密码重置成功`);
+            }
+        } catch (error: any) {
+            message.error(error?.response?.data?.detail || '密码重置失败');
         }
     };
 
@@ -116,7 +125,7 @@ const UserList: React.FC = () => {
 
     const filteredUsers = users.filter(u =>
         u.username.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
+        (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
 
     const columns: ColumnsType<User> = [
@@ -152,9 +161,9 @@ const UserList: React.FC = () => {
                     {roles && roles.length > 0 ? roles.map(role => (
                         <AppTag
                             key={role.id}
-                            status={role.code === 'admin' ? 'error' : 'info'}
+                            status={['superadmin', 'portaladmin', 'portal_admin'].includes((role.code || '').toLowerCase()) ? 'error' : 'info'}
                         >
-                            {role.name}
+                            {getLocalizedRoleMeta(role, currentLocale).name}
                         </AppTag>
                     )) : (
                         <span className="text-slate-400 text-sm">暂无角色</span>
@@ -205,7 +214,7 @@ const UserList: React.FC = () => {
                     />
                     <Popconfirm
                         title="重置密码"
-                        description={`确定将 ${record.username} 的密码重置为 123456 吗？`}
+                        description={`确定重置 ${record.username} 的密码吗？将按当前密码策略生成默认密码。`}
                         onConfirm={() => handleResetPassword(record.username)}
                         okText="确定"
                         cancelText="取消"
@@ -330,7 +339,7 @@ const UserList: React.FC = () => {
                             optionLabelProp="label"
                             options={roles.map(role => ({
                                 value: role.id,
-                                label: role.name,
+                                label: getLocalizedRoleMeta(role, currentLocale).name,
                             }))}
                         />
                     </AppForm.Item>

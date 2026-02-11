@@ -13,6 +13,7 @@ from dependencies import PermissionChecker
 from fastapi import Request
 from services.audit_service import AuditService
 from services.crypto_service import CryptoService
+from services.ai_engine import AIEngine
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,79 @@ async def create_provider(
     await db.commit()
 
     return db_provider
+
+
+@router.post("/providers/test")
+async def test_provider(
+    request: Request,
+    request_body: schemas.AIProviderTestRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    try:
+        engine = AIEngine(db)
+        temp_provider = models.AIProvider(
+            name=request_body.name,
+            type=request_body.type,
+            model_kind=(request_body.model_kind or "text"),
+            base_url=request_body.base_url,
+            api_key=request_body.api_key,
+            model=request_body.model,
+            is_active=True,
+        )
+        response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="ADMIN_TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            detail=f"type={request_body.type}, model={request_body.model}, result=success",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
+        return {"status": "success", "message": "Connection successful", "response": response}
+    except ValueError as e:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="ADMIN_TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            status="FAIL",
+            detail=f"type={request_body.type}, model={request_body.model}, reason={e}",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
+        logger.warning(
+            "Admin provider test blocked for user %s: %s",
+            getattr(current_user, "username", "unknown"),
+            e,
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="ADMIN_TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            status="FAIL",
+            detail=f"type={request_body.type}, model={request_body.model}, reason=unexpected_error",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
+        logger.exception(
+            "Admin provider test failed for user %s",
+            getattr(current_user, "username", "unknown"),
+        )
+        raise HTTPException(status_code=400, detail="Provider test failed")
 
 @router.put("/providers/{id}", response_model=schemas.AIProviderRead)
 async def update_provider(

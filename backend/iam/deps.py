@@ -9,6 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 
+def _infer_request_audience(request: Request) -> str | None:
+    """
+    Infer audience from route space to avoid mixed cookie resolution when
+    admin_session and portal_session coexist in the same browser.
+    """
+    path = request.url.path or ""
+    if path.startswith("/api/admin/"):
+        return "admin"
+    if path.startswith("/api/app/"):
+        return "portal"
+    return None
+
+
 async def get_db():
     """数据库会话依赖 - 延迟导入避免循环"""
     from database import get_db as _get_db
@@ -22,7 +35,8 @@ async def get_current_identity(
 ):
     """获取当前认证身份（User 对象）"""
     from iam.identity.service import IdentityService
-    return await IdentityService.get_current_user(request, db)
+    audience = _infer_request_audience(request)
+    return await IdentityService.get_current_user(request, db, audience=audience)
 
 
 async def get_permissions(
@@ -63,3 +77,27 @@ class PermissionChecker:
                 detail=f"Operation not permitted. Required: {required_code}"
             )
         return user
+
+
+async def verify_portal_aud(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """验证 Portal Audience"""
+    from iam.identity.service import IdentityService
+    # This will throw 401 if token is invalid or aud mismatch
+    return await IdentityService.get_current_user(request, db, audience="portal")
+
+
+async def verify_admin_aud(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """验证 Admin Audience"""
+    from iam.identity.service import IdentityService
+    # This will throw 401 if token is invalid or aud mismatch
+    # Note: Logic to check if user *can* be admin is inside Login, 
+    # but strictly speaking, the Token *possession* with aud=admin proves they passed that check.
+    # However, for defense in depth, we could re-check permissions here, 
+    # but `get_current_user` mainly validates the token content.
+    return await IdentityService.get_current_user(request, db, audience="admin")

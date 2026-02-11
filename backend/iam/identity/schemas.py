@@ -22,6 +22,7 @@ class UserMeResponse(BaseModel):
     id: int
     username: str
     email: str
+    account_type: str = "PORTAL"
     name: Optional[str] = None
     avatar: Optional[str] = None
     is_active: bool = True

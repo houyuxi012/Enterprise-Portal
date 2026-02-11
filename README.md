@@ -64,7 +64,7 @@ sh import_test_data.sh
 # 后端 API: https://127.0.0.1/api/docs
 # Grafana: http://localhost:3000 (admin / Grafana@houyuxi)
 
-# 默认管理员: admin / admin123
+# 默认管理员: admin / admin  
 ```
 
 ---
@@ -77,6 +77,35 @@ sh import_test_data.sh
 - **API Key 加密**: Fernet 对称加密存储
 - **限流保护**: Nginx 层 API 限流
 - **文件上传安全**: 魔数校验、大小限制
+
+---
+
+## ✅ 接口级联调清单（2026-02-11）
+
+基于 Docker Compose 运行环境，按“认证 -> 业务 -> 审计”链路完成实测，结果 **13/13 全部通过**。
+
+- 管理端登录：`POST /api/iam/auth/admin/token`（200）
+- 门户端登录：`POST /api/iam/auth/portal/token`（200）
+- 门户业务日志写入：`POST /api/app/logs/business`（200）
+- 系统配置读取：`GET /api/admin/system/config`（200）
+- 日志外发配置查询：`GET /api/admin/logs/config`（200）
+- 日志外发配置创建：`POST /api/admin/logs/config`（200）
+- 日志外发配置删除：`DELETE /api/admin/logs/config/{config_id}`（200）
+- 访问日志查询：`GET /api/admin/logs/access?limit=5`（200）
+- AI 审计统计：`GET /api/admin/logs/ai-audit/stats/summary`（200）
+- AI 审计详情（不存在事件）：`GET /api/admin/logs/ai-audit/{event_id}`（404，符合预期）
+- 业务域日志校验：`GET /api/admin/logs/business?domain=BUSINESS`（可检索到门户侧 marker）
+- 系统域审计校验：`GET /api/admin/logs/business?domain=SYSTEM`（可检索到关键审计动作）
+
+本轮已核验的关键审计动作：
+
+- `READ_SYSTEM_CONFIG`
+- `READ_LOG_FORWARDING_CONFIG`
+- `CREATE_LOG_FORWARDING_CONFIG`
+- `DELETE_LOG_FORWARDING_CONFIG`
+- `READ_ACCESS_LOGS`
+- `READ_AI_AUDIT_STATS`
+- `READ_AI_AUDIT_DETAIL`
 
 ---
 

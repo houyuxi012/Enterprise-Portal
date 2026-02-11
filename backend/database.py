@@ -52,6 +52,24 @@ async def apply_startup_migrations():
     Apply lightweight startup migrations/indexes for existing deployments.
     """
     async with engine.begin() as conn:
+        # Dual identity isolation: users.account_type (SYSTEM / PORTAL)
+        await conn.execute(text(
+            "ALTER TABLE users "
+            "ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'PORTAL'"
+        ))
+        await conn.execute(text(
+            "UPDATE users SET account_type = 'PORTAL' "
+            "WHERE account_type IS NULL OR account_type = ''"
+        ))
+        # Keep built-in admin as system account by default
+        await conn.execute(text(
+            "UPDATE users SET account_type = 'SYSTEM' "
+            "WHERE username = 'admin'"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_users_account_type ON users (account_type)"
+        ))
+
         # AI provider model kind (text / multimodal)
         await conn.execute(text(
             "ALTER TABLE ai_providers "
@@ -60,6 +78,11 @@ async def apply_startup_migrations():
         await conn.execute(text(
             "UPDATE ai_providers SET model_kind = 'text' "
             "WHERE model_kind IS NULL OR model_kind = ''"
+        ))
+
+        # Role description for IAM role management UI
+        await conn.execute(text(
+            "ALTER TABLE roles ADD COLUMN IF NOT EXISTS description VARCHAR"
         ))
 
         # KB raw content for lossless reindexing

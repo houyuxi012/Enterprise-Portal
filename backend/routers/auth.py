@@ -11,7 +11,7 @@ from services.crypto_service import CryptoService
 
 router = APIRouter(prefix="/auth", tags=["auth"], deprecated=True)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/iam/auth/portal/token")
 
 
 @router.post("/token")

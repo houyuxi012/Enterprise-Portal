@@ -2,12 +2,14 @@
 import asyncio
 import psutil
 import datetime
+import json
 from sqlalchemy.future import select
-from sqlalchemy import delete, and_, text
+from sqlalchemy import delete, and_, text, func
 from sqlalchemy.ext.asyncio import AsyncSession
 import models
 from iam.audit.models import IAMAuditLog
 import logging
+from services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,8 @@ async def cleanup_logs(db_session_factory):
     
     async with db_session_factory() as db:
         try:
+            retention_deleted_summary = {k: 0 for k in LOG_RETENTION_CONFIG.keys()}
+            pressure_deleted_summary = {k: 0 for k in LOG_RETENTION_CONFIG.keys()}
             # 1. Fetch disk usage config
             max_disk_usage_str = await get_config_value(db, "log_max_disk_usage", "80")
             try:
@@ -123,12 +127,19 @@ async def cleanup_logs(db_session_factory):
                         expired_ids = await _collect_expired_ids_from_string_ts(
                             db, model_class, ts_field, cutoff_date
                         )
+                        deleted_count = len(expired_ids)
                         if expired_ids:
                             await db.execute(delete(model_class).where(model_class.id.in_(expired_ids)))
-                        logger.info(f"Cleaned up {len(expired_ids)} {log_type} logs by parsed timestamp.")
+                        retention_deleted_summary[log_type] += deleted_count
+                        logger.info(f"Cleaned up {deleted_count} {log_type} logs by parsed timestamp.")
                     else:
+                        count_result = await db.execute(
+                            select(func.count(model_class.id)).where(ts_column < cutoff_date)
+                        )
+                        deleted_count = count_result.scalar() or 0
                         # DateTime columns use datetime object directly
                         await db.execute(delete(model_class).where(ts_column < cutoff_date))
+                        retention_deleted_summary[log_type] += deleted_count
                         logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
             
             await db.commit()
@@ -136,6 +147,7 @@ async def cleanup_logs(db_session_factory):
             # 3. Cleanup by Disk Usage - Delete oldest logs until within limit
             disk_usage = psutil.disk_usage('/')
             current_usage_percent = disk_usage.percent
+            disk_usage_before = current_usage_percent
 
             if current_usage_percent > max_disk_usage_percent:
                 logger.warning(f"Disk usage {current_usage_percent}% exceeds limit {max_disk_usage_percent}%. Starting iterative cleanup...")
@@ -166,6 +178,7 @@ async def cleanup_logs(db_session_factory):
                             if oldest_ids:
                                 await db.execute(delete(model_class).where(model_class.id.in_(oldest_ids)))
                                 deleted_any = True
+                                pressure_deleted_summary[log_type] += len(oldest_ids)
                                 logger.info(f"Deleted {len(oldest_ids)} oldest {log_type} logs (iteration {iteration})")
                         except Exception as e:
                             logger.error(f"Error deleting {log_type} logs: {e}")
@@ -186,6 +199,28 @@ async def cleanup_logs(db_session_factory):
                     logger.info(f"Disk cleanup completed. Usage now {current_usage_percent}% (limit: {max_disk_usage_percent}%)")
                 else:
                     logger.warning(f"Cleanup stopped after {iteration} iterations. Disk usage still {current_usage_percent}%")
+
+            post_cleanup_usage = psutil.disk_usage('/').percent
+            await AuditService.log_business_action(
+                db=db,
+                user_id=0,
+                username="system_auto",
+                action="AUTO_LOG_CLEANUP",
+                target="日志生命周期治理",
+                detail=json.dumps(
+                    {
+                        "retention_deleted": retention_deleted_summary,
+                        "pressure_deleted": pressure_deleted_summary,
+                        "disk_usage_before": disk_usage_before,
+                        "disk_usage_after": post_cleanup_usage,
+                        "max_disk_usage_percent": max_disk_usage_percent,
+                    },
+                    ensure_ascii=False,
+                ),
+                ip_address="127.0.0.1",
+                domain="SYSTEM",
+            )
+            await db.commit()
 
         except Exception as e:
             logger.error(f"Error during log cleanup: {e}")

@@ -8,14 +8,60 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from iam.deps import get_db, PermissionChecker
+from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from .service import RBACService
 from . import schemas
 import models, utils
 from services.audit_service import AuditService
 from iam.audit.service import IAMAuditService
 
-router = APIRouter(prefix="/admin", tags=["iam-rbac"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["iam-rbac"],
+    dependencies=[Depends(verify_admin_aud)],
+)
+PORTAL_APP_ID = "portal"
+RESERVED_ROLE_CODES = {"user", "portaladmin", "portal_admin", "superadmin"}
+
+
+def _is_reserved_role_code(role_code: str) -> bool:
+    return (role_code or "").strip().lower() in RESERVED_ROLE_CODES
+
+
+async def _load_roles_by_ids(db: AsyncSession, role_ids: List[int], app_id: str = PORTAL_APP_ID) -> List[models.Role]:
+    unique_role_ids = list(set(role_ids))
+    if not unique_role_ids:
+        return []
+
+    role_result = await db.execute(
+        select(models.Role).filter(
+            models.Role.id.in_(unique_role_ids),
+            models.Role.app_id == app_id,
+        )
+    )
+    roles = role_result.scalars().all()
+    if len(roles) != len(unique_role_ids):
+        raise HTTPException(status_code=400, detail="Some role_ids are invalid")
+    return roles
+
+
+async def _load_permissions_by_ids(
+    db: AsyncSession, permission_ids: List[int], app_id: str = PORTAL_APP_ID
+) -> List[models.Permission]:
+    unique_permission_ids = list(set(permission_ids))
+    if not unique_permission_ids:
+        return []
+
+    perm_result = await db.execute(
+        select(models.Permission).filter(
+            models.Permission.id.in_(unique_permission_ids),
+            models.Permission.app_id == app_id,
+        )
+    )
+    permissions = perm_result.scalars().all()
+    if len(permissions) != len(unique_permission_ids):
+        raise HTTPException(status_code=400, detail="Some permission_ids are invalid")
+    return permissions
 
 
 # ========== Users CRUD ==========
@@ -29,6 +75,15 @@ async def list_users(
             selectinload(models.User.roles).selectinload(models.Role.permissions)
         )
     )
+    return result.scalars().all()
+
+
+@router.get("/users/options", response_model=List[schemas.UserOption])
+async def list_user_options(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(PermissionChecker("sys:user:view"))
+):
+    result = await db.execute(select(models.User))
     return result.scalars().all()
 
 
@@ -60,6 +115,7 @@ async def create_user(
         username=user_data.username,
         email=user_data.email,
         hashed_password=utils.get_password_hash(password),
+        account_type="PORTAL",
         is_active=user_data.is_active,
         name=user_data.name,
         avatar=user_data.avatar,
@@ -68,23 +124,19 @@ async def create_user(
 
     role_ids = list(user_data.role_ids or [])
     if role_ids:
-        role_result = await db.execute(
-            select(models.Role).filter(
-                models.Role.id.in_(role_ids),
-                models.Role.app_id == "portal",
-            )
-        )
-        matched_roles = role_result.scalars().all()
-        if len(matched_roles) != len(set(role_ids)):
-            raise HTTPException(status_code=400, detail="Some role_ids are invalid")
+        matched_roles = await _load_roles_by_ids(db, role_ids, PORTAL_APP_ID)
         db_user.roles = matched_roles
         assigned_role_codes = [role.code for role in matched_roles]
     else:
         target_role = user_data.role or "user"
+        normalized_target_role = (target_role or "").strip().lower()
+        if normalized_target_role in {"admin", "portal_admin", "portaladmin"}:
+            # Legacy compatibility: old "admin" alias now maps to PortalAdmin.
+            target_role = "PortalAdmin"
         default_role_result = await db.execute(
             select(models.Role).filter(
                 models.Role.code == target_role,
-                models.Role.app_id == "portal",
+                models.Role.app_id == PORTAL_APP_ID,
             )
         )
         default_role = default_role_result.scalars().first()
@@ -139,15 +191,7 @@ async def update_user(
     if 'role_ids' in update_data:
         role_ids = update_data.pop('role_ids')
         if role_ids is not None:
-            role_result = await db.execute(
-                select(models.Role).filter(
-                    models.Role.id.in_(role_ids),
-                    models.Role.app_id == "portal",
-                )
-            )
-            matched_roles = role_result.scalars().all()
-            if len(matched_roles) != len(set(role_ids)):
-                raise HTTPException(status_code=400, detail="Some role_ids are invalid")
+            matched_roles = await _load_roles_by_ids(db, role_ids, PORTAL_APP_ID)
             user.roles = matched_roles
             await RBACService.invalidate_user(user_id)
             changes["role_ids"] = role_ids
@@ -230,6 +274,168 @@ async def delete_user(
     await db.commit()
 
 
+async def _get_portal_admin_role(db: AsyncSession) -> models.Role:
+    role_result = await db.execute(
+        select(models.Role).filter(
+            models.Role.code == "PortalAdmin",
+            models.Role.app_id == PORTAL_APP_ID,
+        )
+    )
+    role = role_result.scalars().first()
+    if not role:
+        raise HTTPException(status_code=500, detail="PortalAdmin role is not initialized")
+    return role
+
+
+@router.post("/users/{user_id}/portal-admin/grant")
+async def grant_portal_admin(
+    user_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(PermissionChecker("sys:user:edit"))
+):
+    result = await db.execute(
+        select(models.User).options(selectinload(models.User.roles)).filter(models.User.id == user_id)
+    )
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if (getattr(user, "account_type", "PORTAL") or "PORTAL").upper() != "PORTAL":
+        raise HTTPException(status_code=400, detail="Only PORTAL users can be granted PortalAdmin")
+
+    portal_admin_role = await _get_portal_admin_role(db)
+    already_assigned = any(r.id == portal_admin_role.id for r in user.roles)
+    if not already_assigned:
+        user.roles.append(portal_admin_role)
+        await RBACService.invalidate_user(user.id)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db=db,
+        action="iam.role.assign",
+        target_type="user_role",
+        user_id=current_user.id,
+        username=current_user.username,
+        target_id=user.id,
+        target_name=user.username,
+        detail={
+            "role": "PortalAdmin",
+            "operation": "grant",
+            "already_assigned": already_assigned,
+        },
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+    await db.commit()
+    return {
+        "id": user.id,
+        "username": user.username,
+        "account_type": user.account_type,
+        "portal_admin": True,
+        "changed": not already_assigned,
+    }
+
+
+@router.post("/users/{user_id}/portal-admin/revoke")
+async def revoke_portal_admin(
+    user_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(PermissionChecker("sys:user:edit"))
+):
+    result = await db.execute(
+        select(models.User).options(selectinload(models.User.roles)).filter(models.User.id == user_id)
+    )
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    portal_admin_role = await _get_portal_admin_role(db)
+    before = len(user.roles)
+    user.roles = [r for r in user.roles if r.id != portal_admin_role.id]
+    changed = len(user.roles) != before
+    if changed:
+        await RBACService.invalidate_user(user.id)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db=db,
+        action="iam.role.revoke",
+        target_type="user_role",
+        user_id=current_user.id,
+        username=current_user.username,
+        target_id=user.id,
+        target_name=user.username,
+        detail={
+            "role": "PortalAdmin",
+            "operation": "revoke",
+            "changed": changed,
+        },
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+    await db.commit()
+    return {
+        "id": user.id,
+        "username": user.username,
+        "account_type": user.account_type,
+        "portal_admin": False,
+        "changed": changed,
+    }
+
+
+@router.post("/users/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    request: Request,
+    payload: schemas.PasswordResetRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(PermissionChecker("sys:user:edit"))
+):
+    result = await db.execute(select(models.User).filter(models.User.username == payload.username))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    config_result = await db.execute(select(models.SystemConfig))
+    configs = {c.key: c.value for c in config_result.scalars().all()}
+    min_length = int(configs.get("security_password_min_length", 8))
+    provided_password = (payload.new_password or "").strip()
+    auto_generated = False
+    if provided_password:
+        new_pwd = provided_password
+    else:
+        auto_generated = True
+        default_pwd = "12345678"
+        new_pwd = default_pwd if len(default_pwd) >= min_length else default_pwd + ("0" * (min_length - len(default_pwd)))
+
+    if len(new_pwd) < min_length:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
+
+    user.hashed_password = utils.get_password_hash(new_pwd)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db, action="iam.user.password_reset", target_type="user",
+        user_id=current_user.id, username=current_user.username,
+        target_id=user.id, target_name=user.username,
+        ip_address=ip, trace_id=trace_id
+    )
+    await AuditService.log_business_action(
+        db, user_id=current_user.id, username=current_user.username,
+        action="RESET_USER_PASSWORD", target=f"用户:{user.username}",
+        ip_address=ip, trace_id=trace_id
+    )
+    await db.commit()
+    return {
+        "message": f"Password for {user.username} has been reset",
+        "new_password": new_pwd if auto_generated else None,
+    }
+
+
 # ========== Roles CRUD ==========
 @router.get("/roles", response_model=List[schemas.Role])
 async def list_roles(
@@ -237,7 +443,9 @@ async def list_roles(
     _=Depends(PermissionChecker("sys:role:view"))
 ):
     result = await db.execute(
-        select(models.Role).options(selectinload(models.Role.permissions))
+        select(models.Role)
+        .options(selectinload(models.Role.permissions))
+        .filter(models.Role.app_id == PORTAL_APP_ID)
     )
     return result.scalars().all()
 
@@ -249,7 +457,9 @@ async def create_role(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:role:edit"))
 ):
-    app_id = role.app_id or 'portal'
+    if role.app_id and role.app_id != PORTAL_APP_ID:
+        raise HTTPException(status_code=400, detail=f"Only app_id='{PORTAL_APP_ID}' is allowed on this endpoint")
+    app_id = PORTAL_APP_ID
     existing = await db.execute(
         select(models.Role).filter(
             models.Role.app_id == app_id,
@@ -259,13 +469,15 @@ async def create_role(
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail=f"Role '{role.code}' already exists")
     
-    db_role = models.Role(code=role.code, name=role.name, app_id=app_id)
+    db_role = models.Role(
+        code=role.code,
+        name=role.name,
+        description=role.description,
+        app_id=app_id,
+    )
     
     if role.permission_ids:
-        perm_result = await db.execute(
-            select(models.Permission).filter(models.Permission.id.in_(role.permission_ids))
-        )
-        db_role.permissions = perm_result.scalars().all()
+        db_role.permissions = await _load_permissions_by_ids(db, role.permission_ids, app_id)
     
     db.add(db_role)
     await db.commit()
@@ -299,7 +511,9 @@ async def update_role(
     current_user=Depends(PermissionChecker("sys:role:edit"))
 ):
     result = await db.execute(
-        select(models.Role).options(selectinload(models.Role.permissions)).filter(models.Role.id == role_id)
+        select(models.Role)
+        .options(selectinload(models.Role.permissions))
+        .filter(models.Role.id == role_id, models.Role.app_id == PORTAL_APP_ID)
     )
     role = result.scalars().first()
     if not role:
@@ -310,10 +524,7 @@ async def update_role(
     if 'permission_ids' in update_data:
         perm_ids = update_data.pop('permission_ids')
         if perm_ids is not None:
-            perm_result = await db.execute(
-                select(models.Permission).filter(models.Permission.id.in_(perm_ids))
-            )
-            role.permissions = perm_result.scalars().all()
+            role.permissions = await _load_permissions_by_ids(db, perm_ids, role.app_id or PORTAL_APP_ID)
             await RBACService.invalidate_role(role_id, db)
     
     for key, value in update_data.items():
@@ -343,10 +554,14 @@ async def delete_role(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:role:edit"))
 ):
-    result = await db.execute(select(models.Role).filter(models.Role.id == role_id))
+    result = await db.execute(
+        select(models.Role).filter(models.Role.id == role_id, models.Role.app_id == PORTAL_APP_ID)
+    )
     role = result.scalars().first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+    if _is_reserved_role_code(role.code):
+        raise HTTPException(status_code=400, detail=f"Cannot delete built-in role '{role.code}'")
     
     await RBACService.invalidate_role(role_id, db)
     
@@ -373,7 +588,9 @@ async def list_permissions(
     db: AsyncSession = Depends(get_db),
     _=Depends(PermissionChecker("sys:role:view"))
 ):
-    result = await db.execute(select(models.Permission))
+    result = await db.execute(
+        select(models.Permission).filter(models.Permission.app_id == PORTAL_APP_ID)
+    )
     return result.scalars().all()
 
 
@@ -384,7 +601,9 @@ async def create_permission(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(PermissionChecker("sys:role:edit"))
 ):
-    app_id = perm.app_id or 'portal'
+    if perm.app_id and perm.app_id != PORTAL_APP_ID:
+        raise HTTPException(status_code=400, detail=f"Only app_id='{PORTAL_APP_ID}' is allowed on this endpoint")
+    app_id = PORTAL_APP_ID
     existing = await db.execute(
         select(models.Permission).filter(
             models.Permission.app_id == app_id,

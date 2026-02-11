@@ -21,6 +21,7 @@ const EmployeeList: React.FC = () => {
     const { message, modal } = App.useApp();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [userAccounts, setUserAccounts] = useState<Set<string>>(new Set());
     const [deptTreeData, setDeptTreeData] = useState<DataNode[]>([]);
     const [selectedDeptName, setSelectedDeptName] = useState<string | null>(null);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -39,12 +40,14 @@ const EmployeeList: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [empData, deptData] = await Promise.all([
+            const [empData, deptData, userOptions] = await Promise.all([
                 ApiClient.getEmployees(),
-                ApiClient.getDepartments()
+                ApiClient.getDepartments(),
+                ApiClient.getUserOptions().catch(() => []),
             ]);
             setEmployees(empData);
             setDepartments(deptData);
+            setUserAccounts(new Set((userOptions || []).map((u) => u.username)));
             setDeptTreeData(buildTreeData(deptData));
         } catch (error) {
             console.error(error);
@@ -123,32 +126,60 @@ const EmployeeList: React.FC = () => {
 
         modal.confirm({
             title: `确定重置选中的 ${selectedRowKeys.length} 位用户的密码吗？`,
-            content: '密码将被重置为默认密码 123456。',
+            content: '密码将按当前密码策略重置为系统默认密码。',
             okText: '确认重置',
             cancelText: '取消',
             onOk: async () => {
                 const hide = message.loading('正在重置...', 0);
                 try {
-                    // Need to find accounts for these IDs
                     const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
-                    await Promise.all(selectedEmps.map(e => ApiClient.resetPassword(e.account)));
+                    const resettable = selectedEmps.filter(e => userAccounts.has(e.account));
+                    const skipped = selectedEmps.length - resettable.length;
+
+                    if (resettable.length === 0) {
+                        hide();
+                        message.warning('所选用户未开通系统账户，无法重置密码');
+                        return;
+                    }
+
+                    const settled = await Promise.allSettled(
+                        resettable.map(e => ApiClient.resetPassword(e.account))
+                    );
+                    const success = settled.filter(item => item.status === 'fulfilled').map((item: any) => item.value);
+                    const failedCount = settled.length - success.length;
                     hide();
-                    message.success('批量重置密码成功');
+                    const generated = success.map((r) => r?.new_password).filter(Boolean);
+                    if (failedCount === 0 && skipped === 0 && generated.length === 1) {
+                        message.success(`批量重置成功，默认密码：${generated[0]}`);
+                    } else if (failedCount === 0) {
+                        message.success(`批量重置完成：成功 ${success.length}，跳过 ${skipped}`);
+                    } else {
+                        message.warning(`批量重置完成：成功 ${success.length}，失败 ${failedCount}，跳过 ${skipped}`);
+                    }
                     setSelectedRowKeys([]);
                 } catch (e) {
                     hide();
-                    message.error('重置失败');
+                    message.error('批量重置失败');
                 }
             }
         });
     };
 
     const handleResetPassword = async (account: string) => {
+        if (!userAccounts.has(account)) {
+            message.warning(`用户 ${account} 未开通系统账户，无法重置密码`);
+            return;
+        }
         try {
-            await ApiClient.resetPassword(account);
-            message.success(`用户 ${account} 密码已重置为 123456`);
-        } catch (error) {
-            message.error('重置密码失败');
+            const result = await ApiClient.resetPassword(account);
+            const resetPassword = result?.new_password;
+            if (resetPassword) {
+                message.success(`用户 ${account} 密码已重置为 ${resetPassword}`);
+            } else {
+                message.success(`用户 ${account} 密码重置成功`);
+            }
+        } catch (error: any) {
+            message.error(error?.response?.data?.detail || '重置密码失败');
         }
     };
 
@@ -224,7 +255,7 @@ const EmployeeList: React.FC = () => {
                             </AppTag>
                         </div>
                         <div className="text-xs text-slate-400">
-                            #{record.job_number} · @{record.account}
+                            #{record.job_number || '-'} · @{record.account}
                         </div>
                     </div>
                 </div>
@@ -236,7 +267,7 @@ const EmployeeList: React.FC = () => {
             key: 'role',
             render: (text: string, record: Employee) => (
                 <div>
-                    <div className="font-medium text-slate-700 dark:text-slate-300">{text}</div>
+                    <div className="font-medium text-slate-700 dark:text-slate-300">{text || '-'}</div>
                     <AppTag status="info">{record.department}</AppTag>
                 </div>
             ),
@@ -322,7 +353,7 @@ const EmployeeList: React.FC = () => {
             {/* Page Header */}
             <AppPageHeader
                 title="用户管理"
-                subtitle="管理企业用户基本信息与职位"
+                subtitle="管理企业用户信息"
                 action={
                     <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         新增用户
@@ -374,7 +405,7 @@ const EmployeeList: React.FC = () => {
                     <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4 p-1" styles={{ body: { padding: '12px 16px' } }}>
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <Input.Search
-                                placeholder="搜索姓名、部门或工号..."
+                                placeholder="搜索姓名、部门或账户..."
                                 allowClear
                                 style={{ maxWidth: 320 }}
                                 value={searchText}
@@ -473,16 +504,15 @@ const EmployeeList: React.FC = () => {
                         <AppForm.Item
                             name="job_number"
                             label="工号"
-                            rules={[{ required: true, message: '请输入工号' }]}
                         >
-                            <Input placeholder="输入工号 (例如: 1001)" />
+                            <Input placeholder="输入工号 (选填，例如: 100001)" />
                         </AppForm.Item>
                         <AppForm.Item
                             name="account"
                             label="账户"
                             rules={[{ required: true, message: '请输入账户用户名' }]}
                         >
-                            <Input placeholder="输入账户 (例如: zhangsan)" />
+                            <Input placeholder="输入账户 (例如: houyuxi)" />
                         </AppForm.Item>
                     </div>
 
@@ -490,7 +520,7 @@ const EmployeeList: React.FC = () => {
                         <AppForm.Item
                             name="name"
                             label="姓名"
-                            rules={[{ required: true, message: '请输入姓名' }]}
+                            rules={[{ required: true, message: '请输入姓名 （例如：侯钰熙）' }]}
                         >
                             <Input />
                         </AppForm.Item>
@@ -529,9 +559,8 @@ const EmployeeList: React.FC = () => {
                         <AppForm.Item
                             name="role"
                             label="职位"
-                            rules={[{ required: true, message: '请输入职位' }]}
                         >
-                            <Input />
+                            <Input placeholder="输入职位 (选填)" />
                         </AppForm.Item>
                     </div>
 
@@ -553,7 +582,7 @@ const EmployeeList: React.FC = () => {
                     </div>
 
                     <AppForm.Item name="location" label="办公地点">
-                        <Input placeholder="例如: 杭州总部 A座 302" />
+                        <Input placeholder="例如: 北京总部 安全中心 302" />
                     </AppForm.Item>
                 </AppForm>
             </AppModal>

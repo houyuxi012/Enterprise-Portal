@@ -74,32 +74,32 @@ const TodoService = {
         if (params.sort) searchParams.append('sort', params.sort);
         if (params.order) searchParams.append('order', params.order);
 
-        return api.get(`/tasks/?${searchParams.toString()}`);
+        return api.get(`/app/tasks/?${searchParams.toString()}`);
     },
 
     getMyTaskStats: async (scope: 'active' | 'all' = 'active'): Promise<TodoStats> => {
-        return api.get(`/tasks/stats?scope=${scope}`);
+        return api.get(`/app/tasks/stats?scope=${scope}`);
     },
 
     createTask: async (data: CreateTodoDTO): Promise<Todo> => {
-        return api.post('/tasks/', data);
+        return api.post('/app/tasks/', data);
     },
 
     updateTask: async (id: number, data: UpdateTodoDTO): Promise<Todo> => {
-        return api.patch(`/tasks/${id}/`, data);
+        return api.patch(`/app/tasks/${id}/`, data);
     },
 
     // State Actions
     completeTask: async (id: number): Promise<Todo> => {
-        return api.post(`/tasks/${id}/complete/`);
+        return api.post(`/app/tasks/${id}/complete/`);
     },
 
     reopenTask: async (id: number): Promise<Todo> => {
-        return api.post(`/tasks/${id}/reopen/`);
+        return api.post(`/app/tasks/${id}/reopen/`);
     },
 
     cancelTask: async (id: number): Promise<Todo> => {
-        return api.post(`/tasks/${id}/cancel/`);
+        return api.post(`/app/tasks/${id}/cancel/`);
     },
 
     // --- Admin API ---

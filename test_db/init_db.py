@@ -183,13 +183,13 @@ async def init_db():
             db.add(admin_user)
             await db.flush()
             
-            # Assign Admin Role
-            admin_role_res = await db.execute(select(Role).where(Role.code == "admin"))
+            # Assign System Super Admin role (legacy fallback: admin)
+            admin_role_res = await db.execute(select(Role).where(Role.code.in_(["SuperAdmin", "admin"])))
             admin_role = admin_role_res.scalars().first()
             if admin_role:
                  admin_user.roles.append(admin_role)
             else:
-                 print("Warning: Admin role not found due to dependency. Ideally run rbac_init first.")
+                 print("Warning: SuperAdmin role not found due to dependency. Ideally run rbac_init first.")
 
         # 6.5 Create User accounts for each Employee (Default Password: 123456)
         print("Creating User accounts for employees...")

@@ -8,6 +8,7 @@ from fastapi import Request, Response, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
@@ -15,9 +16,48 @@ logger = logging.getLogger(__name__)
 
 class IdentityService:
     """身份认证服务"""
+
+    ACCOUNT_TYPE_SYSTEM = "SYSTEM"
+    ACCOUNT_TYPE_PORTAL = "PORTAL"
+
+    @staticmethod
+    def _normalize_account_type(user) -> str:
+        account_type = getattr(user, "account_type", IdentityService.ACCOUNT_TYPE_PORTAL) or IdentityService.ACCOUNT_TYPE_PORTAL
+        return str(account_type).upper()
+
+    @staticmethod
+    def _has_role(user, role_codes: set[str]) -> bool:
+        return any(getattr(role, "code", "") in role_codes for role in getattr(user, "roles", []))
+
+    @staticmethod
+    def _has_permission(user, permission_code: str) -> bool:
+        canonical = permission_code.strip()
+        normalized = canonical[7:] if canonical.startswith("portal.") else canonical
+        accepted_codes = {normalized, f"portal.{normalized}"}
+        for role in getattr(user, "roles", []):
+            for perm in getattr(role, "permissions", []):
+                current = (getattr(perm, "code", "") or "").strip()
+                if current in accepted_codes:
+                    return True
+        return False
+
+    @staticmethod
+    def _can_login_portal(user) -> bool:
+        return IdentityService._normalize_account_type(user) == IdentityService.ACCOUNT_TYPE_PORTAL
+
+    @staticmethod
+    def _can_login_admin(user) -> bool:
+        account_type = IdentityService._normalize_account_type(user)
+        if account_type == IdentityService.ACCOUNT_TYPE_SYSTEM:
+            return True
+        if account_type != IdentityService.ACCOUNT_TYPE_PORTAL:
+            return False
+        return IdentityService._has_permission(user, "admin:access") or IdentityService._has_role(
+            user, {"PortalAdmin", "portal_admin", "SuperAdmin"}
+        )
     
     @staticmethod
-    async def get_current_user(request: Request, db: AsyncSession):
+    async def get_current_user(request: Request, db: AsyncSession, audience: str = None):
         """从 Cookie/Header 解析当前用户"""
         import utils
         import models
@@ -28,42 +68,68 @@ class IdentityService:
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-        token = request.cookies.get("access_token")
-        if not token:
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header.split(" ")[1]
-            else:
+        # Infer audience from route space if caller didn't provide one.
+        if audience is None:
+            path = request.url.path or ""
+            if path.startswith("/api/admin/"):
+                audience = "admin"
+            elif path.startswith("/api/app/"):
+                audience = "portal"
+
+        # Strict cookie isolation when audience is explicitly required.
+        token = None
+        if audience == "admin":
+            token = request.cookies.get("admin_session")
+            if not token:
                 raise credentials_exception
+        elif audience == "portal":
+            token = request.cookies.get("portal_session")
+            if not token:
+                raise credentials_exception
+        else:
+            # Legacy/global auth fallback for endpoints that don't lock to one audience.
+            token = request.cookies.get("admin_session") or request.cookies.get("portal_session")
+            if not token:
+                token = request.cookies.get("access_token")
+            if not token:
+                auth_header = request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+                else:
+                    raise credentials_exception
         
         try:
-            payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM])
+            # Decode with audience verification if audience is specified
+            options = {"verify_aud": True} if audience else {"verify_aud": False}
+            payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM], audience=audience, options=options)
             username: str = payload.get("sub")
             if username is None:
                 raise credentials_exception
         except JWTError:
             raise credentials_exception
         
-        from sqlalchemy.orm import selectinload
-        result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles)))
+        result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
         user = result.scalars().first()
         if user is None or not user.is_active:
             raise credentials_exception
         return user
     
     @staticmethod
-    async def login(
+    async def _login_core(
         request: Request,
         response: Response,
         form_data: OAuth2PasswordRequestForm,
-        db: AsyncSession
+        db: AsyncSession,
+        audience: str,
+        cookie_name: str,
+        check_admin_access: bool = False
     ) -> dict:
-        """登录核心逻辑"""
+        """核心登录逻辑"""
         import utils
         import models
         from iam.audit.service import IAMAuditService
         
-        result = await db.execute(select(models.User).filter(models.User.username == form_data.username))
+        result = await db.execute(select(models.User).filter(models.User.username == form_data.username).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
         user = result.scalars().first()
         
         ip = request.client.host if request.client else "unknown"
@@ -145,17 +211,11 @@ class IdentityService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Disabled accounts are not allowed to establish sessions.
+        # Disabled accounts check
         if not user.is_active:
             await IAMAuditService.log_login(
-                db,
-                username=form_data.username,
-                success=False,
-                ip_address=ip,
-                user_agent=user_agent,
-                user_id=user.id,
-                reason="Account disabled",
-                trace_id=trace_id,
+                db, username=form_data.username, success=False,
+                ip_address=ip, user_agent=user_agent, user_id=user.id, reason="Account disabled", trace_id=trace_id
             )
             await db.commit()
             raise HTTPException(
@@ -164,6 +224,37 @@ class IdentityService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
+        # Portal endpoint login must only allow PORTAL identities
+        if audience == "portal" and not IdentityService._can_login_portal(user):
+            await IAMAuditService.log_login(
+                db, username=form_data.username, success=False,
+                ip_address=ip, user_agent=user_agent, user_id=user.id,
+                reason="Portal access denied for non-PORTAL account", trace_id=trace_id
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: PORTAL account required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Admin Access Check
+        if check_admin_access:
+            if not IdentityService._can_login_admin(user):
+                await IAMAuditService.log_login(
+                    db, username=form_data.username, success=False,
+                    ip_address=ip, user_agent=user_agent, user_id=user.id,
+                    reason="Admin access denied: requires SYSTEM or PORTAL with admin:access/PortalAdmin",
+                    trace_id=trace_id
+                )
+                await db.commit()
+                # Use 403 for permission denied after authentication, but 401 is also acceptable for login endpoint
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: Admin privileges required.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
         username = user.username
         user_id = user.id
         
@@ -182,12 +273,13 @@ class IdentityService:
         await db.commit()
 
         access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
+        # Issue token with Audience
         access_token = utils.create_access_token(
-            data={"sub": username}, expires_delta=access_token_expires
+            data={"sub": username}, expires_delta=access_token_expires, audience=audience
         )
         
         response.set_cookie(
-            key="access_token",
+            key=cookie_name,
             value=access_token,
             httponly=True,
             max_age=utils.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
@@ -199,6 +291,26 @@ class IdentityService:
         )
         
         return {"message": "Login successful", "token_type": "bearer", "access_token": access_token}
+
+    @staticmethod
+    async def login_portal(request: Request, response: Response, form_data: OAuth2PasswordRequestForm, db: AsyncSession):
+        return await IdentityService._login_core(request, response, form_data, db, audience="portal", cookie_name="portal_session", check_admin_access=False)
+
+    @staticmethod
+    async def login_admin(request: Request, response: Response, form_data: OAuth2PasswordRequestForm, db: AsyncSession):
+        return await IdentityService._login_core(request, response, form_data, db, audience="admin", cookie_name="admin_session", check_admin_access=True)
+
+    @staticmethod
+    async def login(
+        request: Request,
+        response: Response,
+        form_data: OAuth2PasswordRequestForm,
+        db: AsyncSession
+    ) -> dict:
+        """Legacy Login - wrapper for Portal Login (default)"""
+        # Defaulting legacy login to portal login for backward compatibility
+        # Or should it populate both? For safety, let's treat it as Portal login.
+        return await IdentityService.login_portal(request, response, form_data, db)
     
     @staticmethod
     async def logout(
@@ -206,34 +318,42 @@ class IdentityService:
         request: Request | None = None,
         db: AsyncSession | None = None
     ) -> dict:
-        """登出核心逻辑"""
+        """登出核心逻辑 - Clears all sessions"""
         import utils
         from iam.audit.service import IAMAuditService
 
         if request and db:
             try:
-                current_user = await IdentityService.get_current_user(request, db)
-                ip = request.client.host if request.client else "unknown"
-                user_agent = request.headers.get("User-Agent", "unknown")
-                await IAMAuditService.log_logout(
-                    db,
-                    username=current_user.username,
-                    user_id=current_user.id,
-                    ip_address=ip,
-                    user_agent=user_agent,
-                )
-                await db.commit()
-            except HTTPException:
-                # Logout should still succeed even if token is already invalid.
-                pass
+                # Try getting user from either session
+                current_user = None
+                try:
+                    current_user = await IdentityService.get_current_user(request, db, audience="admin")
+                except:
+                    pass
+                
+                if not current_user:
+                    try:
+                        current_user = await IdentityService.get_current_user(request, db, audience="portal")
+                    except:
+                        pass
+
+                if current_user:
+                    ip = request.client.host if request.client else "unknown"
+                    user_agent = request.headers.get("User-Agent", "unknown")
+                    await IAMAuditService.log_logout(
+                        db,
+                        username=current_user.username,
+                        user_id=current_user.id,
+                        ip_address=ip,
+                        user_agent=user_agent,
+                    )
+                    await db.commit()
             except Exception as e:
                 logger.warning("Failed to write logout audit log: %s", e)
         
-        response.delete_cookie(
-            key="access_token",
-            path="/",
-            domain=utils.COOKIE_DOMAIN,
-            secure=utils.COOKIE_SECURE,
-            samesite=utils.COOKIE_SAMESITE
-        )
+        # Clear ALL potential cookies
+        response.delete_cookie(key="access_token", path="/", domain=utils.COOKIE_DOMAIN, secure=utils.COOKIE_SECURE, samesite=utils.COOKIE_SAMESITE)
+        response.delete_cookie(key="portal_session", path="/", domain=utils.COOKIE_DOMAIN, secure=utils.COOKIE_SECURE, samesite=utils.COOKIE_SAMESITE)
+        response.delete_cookie(key="admin_session", path="/", domain=utils.COOKIE_DOMAIN, secure=utils.COOKIE_SECURE, samesite=utils.COOKIE_SAMESITE)
+        
         return {"message": "Logout successful"}

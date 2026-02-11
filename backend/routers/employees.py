@@ -7,7 +7,6 @@ from sqlalchemy import select, update, delete
 from fastapi import Request
 from services.audit_service import AuditService
 from routers.auth import get_current_user
-import uuid
 
 router = APIRouter(
     prefix="/employees",
@@ -48,22 +47,63 @@ async def create_employee(
     db_employee = models.Employee(**employee.dict())
     db.add(db_employee)
     
-    # 2. Check and Create User credential if not exists
-    # Use employee.account as username
+    # 2. Auto-provision portal login account (hidden from system-account UI by frontend filter)
+    auto_provisioned = False
     user_stmt = select(models.User).filter(models.User.username == employee.account)
     user_result = await db.execute(user_stmt)
     existing_user = user_result.scalars().first()
-    
-    if not existing_user:
-        # Create default user
-        default_pwd_hash = utils.get_password_hash("123456")
+
+    if existing_user:
+        account_type = (existing_user.account_type or "PORTAL").upper()
+        if account_type != "PORTAL":
+            raise HTTPException(
+                status_code=400,
+                detail=f"账户 {employee.account} 已存在且不是 PORTAL 身份，无法用于门户登录。"
+            )
+        existing_user.is_active = (employee.status == "Active")
+        if not existing_user.name:
+            existing_user.name = employee.name
+        if employee.avatar:
+            existing_user.avatar = employee.avatar
+    else:
+        config_result = await db.execute(select(models.SystemConfig))
+        configs = {c.key: c.value for c in config_result.scalars().all()}
+        min_length = int(configs.get("security_password_min_length", 8))
+        base_password = "Portal#1234"
+        default_password = (
+            base_password
+            if len(base_password) >= min_length
+            else base_password + ("0" * (min_length - len(base_password)))
+        )
+
+        user_email = employee.email
+        email_result = await db.execute(select(models.User).filter(models.User.email == employee.email))
+        email_conflict = email_result.scalars().first()
+        if email_conflict:
+            user_email = None
+
         new_user = models.User(
             username=employee.account,
-            email=employee.email,
-            hashed_password=default_pwd_hash,
-            is_active=True
+            email=user_email,
+            hashed_password=utils.get_password_hash(default_password),
+            account_type="PORTAL",
+            is_active=(employee.status == "Active"),
+            name=employee.name,
+            avatar=employee.avatar,
         )
+
+        role_result = await db.execute(
+            select(models.Role).filter(
+                models.Role.app_id == "portal",
+                models.Role.code == "user",
+            )
+        )
+        default_role = role_result.scalars().first()
+        if default_role:
+            new_user.roles = [default_role]
+
         db.add(new_user)
+        auto_provisioned = True
         
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
@@ -74,6 +114,7 @@ async def create_employee(
         username=current_user.username, 
         action="CREATE_EMPLOYEE", 
         target=f"用户:{db_employee.name}", 
+        detail=f"auto_portal_account={'yes' if auto_provisioned else 'existing'}",
         ip_address=ip,
         trace_id=trace_id
     )
@@ -109,6 +150,19 @@ async def update_employee(
              # Log the sync action
              # await AuditService.log_system_event(db, "SYNC_USER_STATUS", f"Synced user {user.username} status to {user.is_active}")
     
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="UPDATE_EMPLOYEE",
+        target=f"用户:{employee.name}",
+        detail=f"employee_id={employee_id}",
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+
     await db.commit()
     await db.refresh(employee)
     return employee

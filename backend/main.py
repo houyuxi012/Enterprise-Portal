@@ -1,11 +1,12 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, users, upload, system, roles, departments, logs, carousel, dashboard
+from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public
 import os
 import database
 import models
 import schemas
+from iam.deps import verify_portal_aud, verify_admin_aud
 
 app = FastAPI(title="ShiKu Portal API", version="1.0.0")
 
@@ -113,37 +114,60 @@ def read_root():
     return {"message": "Welcome to ShiKu Portal API"}
 
 # Create Main API Router with Prefix
+# Create Main API Router with Prefix
 api_router = APIRouter(prefix="/api")
 
-# Include Routers into API Router
-api_router.include_router(employees.router)
-api_router.include_router(news.router)
-api_router.include_router(tools.router)
-api_router.include_router(announcements.router)
-api_router.include_router(ai.router)
-api_router.include_router(auth.router)
-api_router.include_router(users.router)
-api_router.include_router(upload.router)
-api_router.include_router(system.router)
-api_router.include_router(roles.router)
-api_router.include_router(departments.router)
-api_router.include_router(logs.router)
-api_router.include_router(carousel.router)
-api_router.include_router(dashboard.router)
+# ===========================
+# 3. Router Registration
+# ===========================
 
-from routers import ai_admin
-api_router.include_router(ai_admin.router)
-
-from routers import kb
-api_router.include_router(kb.router)
-
-# IAM Module (New: /api/iam/auth/*, /api/iam/admin/*, /api/iam/audit/*)
+# 3.1 Global/Public Routers (No Audience Check)
+# IAM Router (Auth, Token, Audit)
 from iam import router as iam_router
 api_router.include_router(iam_router)
+api_router.include_router(public.router)
 
-from routers import todos, admin_tasks
-api_router.include_router(todos.router)
-api_router.include_router(admin_tasks.router)
+# 3.2 App Routers (Audience: portal)
+app_router = APIRouter(prefix="/app", dependencies=[Depends(verify_portal_aud)])
+
+from routers import todos, ai_admin, kb, admin_tasks
+# Standard App Routers
+app_router.include_router(todos.router)
+app_router.include_router(ai.router)
+app_router.include_router(kb.router) 
+app_router.include_router(upload.router)  # Portal uploads
+app_router.include_router(logs.app_event_router)  # Portal business behavior logs
+# Shared Resources (Accessible by Portal)
+app_router.include_router(news.router)
+app_router.include_router(announcements.router)
+app_router.include_router(tools.router)
+app_router.include_router(carousel.router) 
+
+# 3.3 Admin Routers (Audience: admin)
+admin_router = APIRouter(prefix="/admin", dependencies=[Depends(verify_admin_aud)])
+
+# Admin Specific Routers
+admin_router.include_router(dashboard.router)
+admin_router.include_router(system.router)
+admin_router.include_router(employees.router)
+admin_router.include_router(departments.router)
+admin_router.include_router(logs.router)
+admin_router.include_router(ai_admin.router)
+admin_router.include_router(admin_tasks.router)
+admin_router.include_router(kb.router)  # KB management in admin plane
+# Shared Resources (Manageable by Admin)
+admin_router.include_router(news.router)
+admin_router.include_router(announcements.router)
+admin_router.include_router(tools.router)
+admin_router.include_router(carousel.router)
+admin_router.include_router(upload.router) # Admin uploads
+
+# Mount App and Admin routers
+api_router.include_router(app_router)
+api_router.include_router(admin_router)
+
+# Legacy / Flat Support
+# api_router.include_router(auth.router) # Old auth, deprecated
 
 # Include API Router in App
 app.include_router(api_router)

@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { getCurrentLocale, getLocalizedRoleMeta } from '../utils/iamRoleI18n';
 
 import VersionModal from '../components/VersionModal';
 
@@ -215,7 +216,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         },
     ];
 
-    const { user } = useAuth(); // Import user from AuthContext
+    const { user } = useAuth();
+    const locale = getCurrentLocale();
+    const fallbackAdminLabel = locale === 'zh-CN' ? '管理员' : 'Administrator';
+    const primaryRole = user?.roles?.[0];
+    const localizedPrimaryRole = primaryRole
+        ? getLocalizedRoleMeta({ code: primaryRole.code, name: primaryRole.name }, locale).name
+        : undefined;
+    const displayRole = localizedPrimaryRole || (user?.role === 'admin' ? fallbackAdminLabel : (user?.role || fallbackAdminLabel));
 
     return (
         <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
@@ -266,7 +274,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     <div className="flex items-center space-x-6">
                         <div className="text-right hidden sm:block">
                             <div className="text-sm font-bold text-slate-800 dark:text-white">{user?.name || user?.username || 'Admin User'}</div>
-                            <div className="text-xs text-slate-500 font-medium">{user?.role || 'Administrator'}</div>
+                            <div className="text-xs text-slate-500 font-medium">{displayRole}</div>
                         </div>
                         <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight" trigger={['click']}>
                             <div className="cursor-pointer p-1 rounded-full border-2 border-white dark:border-slate-700 shadow-md hover:shadow-lg transition-shadow">

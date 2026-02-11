@@ -200,22 +200,30 @@ async def test_chat_api_http():
         import httpx
 
         async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
-            # 1. 登录获取 session (使用 OAuth2 form data 格式)
-            login_resp = await client.post(
-                "http://localhost:8000/api/iam/auth/token",
-                data={"username": "admin", "password": "admin"},
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            
-            if login_resp.status_code == 200:
-                token_data = login_resp.json()
-                access_token = token_data.get("access_token")
-                ok(f"登录成功, token 获取成功")
-                
-                # 设置 Authorization header
-                client.headers["Authorization"] = f"Bearer {access_token}"
-            else:
-                fail(f"登录失败, status={login_resp.status_code}, body={login_resp.text[:200]}")
+            # 1. 登录获取 portal_session (使用 OAuth2 form data 格式)
+            portal_user = os.getenv("RAG_TEST_PORTAL_USER", "").strip()
+            portal_pass = os.getenv("RAG_TEST_PORTAL_PASSWORD", "").strip()
+            candidates = []
+            if portal_user and portal_pass:
+                candidates.append((portal_user, portal_pass))
+            # Common local defaults
+            candidates.extend([("test_portal_admin", "password123"), ("admin", "admin")])
+
+            login_ok = False
+            for username, password in candidates:
+                login_resp = await client.post(
+                    "http://localhost:8000/api/iam/auth/portal/token",
+                    data={"username": username, "password": password},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                if login_resp.status_code == 200:
+                    ok(f"Portal 登录成功: {username}")
+                    login_ok = True
+                    break
+                warn(f"Portal 登录失败: {username} status={login_resp.status_code}")
+
+            if not login_ok:
+                fail("Portal 登录失败，无法继续 HTTP Chat 测试（请设置 RAG_TEST_PORTAL_USER/RAG_TEST_PORTAL_PASSWORD）")
                 return
 
             # 2. 测试 KB 相关提问 (应触发 RAG 流程)
@@ -232,7 +240,7 @@ async def test_chat_api_http():
 
                 try:
                     resp = await client.post(
-                        "http://localhost:8000/api/ai/chat",
+                        "http://localhost:8000/api/app/ai/chat",
                         json={"prompt": query}
                     )
 

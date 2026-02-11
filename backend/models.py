@@ -36,6 +36,7 @@ class Role(Base):
     app_id = Column(String(50), index=True, default="portal")  # Multi-tenant isolation
     code = Column(String, index=True)  # e.g. "admin"
     name = Column(String)
+    description = Column(String, nullable=True)
     limit_scope = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), nullable=True)
     
@@ -105,6 +106,9 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    # Identity type used by dual-session zero-trust auth:
+    # SYSTEM accounts are only for admin plane, PORTAL accounts for employee portal.
+    account_type = Column(String(20), default="PORTAL", nullable=False, index=True)
     is_active = Column(Boolean, default=True)
     failed_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime(timezone=True), nullable=True)
@@ -121,7 +125,7 @@ class User(Base):
         """
         if self.roles:
             for r in self.roles:
-                if r.code == 'admin':
+                if r.code in {'admin', 'PortalAdmin', 'SuperAdmin', 'portal_admin'}:
                     return 'admin'
         return 'user'
 

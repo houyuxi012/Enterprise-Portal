@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Spin } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
+import { hasAdminAccess } from '../utils/adminAccess';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -10,7 +11,7 @@ interface ProtectedRouteProps {
 
 /**
  * ProtectedRoute wrapper that:
- * 1. Triggers initAuth() on mount (calls /users/me)
+ * 1. Triggers initAuth() on mount (calls /iam/auth/me)
  * 2. Shows loading spinner while checking
  * 3. Renders fallback (login) if not authenticated
  * 4. Renders children if authenticated
@@ -42,7 +43,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     // Check admin requirement
-    if (requireAdmin && user?.role !== 'admin') {
+    if (requireAdmin && !hasAdminAccess(user)) {
         return <>{fallback}</>;
     }
 

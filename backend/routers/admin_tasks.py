@@ -11,7 +11,7 @@ from dependencies import PermissionChecker, get_current_user
 from services.audit_service import AuditService
 
 router = APIRouter(
-    prefix="/admin/tasks",
+    prefix="/tasks",
     tags=["admin_tasks"]
 )
 

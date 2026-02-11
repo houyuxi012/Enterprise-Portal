@@ -27,11 +27,11 @@ class Department(DepartmentBase):
 # Employee Schemas
 class EmployeeBase(BaseModel):
     account: str
-    job_number: str
+    job_number: Optional[str] = None
     name: str
     gender: str
     department: str
-    role: str
+    role: Optional[str] = None
     email: str
     phone: str
     location: Optional[str] = None
@@ -151,6 +151,7 @@ class RoleOut(BaseModel):
 class UserBase(BaseModel):
     username: str
     email: str
+    account_type: Optional[str] = "PORTAL"
     name: Optional[str] = None
     avatar: Optional[str] = None
     is_active: Optional[bool] = True
@@ -216,7 +217,7 @@ class AIChatResponse(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     username: str
-    new_password: Optional[str] = "123456"
+    new_password: Optional[str] = None
 
 # Log Management Schemas
 class SystemLogBase(BaseModel):

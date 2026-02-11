@@ -8,6 +8,7 @@ import {
 import { AppView, Notification } from '../types';
 import { MOCK_NOTIFICATIONS } from '../constants';
 import ApiClient from '../services/api';
+import { hasAdminAccess } from '../utils/adminAccess';
 
 interface NavbarProps {
   currentView: AppView;
@@ -162,19 +163,12 @@ const Navbar: React.FC<NavbarProps> = ({
 
   // Default values if currentUser is unknown
   const username = currentUser?.username || '用户';
-  const userRole = currentUser?.role === 'admin' ? '管理员' : '普通用户';
+  const hasAdminIdentity = hasAdminAccess(currentUser);
+  const userRole = hasAdminIdentity ? '管理员' : '普通用户';
 
   let userAvatar = currentUser?.avatar;
   if (!userAvatar) {
-    // Check various admin indicators (username, role name, role code)
-    const isAdmin =
-      currentUser?.username?.toLowerCase() === 'admin' ||
-      currentUser?.username === 'Admin User' ||
-      currentUser?.role === 'admin' ||
-      currentUser?.role === 'Administrator' ||
-      currentUser?.roles?.some(r => r.code === 'admin' || r.name === 'Administrator');
-
-    if (isAdmin) {
+    if (hasAdminIdentity) {
       userAvatar = '/images/admin-avatar.svg';
     } else {
       userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;

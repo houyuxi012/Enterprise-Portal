@@ -7,7 +7,10 @@ export interface User {
     id: number;
     username: string;
     email: string;
-    role: string;
+    role?: string;
+    account_type?: 'PORTAL' | 'SYSTEM';
+    roles?: { code: string; name?: string; app_id?: string }[];
+    permissions?: string[];
     name?: string;
     avatar?: string;
 }
@@ -18,7 +21,7 @@ interface AuthResponse {
 }
 
 class AuthService {
-    async login(username: string, password: string): Promise<User> {
+    async login(username: string, password: string, type: 'portal' | 'admin' = 'portal'): Promise<User> {
         // Phase 2: Remove RSA, send plain password (protected by HTTPS)
         // Phase 1: Cookie Auth (No token storage in localStorage)
 
@@ -26,8 +29,13 @@ class AuthService {
         params.append('username', username);
         params.append('password', password);
 
-        // Relative path used as per global rule
-        await axios.post<AuthResponse>(`${API_URL}/auth/token`, params, {
+        const endpoint = type === 'admin' ? '/iam/auth/admin/token' : '/iam/auth/portal/token';
+
+        // API_URL is expected to be the API base (e.g. '/api' or full origin + '/api').
+        // The server now only supports dual-session login endpoints:
+        // /iam/auth/portal/token and /iam/auth/admin/token.
+
+        await axios.post<AuthResponse>(`${API_URL}${endpoint}`, params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
@@ -35,21 +43,30 @@ class AuthService {
         });
 
         // If we get here, login was successful - cookie is set by backend
-        return this.getCurrentUser();
+        return this.getCurrentUser(type);
     }
 
     async logout(redirectUrl: string = '/') {
         try {
-            await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
+            await axios.post(`${API_URL}/iam/auth/logout`, {}, { withCredentials: true });
         } catch (e) {
             console.error("Logout failed", e);
         }
         window.location.href = redirectUrl;
     }
 
-    async getCurrentUser(): Promise<User> {
+    async getCurrentUser(type?: 'portal' | 'admin'): Promise<User> {
         // No header injection needed, browser sends HttpOnly cookie automatically
-        const response = await axios.get<User>(`${API_URL}/users/me`);
+        const runtimeType =
+            type ||
+            (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+                ? 'admin'
+                : 'portal');
+
+        const response = await axios.get<User>(`${API_URL}/iam/auth/me`, {
+            withCredentials: true,
+            params: { audience: runtimeType }
+        });
         return response.data;
     }
 

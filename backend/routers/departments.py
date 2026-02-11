@@ -97,6 +97,20 @@ async def create_department(
     db.add(db_dept)
     await db.commit()
     await db.refresh(db_dept)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="CREATE_DEPARTMENT",
+        target=f"部门:{db_dept.name}",
+        detail=f"department_id={db_dept.id}, parent_id={db_dept.parent_id}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
     
     # Manually construct response to avoid lazy loading 'children'
     # We use the Schema model directly
@@ -125,9 +139,23 @@ async def update_department(
         
     for key, value in dept.dict(exclude_unset=True).items():
         setattr(db_dept, key, value)
-        
+
     await db.commit()
     await db.refresh(db_dept)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="UPDATE_DEPARTMENT",
+        target=f"部门:{db_dept.name}",
+        detail=f"department_id={db_dept.id}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
     
     # Return manually constructed Schema to avoid implicit lazy load of children
     return schemas.Department(

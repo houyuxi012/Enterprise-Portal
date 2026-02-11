@@ -110,7 +110,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     const fetchConfigAndModels = async () => {
       try {
         const [config, modelList] = await Promise.all([
-          ApiClient.getSystemConfig(),
+          ApiClient.getPublicSystemConfig(),
           ApiClient.getAIModels().catch(() => [])
         ]);
 

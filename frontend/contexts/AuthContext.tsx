@@ -6,7 +6,7 @@ interface AuthContextType {
     isLoading: boolean;
     isAuthenticated: boolean;
     isInitialized: boolean;
-    login: (username: string, password: string) => Promise<User>;
+    login: (username: string, password: string, type?: 'portal' | 'admin') => Promise<User>;
     logout: () => void;
     initAuth: () => Promise<void>;
 }
@@ -35,10 +35,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const isAuthenticated = user !== null;
 
     // Login method - called by Login page after form submit
-    const login = useCallback(async (username: string, password: string): Promise<User> => {
+    const login = useCallback(async (username: string, password: string, type: 'portal' | 'admin' = 'portal'): Promise<User> => {
         setIsLoading(true);
         try {
-            const loggedInUser = await AuthService.login(username, password);
+            const loggedInUser = await AuthService.login(username, password, type);
             setUser(loggedInUser);
             setIsInitialized(true);
             return loggedInUser;
@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }, []);
 
     // Init auth - called by ProtectedRoute on mount
-    // Uses single-flight pattern to prevent duplicate /users/me calls
+    // Uses single-flight pattern to prevent duplicate /iam/auth/me calls
     const initAuth = useCallback(async (): Promise<void> => {
         // If already initialized, skip
         if (isInitialized) {

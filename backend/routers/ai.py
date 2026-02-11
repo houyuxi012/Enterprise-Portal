@@ -13,6 +13,7 @@ from routers.auth import get_current_user
 from models import Employee, NewsItem, QuickTool, AIProvider, User
 from services.ai_engine import AIEngine
 from middleware.trace_context import get_trace_id
+from services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ async def get_models(
 
 @router.post("/admin/providers/test")
 async def test_provider(
+    request: Request,
     request_body: AIProviderTestRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("sys:settings:edit"))
@@ -86,11 +88,49 @@ async def test_provider(
         )
         
         response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            detail=f"type={request_body.type}, model={request_body.model}, result=success",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
         return {"status": "success", "message": "Connection successful", "response": response}
     except ValueError as e:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            status="FAIL",
+            detail=f"type={request_body.type}, model={request_body.model}, reason={e}",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
         logger.warning("Provider test blocked for user %s: %s", getattr(current_user, "username", "unknown"), e)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="TEST_AI_PROVIDER",
+            target=f"AI供应商测试:{request_body.name}",
+            status="FAIL",
+            detail=f"type={request_body.type}, model={request_body.model}, reason=unexpected_error",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="SYSTEM",
+        )
+        await db.commit()
         logger.exception("Provider test failed for user %s", getattr(current_user, "username", "unknown"))
         raise HTTPException(status_code=400, detail="Provider test failed")
 

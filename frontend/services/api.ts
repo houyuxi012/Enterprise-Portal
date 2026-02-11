@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy, AIModelOption, SystemInfo, SystemVersion, UserOption } from '../types';
-import AuthService from './auth';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
@@ -12,14 +11,41 @@ const api = axios.create({
   },
 });
 
-// Request interceptor removed (Cookie Auth)
-// api.interceptors.request.use(...)
+const getRuntimeScopePrefix = (): '/app' | '/admin' => {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    return '/admin';
+  }
+  return '/app';
+};
+
+const ensureScopedPath = (url: string): string => {
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const normalized = url.startsWith('/') ? url : `/${url}`;
+  if (normalized.startsWith('/iam/') || normalized.startsWith('/public/')) return normalized;
+  if (normalized.startsWith('/admin/') || normalized.startsWith('/app/')) return normalized;
+
+  return `${getRuntimeScopePrefix()}${normalized}`;
+};
+
+api.interceptors.request.use((config) => {
+  if (config.url) {
+    config.url = ensureScopedPath(config.url);
+  }
+  return config;
+});
 
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error);
+    const status = error?.response?.status;
+    const requestUrl = String(error?.config?.url || '');
+    const isExpectedMeProbe = status === 401 && requestUrl.includes('/iam/auth/me');
+    if (!isExpectedMeProbe) {
+      console.error('API Error:', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -35,6 +61,11 @@ export interface QuickToolDTO {
   description: string;
   image?: string;
   visible_to_departments?: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+  new_password?: string | null;
 }
 
 export const ApiClient = {
@@ -171,69 +202,92 @@ export const ApiClient = {
 
 
   getAIModels: async (): Promise<AIModelOption[]> => {
+    const isAdminScope = getRuntimeScopePrefix() === '/admin';
+    if (isAdminScope) {
+      const response = await api.get<AIProvider[]>('/ai/admin/providers');
+      return response.data
+        .filter((provider) => provider.is_active)
+        .map((provider) => ({
+          id: provider.id,
+          name: provider.name,
+          model: provider.model,
+          type: provider.type,
+          model_kind: provider.model_kind || 'text',
+        }));
+    }
     const response = await api.get<AIModelOption[]>('/ai/models');
     return response.data;
   },
 
   // Admin - Users
   getUsers: async (): Promise<any[]> => {
-    const response = await api.get('/users/');
+    const response = await api.get('/iam/admin/users');
     return response.data;
   },
 
   getUserOptions: async (): Promise<UserOption[]> => {
-    const response = await api.get('/users/options');
+    const response = await api.get('/iam/admin/users/options');
     return response.data;
   },
 
   createUser: async (data: any): Promise<any> => {
 
-    const response = await api.post('/users/', data);
+    const response = await api.post('/iam/admin/users', data);
     return response.data;
   },
 
   updateUser: async (id: number, data: any): Promise<any> => {
 
-    const response = await api.put(`/users/${id}`, data);
+    const response = await api.put(`/iam/admin/users/${id}`, data);
     return response.data;
   },
 
   deleteUser: async (id: number): Promise<void> => {
 
-    await api.delete(`/users/${id}`);
+    await api.delete(`/iam/admin/users/${id}`);
   },
 
-  resetPassword: async (username: string): Promise<void> => {
+  resetPassword: async (username: string): Promise<ResetPasswordResponse> => {
+    const response = await api.post<ResetPasswordResponse>('/iam/admin/users/reset-password', { username });
+    return response.data;
+  },
 
-    await api.post('/users/reset-password', { username });
+  grantPortalAdmin: async (id: number): Promise<any> => {
+    const response = await api.post(`/iam/admin/users/${id}/portal-admin/grant`);
+    return response.data;
+  },
+
+  revokePortalAdmin: async (id: number): Promise<any> => {
+    const response = await api.post(`/iam/admin/users/${id}/portal-admin/revoke`);
+    return response.data;
   },
 
   getRoles: async (): Promise<any[]> => {
 
-    const response = await api.get('/roles/');
+    const response = await api.get('/iam/admin/roles');
     return response.data;
   },
 
   createRole: async (data: any): Promise<any> => {
 
-    const response = await api.post('/roles/', data);
+    const response = await api.post('/iam/admin/roles', data);
     return response.data;
   },
 
   updateRole: async (id: number, data: any): Promise<any> => {
 
-    const response = await api.put(`/roles/${id}`, data);
+    const response = await api.put(`/iam/admin/roles/${id}`, data);
     return response.data;
   },
 
   deleteRole: async (id: number): Promise<void> => {
 
-    await api.delete(`/roles/${id}`);
+    await api.delete(`/iam/admin/roles/${id}`);
   },
 
   getPermissions: async (): Promise<any[]> => {
 
-    const response = await api.get('/roles/permissions');
+    const response = await api.get('/iam/admin/permissions');
     return response.data;
   },
 
@@ -262,6 +316,11 @@ export const ApiClient = {
 
   getSystemConfig: async (): Promise<Record<string, string>> => {
     const response = await api.get('/system/config');
+    return response.data;
+  },
+
+  getPublicSystemConfig: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/public/config');
     return response.data;
   },
 
@@ -299,15 +358,11 @@ export const ApiClient = {
 
   logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<any> => {
     try {
-      const user = await AuthService.getCurrentUser().catch(() => ({ username: 'guest' }));
       return api.post('/logs/business', {
-        operator: user.username,
         action: log.action,
         target: log.target || '',
         status: log.status || 'SUCCESS',
-        detail: log.detail || '',
-        timestamp: new Date().toISOString(),
-        ip_address: 'frontend'
+        detail: log.detail || ''
       });
     } catch (e) {
       console.warn("Failed to log action:", e);

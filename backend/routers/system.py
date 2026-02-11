@@ -142,12 +142,26 @@ async def check_version_upgrade(session_factory):
 
 @router.get("/config", response_model=Dict[str, str])
 async def get_system_config(
+    request: Request,
     db: AsyncSession = Depends(database.get_db),
-    _: models.User = Depends(PermissionChecker("sys:settings:view")),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
 ):
     result = await db.execute(select(models.SystemConfig))
     configs = result.scalars().all()
-    return {c.key: c.value for c in configs}
+    config_map = {c.key: c.value for c in configs}
+    await AuditService.log_business_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="READ_SYSTEM_CONFIG",
+        target="系统配置",
+        detail=f"keys={sorted(config_map.keys())}",
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="SYSTEM",
+    )
+    await db.commit()
+    return config_map
 
 
 @router.post("/config", response_model=Dict[str, str])

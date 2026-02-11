@@ -14,6 +14,7 @@ import json
 import os
 import logging
 from services.audit_service import AuditService
+from pydantic import BaseModel, Field
 
 router = APIRouter(
     prefix="/logs",
@@ -21,7 +22,20 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+app_event_router = APIRouter(
+    prefix="/logs",
+    tags=["logs"],
+    responses={404: {"description": "Not found"}},
+)
+
 logger = logging.getLogger(__name__)
+
+
+class BusinessActionCreate(BaseModel):
+    action: str = Field(..., min_length=1, max_length=120)
+    target: Optional[str] = Field(default=None, max_length=255)
+    status: str = Field(default="SUCCESS", pattern="^(SUCCESS|FAIL)$")
+    detail: Optional[str] = Field(default=None, max_length=2000)
 
 
 def _loki_headers() -> dict[str, str]:
@@ -308,12 +322,57 @@ async def read_business_logs(
 
 @router.post("/business", response_model=schemas.BusinessLog)
 async def create_business_log(
-    log: schemas.BusinessLogCreate,
+    request: Request,
+    log: BusinessActionCreate,
     db: AsyncSession = Depends(get_db),
     # Allowing internal calls or authenticated users to log actions
-    current_user: models.User = Depends(get_current_user) 
+    current_user: models.User = Depends(get_current_user),
 ):
-    db_log = models.BusinessLog(**log.dict())
+    trace_id = request.headers.get("X-Request-ID") if request else None
+    client_ip = _get_client_ip(request)
+    db_log = models.BusinessLog(
+        operator=current_user.username if current_user else "unknown",
+        action=log.action,
+        target=log.target,
+        ip_address=client_ip,
+        status=log.status,
+        detail=log.detail,
+        trace_id=trace_id,
+        source="WEB",
+        domain="BUSINESS",
+        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    )
+    db.add(db_log)
+    await db.commit()
+    await db.refresh(db_log)
+    return db_log
+
+
+@app_event_router.post("/business", response_model=schemas.BusinessLog)
+async def create_business_log_for_portal(
+    log: BusinessActionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Portal-facing lightweight event log endpoint.
+    Used by frontend app telemetry-style behavior logs.
+    """
+    trace_id = request.headers.get("X-Request-ID")
+    client_ip = _get_client_ip(request)
+    db_log = models.BusinessLog(
+        operator=current_user.username,
+        action=log.action,
+        target=log.target,
+        ip_address=client_ip,
+        status=log.status,
+        detail=log.detail,
+        trace_id=trace_id,
+        source="WEB",
+        domain="BUSINESS",
+        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    )
     db.add(db_log)
     await db.commit()
     await db.refresh(db_log)
@@ -323,11 +382,21 @@ async def create_business_log(
 
 @router.get("/config", response_model=List[schemas.LogForwardingConfig])
 async def read_log_configs(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig))
     configs = result.scalars().all()
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_LOG_FORWARDING_CONFIG",
+        target="日志转发配置",
+        detail=f"result_count={len(configs)}",
+        domain="SYSTEM",
+    )
     return [
         {
             "id": cfg.id,
@@ -343,6 +412,7 @@ async def read_log_configs(
 
 @router.post("/config", response_model=schemas.LogForwardingConfig)
 async def create_log_config(
+    request: Request,
     config: schemas.LogForwardingConfigCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
@@ -359,6 +429,18 @@ async def create_log_config(
     db.add(db_config)
     await db.commit()
     await db.refresh(db_config)
+    await AuditService.log_business_action(
+        db=db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="CREATE_LOG_FORWARDING_CONFIG",
+        target="日志转发配置",
+        detail=f"type={db_config.type}, endpoint={db_config.endpoint}, enabled={db_config.enabled}, log_types={normalized_log_types}",
+        ip_address=_get_client_ip(request),
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="SYSTEM",
+    )
+    await db.commit()
     invalidate_forwarding_cache()
     return {
         "id": db_config.id,
@@ -373,6 +455,7 @@ async def create_log_config(
 @router.delete("/config/{config_id}")
 async def delete_log_config(
     config_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
@@ -382,8 +465,25 @@ async def delete_log_config(
     db_config = result.scalars().first()
     if not db_config:
         raise HTTPException(status_code=404, detail="Config not found")
-        
+    config_snapshot = {
+        "type": db_config.type,
+        "endpoint": db_config.endpoint,
+        "port": db_config.port,
+        "enabled": db_config.enabled,
+    }
     await db.delete(db_config)
+    await db.commit()
+    await AuditService.log_business_action(
+        db=db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="DELETE_LOG_FORWARDING_CONFIG",
+        target="日志转发配置",
+        detail=f"config_id={config_id}, snapshot={config_snapshot}",
+        ip_address=_get_client_ip(request),
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="SYSTEM",
+    )
     await db.commit()
     invalidate_forwarding_cache()
     return {"message": "Config deleted"}
@@ -392,9 +492,11 @@ async def delete_log_config(
 
 @router.get("/access")
 async def read_access_logs(
+    request: Request,
     path: Optional[str] = None,
     status_code: Optional[int] = None,
     limit: int = 100,
+    db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.system.read"))
 ):
     """
@@ -406,6 +508,15 @@ async def read_access_logs(
     
     repo = get_log_repository()
     if not repo:
+        await _record_log_query_audit(
+            db=db,
+            request=request,
+            current_user=current_user,
+            audit_action="READ_ACCESS_LOGS",
+            target="访问日志",
+            detail=f"path={path or '*'}, status_code={status_code or '*'}, limit={limit}, result_count=0, reason=no_repository",
+            domain="SYSTEM",
+        )
         return []
     
     query = LogQuery(
@@ -416,9 +527,7 @@ async def read_access_logs(
     )
     
     results = await repo.read(query)
-    
-    # Format for frontend
-    return [
+    formatted_results = [
         {
             "id": idx + 1,
             "timestamp": log.get("timestamp", ""),
@@ -432,6 +541,16 @@ async def read_access_logs(
         }
         for idx, log in enumerate(results[:limit])
     ]
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_ACCESS_LOGS",
+        target="访问日志",
+        detail=f"path={path or '*'}, status_code={status_code or '*'}, limit={limit}, result_count={len(formatted_results)}",
+        domain="SYSTEM",
+    )
+    return formatted_results
 
 
 # --- AI Audit Logs ---
@@ -650,6 +769,7 @@ async def read_ai_audit_logs(
 @router.get("/ai-audit/{event_id}", response_model=schemas.AIAuditLog)
 async def get_ai_audit_detail(
     event_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
@@ -659,12 +779,31 @@ async def get_ai_audit_detail(
     )
     log = result.scalars().first()
     if not log:
+        await _record_log_query_audit(
+            db=db,
+            request=request,
+            current_user=current_user,
+            audit_action="READ_AI_AUDIT_DETAIL",
+            target="AI审计日志",
+            detail=f"event_id={event_id}, result=not_found",
+            domain="SYSTEM",
+        )
         raise HTTPException(status_code=404, detail="AI audit log not found")
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_AI_AUDIT_DETAIL",
+        target="AI审计日志",
+        detail=f"event_id={event_id}, result=found",
+        domain="SYSTEM",
+    )
     return log
 
 
 @router.get("/ai-audit/stats/summary")
 async def get_ai_audit_stats(
+    request: Request,
     days: int = 7,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
@@ -788,7 +927,7 @@ async def get_ai_audit_stats(
         current_total = total_tokens_in + total_tokens_out
         trend_percentage = ((current_total - total_tokens_prev) / total_tokens_prev) * 100
 
-    return {
+    stats_payload = {
         "period_days": days,
         "total_requests": total,
         "success_count": success_count,
@@ -804,3 +943,13 @@ async def get_ai_audit_stats(
         "total_tokens_prev": total_tokens_prev,
         "trend_percentage": round(trend_percentage, 1)
     }
+    await _record_log_query_audit(
+        db=db,
+        request=request,
+        current_user=current_user,
+        audit_action="READ_AI_AUDIT_STATS",
+        target="AI审计统计",
+        detail=f"days={days}, total_requests={total}, total_tokens={stats_payload['total_tokens']}",
+        domain="SYSTEM",
+    )
+    return stats_payload

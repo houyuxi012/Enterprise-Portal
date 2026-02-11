@@ -3,6 +3,7 @@ import { App } from 'antd';
 import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ApiClient from '../../services/api';
+import { hasAdminAccess } from '../../utils/adminAccess';
 
 import { AppModal, AppButton } from '../../components/admin';
 
@@ -24,7 +25,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     React.useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const config = await ApiClient.getSystemConfig();
+                const config = await ApiClient.getPublicSystemConfig();
                 setSystemConfig(config);
             } catch (e) {
                 console.error("Failed to load system config", e);
@@ -39,16 +40,17 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const user = await login(username, password);
-            if (user.role !== 'admin') {
+            const user = await login(username, password, 'admin');
+
+            if (!hasAdminAccess(user)) {
                 const msg = '权限不足：需要管理员权限';
                 setError(msg);
                 message.error(msg);
                 logout(); // Clear invalid session
-            } else {
-                message.success('管理员登录成功');
-                onLoginSuccess();
+                return;
             }
+            message.success('管理员登录成功');
+            onLoginSuccess();
         } catch (err: any) {
             // Parse backend error response
             const detail = err?.response?.data?.detail || '';

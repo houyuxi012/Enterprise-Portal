@@ -1,6 +1,6 @@
 """
 IAM Audit Router - IAM 审计日志查询路由
-/iam/admin/audit-logs
+/iam/audit/logs
 """
 import json
 import logging
@@ -14,11 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from pydantic import BaseModel
 
-from iam.deps import get_db, PermissionChecker
+from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from iam.audit.service import IAMAuditService
 from .models import IAMAuditLog
 
-router = APIRouter(prefix="/audit", tags=["iam-audit"])
+router = APIRouter(
+    prefix="/audit",
+    tags=["iam-audit"],
+    dependencies=[Depends(verify_admin_aud)],
+)
 logger = logging.getLogger(__name__)
 
 class AuditLogResponse(BaseModel):

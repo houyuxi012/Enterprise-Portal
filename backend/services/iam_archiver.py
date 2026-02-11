@@ -9,6 +9,7 @@ from iam.audit.models import IAMAuditLog
 import models
 # from services.minio_service import MinioService # To be corrected
 from database import SessionLocal
+from services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,9 @@ class IAMAuditArchiver:
         retention_days = await IAMAuditArchiver._get_retention_days(db)
         cutoff_date = datetime.now() - timedelta(days=retention_days)
         logger.info(f"Archiving IAM logs older than {cutoff_date} (retention_days={retention_days})")
+        archived_batches = 0
+        archived_logs = 0
+        last_error = None
         
         # 1. Fetch old logs (Limit batch size to avoid OOM)
         count_stmt = select(func.count()).where(IAMAuditLog.timestamp < cutoff_date)
@@ -86,6 +90,26 @@ class IAMAuditArchiver:
         
         if total_to_archive == 0:
             logger.info("No logs to archive.")
+            await AuditService.log_business_action(
+                db=db,
+                user_id=0,
+                username="system_auto",
+                action="AUTO_IAM_ARCHIVE",
+                target="IAM审计归档",
+                detail=json.dumps(
+                    {
+                        "retention_days": retention_days,
+                        "cutoff_date": cutoff_date.isoformat(),
+                        "total_to_archive": 0,
+                        "archived_logs": 0,
+                        "archived_batches": 0,
+                    },
+                    ensure_ascii=False,
+                ),
+                ip_address="127.0.0.1",
+                domain="SYSTEM",
+            )
+            await db.commit()
             return
 
         logger.info(f"Found {total_to_archive} logs to archive.")
@@ -165,9 +189,12 @@ class IAMAuditArchiver:
                     del_stmt = delete(IAMAuditLog).where(IAMAuditLog.id.in_(log_ids))
                     await db.execute(del_stmt)
                     await db.commit()
+                    archived_batches += 1
+                    archived_logs += len(log_ids)
                     logger.info(f"Deleted {len(log_ids)} archived logs from DB.")
                     
                 except Exception as e:
+                    last_error = str(e)
                     logger.error(f"Failed to upload/delete batch: {e}")
                     await db.rollback()
                     break
@@ -176,3 +203,25 @@ class IAMAuditArchiver:
                 break
                 
         logger.info("Archiving complete.")
+        await AuditService.log_business_action(
+            db=db,
+            user_id=0,
+            username="system_auto",
+            action="AUTO_IAM_ARCHIVE",
+            target="IAM审计归档",
+            status="FAIL" if last_error else "SUCCESS",
+            detail=json.dumps(
+                {
+                    "retention_days": retention_days,
+                    "cutoff_date": cutoff_date.isoformat(),
+                    "total_to_archive": total_to_archive,
+                    "archived_logs": archived_logs,
+                    "archived_batches": archived_batches,
+                    "error": last_error,
+                },
+                ensure_ascii=False,
+            ),
+            ip_address="127.0.0.1",
+            domain="SYSTEM",
+        )
+        await db.commit()

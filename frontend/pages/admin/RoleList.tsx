@@ -11,6 +11,9 @@ import {
     AppPageHeader,
     AppFilterBar,
 } from '../../components/admin';
+import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n';
+
+const RESERVED_ROLE_CODES = new Set(['user', 'portaladmin', 'portal_admin', 'superadmin']);
 
 const RoleList: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
@@ -20,6 +23,7 @@ const RoleList: React.FC = () => {
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [search, setSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const currentLocale = getCurrentLocale();
 
     const [form] = AppForm.useForm();
 
@@ -99,10 +103,17 @@ const RoleList: React.FC = () => {
         }
     };
 
-    const filteredRoles = roles.filter(r =>
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.code.toLowerCase().includes(search.toLowerCase())
-    );
+    const normalizedSearch = search.trim().toLowerCase();
+    const filteredRoles = roles.filter((role) => {
+        if (!normalizedSearch) return true;
+        const localized = getLocalizedRoleMeta(role, currentLocale);
+        return (
+            localized.name.toLowerCase().includes(normalizedSearch) ||
+            role.code.toLowerCase().includes(normalizedSearch) ||
+            localized.description.toLowerCase().includes(normalizedSearch)
+        );
+    });
+    const isReservedRole = (code: string) => RESERVED_ROLE_CODES.has((code || '').toLowerCase());
 
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
@@ -135,7 +146,9 @@ const RoleList: React.FC = () => {
                     <Empty description="暂无角色数据" />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredRoles.map(role => (
+                        {filteredRoles.map(role => {
+                            const localizedRole = getLocalizedRoleMeta(role, currentLocale);
+                            return (
                             <div
                                 key={role.id}
                                 className="rounded-xl p-5 border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all group relative bg-white dark:bg-slate-800"
@@ -149,7 +162,7 @@ const RoleList: React.FC = () => {
                                         icon={<Edit size={14} />}
                                         onClick={() => handleEdit(role)}
                                     />
-                                    {role.code !== 'admin' && (
+                                    {!isReservedRole(role.code) && (
                                         <Popconfirm
                                             title="删除角色"
                                             description="确定要删除该角色吗？这可能会影响已分配该角色的用户。"
@@ -170,14 +183,14 @@ const RoleList: React.FC = () => {
 
                                 {/* Role Info */}
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${role.code === 'admin'
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isReservedRole(role.code)
                                             ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                                             : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                         }`}>
                                         <Shield size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="font-semibold text-slate-800 dark:text-white">{role.name}</h3>
+                                        <h3 className="font-semibold text-slate-800 dark:text-white">{localizedRole.name}</h3>
                                         <span className="text-xs font-mono text-slate-400 bg-slate-50 dark:bg-slate-900 px-2 py-0.5 rounded">
                                             {role.code}
                                         </span>
@@ -185,7 +198,7 @@ const RoleList: React.FC = () => {
                                 </div>
 
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
-                                    {role.description || '无描述'}
+                                    {localizedRole.description || '无描述'}
                                 </p>
 
                                 {/* Permissions */}
@@ -210,7 +223,7 @@ const RoleList: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                        )})}
                     </div>
                 )}
             </div>

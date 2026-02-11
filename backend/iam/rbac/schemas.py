@@ -67,6 +67,7 @@ class UserOut(BaseModel):
     id: int
     username: str
     email: Optional[str] = None
+    account_type: str = "PORTAL"
     is_active: bool = True
     name: Optional[str] = None
     avatar: Optional[str] = None
@@ -101,3 +102,19 @@ class UserUpdate(BaseModel):
 
     class Config:
         extra = "forbid"
+
+
+class UserOption(BaseModel):
+    """精简用户选项（用于下拉框）"""
+    id: int
+    username: str
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PasswordResetRequest(BaseModel):
+    username: str
+    new_password: Optional[str] = None

@@ -23,7 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const config = await ApiClient.getSystemConfig();
+                const config = await ApiClient.getPublicSystemConfig();
                 if (config.app_name) {
                     setAppName(config.app_name);
                     localStorage.setItem('sys_app_name', config.app_name);
@@ -61,7 +61,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            await login(username, password);
+            await login(username, password, 'portal');
             message.success('登录成功');
             onLoginSuccess();
         } catch (err: any) {

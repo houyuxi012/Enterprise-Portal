@@ -2,7 +2,7 @@ import time
 import logging
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, exists
+from sqlalchemy import select, and_, exists, update, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.dialects.postgresql import insert
 import models
@@ -35,7 +35,64 @@ SYSTEM_PERMISSIONS = {
     "kb:manage": "管理知识库文档",
     "kb:query": "知识库检索",
     "todo:admin": "管理所有待办任务",
+    "admin:access": "Access Admin Interface", # Critical permission for separate login
 }
+
+
+async def _merge_and_remove_legacy_admin_role(
+    db: AsyncSession,
+    role_map: dict[str, int],
+) -> list[int]:
+    """
+    Legacy cleanup:
+    - Merge legacy role `admin` into:
+      - SuperAdmin for SYSTEM accounts
+      - PortalAdmin for PORTAL accounts
+    - Remove legacy `admin` role bindings and role row.
+    Returns affected user IDs for cache invalidation.
+    """
+    legacy_admin_role_id = role_map.get("admin")
+    if not legacy_admin_role_id:
+        return []
+
+    portal_admin_role_id = role_map.get("PortalAdmin")
+    super_admin_role_id = role_map.get("SuperAdmin")
+    if not portal_admin_role_id or not super_admin_role_id:
+        logger.warning("Skip legacy admin-role merge: PortalAdmin/SuperAdmin not found.")
+        return []
+
+    legacy_users_result = await db.execute(
+        select(models.User.id, models.User.account_type)
+        .join(models.user_roles, models.user_roles.c.user_id == models.User.id)
+        .where(models.user_roles.c.role_id == legacy_admin_role_id)
+    )
+    legacy_users = legacy_users_result.all()
+
+    affected_user_ids: list[int] = []
+    promote_rows = []
+    for user_id, account_type in legacy_users:
+        target_role_id = (
+            super_admin_role_id
+            if (str(account_type or "PORTAL").upper() == "SYSTEM")
+            else portal_admin_role_id
+        )
+        promote_rows.append({"user_id": user_id, "role_id": target_role_id})
+        affected_user_ids.append(user_id)
+
+    if promote_rows:
+        stmt = insert(models.user_roles).values(promote_rows)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "role_id"])
+        await db.execute(stmt)
+
+    await db.execute(
+        models.user_roles.delete().where(models.user_roles.c.role_id == legacy_admin_role_id)
+    )
+    await db.execute(
+        models.role_permissions.delete().where(models.role_permissions.c.role_id == legacy_admin_role_id)
+    )
+    await db.execute(delete(models.Role).where(models.Role.id == legacy_admin_role_id))
+    logger.info("Merged and removed legacy role 'admin' (affected users: %s)", len(affected_user_ids))
+    return affected_user_ids
 
 async def init_rbac(db: AsyncSession):
     """
@@ -61,12 +118,39 @@ async def init_rbac(db: AsyncSession):
     # 2. Sync Roles (Batch Upsert - Do Nothing if exists)
     print("Syncing Roles...")
     roles_data = [
-        {"app_id": "portal", "code": "admin", "name": "Administrator"},
-        {"app_id": "portal", "code": "user", "name": "Regular User"}
+        {"app_id": "portal", "code": "user", "name": "普通用户", "description": "默认门户用户", "limit_scope": True},
+        {"app_id": "portal", "code": "PortalAdmin", "name": "门户管理员", "description": "门户后台管理员角色", "limit_scope": True},
+        {"app_id": "portal", "code": "SuperAdmin", "name": "系统超级管理员", "description": "系统超级管理员角色", "limit_scope": False},
     ]
     stmt = insert(models.Role).values(roles_data)
     stmt = stmt.on_conflict_do_nothing(constraint='uq_role_app_code')  # Use named constraint
     await db.execute(stmt)
+    # Keep role scope semantics stable on existing deployments
+    await db.execute(
+        update(models.Role)
+        .where(models.Role.code.in_(["user", "PortalAdmin"]))
+        .values(limit_scope=True)
+    )
+    await db.execute(
+        update(models.Role)
+        .where(models.Role.code == "SuperAdmin")
+        .values(limit_scope=False)
+    )
+    await db.execute(
+        update(models.Role)
+        .where(models.Role.code == "user")
+        .values(name="普通用户", description="默认门户用户")
+    )
+    await db.execute(
+        update(models.Role)
+        .where(models.Role.code == "PortalAdmin")
+        .values(name="门户管理员", description="门户后台管理员角色")
+    )
+    await db.execute(
+        update(models.Role)
+        .where(models.Role.code == "SuperAdmin")
+        .values(name="系统超级管理员", description="系统超级管理员角色")
+    )
 
     # Flush to ensure IDs are generated/available
     await db.flush()
@@ -79,13 +163,18 @@ async def init_rbac(db: AsyncSession):
     # Fetch all roles map
     role_result = await db.execute(select(models.Role))
     role_map = {r.code: r.id for r in role_result.scalars().all()}
+    legacy_admin_affected_user_ids = await _merge_and_remove_legacy_admin_role(db, role_map)
 
-    # 4. Bind Permissions to Roles (Admin gets ALL)
-    print("Binding Admin Permissions...")
-    admin_role_id = role_map.get("admin")
-    if admin_role_id:
+    # Re-fetch role map after legacy cleanup to avoid stale role IDs.
+    role_result = await db.execute(select(models.Role))
+    role_map = {r.code: r.id for r in role_result.scalars().all()}
+
+    # 4. Bind Permissions to Roles (SuperAdmin gets ALL)
+    print("Binding SuperAdmin Permissions...")
+    super_admin_role_id = role_map.get("SuperAdmin")
+    if super_admin_role_id:
         role_perms_data = [
-            {"role_id": admin_role_id, "permission_id": pid} 
+            {"role_id": super_admin_role_id, "permission_id": pid}
             for pid in perm_map.values()
         ]
         
@@ -94,7 +183,32 @@ async def init_rbac(db: AsyncSession):
             stmt = stmt.on_conflict_do_nothing(
                 index_elements=['role_id', 'permission_id']
             )
+
             await db.execute(stmt)
+
+    # 4.1 Bind Permissions to PortalAdmin (admin:access + backend modules)
+    print("Binding PortalAdmin Permissions...")
+    portal_admin_role_id = role_map.get("PortalAdmin")
+    if portal_admin_role_id:
+        # Define what PortalAdmin can do. For now, let's give them admin:access and some system views
+        # In reality, this should be configurable. Here we seed a default set.
+        target_perms = [
+            "admin:access",
+            "sys:user:view", "sys:role:view", 
+            "content:news:edit", "content:announcement:edit", "content:tool:edit",
+            "portal.logs.business.read", "kb:manage", "todo:admin"
+        ]
+        
+        pa_perms_data = []
+        for code in target_perms:
+             pid = perm_map.get(code)
+             if pid:
+                 pa_perms_data.append({"role_id": portal_admin_role_id, "permission_id": pid})
+        
+        if pa_perms_data:
+             stmt = insert(models.role_permissions).values(pa_perms_data)
+             stmt = stmt.on_conflict_do_nothing(index_elements=['role_id', 'permission_id'])
+             await db.execute(stmt)
 
     # 5. Ensure Default Admin User Exists
     print("Ensuring Admin User...")
@@ -102,6 +216,7 @@ async def init_rbac(db: AsyncSession):
         "username": "admin",
         "email": "admin@example.com",
         "hashed_password": utils.get_password_hash("admin"),
+        "account_type": "SYSTEM",
         # "role": "admin", # Legacy field REMOVED
         "is_active": True,
         "name": "Administrator",
@@ -126,18 +241,17 @@ async def init_rbac(db: AsyncSession):
     
     user_roles_data = []
     affected_user_ids = []
+    if legacy_admin_affected_user_ids:
+        affected_user_ids.extend(legacy_admin_affected_user_ids)
     
     for user in users_without_roles:
         # Determine Role
         target_role_id = role_map.get("user")
-        is_admin_legacy = False
-        # Deprecated: user.role check removed/commented
-        # if user.role == "admin": is_admin_legacy = True
-        
-        has_admin_role = any(r.code == "admin" for r in user.roles)
-        
-        if user.username == "admin" or has_admin_role:
-            target_role_id = role_map.get("admin")
+        if user.username == "admin":
+            target_role_id = role_map.get("SuperAdmin")
+            user.account_type = "SYSTEM"
+        else:
+            user.account_type = "PORTAL"
             
         if target_role_id:
             user_roles_data.append({

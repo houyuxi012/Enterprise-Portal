@@ -1,64 +1,82 @@
-
 import asyncio
+import os
+
 import httpx
-import sys
+
+
+BASE_URL = os.getenv("VERIFY_BASE_URL", "http://localhost:8000").rstrip("/")
+ADMIN_USERNAME = os.getenv("VERIFY_ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("VERIFY_ADMIN_PASSWORD", "admin")
+PORTAL_USERNAME = os.getenv("VERIFY_PORTAL_USERNAME", "").strip()
+PORTAL_PASSWORD = os.getenv("VERIFY_PORTAL_PASSWORD", "").strip()
+
+
+def _login_form(username: str, password: str) -> dict:
+    return {"username": username, "password": password}
+
 
 async def verify_api():
-    async with httpx.AsyncClient() as client:
-        # We need a valid token? 
-        # The endpoint requires authentication: Depends(PermissionChecker("portal.ai_audit.read"))
-        # Using a direct call might fail with 401.
-        # However, I can bypass auth if I modify the code or Mock it, but that's invasive.
-        # Alternatively, I can generate a token using the login endpoint.
-        
-        # 1. Login to get token
-        # Default user/pass from seed data? 'admin' / 'admin123' usually.
-        # Or I can use a script that imports app and calls the function directly?
-        # Calling function directly is easier and bypasses auth if I mock dependencies.
-        # But running inside container as a script is harder to mock FastAPI deps.
-        
-        # Let's try to login first.
+    async with httpx.AsyncClient(timeout=15.0) as client:
         try:
-            resp = await client.post("http://localhost:8000/api/auth/token", data={"username": "admin", "password": "admin"}) # default creds?
-            if resp.status_code != 200:
-                print(f"Login failed: {resp.status_code} {resp.text}")
-                # Try creating a token manually if I can import backend modules?
+            admin_login_resp = await client.post(
+                f"{BASE_URL}/api/iam/auth/admin/token",
+                data=_login_form(ADMIN_USERNAME, ADMIN_PASSWORD),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if admin_login_resp.status_code != 200:
+                print(f"[FAIL] Admin login failed: {admin_login_resp.status_code} {admin_login_resp.text}")
                 return
-            token = resp.json()["access_token"]
-            headers = {"Authorization": f"Bearer {token}"}
-            
-            # 2. Call API source=loki
-            print("Calling /api/logs/ai-audit?source=loki")
-            resp = await client.get("http://localhost:8000/api/logs/ai-audit?source=loki&limit=10", headers=headers)
-            if resp.status_code == 200:
-                logs = resp.json()
-                print(f"Returned {len(logs)} Loki logs")
-                for log in logs[:5]:
-                    print(f"[{log['source']}] {log['event_id']} - {log['ts']}")
-            
-            # 3. Generate NEW log
-            print("Generating new log via Chat...")
-            try:
-                chat_payload = {
-                   "prompt": "Test Audit Log Merge",
-                   "provider": "openai", 
-                   "model": "gpt-3.5-turbo"
-                }
-                await client.post("http://localhost:8000/api/ai/chat", json=chat_payload, headers=headers, timeout=5.0)
-            except Exception as e:
-                 print(f"Chat trigger (expected error): {e}")
+            print("[OK] Admin login success, admin_session cookie acquired")
 
-            # 4. Check All again
-            await asyncio.sleep(2) # Wait for async write
-            print("Calling /api/logs/ai-audit?source=all again")
-            resp = await client.get("http://localhost:8000/api/logs/ai-audit?source=all&limit=20", headers=headers)
-            if resp.status_code == 200:
+            print("[STEP] Query /api/admin/logs/ai-audit?source=loki")
+            resp = await client.get(f"{BASE_URL}/api/admin/logs/ai-audit", params={"source": "loki", "limit": 10})
+            if resp.status_code != 200:
+                print(f"[FAIL] Loki source query failed: {resp.status_code} {resp.text}")
+            else:
                 logs = resp.json()
-                for log in logs[:10]:
-                    print(f"[{log['source']}] {log['event_id']}")
-                
+                print(f"[OK] Loki source returned {len(logs)} logs")
+                for item in logs[:5]:
+                    log_id = item.get("event_id") or item.get("id")
+                    log_source = item.get("source", "unknown")
+                    print(f"  - [{log_source}] {log_id}")
+
+            if PORTAL_USERNAME and PORTAL_PASSWORD:
+                portal_login_resp = await client.post(
+                    f"{BASE_URL}/api/iam/auth/portal/token",
+                    data=_login_form(PORTAL_USERNAME, PORTAL_PASSWORD),
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                if portal_login_resp.status_code == 200:
+                    print("[OK] Portal login success, try generating AI audit event")
+                    chat_resp = await client.post(
+                        f"{BASE_URL}/api/app/ai/chat",
+                        json={"prompt": "Loki verification probe message"},
+                    )
+                    print(f"[INFO] /api/app/ai/chat status={chat_resp.status_code}")
+                else:
+                    print(
+                        "[WARN] Portal login failed, skip AI event generation: "
+                        f"{portal_login_resp.status_code} {portal_login_resp.text}"
+                    )
+            else:
+                print("[INFO] VERIFY_PORTAL_USERNAME/VERIFY_PORTAL_PASSWORD not set, skip AI event generation")
+
+            await asyncio.sleep(2)
+            print("[STEP] Query /api/admin/logs/ai-audit?source=all")
+            resp = await client.get(f"{BASE_URL}/api/admin/logs/ai-audit", params={"source": "all", "limit": 20})
+            if resp.status_code != 200:
+                print(f"[FAIL] All-source query failed: {resp.status_code} {resp.text}")
+                return
+
+            logs = resp.json()
+            print(f"[OK] All-source returned {len(logs)} logs")
+            for item in logs[:10]:
+                log_id = item.get("event_id") or item.get("id")
+                log_source = item.get("source", "unknown")
+                print(f"  - [{log_source}] {log_id}")
         except Exception as e:
             print(f"Verification failed: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(verify_api())

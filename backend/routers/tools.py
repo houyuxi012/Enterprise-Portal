@@ -25,13 +25,17 @@ async def read_tools(
     result = await db.execute(select(models.QuickTool).order_by(models.QuickTool.sort_order.desc(), models.QuickTool.id.desc()))
     tools = result.scalars().all()
     
-    # Determine if user is admin
-    is_admin = False
-    if current_user.roles:
-        for role in current_user.roles:
-            if role.code == 'admin':
-                is_admin = True
-                break
+    # Determine if user has admin-view capability via role/permission.
+    normalized_role_codes = {(getattr(role, "code", "") or "").lower() for role in (current_user.roles or [])}
+    is_admin_role = bool(normalized_role_codes.intersection({"portaladmin", "portal_admin", "superadmin", "admin"}))
+    has_admin_permission = any(
+        (getattr(permission, "code", "") or "").strip() in {"admin:access", "portal.admin:access"}
+        for role in (current_user.roles or [])
+        for permission in (getattr(role, "permissions", []) or [])
+    )
+    is_admin = is_admin_role or has_admin_permission or (
+        (getattr(current_user, "account_type", "PORTAL") or "PORTAL").upper() == "SYSTEM"
+    )
                 
     # If admin view requested and user is admin, return all tools
     if admin_view and is_admin:
