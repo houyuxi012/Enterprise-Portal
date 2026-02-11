@@ -141,5 +141,9 @@ api_router.include_router(kb.router)
 from iam import router as iam_router
 api_router.include_router(iam_router)
 
+from routers import todos, admin_tasks
+api_router.include_router(todos.router)
+api_router.include_router(admin_tasks.router)
+
 # Include API Router in App
 app.include_router(api_router)

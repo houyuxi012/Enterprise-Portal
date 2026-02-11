@@ -58,3 +58,16 @@ body {
 .prose ol { list-style-type: decimal; padding-left: 1.2em; margin-bottom: 0.5em; }
 .prose strong { font-weight: 700; }
 .prose a { text-decoration: underline; }
+
+/* Tooltip & Popover Overrides for Contrast */
+.ant-tooltip-inner {
+    @apply bg-slate-800 text-white !important;
+}
+.ant-tooltip-arrow::before {
+    @apply bg-slate-800 !important;
+}
+
+/* Ensure Popconfirm buttons are visible */
+.ant-popover-buttons .ant-btn {
+    @apply text-sm;
+}

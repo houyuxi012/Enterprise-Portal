@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, Date, ForeignKey, Table, DateTime, Float, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship, backref
+from datetime import datetime
 from database import Base
 
 # Association Tables
@@ -363,3 +364,24 @@ class KBQueryLog(Base):
     trace_id = Column(String(64), index=True, nullable=True)
     user_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class Todo(Base):
+    __tablename__ = "todos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    status = Column(String, default="pending", index=True)  # pending, in_progress, completed, canceled
+    priority = Column(Integer, default=2)  # 1=High, 2=Medium, 3=Low
+    due_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    assignee_id = Column(Integer, ForeignKey("users.id"), index=True)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    assignee = relationship("User", foreign_keys=[assignee_id], backref="assigned_todos")
+    creator = relationship("User", foreign_keys=[creator_id], backref="created_todos")

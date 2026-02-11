@@ -36,7 +36,7 @@ class EmployeeBase(BaseModel):
     phone: str
     location: Optional[str] = None
     avatar: Optional[str] = None
-    # status field removed
+    status: Optional[str] = "Active" # Active / Inactive
 
 class EmployeeCreate(EmployeeBase):
     pass
@@ -170,6 +170,15 @@ class UserUpdate(BaseModel):
 class User(UserBase):
     id: int
     roles: List[Role] = []
+    class Config:
+        from_attributes = True
+
+
+class UserOption(BaseModel):
+    id: int
+    username: str
+    name: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -460,3 +469,57 @@ class AIModelQuota(AIModelQuotaBase):
 
     class Config:
         from_attributes = True
+
+
+# Todo Schemas
+class TodoBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    status: Optional[str] = "pending"
+    priority: Optional[int] = 2  # 0=Emergency, 1=High, 2=Medium, 3=Low
+    due_at: Optional[datetime] = None
+    assignee_id: Optional[int] = None
+
+class TodoCreate(TodoBase):
+    pass
+
+class TodoUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[int] = None
+    due_at: Optional[datetime] = None
+    assignee_id: Optional[int] = None
+
+class Todo(TodoBase):
+    id: int
+    creator_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    # Optional nested user info for display
+    assignee_name: Optional[str] = None
+    creator_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class PaginatedTodoResponse(BaseModel):
+    items: List[Todo]
+    total: int
+    page: int
+    page_size: int
+
+
+class TodoStatsResponse(BaseModel):
+    scope: str  # active | all
+    total: int
+    emergency: int
+    high: int
+    medium: int
+    low: int
+    unclassified: int
+    pending: int
+    in_progress: int
+    completed: int
+    canceled: int

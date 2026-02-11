@@ -8,7 +8,8 @@ export enum AppView {
   RESOURCES = 'resources',
   SETTINGS = 'settings',
   TOOLS = 'tools',
-  SEARCH_RESULTS = 'search_results'
+  SEARCH_RESULTS = 'search_results',
+  TODOS = 'todos'
 }
 
 export interface NewsItem {
@@ -34,6 +35,7 @@ export interface Employee {
   phone: string;
   location: string;
   avatar: string;
+  status: string;
 }
 
 export interface QuickTool {
@@ -121,6 +123,13 @@ export interface User {
   role: string; // Deprecated
   roles: Role[];
   is_active: boolean;
+}
+
+export interface UserOption {
+  id: number;
+  username: string;
+  name?: string;
+  avatar?: string;
 }
 
 export interface SystemLog {
@@ -256,4 +265,26 @@ export interface SystemVersion {
   release_id?: string;
   api_version?: string;
   db_schema_version?: string;
+}
+
+export interface Todo {
+  id: number;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  priority: number; // 0=Emergency, 1=High, 2=Medium, 3=Low
+  due_at?: string; // ISO8601 UTC
+  assignee_id: number;
+  creator_id?: number;
+  created_at: string;
+  updated_at: string;
+  assignee_name?: string;
+  creator_name?: string;
+}
+
+export interface PaginatedTodoResponse {
+  items: Todo[];
+  total: number;
+  page: number;
+  page_size: number;
 }

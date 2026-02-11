@@ -30,6 +30,15 @@ async def read_users(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.User).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
     return result.scalars().all()
 
+@router.get("/options", response_model=List[schemas.UserOption])
+async def read_user_options(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Get minimal user list for dropdowns (Accessible to all authenticated users)
+    """
+    result = await db.execute(select(models.User))
+    return result.scalars().all()
+
+
 @router.post("/", response_model=schemas.User, status_code=status.HTTP_201_CREATED, dependencies=[Depends(PermissionChecker("sys:user:edit"))])
 async def create_user(
     request: Request,

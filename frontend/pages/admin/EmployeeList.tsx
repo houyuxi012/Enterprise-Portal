@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space } from 'antd';
+import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
@@ -152,6 +152,22 @@ const EmployeeList: React.FC = () => {
         }
     };
 
+    const handleStatusChange = async (emp: Employee, checked: boolean) => {
+        const newStatus = checked ? 'Active' : 'Inactive';
+        try {
+            // Optimistic update (optional, but good UX)
+            const updatedEmp = { ...emp, status: newStatus };
+            setEmployees(prev => prev.map(e => e.id === emp.id ? updatedEmp : e));
+
+            await ApiClient.updateEmployee(Number(emp.id), { ...emp, status: newStatus });
+            message.success(`用户 ${emp.name} 已${checked ? '启用' : '禁用'}`);
+            fetchData(); // Refresh to ensure sync
+        } catch (error) {
+            message.error('状态更新失败');
+            fetchData(); // Revert on error
+        }
+    };
+
     const handleEdit = (emp: Employee) => {
         setEditingEmployee(emp);
         form.setFieldsValue(emp);
@@ -241,6 +257,24 @@ const EmployeeList: React.FC = () => {
             key: 'location',
             render: (text: string) => (
                 <span className="text-sm text-slate-500">{text || '-'}</span>
+            ),
+        },
+        {
+            title: '状态',
+            dataIndex: 'status',
+            key: 'status',
+            width: 100,
+            render: (status: string, record: Employee) => (
+                <div className="flex items-center gap-2">
+                    <Switch
+                        checked={status === 'Active'}
+                        onChange={(checked) => handleStatusChange(record, checked)}
+                        size="small"
+                    />
+                    <AppTag status={status === 'Active' ? 'success' : 'default'}>
+                        {status === 'Active' ? '启用' : '禁用'}
+                    </AppTag>
+                </div>
             ),
         },
         {

@@ -95,8 +95,19 @@ async def update_employee(
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
     
+    previous_status = employee.status
+    
     for key, value in employee_update.dict().items():
         setattr(employee, key, value)
+    
+    # Check for status change and sync with User.is_active
+    if employee.status != previous_status and employee.account:
+         user_result = await db.execute(select(models.User).filter(models.User.username == employee.account))
+         user = user_result.scalars().first()
+         if user:
+             user.is_active = (employee.status == "Active")
+             # Log the sync action
+             # await AuditService.log_system_event(db, "SYNC_USER_STATUS", f"Synced user {user.username} status to {user.is_active}")
     
     await db.commit()
     await db.refresh(employee)

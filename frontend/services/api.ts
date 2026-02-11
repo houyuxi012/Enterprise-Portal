@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy, AIModelOption, SystemInfo, SystemVersion } from '../types';
+import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy, AIModelOption, SystemInfo, SystemVersion, UserOption } from '../types';
 import AuthService from './auth';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
@@ -177,8 +177,12 @@ export const ApiClient = {
 
   // Admin - Users
   getUsers: async (): Promise<any[]> => {
-
     const response = await api.get('/users/');
+    return response.data;
+  },
+
+  getUserOptions: async (): Promise<UserOption[]> => {
+    const response = await api.get('/users/options');
     return response.data;
   },
 

@@ -3,23 +3,26 @@ import {
   TrendingUp, Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
   X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
 } from 'lucide-react';
+import TodoService from '../services/todos';
 import ApiClient, { QuickToolDTO } from '../services/api';
 import { NewsItem, Announcement, CarouselItem, Employee } from '../types';
 import { getIcon } from '../utils/iconMap';
 import { getColorClass } from '../utils/colorMap';
-import { DAILY_QUOTES } from '../constants'; // Keeping these static for now as requested
+import { DAILY_QUOTES } from '../constants';
 
 interface DashboardProps {
   onViewAll: () => void;
   onNavigateToDirectory?: () => void;
+  onNavigateToTodos?: () => void;
   employees?: Employee[];
   currentUser?: any;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, employees = [], currentUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, onNavigateToTodos, employees = [], currentUser }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -31,7 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
   }, []);
 
   const username = currentUser?.username || '用户';
-
+  const [todoStats, setTodoStats] = useState({ total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 });
   // Data State
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -42,16 +45,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedTools, fetchedNews, fetchedAnnouncements, fetchedCarousel] = await Promise.all([
+        const [
+          fetchedTools,
+          fetchedNews,
+          fetchedAnnouncements,
+          fetchedCarousel,
+          todoStatsData
+        ] = await Promise.all([
           ApiClient.getTools(),
           ApiClient.getNews(),
           ApiClient.getAnnouncements(),
-          ApiClient.getCarouselItems()
+          ApiClient.getCarouselItems(),
+          TodoService.getMyTaskStats('active')
         ]);
         setTools(fetchedTools);
         setNewsList(fetchedNews);
         setAnnouncements(fetchedAnnouncements);
         setCarouselItems(fetchedCarousel);
+        setTodoStats({
+          total: todoStatsData.total,
+          emergency: todoStatsData.emergency,
+          high: todoStatsData.high,
+          medium: todoStatsData.medium,
+          low: todoStatsData.low,
+          unclassified: todoStatsData.unclassified,
+        });
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
       }
@@ -153,11 +171,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { icon: <ListTodo size={18} />, label: '代办事项', val: '5', color: 'orange', desc: '3 个紧急任务' },
+          {
+            icon: <ListTodo size={18} />,
+            label: '待办事项',
+            val: todoStats.total.toString(),
+            color: 'orange',
+            desc: `${todoStats.emergency} 紧急 · ${todoStats.high} 高 · ${todoStats.medium} 中 · ${todoStats.low} 低${todoStats.unclassified > 0 ? ` · ${todoStats.unclassified} 未分级` : ''}`,
+            onClick: onNavigateToTodos
+          },
           { icon: <Calendar size={18} />, label: '今日会议', val: '04', color: 'purple', desc: '下一场：14:00 产品周会' },
           { icon: <Clock size={18} />, label: '工时完成', val: '32h', color: 'rose', desc: '剩余目标 8h' },
         ].map((stat, i) => (
-          <div key={i} className="mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40">
+          <div
+            key={i}
+            onClick={stat.onClick}
+            className={`mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40 ${stat.onClick ? 'cursor-pointer' : ''}`}
+          >
             <div className={`w-9 h-9 bg-${stat.color}-500/10 dark:bg-${stat.color}-500/20 text-${stat.color}-600 dark:text-${stat.color}-400 rounded-xl flex items-center justify-center mb-3 rim-glow group-hover:rotate-6 transition-transform`}>
               {stat.icon}
             </div>
@@ -298,100 +327,104 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
         </div>
       </div>
 
-      {isAnnouncementsModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div
-            className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
-            onClick={() => setIsAnnouncementsModalOpen(false)}
-          />
-          <div className="mica w-full max-w-lg max-h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-2 duration-500 border border-white/10 ring-1 ring-white/20">
-            <div className="relative pt-4 pb-10 px-6 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 shrink-0">
-              <div className="flex items-center justify-between z-10 relative">
-                <h2 className="text-xl font-black text-white uppercase">企业公告</h2>
-                <button onClick={() => setIsAnnouncementsModalOpen(false)}><X className="text-white" size={24} /></button>
-              </div>
-              <div className="absolute bottom-1 left-0 right-0 px-6 flex justify-center z-20">
-                <div className="flex items-center bg-white/10 backdrop-blur-3xl p-0.5 rounded-full border border-white/10 shadow-lg max-w-full overflow-x-auto no-scrollbar">
-                  <button
-                    onClick={() => setFilterTag(null)}
-                    className={`px-5 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!filterTag ? 'bg-white text-slate-900 shadow-sm' : 'text-white/60 hover:text-white'}`}
-                  >
-                    全部
-                  </button>
-                  {uniqueTags.map(tag => (
+      {
+        isAnnouncementsModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+            <div
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
+              onClick={() => setIsAnnouncementsModalOpen(false)}
+            />
+            <div className="mica w-full max-w-lg max-h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-2 duration-500 border border-white/10 ring-1 ring-white/20">
+              <div className="relative pt-4 pb-10 px-6 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 shrink-0">
+                <div className="flex items-center justify-between z-10 relative">
+                  <h2 className="text-xl font-black text-white uppercase">企业公告</h2>
+                  <button onClick={() => setIsAnnouncementsModalOpen(false)}><X className="text-white" size={24} /></button>
+                </div>
+                <div className="absolute bottom-1 left-0 right-0 px-6 flex justify-center z-20">
+                  <div className="flex items-center bg-white/10 backdrop-blur-3xl p-0.5 rounded-full border border-white/10 shadow-lg max-w-full overflow-x-auto no-scrollbar">
                     <button
-                      key={tag}
-                      onClick={() => setFilterTag(tag)}
-                      className={`px-5 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTag === tag ? 'bg-white text-slate-900 shadow-sm' : 'text-white/60 hover:text-white'}`}
+                      onClick={() => setFilterTag(null)}
+                      className={`px-5 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!filterTag ? 'bg-white text-slate-900 shadow-sm' : 'text-white/60 hover:text-white'}`}
                     >
-                      {tag}
+                      全部
                     </button>
+                    {uniqueTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => setFilterTag(tag)}
+                        className={`px-5 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTag === tag ? 'bg-white text-slate-900 shadow-sm' : 'text-white/60 hover:text-white'}`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pt-8 pb-8 px-6 no-scrollbar relative bg-slate-50/50 dark:bg-black/40">
+                <div className="space-y-6">
+                  {filteredAnnouncements.map((item) => (
+                    <div key={item.id} className="mica p-4 rounded-[1.5rem] border border-white dark:border-white/5">
+                      <h3 className="font-bold text-slate-900 dark:text-white">{item.title}</h3>
+                      <p className="text-slate-600 dark:text-slate-400 text-sm">{item.content}</p>
+                      {item.is_urgent && (
+                        <span className="text-[7px] font-black text-rose-600 uppercase tracking-widest bg-rose-100/50 px-1.5 py-0.5 rounded-md ml-2">
+                          紧急
+                        </span>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
+          </div>
+        )
+      }
 
-            <div className="flex-1 overflow-y-auto pt-8 pb-8 px-6 no-scrollbar relative bg-slate-50/50 dark:bg-black/40">
-              <div className="space-y-6">
-                {filteredAnnouncements.map((item) => (
-                  <div key={item.id} className="mica p-4 rounded-[1.5rem] border border-white dark:border-white/5">
-                    <h3 className="font-bold text-slate-900 dark:text-white">{item.title}</h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-sm">{item.content}</p>
-                    {item.is_urgent && (
-                      <span className="text-[7px] font-black text-rose-600 uppercase tracking-widest bg-rose-100/50 px-1.5 py-0.5 rounded-md ml-2">
-                        紧急
-                      </span>
-                    )}
-                  </div>
-                ))}
+      {
+        selectedNews && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+              onClick={() => setSelectedNews(null)}
+            />
+            <div className="mica w-full max-w-2xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20">
+              <div className="relative h-64 shrink-0">
+                <img src={selectedNews.image} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <button
+                  onClick={() => setSelectedNews(null)}
+                  className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md transition"
+                >
+                  <X size={24} />
+                </button>
+                <div className="absolute bottom-6 left-8 right-8">
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white px-2.5 py-1 rounded-full mb-3 inline-block shadow-lg shadow-blue-900/50">
+                    {selectedNews.category}
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">{selectedNews.title}</h2>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 bg-white dark:bg-slate-900">
+                <div className="flex items-center space-x-4 mb-6 text-xs text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="flex items-center"><Calendar size={14} className="mr-2" /> {selectedNews.date}</div>
+                  <div className="flex items-center"><UserCheck size={14} className="mr-2" /> {selectedNews.author}</div>
+                </div>
+                <div className="prose prose-slate dark:prose-invert max-w-none">
+                  <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:float-left first-letter:mr-3 first-letter:mt-[-6px]">
+                    {selectedNews.summary}
+                  </p>
+                  <p className="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
+                    (此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段)
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {selectedNews && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
-            onClick={() => setSelectedNews(null)}
-          />
-          <div className="mica w-full max-w-2xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20">
-            <div className="relative h-64 shrink-0">
-              <img src={selectedNews.image} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-              <button
-                onClick={() => setSelectedNews(null)}
-                className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md transition"
-              >
-                <X size={24} />
-              </button>
-              <div className="absolute bottom-6 left-8 right-8">
-                <span className="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white px-2.5 py-1 rounded-full mb-3 inline-block shadow-lg shadow-blue-900/50">
-                  {selectedNews.category}
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">{selectedNews.title}</h2>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 bg-white dark:bg-slate-900">
-              <div className="flex items-center space-x-4 mb-6 text-xs text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div className="flex items-center"><Calendar size={14} className="mr-2" /> {selectedNews.date}</div>
-                <div className="flex items-center"><UserCheck size={14} className="mr-2" /> {selectedNews.author}</div>
-              </div>
-              <div className="prose prose-slate dark:prose-invert max-w-none">
-                <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:float-left first-letter:mr-3 first-letter:mt-[-6px]">
-                  {selectedNews.summary}
-                </p>
-                <p className="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
-                  (此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段)
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

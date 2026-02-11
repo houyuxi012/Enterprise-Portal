@@ -34,6 +34,7 @@ SYSTEM_PERMISSIONS = {
     # Knowledge Base
     "kb:manage": "管理知识库文档",
     "kb:query": "知识库检索",
+    "todo:admin": "管理所有待办任务",
 }
 
 async def init_rbac(db: AsyncSession):

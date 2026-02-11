@@ -3,7 +3,7 @@ import { Table, Empty } from 'antd';
 import type { TablePaginationConfig, TableProps } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 
-export interface AppTableProps<T = any> extends Omit<TableProps<T>, 'pagination'> {
+export interface AppTableProps<T = any> extends TableProps<T> {
     /** 是否显示分页，默认 true */
     showPagination?: boolean;
     /** 每页条数，默认 20 */
@@ -28,14 +28,17 @@ function AppTable<T extends object = any>({
     className = '',
     rowClassName,
     locale,
+    pagination,
     ...rest
 }: AppTableProps<T>) {
-    const paginationConfig: false | TablePaginationConfig = showPagination
-        ? {
-            pageSize,
-            showSizeChanger: true,
-            showTotal: (total: number) => `共 ${total} 条`,
-        }
+    const defaultPagination: TablePaginationConfig = {
+        pageSize,
+        showSizeChanger: true,
+        showTotal: (total: number) => `共 ${total} 条`,
+    };
+
+    const paginationConfig = showPagination
+        ? (pagination ? { ...defaultPagination, ...pagination } : defaultPagination)
         : false;
 
     const mergedRowClassName = (record: T, index: number, indent: number) => {
