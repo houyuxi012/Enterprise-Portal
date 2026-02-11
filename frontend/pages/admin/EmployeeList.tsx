@@ -222,8 +222,21 @@ const EmployeeList: React.FC = () => {
                 await ApiClient.updateEmployee(Number(editingEmployee.id), values);
                 message.success('用户信息更新成功');
             } else {
-                await ApiClient.createEmployee(values);
+                const createdEmployee = await ApiClient.createEmployee(values);
                 message.success('用户创建成功');
+                if (createdEmployee.portal_initial_password) {
+                    modal.success({
+                        title: 'Portal 账户已开通',
+                        content: (
+                            <div className="space-y-2">
+                                <div>账号：<span className="font-mono">{createdEmployee.account}</span></div>
+                                <div>初始密码：<span className="font-mono font-semibold">{createdEmployee.portal_initial_password}</span></div>
+                                <div className="text-xs text-slate-500">请引导用户首次登录后立即修改密码。</div>
+                            </div>
+                        ),
+                        okText: '我知道了',
+                    });
+                }
             }
             setIsModalOpen(false);
             fetchData();

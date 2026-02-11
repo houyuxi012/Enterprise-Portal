@@ -46,6 +46,11 @@ class Employee(EmployeeBase):
     class Config:
         from_attributes = True
 
+
+class EmployeeCreateResult(Employee):
+    portal_initial_password: Optional[str] = None
+    portal_account_auto_created: bool = False
+
 # News Schemas
 class NewsItemBase(BaseModel):
     title: str

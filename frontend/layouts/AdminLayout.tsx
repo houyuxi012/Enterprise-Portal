@@ -24,6 +24,7 @@ import {
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrentLocale, getLocalizedRoleMeta } from '../utils/iamRoleI18n';
+import { hasAdminAccess } from '../utils/adminAccess';
 
 import VersionModal from '../components/VersionModal';
 
@@ -223,7 +224,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
     const localizedPrimaryRole = primaryRole
         ? getLocalizedRoleMeta({ code: primaryRole.code, name: primaryRole.name }, locale).name
         : undefined;
-    const displayRole = localizedPrimaryRole || (user?.role === 'admin' ? fallbackAdminLabel : (user?.role || fallbackAdminLabel));
+    const displayRole = localizedPrimaryRole || (hasAdminAccess(user) ? fallbackAdminLabel : (locale === 'zh-CN' ? '普通用户' : 'User'));
 
     return (
         <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">

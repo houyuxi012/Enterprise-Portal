@@ -36,6 +36,8 @@ export interface Employee {
   location: string;
   avatar: string;
   status: string;
+  portal_initial_password?: string | null;
+  portal_account_auto_created?: boolean;
 }
 
 export interface QuickTool {

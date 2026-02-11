@@ -15,7 +15,7 @@ import {
 } from '../../components/admin';
 import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n';
 
-const UserList: React.FC = () => {
+const SystemUserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
@@ -349,4 +349,4 @@ const UserList: React.FC = () => {
     );
 };
 
-export default UserList;
+export default SystemUserList;

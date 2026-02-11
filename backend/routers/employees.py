@@ -36,7 +36,7 @@ async def read_employee(
         raise HTTPException(status_code=404, detail="Employee not found")
     return employee
 
-@router.post("/", response_model=schemas.Employee, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=schemas.EmployeeCreateResult, status_code=status.HTTP_201_CREATED)
 async def create_employee(
     request: Request,
     employee: schemas.EmployeeCreate, 
@@ -49,6 +49,7 @@ async def create_employee(
     
     # 2. Auto-provision portal login account (hidden from system-account UI by frontend filter)
     auto_provisioned = False
+    portal_initial_password: str | None = None
     user_stmt = select(models.User).filter(models.User.username == employee.account)
     user_result = await db.execute(user_stmt)
     existing_user = user_result.scalars().first()
@@ -75,6 +76,7 @@ async def create_employee(
             if len(base_password) >= min_length
             else base_password + ("0" * (min_length - len(base_password)))
         )
+        portal_initial_password = default_password
 
         user_email = employee.email
         email_result = await db.execute(select(models.User).filter(models.User.email == employee.email))
@@ -121,7 +123,22 @@ async def create_employee(
     
     await db.commit()
     await db.refresh(db_employee)
-    return db_employee
+    return {
+        "id": db_employee.id,
+        "account": db_employee.account,
+        "job_number": db_employee.job_number,
+        "name": db_employee.name,
+        "gender": db_employee.gender,
+        "department": db_employee.department,
+        "role": db_employee.role,
+        "email": db_employee.email,
+        "phone": db_employee.phone,
+        "location": db_employee.location,
+        "avatar": db_employee.avatar,
+        "status": db_employee.status,
+        "portal_initial_password": portal_initial_password,
+        "portal_account_auto_created": auto_provisioned,
+    }
 
 @router.put("/{employee_id}", response_model=schemas.Employee)
 async def update_employee(
