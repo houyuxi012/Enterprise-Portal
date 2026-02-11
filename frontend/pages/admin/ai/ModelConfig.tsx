@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip, Badge } from 'antd';
+import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Badge } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, ApiOutlined, KeyOutlined, RobotOutlined } from '@ant-design/icons';
 import ApiClient from '../../../services/api';
 import { AIProvider } from '../../../types';
@@ -32,12 +32,19 @@ const ModelConfig: React.FC = () => {
     const handleAdd = () => {
         setEditingProvider(null);
         form.resetFields();
+        form.setFieldsValue({
+            model_kind: 'text',
+            is_active: false,
+        });
         setIsModalVisible(true);
     };
 
     const handleEdit = (record: AIProvider) => {
         setEditingProvider(record);
-        form.setFieldsValue(record);
+        form.setFieldsValue({
+            ...record,
+            model_kind: record.model_kind || 'text',
+        });
         setIsModalVisible(true);
     };
 
@@ -108,6 +115,16 @@ const ModelConfig: React.FC = () => {
                 <Tag icon={<RobotOutlined />} className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     {text}
                 </Tag>
+            )
+        },
+        {
+            title: '模型类型',
+            dataIndex: 'model_kind',
+            key: 'model_kind',
+            render: (kind: AIProvider['model_kind']) => (
+                kind === 'multimodal'
+                    ? <Tag color="magenta">多模态</Tag>
+                    : <Tag color="geekblue">文本</Tag>
             )
         },
         {
@@ -186,7 +203,7 @@ const ModelConfig: React.FC = () => {
                         <Input prefix={<ApiOutlined className="text-slate-400" />} placeholder="例如: DeepSeek V3" className="h-10 rounded-lg" />
                     </Form.Item>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Form.Item name="type" label="厂商类型" rules={[{ required: true }]}>
                             <Select placeholder="选择厂商" className="h-10" popupClassName="rounded-xl">
                                 <Select.Option value="openai">OpenAI</Select.Option>
@@ -199,6 +216,13 @@ const ModelConfig: React.FC = () => {
 
                         <Form.Item name="model" label="模型标识" rules={[{ required: true }]}>
                             <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder="例如: deepseek-chat" className="h-10 rounded-lg" />
+                        </Form.Item>
+
+                        <Form.Item name="model_kind" label="模型类型" rules={[{ required: true }]}>
+                            <Select placeholder="选择类型" className="h-10" popupClassName="rounded-xl">
+                                <Select.Option value="text">文本模型</Select.Option>
+                                <Select.Option value="multimodal">多模态模型</Select.Option>
+                            </Select>
                         </Form.Item>
                     </div>
 

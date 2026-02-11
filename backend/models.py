@@ -221,6 +221,7 @@ class AIProvider(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) # e.g. "Gemini Pro", "DeepSeek V3"
     type = Column(String) # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    model_kind = Column(String, default="text") # 'text' | 'multimodal'
     base_url = Column(String, nullable=True) # Custom endpoint
     api_key = Column(String) # Encrypted or raw (demo: raw)
     model = Column(String) # e.g. "gemini-pro", "deepseek-chat"

@@ -71,6 +71,40 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const extractApiErrorMessage = (error: unknown): string => {
+    const data = (error as any)?.response?.data;
+    const detail = data?.detail;
+
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+
+    if (Array.isArray(detail) && detail.length > 0) {
+      const formatted = detail
+        .map((item: any) => {
+          if (!item) return '';
+          if (typeof item === 'string') return item;
+          const loc = Array.isArray(item.loc) ? item.loc.join('.') : '';
+          const msg = typeof item.msg === 'string' ? item.msg : '';
+          return loc && msg ? `${loc}: ${msg}` : msg;
+        })
+        .filter(Boolean)
+        .join('；');
+      if (formatted) return formatted;
+    }
+
+    if (typeof data?.message === 'string' && data.message.trim()) {
+      return data.message;
+    }
+
+    const genericMessage = (error as any)?.message;
+    if (typeof genericMessage === 'string' && genericMessage.trim()) {
+      return genericMessage;
+    }
+
+    return "请求失败，请稍后重试。";
+  };
+
   // Fetch AI Config and Models on mount
   useEffect(() => {
     const fetchConfigAndModels = async () => {
@@ -155,7 +189,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       }
     }
 
-    const newMessage: Message = { role: 'user', text: userMsg, imageUrl: imageUrl || undefined };
+    const userDisplayText = userMsg || (imageUrl ? "（图片）" : "");
+    const newMessage: Message = { role: 'user', text: userDisplayText, imageUrl: imageUrl || undefined };
 
     setInput('');
     clearImage();
@@ -169,7 +204,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       const response = await ApiClient.chatAI(userMsg, selectedModelId, imageUrl || undefined);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', text: "抱歉，暂时无法连接到智能服务。请稍后再试。" }]);
+      const errorMessage = extractApiErrorMessage(error);
+      setMessages(prev => [...prev, { role: 'ai', text: `请求失败：${errorMessage}` }]);
     } finally {
       setIsLoading(false);
     }

@@ -52,6 +52,16 @@ async def apply_startup_migrations():
     Apply lightweight startup migrations/indexes for existing deployments.
     """
     async with engine.begin() as conn:
+        # AI provider model kind (text / multimodal)
+        await conn.execute(text(
+            "ALTER TABLE ai_providers "
+            "ADD COLUMN IF NOT EXISTS model_kind VARCHAR DEFAULT 'text'"
+        ))
+        await conn.execute(text(
+            "UPDATE ai_providers SET model_kind = 'text' "
+            "WHERE model_kind IS NULL OR model_kind = ''"
+        ))
+
         # KB raw content for lossless reindexing
         await conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS content TEXT"))
 

@@ -190,7 +190,7 @@ class UserMeResponse(BaseModel):
 
 # AI Schemas
 class AIChatRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=4000)
+    prompt: str = Field("", max_length=4000)
     history: Optional[List[dict]] = None
     model_id: Optional[int] = None
     image_url: Optional[str] = Field(None, max_length=2048)
@@ -200,6 +200,7 @@ class AIModelOption(BaseModel):
     name: str
     model: str
     type: str
+    model_kind: str = "text"
 
 class AIChatResponse(BaseModel):
     response: str
@@ -304,6 +305,7 @@ class DashboardStats(BaseModel):
 class AIProviderBase(BaseModel):
     name: str
     type: str # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    model_kind: str = "text" # 'text' | 'multimodal'
     base_url: Optional[str] = None
     api_key: str
     model: str
@@ -312,6 +314,7 @@ class AIProviderBase(BaseModel):
 class AIProviderTestRequest(BaseModel):
     name: str
     type: str # 'openai', 'gemini', 'deepseek', 'dashscope', 'zhipu'
+    model_kind: Optional[str] = "text"
     base_url: Optional[str] = None
     api_key: str
     model: str
@@ -322,6 +325,7 @@ class AIProviderCreate(AIProviderBase):
 class AIProviderUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
+    model_kind: Optional[str] = None
     base_url: Optional[str] = None
     api_key: Optional[str] = None
     model: Optional[str] = None
@@ -338,6 +342,7 @@ class AIProviderRead(BaseModel):
     id: int
     name: str
     type: str
+    model_kind: str = "text"
     base_url: Optional[str] = None
     model: str
     is_active: bool = False

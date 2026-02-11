@@ -62,7 +62,8 @@ async def get_models(
             id=p.id,
             name=p.name,
             model=p.model,
-            type=p.type
+            type=p.type,
+            model_kind=(p.model_kind or "text"),
         ) for p in providers
     ]
 
@@ -77,6 +78,7 @@ async def test_provider(
         temp_provider = AIProvider(
             name=request_body.name,
             type=request_body.type,
+            model_kind=(request_body.model_kind or "text"),
             base_url=request_body.base_url,
             api_key=request_body.api_key,
             model=request_body.model,
@@ -100,7 +102,19 @@ async def chat(
     current_user: User = Depends(PermissionChecker("portal.ai.chat.use")),
 ):
     try:
-        query = request_body.prompt.lower()
+        normalized_prompt = (request_body.prompt or "").strip()
+        has_image = bool((request_body.image_url or "").strip())
+        if not normalized_prompt and not has_image:
+            raise HTTPException(status_code=400, detail="请输入问题内容，或上传一张图片后再发送。")
+
+        # Support image-only conversations with a safe default vision instruction.
+        effective_prompt = (
+            normalized_prompt
+            if normalized_prompt
+            else "请描述这张图片的主要内容，并提取其中可见文字与关键信息。"
+        )
+
+        query = normalized_prompt.lower()
         context_parts = []
         
         # 提取用户信息用于审计
@@ -138,6 +152,8 @@ async def chat(
             "doc_ids": [],
             "context_sources": []
         }
+        if has_image:
+            rag_meta["context_sources"].append("image_input")
         
         try:
             from services.kb.embedder import get_embedding
@@ -154,13 +170,17 @@ async def chat(
             is_kb_enabled = kb_enabled.value != "false" if kb_enabled else True
 
             query_vec = None
-            if is_kb_enabled:
-                query_vec = await get_embedding(request_body.prompt)
+            if is_kb_enabled and normalized_prompt:
+                query_vec = await get_embedding(normalized_prompt)
             else:
                 kb_hit_level = "disabled"
                 rag_meta["hit_level"] = "disabled"
-                rag_meta["rag_strategy"] = "disabled"
-                logger.debug("KB retrieval skipped because kb_enabled=false")
+                if not is_kb_enabled:
+                    rag_meta["rag_strategy"] = "disabled"
+                    logger.debug("KB retrieval skipped because kb_enabled=false")
+                elif has_image:
+                    rag_meta["rag_strategy"] = "image_only"
+                    logger.debug("KB retrieval skipped for image-only request")
 
             if query_vec:
                 # ACL 过滤
@@ -179,7 +199,7 @@ async def chat(
 
                 # 审计日志
                 kb_log = KBQueryLog(
-                    query=request_body.prompt[:500],
+                    query=normalized_prompt[:500],
                     top_score=top_score,
                     hit_level=kb_hit_level,
                     hit_doc_ids=json.dumps([c.doc_id for c in kb_chunks]),
@@ -220,12 +240,12 @@ async def chat(
                 trace_id=trace_id,
                 session_id=session_id,
                 action="CHAT",
-                prompt=request_body.prompt,
+                prompt=effective_prompt,
                 meta_info=rag_meta,
                 provider="local_kb",
                 model="vector_search",
                 status="SUCCESS",
-                tokens_in=len(request_body.prompt) // 4,
+                tokens_in=len(effective_prompt) // 4,
                 tokens_out=len(response_text) // 4,
                 latency_ms=0 # Ideally measure time
             )
@@ -251,54 +271,58 @@ async def chat(
             rag_meta["citations"] = [c.doc_title for c in kb_chunks[:3]]
 
         # ──── 4. 传统关键词 RAG 检索 ────
-        # 4.1 Search Employees
-        emp_stmt = select(Employee).filter(
-            or_(
-                Employee.name.ilike(f"%{query}%"),
-                Employee.department.ilike(f"%{query}%"),
-                Employee.role.ilike(f"%{query}%"),
-                Employee.location.ilike(f"%{query}%")
+        # For image-only questions, skip text retrieval to avoid irrelevant KB/system context.
+        if query:
+            # 4.1 Search Employees
+            emp_stmt = select(Employee).filter(
+                or_(
+                    Employee.name.ilike(f"%{query}%"),
+                    Employee.department.ilike(f"%{query}%"),
+                    Employee.role.ilike(f"%{query}%"),
+                    Employee.location.ilike(f"%{query}%")
+                )
             )
-        )
-        result = await db.execute(emp_stmt)
-        employees = result.scalars().all()
-        
-        if employees:
-            rag_meta["context_sources"].append("employee_search")
-            emp_info = "\n".join([f"- {e.name} ({e.role}, {e.department}): 电话 {e.phone}, 邮箱 {e.email}, 办公地 {e.location}" for e in employees])
-            context_parts.append(f"【相关人员信息】:\n{emp_info}")
+            result = await db.execute(emp_stmt)
+            employees = result.scalars().all()
+            
+            if employees:
+                rag_meta["context_sources"].append("employee_search")
+                emp_info = "\n".join([f"- {e.name} ({e.role}, {e.department}): 电话 {e.phone}, 邮箱 {e.email}, 办公地 {e.location}" for e in employees])
+                context_parts.append(f"【相关人员信息】:\n{emp_info}")
 
-        # 4.2 Search News
-        news_stmt = select(NewsItem).filter(
-            or_(
-                NewsItem.title.ilike(f"%{query}%"),
-                NewsItem.summary.ilike(f"%{query}%"),
-                NewsItem.category.ilike(f"%{query}%")
+            # 4.2 Search News
+            news_stmt = select(NewsItem).filter(
+                or_(
+                    NewsItem.title.ilike(f"%{query}%"),
+                    NewsItem.summary.ilike(f"%{query}%"),
+                    NewsItem.category.ilike(f"%{query}%")
+                )
+            ).limit(3)
+            result = await db.execute(news_stmt)
+            news = result.scalars().all()
+
+            if news:
+                rag_meta["context_sources"].append("news_search")
+                news_info = "\n".join([f"- [{n.category}] {n.title} (发布于 {n.date}): {n.summary}" for n in news])
+                context_parts.append(f"【相关新闻资讯】:\n{news_info}")
+
+            # 4.3 Search Tools
+            tool_stmt = select(QuickTool).filter(
+                or_(
+                    QuickTool.name.ilike(f"%{query}%"),
+                    QuickTool.category.ilike(f"%{query}%"),
+                    QuickTool.description.ilike(f"%{query}%")
+                )
             )
-        ).limit(3)
-        result = await db.execute(news_stmt)
-        news = result.scalars().all()
+            result = await db.execute(tool_stmt)
+            tools = result.scalars().all()
 
-        if news:
-            rag_meta["context_sources"].append("news_search")
-            news_info = "\n".join([f"- [{n.category}] {n.title} (发布于 {n.date}): {n.summary}" for n in news])
-            context_parts.append(f"【相关新闻资讯】:\n{news_info}")
-
-        # 4.3 Search Tools
-        tool_stmt = select(QuickTool).filter(
-            or_(
-                QuickTool.name.ilike(f"%{query}%"),
-                QuickTool.category.ilike(f"%{query}%"),
-                QuickTool.description.ilike(f"%{query}%")
-            )
-        )
-        result = await db.execute(tool_stmt)
-        tools = result.scalars().all()
-
-        if tools:
-            rag_meta["context_sources"].append("tool_search")
-            tool_info = "\n".join([f"- {t.name} ({t.category}): {t.description} -> 链接: {t.url}" for t in tools])
-            context_parts.append(f"【相关工具应用】:\n{tool_info}")
+            if tools:
+                rag_meta["context_sources"].append("tool_search")
+                tool_info = "\n".join([f"- {t.name} ({t.category}): {t.description} -> 链接: {t.url}" for t in tools])
+                context_parts.append(f"【相关工具应用】:\n{tool_info}")
+        else:
+            logger.debug("Keyword retrieval skipped because text query is empty")
 
         context = "\n\n".join(context_parts)
         
@@ -311,7 +335,7 @@ async def chat(
 
         # 5. Get AI Response via Engine (with audit logging)
         response_text = await engine.chat(
-            prompt_prefix + request_body.prompt,
+            prompt_prefix + effective_prompt,
             context,
             model_id=request_body.model_id,
             image_url=request_body.image_url,

@@ -206,17 +206,19 @@ export interface AIModelOption {
   name: string;
   model: string;
   type: string;
+  model_kind?: 'text' | 'multimodal';
 }
 
 export interface AIProvider {
   id: number;
   name: string;
-  type: string; // 'google' | 'openai' | 'anthropic' | 'deepseek' | 'custom'
-  api_base?: string;
-  api_key?: string; // Masked when returned
-  model_name: string;
+  type: string; // 'openai' | 'gemini' | 'deepseek' | 'dashscope' | 'zhipu'
+  model_kind: 'text' | 'multimodal';
+  base_url?: string;
+  api_key?: string; // write-only in backend create/update
+  model: string;
   is_active: boolean;
-  priority: number;
+  created_at?: string;
 }
 
 export interface AISecurityPolicy {

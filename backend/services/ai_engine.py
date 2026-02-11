@@ -2,6 +2,7 @@ import logging
 import time
 from typing import List, Optional
 import json
+import base64
 from datetime import datetime, timezone
 import ipaddress
 import httpx
@@ -183,13 +184,22 @@ class AIEngine:
                 response_text = await services.gemini_service.get_ai_response(safe_prompt, context, image_data, mime_type)
             else:
                 try:
-                    response_text = await self._call_provider(provider, safe_prompt, context)
+                    response_text = await self._call_provider(
+                        provider,
+                        safe_prompt,
+                        context,
+                        image_data=image_data,
+                        mime_type=mime_type,
+                    )
                 except Exception as e:
                     logger.error(f"Provider {provider.name} failed: {e}")
                     audit_entry.status = "ERROR"
                     audit_entry.error_code = "PROVIDER_ERROR"
                     audit_entry.error_reason = str(e)[:500]
-                    response_text = "AI 服务暂时不可用，请联系管理员。"
+                    if image_url:
+                        response_text = "当前模型未能处理图片输入，请切换支持视觉的模型，或补充更明确的文字问题。"
+                    else:
+                        response_text = "AI 服务暂时不可用，请联系管理员。"
 
             # 3. Output Security Check
             out_check = await self.check_security_policies(response_text)
@@ -392,7 +402,14 @@ class AIEngine:
             logger.error(f"Failed to download image {validated_url}: {e}")
             raise ValueError("Image download failed")
 
-    async def _call_provider(self, provider: models.AIProvider, prompt: str, context: str) -> str:
+    async def _call_provider(
+        self,
+        provider: models.AIProvider,
+        prompt: str,
+        context: str,
+        image_data: Optional[bytes] = None,
+        mime_type: Optional[str] = None,
+    ) -> str:
         from services.crypto_service import CryptoService
         
         api_key = provider.api_key
@@ -414,6 +431,8 @@ class AIEngine:
             # For now, we assume standard usage or rely on SDK defaults.
             
             contents = [full_content]
+            if image_data and mime_type:
+                contents.append(types.Part.from_bytes(data=image_data, mime_type=mime_type))
             
             response = await client.aio.models.generate_content(
                 model=provider.model,
@@ -432,11 +451,22 @@ class AIEngine:
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
+            user_content: object = full_content
+            if image_data and mime_type:
+                image_b64 = base64.b64encode(image_data).decode("ascii")
+                user_content = [
+                    {"type": "text", "text": full_content},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{image_b64}"},
+                    },
+                ]
+
             payload = {
                 "model": provider.model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": full_content}
+                    {"role": "user", "content": user_content}
                 ]
             }
             

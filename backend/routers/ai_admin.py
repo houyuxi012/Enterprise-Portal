@@ -36,6 +36,10 @@ async def create_provider(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
+    model_kind = (provider.model_kind or "text").strip().lower()
+    if model_kind not in {"text", "multimodal"}:
+        raise HTTPException(status_code=400, detail="Invalid model_kind, expected 'text' or 'multimodal'")
+
     # Check duplicate name
     existing = await db.execute(select(models.AIProvider).where(models.AIProvider.name == provider.name))
     if existing.scalars().first():
@@ -63,6 +67,7 @@ async def create_provider(
     
     # Update dict with encrypted key
     provider_data = provider.dict()
+    provider_data["model_kind"] = model_kind
     provider_data['api_key'] = encrypted_api_key
 
     db_provider = models.AIProvider(
@@ -109,6 +114,11 @@ async def update_provider(
          db_provider.name = provider.name
     if provider.type is not None:
          db_provider.type = provider.type
+    if provider.model_kind is not None:
+         normalized_kind = provider.model_kind.strip().lower()
+         if normalized_kind not in {"text", "multimodal"}:
+             raise HTTPException(status_code=400, detail="Invalid model_kind, expected 'text' or 'multimodal'")
+         db_provider.model_kind = normalized_kind
     if provider.base_url is not None:
          db_provider.base_url = provider.base_url
     if provider.api_key is not None:
