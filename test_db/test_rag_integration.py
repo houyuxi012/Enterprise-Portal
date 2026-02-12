@@ -206,8 +206,12 @@ async def test_chat_api_http():
             candidates = []
             if portal_user and portal_pass:
                 candidates.append((portal_user, portal_pass))
-            # Common local defaults
-            candidates.extend([("test_portal_admin", "password123"), ("admin", "admin")])
+            # Common local defaults (seeded by test_db/rbac_init.py + init_db.py)
+            candidates.extend([
+                ("test_portal_plain", "password123"),
+                ("test_portal_admin", "password123"),
+                ("sarah", "123456"),
+            ])
 
             login_ok = False
             for username, password in candidates:

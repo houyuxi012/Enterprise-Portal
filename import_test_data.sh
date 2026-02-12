@@ -44,4 +44,7 @@ run_script "seed_ai_data.py"
 # 4. Seed Knowledge Base (Documents + Query Logs)
 run_script "seed_kb_data.py"
 
+# 5. Seed Todo module demo data
+run_script "seed_todos_data.py"
+
 echo -e "${GREEN}All test data imported successfully!${NC}"

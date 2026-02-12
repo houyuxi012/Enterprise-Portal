@@ -247,7 +247,8 @@ export interface SystemInfo {
   version: string;
   status: string;
   database: string;
-  license_id: string;
+  serial_number: string;
+  license_id?: string; // legacy field for backward compatibility
   authorized_unit: string;
   access_address: string;
   environment: string;

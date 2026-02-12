@@ -1,0 +1,1439 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "基于当前 Enterprise Portal 能力升级的统一监控：IAM 双会话、权限拒绝、审计访问审计、AI/KB 质量、日志生命周期治理。",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "🛡️ 零信任核心态势（近 1h / 24h）",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/admin/token\" | status_code >= 400 [1h]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Admin 登录失败",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/portal/token\" | status_code >= 400 [1h]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Portal 登录失败",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'IAM'\n  AND action = 'AUTHZ_DENIED'\n  AND (CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END) >= NOW() - INTERVAL '1 hour';"
+        }
+      ],
+      "title": "权限拒绝 AUTHZ_DENIED",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM iam_audit_logs\nWHERE action = 'iam.logout'\n  AND timestamp >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "会话退出/吊销（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM iam_audit_logs\nWHERE action IN ('iam.role.assign', 'iam.role.revoke')\n  AND timestamp >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "角色授予/回收（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'SYSTEM'\n  AND action IN (\n    'READ_SYSTEM_LOGS',\n    'READ_BUSINESS_LOGS',\n    'READ_ACCESS_LOGS',\n    'READ_AI_AUDIT_LOGS',\n    'READ_AI_AUDIT_DETAIL',\n    'READ_AI_AUDIT_STATS',\n    'READ_LOG_FORWARDING_CONFIG'\n  )\n  AND (CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END) >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "日志查询审计次数（24h）",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "panels": [],
+      "title": "🔐 身份认证与权限收敛",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n+  $__timeGroupAlias(timestamp, '5m'),\n+  COUNT(*) FILTER (WHERE action = 'iam.login.success') AS \"login.success\",\n+  COUNT(*) FILTER (WHERE action = 'iam.login.fail') AS \"login.fail\"\n+FROM iam_audit_logs\n+WHERE $__timeFilter(timestamp)\n+GROUP BY 1\n+ORDER BY 1;"
+        }
+      ],
+      "title": "IAM 登录成功/失败趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END), '5m'),\n  COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'IAM'\n  AND action = 'AUTHZ_DENIED'\n  AND $__timeFilter((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END))\nGROUP BY 1\nORDER BY 1;"
+        }
+      ],
+      "title": "AUTHZ_DENIED 趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
+      "id": 13,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(operator, 'unknown') AS \"用户\", COUNT(*) AS \"拒绝次数\", MAX(timestamp) AS \"最近发生\"\nFROM business_logs\nWHERE domain = 'IAM'\n  AND action = 'AUTHZ_DENIED'\n  AND (CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END) >= NOW() - INTERVAL '24 hours'\nGROUP BY 1\nORDER BY \"拒绝次数\" DESC\nLIMIT 20;"
+        }
+      ],
+      "title": "近 24h 权限拒绝 Top 用户",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
+      "id": 14,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE((regexp_match(detail, 'required=([^, ]+)'))[1], 'unknown') AS \"权限码\", COUNT(*) AS \"拒绝次数\"\nFROM business_logs\nWHERE domain = 'IAM'\n  AND action = 'AUTHZ_DENIED'\n  AND (CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END) >= NOW() - INTERVAL '24 hours'\nGROUP BY 1\nORDER BY \"拒绝次数\" DESC\nLIMIT 20;"
+        }
+      ],
+      "title": "近 24h 被拒绝权限码 Top",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
+      "id": 15,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "expr": "{job=\"enterprise-portal\", log_type=\"IAM\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "IAM 审计日志流",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 102,
+      "panels": [],
+      "title": "🤖 AI 与本地知识库质量",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 22
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(ROUND(100.0 * SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2), 0) AS value\nFROM ai_audit_log\nWHERE ts >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "AI 成功率（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 22
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(ROUND(100.0 * SUM(CASE WHEN status IN ('BLOCKED', 'ERROR', 'TIMEOUT') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2), 0) AS value\nFROM ai_audit_log\nWHERE ts >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "AI 拦截/异常率（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 22
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(ROUND(100.0 * SUM(CASE WHEN hit_level = 'miss' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2), 0) AS value\nFROM kb_query_logs\nWHERE created_at >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "KB Miss 率（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 22
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(ROUND(100.0 * SUM(CASE WHEN called_llm THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2), 0) AS value\nFROM kb_query_logs\nWHERE created_at >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "title": "KB 调用 LLM 占比（24h）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 22
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM ai_providers\nWHERE is_active = true\n  AND COALESCE(model_kind, 'text') = 'text';"
+        }
+      ],
+      "title": "激活文本模型数",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 22
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM ai_providers\nWHERE is_active = true\n  AND COALESCE(model_kind, 'text') = 'multimodal';"
+        }
+      ],
+      "title": "激活多模态模型数",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 27,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias(ts, '5m'),\n  COUNT(*) FILTER (WHERE status = 'SUCCESS') AS \"SUCCESS\",\n  COUNT(*) FILTER (WHERE status = 'BLOCKED') AS \"BLOCKED\",\n  COUNT(*) FILTER (WHERE status = 'ERROR') AS \"ERROR\",\n  COUNT(*) FILTER (WHERE status = 'TIMEOUT') AS \"TIMEOUT\"\nFROM ai_audit_log\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1;"
+        }
+      ],
+      "title": "AI 调用状态趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias(created_at, '15m'),\n  COUNT(*) FILTER (WHERE hit_level = 'strong') AS \"strong\",\n  COUNT(*) FILTER (WHERE hit_level = 'weak') AS \"weak\",\n  COUNT(*) FILTER (WHERE hit_level = 'miss') AS \"miss\"\nFROM kb_query_logs\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1;"
+        }
+      ],
+      "title": "KB 命中等级趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COALESCE(model, '-') AS \"model\", SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)) AS \"tokens\"\nFROM ai_audit_log\nWHERE $__timeFilter(ts)\nGROUP BY model\nORDER BY \"tokens\" DESC\nLIMIT 10;"
+        }
+      ],
+      "title": "模型 Token 用量 Top",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 30,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT ts AS \"时间\", COALESCE(provider, '-') AS \"供应商\", COALESCE(model, '-') AS \"模型\", status AS \"状态\", COALESCE(error_code, '-') AS \"错误码\", LEFT(COALESCE(error_reason, '-'), 180) AS \"错误原因\", COALESCE(trace_id, '-') AS \"trace_id\"\nFROM ai_audit_log\nWHERE status IN ('BLOCKED', 'ERROR', 'TIMEOUT')\n  AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 50;"
+        }
+      ],
+      "title": "AI 异常样本",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 103,
+      "panels": [],
+      "title": "🗂️ 日志生命周期治理与运维",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 43
+      },
+      "id": 31,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT key AS \"配置项\", value AS \"值\"\nFROM system_config\nWHERE key IN (\n  'log_retention_access_days',\n  'log_retention_system_days',\n  'log_retention_business_days',\n  'log_retention_ai_days',\n  'log_retention_iam_days'\n)\nORDER BY key;"
+        }
+      ],
+      "title": "日志保留策略",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 43
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END), '1h'),\n  COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'SYSTEM'\n  AND action = 'AUTO_LOG_CLEANUP'\n  AND $__timeFilter((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END))\nGROUP BY 1\nORDER BY 1;"
+        }
+      ],
+      "title": "AUTO_LOG_CLEANUP 执行趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 43
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END), '1h'),\n  COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'SYSTEM'\n  AND action = 'AUTO_IAM_ARCHIVE'\n  AND $__timeFilter((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END))\nGROUP BY 1\nORDER BY 1;"
+        }
+      ],
+      "title": "AUTO_IAM_ARCHIVE 执行趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
+      "id": 34,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT id AS \"ID\", type AS \"类型\", endpoint AS \"目标\", enabled AS \"启用\", COALESCE(log_types, '[]') AS \"日志类型\"\nFROM log_forwarding_config\nORDER BY id DESC;"
+        }
+      ],
+      "title": "日志外发配置状态",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      },
+      "id": 35,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT\n  $__timeGroupAlias((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END), '30m'),\n  action,\n  COUNT(*) AS value\nFROM business_logs\nWHERE domain = 'SYSTEM'\n  AND action IN (\n    'READ_SYSTEM_LOGS',\n    'READ_BUSINESS_LOGS',\n    'READ_ACCESS_LOGS',\n    'READ_AI_AUDIT_LOGS',\n    'READ_AI_AUDIT_DETAIL',\n    'READ_AI_AUDIT_STATS',\n    'READ_LOG_FORWARDING_CONFIG'\n  )\n  AND $__timeFilter((CASE WHEN timestamp ~ '^[0-9]{4}-' THEN timestamp::timestamptz ELSE NULL END))\nGROUP BY 1, 2\nORDER BY 1;"
+        }
+      ],
+      "title": "日志查询行为审计趋势",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 57
+      },
+      "id": 36,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "expr": "{job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | status_code >= 400",
+          "refId": "A"
+        }
+      ],
+      "title": "异常访问日志流（4xx/5xx）",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 57
+      },
+      "id": 37,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "expr": "topk(10, sum by (path, status_code) (count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | status_code >= 400 [5m])))",
+          "refId": "A"
+        }
+      ],
+      "title": "错误接口 Top（路径+状态码）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 65
+      },
+      "id": 38,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM todos\nWHERE priority = 1\n  AND status IN ('pending', 'in_progress');"
+        }
+      ],
+      "title": "紧急待办（进行中）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 65
+      },
+      "id": 39,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A",
+          "sql": "SELECT COUNT(*) AS value\nFROM todos\nWHERE due_at < NOW()\n  AND status IN ('pending', 'in_progress');"
+        }
+      ],
+      "title": "逾期待办（进行中）",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "enterprise-portal",
+    "zero-trust",
+    "iam",
+    "audit",
+    "ai",
+    "kb",
+    "lifecycle"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EnterprisePortal 监控升级总览",
+  "uid": "enterpriseportal-observability-v2",
+  "version": 1,
+  "weekStart": ""
+}

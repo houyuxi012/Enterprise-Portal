@@ -1,14 +1,27 @@
 import asyncio
-import sys
 import os
+import sys
+from datetime import datetime, timezone
+
+from sqlalchemy import delete, insert, select, update
 
 # Add parent directory to sys.path to allow importing from backend modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database import engine, Base, SessionLocal
-from models import Employee, NewsItem, QuickTool, Announcement, Department, User, Role, AIProvider, SystemConfig, user_roles
-from sqlalchemy import select, insert
-from datetime import datetime
-import os
+
+from database import Base, SessionLocal, engine
+from models import (
+    AIProvider,
+    Announcement,
+    Department,
+    Employee,
+    NewsItem,
+    QuickTool,
+    Role,
+    SystemConfig,
+    User,
+    user_roles,
+)
+from services.crypto_service import CryptoService
 from utils import get_password_hash
 
 # Data
@@ -77,6 +90,60 @@ ANNOUNCEMENTS = [
   { "tag": 'IT', "title": 'VPN 全面升级至 2.0 版本', "content": '为了提供更稳定的远程办公体验，VPN 系统已升级。请及时下载新客户端。', "time": '昨日', "color": 'rose', "is_urgent": False },
 ]
 
+AI_PROVIDER_PRESETS = [
+    {
+        "name": "Google Gemini 2.0 Flash (Text)",
+        "type": "gemini",
+        "model_kind": "text",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "model": "gemini-2.0-flash",
+        "is_active": False,
+    },
+    {
+        "name": "Google Gemini 2.0 Flash (Multimodal)",
+        "type": "gemini",
+        "model_kind": "multimodal",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "model": "gemini-2.0-flash",
+        "is_active": True,
+    },
+]
+
+SYSTEM_CONFIG_DEFAULTS = [
+    {"key": "app_name", "value": "Next-Gen Enterprise Portal"},
+    {"key": "footer_text", "value": "© 2026 Next-Gen Enterprise Portal. All Rights Reserved."},
+    {"key": "browser_title", "value": "Next-Gen Enterprise Portal ｜ Dashboard"},
+    {"key": "logo_url", "value": ""},
+    {"key": "favicon_url", "value": ""},
+    {"key": "privacy_policy", "value": "## 隐私权政策\n\n欢迎使用本系统。我们重视您的隐私。\n\n### 1. 信息收集\n我们收集您的基本信息以提供服务...\n\n### 2. 信息使用\n仅用于企业内部管理..."},
+    {"key": "ai_enabled", "value": "true"},
+    {"key": "search_ai_enabled", "value": "true"},
+    {"key": "kb_enabled", "value": "true"},
+    {"key": "ai_name", "value": "ShiKu Assistant"},
+    {"key": "ai_icon", "value": ""},
+    {"key": "default_ai_model", "value": "gemini-2.0-flash"},
+    {"key": "security_password_min_length", "value": "8"},
+    {"key": "security_login_max_retries", "value": "5"},
+    {"key": "security_lockout_duration", "value": "15"},
+    {"key": "security_mfa_enabled", "value": "false"},
+    {"key": "security_ip_allowlist", "value": ""},
+    {"key": "log_retention_access_days", "value": "30"},
+    {"key": "log_retention_system_days", "value": "7"},
+    {"key": "log_retention_business_days", "value": "30"},
+    {"key": "log_retention_ai_days", "value": "30"},
+    {"key": "log_retention_iam_days", "value": "90"},
+]
+
+
+def _build_seed_provider_api_key(existing_key: str | None = None) -> str:
+    runtime_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+    if runtime_key:
+        return CryptoService.encrypt_data(runtime_key)
+    if existing_key:
+        return existing_key
+    return CryptoService.encrypt_data("demo-key-not-configured")
+
+
 async def init_db():
     retries = 10
     while retries > 0:
@@ -92,7 +159,7 @@ async def init_db():
                 raise e
 
     async with SessionLocal() as db:
-        
+
         # 1. Seed Departments (Hierarchy)
         print("Checking Departments...")
         stmt = select(Department).where(Department.name == "总部")
@@ -128,25 +195,31 @@ async def init_db():
             
             # We don't commit yet, wait for employees
             print("Departments Seeded.")
-        
-        # 2. Seed Employees
-        print("Checking Employees...")
-        result = await db.execute(select(Employee))
-        if not result.scalars().first():
-            print("Seeding Employees...")
-            for emp_data in EMPLOYEES:
-                # Check if employee exists by job_number to avoid dupes if partially seeded
-                exists = await db.execute(select(Employee).where(Employee.job_number == emp_data["job_number"]))
-                if not exists.scalars().first():
-                    db.add(Employee(**emp_data))
-        
-        # 3. Seed News
-        result_news = await db.execute(select(NewsItem))
-        if not result_news.scalars().first():
-            for news_data in NEWS:
-                news_data['date'] = datetime.strptime(news_data['date'], '%Y-%m-%d').date()
-                db.add(NewsItem(**news_data))
-                
+
+        # 2. Upsert Employees
+        print("Upserting Employees...")
+        for emp_data in EMPLOYEES:
+            exists = await db.execute(select(Employee).where(Employee.account == emp_data["account"]))
+            existing = exists.scalars().first()
+            if existing:
+                for key, value in emp_data.items():
+                    setattr(existing, key, value)
+            else:
+                db.add(Employee(**emp_data))
+
+        # 3. Upsert News
+        print("Upserting News...")
+        for news_data in NEWS:
+            exists = await db.execute(select(NewsItem).where(NewsItem.title == news_data["title"]))
+            existing = exists.scalars().first()
+            parsed_date = datetime.strptime(news_data["date"], "%Y-%m-%d").date()
+            payload = {**news_data, "date": parsed_date}
+            if existing:
+                for key, value in payload.items():
+                    setattr(existing, key, value)
+            else:
+                db.add(NewsItem(**payload))
+
         # 4. Upsert Tools
         print("Upserting Tools...")
         for tool_data in TOOLS:
@@ -161,127 +234,147 @@ async def init_db():
             else:
                 # Insert
                 db.add(QuickTool(**tool_data))
-                
-        # 5. Seed Announcements
-        result_ann = await db.execute(select(Announcement))
-        if not result_ann.scalars().first():
-            for ann_data in ANNOUNCEMENTS:
+
+        # 5. Upsert Announcements
+        print("Upserting Announcements...")
+        for ann_data in ANNOUNCEMENTS:
+            stmt = select(Announcement).where(Announcement.title == ann_data["title"])
+            result = await db.execute(stmt)
+            existing = result.scalars().first()
+            if existing:
+                for key, value in ann_data.items():
+                    setattr(existing, key, value)
+            else:
                 db.add(Announcement(**ann_data))
 
-        # 6. Admin User
+        # 6. Ensure admin user
+        print("Ensuring admin user...")
         result_user = await db.execute(select(User).where(User.username == "admin"))
-        if not result_user.scalars().first():
+        admin_user = result_user.scalars().first()
+        if not admin_user:
             print("Creating default admin user...")
             admin_user = User(
-                username="admin", 
+                username="admin",
                 email="admin@shiku.com",
                 hashed_password=get_password_hash("admin"),
+                account_type="SYSTEM",
                 is_active=True,
                 name="Administrator",
-                avatar=""
+                avatar="",
             )
             db.add(admin_user)
             await db.flush()
-            
+
             # Assign System Super Admin role (legacy fallback: admin)
             admin_role_res = await db.execute(select(Role).where(Role.code.in_(["SuperAdmin", "admin"])))
             admin_role = admin_role_res.scalars().first()
             if admin_role:
-                 admin_user.roles.append(admin_role)
+                admin_user.roles.append(admin_role)
             else:
-                 print("Warning: SuperAdmin role not found due to dependency. Ideally run rbac_init first.")
+                print("Warning: SuperAdmin role not found due to dependency. Ideally run rbac_init first.")
+        else:
+            admin_user.account_type = "SYSTEM"
+            admin_user.is_active = True
+            if not admin_user.email:
+                admin_user.email = "admin@shiku.com"
+            if not admin_user.name:
+                admin_user.name = "Administrator"
 
         # 6.5 Create User accounts for each Employee (Default Password: 123456)
         print("Creating User accounts for employees...")
         user_role_res = await db.execute(select(Role).where(Role.code == "user"))
         user_role = user_role_res.scalars().first()
-        
+
         for emp_data in EMPLOYEES:
             emp_username = emp_data.get("account")
             if not emp_username:
                 continue
-            
+
             exists = await db.execute(select(User).where(User.username == emp_username))
-            if not exists.scalars().first():
+            emp_user = exists.scalars().first()
+            if not emp_user:
                 emp_user = User(
                     username=emp_username,
                     email=emp_data.get("email", f"{emp_username}@shiku.com"),
                     hashed_password=get_password_hash("123456"),  # Default password
+                    account_type="PORTAL",
                     is_active=True,
                     name=emp_data.get("name", emp_username),
-                    avatar=emp_data.get("avatar", "")
+                    avatar=emp_data.get("avatar", ""),
                 )
                 db.add(emp_user)
                 await db.flush()
-                
+
                 # Assign User Role via direct insert (avoid lazy-load in async)
                 if user_role:
                     await db.execute(insert(user_roles).values(user_id=emp_user.id, role_id=user_role.id))
-                
+
                 print(f" > Created user: {emp_username}")
+            else:
+                if (emp_user.account_type or "").upper() != "SYSTEM":
+                    emp_user.account_type = "PORTAL"
+                emp_user.is_active = True
+                if not emp_user.name:
+                    emp_user.name = emp_data.get("name", emp_username)
+                if not emp_user.avatar:
+                    emp_user.avatar = emp_data.get("avatar", "")
+                if not emp_user.email:
+                    emp_user.email = emp_data.get("email", f"{emp_username}@shiku.com")
 
-        # 7. AI Providers
-        result_ai = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini 2.0 flash"))
-        if not result_ai.scalars().first():
-            api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")
-            gemini_provider = AIProvider(
-                name="Google Gemini 2.0 flash",
-                type="gemini",
-                base_url="https://generativelanguage.googleapis.com/v1beta/models",
-                api_key=api_key,
-                model="gemini-2.0-flash",
-                is_active=True,
-                created_at=datetime.utcnow()
+        # 7. Upsert AI Providers
+        print("Upserting AI Providers...")
+        now = datetime.now(timezone.utc)
+        # Remove legacy seed providers to keep model list clear.
+        await db.execute(
+            delete(AIProvider).where(
+                AIProvider.name.in_(["Google Gemini 2.0 flash", "Google Gemini 3.0 flash"])
             )
-            db.add(gemini_provider)
+        )
+        # Keep seed providers deterministic without overriding user-created providers.
+        seed_provider_names = [item["name"] for item in AI_PROVIDER_PRESETS]
+        await db.execute(
+            update(AIProvider)
+            .where(AIProvider.name.in_(seed_provider_names))
+            .values(is_active=False)
+        )
+        for provider_data in AI_PROVIDER_PRESETS:
+            stmt = select(AIProvider).where(AIProvider.name == provider_data["name"])
+            result = await db.execute(stmt)
+            existing = result.scalars().first()
 
-        result_ai_3 = await db.execute(select(AIProvider).where(AIProvider.name == "Google Gemini 3.0 flash"))
-        if not result_ai_3.scalars().first():
-            api_key = os.getenv("GEMINI_API_KEY", "sk-demo-key-placeholder")
-            gemini_provider_3 = AIProvider(
-                name="Google Gemini 3.0 flash",
-                type="gemini",
-                base_url="https://generativelanguage.googleapis.com/v1beta/models", 
-                api_key=api_key,
-                model="gemini-3.0-flash",
-                is_active=True,
-                created_at=datetime.utcnow()
-            )
-            db.add(gemini_provider_3)
+            if existing:
+                existing.type = provider_data["type"]
+                existing.model_kind = provider_data["model_kind"]
+                existing.base_url = provider_data["base_url"]
+                existing.model = provider_data["model"]
+                existing.is_active = provider_data["is_active"]
+                existing.api_key = _build_seed_provider_api_key(existing.api_key)
+            else:
+                db.add(
+                    AIProvider(
+                        name=provider_data["name"],
+                        type=provider_data["type"],
+                        model_kind=provider_data["model_kind"],
+                        base_url=provider_data["base_url"],
+                        api_key=_build_seed_provider_api_key(None),
+                        model=provider_data["model"],
+                        is_active=provider_data["is_active"],
+                        created_at=now,
+                    )
+                )
 
         # 8. Upsert System Config
         print("Upserting System Config...")
-        base_configs = [
-            {"key": "app_name", "value": "Next-Gen Enterprise Portal"},
-            {"key": "footer_text", "value": "© 2026 Next-Gen Enterprise Portal. All Rights Reserved."},
-            {"key": "search_ai_enabled", "value": "true"},
-            {"key": "privacy_policy", "value": "## 隐私权政策\n\n欢迎使用本系统。我们重视您的隐私。\n\n### 1. 信息收集\n我们收集您的基本信息以提供服务...\n\n### 2. 信息使用\n仅用于企业内部管理..."},
-            {"key": "browser_title", "value": "Next-Gen Enterprise Portal ｜ Dashboard"},
-            {"key": "logo_url", "value": ""},
-            {"key": "favicon_url", "value": ""}
-        ]
-        
-        for conf in base_configs:
+        for conf in SYSTEM_CONFIG_DEFAULTS:
             stmt = select(SystemConfig).where(SystemConfig.key == conf["key"])
             result = await db.execute(stmt)
             existing = result.scalars().first()
             if existing:
-                # Update only if value is effectively empty or we want to enforce defaults?
-                # User asked for "Sync". I'll enforce default for keys that are critical or empty.
-                # Actually commonly init scripts only insert. 
-                # But user said "Sync update".
-                # Let's update IF the existing value is the OLD default (hard to know).
-                # To be safe, let's only Insert if missing.
-                # User request probably meant "Add new keys".
-                pass 
+                if (existing.value or "").strip() == "" and (conf["value"] or "").strip() != "":
+                    existing.value = conf["value"]
             else:
                 db.add(SystemConfig(**conf))
-            
-            # Special case: privacy_policy if missing
-            if conf["key"] == "privacy_policy" and existing is None:
-                 # Already handled by else block
-                 pass
-            
+
         await db.commit()
         print("Data initialization complete!")
 

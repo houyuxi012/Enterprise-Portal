@@ -2,6 +2,9 @@ import json
 import logging
 import os
 import time
+import uuid
+import hashlib
+import platform
 from pathlib import Path
 from typing import Dict
 
@@ -44,6 +47,82 @@ VERSION_DEFAULTS = {
 # Simple state for network speed calculation
 _last_net_io = None
 _last_net_time = None
+
+
+def _read_first_line(file_paths: list[str]) -> str:
+    for path in file_paths:
+        try:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    line = f.readline().strip()
+                    if line:
+                        return line
+        except Exception:
+            continue
+    return ""
+
+
+def _read_cpu_model() -> str:
+    try:
+        with open("/proc/cpuinfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.lower().startswith("model name"):
+                    parts = line.split(":", 1)
+                    if len(parts) > 1:
+                        return parts[1].strip()
+    except Exception:
+        pass
+    return platform.processor() or "unknown"
+
+
+def _get_hardware_fingerprint_payload() -> dict:
+    vm = psutil.virtual_memory()
+    root_disk = psutil.disk_usage("/")
+
+    root_partition = None
+    try:
+        for part in psutil.disk_partitions(all=False):
+            if part.mountpoint == "/":
+                root_partition = part
+                break
+    except Exception:
+        root_partition = None
+
+    payload = {
+        "system": {
+            "os": platform.system(),
+            "release": platform.release(),
+            "version": platform.version(),
+            "machine": platform.machine(),
+        },
+        "cpu": {
+            "logical_count": psutil.cpu_count(logical=True),
+            "physical_count": psutil.cpu_count(logical=False),
+            "model": _read_cpu_model(),
+        },
+        "memory": {
+            "total_bytes": vm.total,
+        },
+        "disk": {
+            "total_bytes": root_disk.total,
+            "device": getattr(root_partition, "device", "unknown"),
+            "fstype": getattr(root_partition, "fstype", "unknown"),
+        },
+        "host": {
+            "hostname": platform.node(),
+            "machine_id": _read_first_line(["/etc/machine-id", "/var/lib/dbus/machine-id"]),
+            "mac": f"{uuid.getnode():012x}",
+        },
+    }
+    return payload
+
+
+def _build_system_serial_number() -> str:
+    payload = _get_hardware_fingerprint_payload()
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    # Deterministic UUID derived from hardware+system fingerprint.
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, digest))
 
 
 def _load_version_info() -> Dict:
@@ -239,13 +318,15 @@ async def get_system_info(
             access_address = "未配置"
 
     version_info = _load_version_info()
+    serial_number = _build_system_serial_number()
     return {
         "software_name": version_info["product"],
         "product_id": version_info.get("product_id", "enterprise-portal"),
         "version": version_info["version"],
         "status": "运行中",
         "database": db_status,
-        "license_id": "EP-2026-X892-L7",
+        "serial_number": serial_number,
+        "license_id": serial_number,  # Backward compatibility for old frontend field name.
         "authorized_unit": "ShiKu Inc.",
         "access_address": access_address,
         "environment": "生产环境",

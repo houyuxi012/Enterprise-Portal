@@ -10,12 +10,12 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, func
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from database import DATABASE_URL
-from models import KBDocument, KBChunk, KBQueryLog
+from models import KBDocument, KBChunk, KBQueryLog, User
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -98,7 +98,7 @@ SAMPLE_DOCS = [
         "title": "技术栈选型与架构决策记录",
         "source_type": "md",
         "tags": ["技术", "架构", "ADR"],
-        "acl": ["role:admin"],
+        "acl": ["role:PortalAdmin", "role:SuperAdmin"],
         "chunks": [
             {
                 "section": "ADR-001: 后端框架选型",
@@ -158,37 +158,72 @@ SAMPLE_QUERIES = [
 ]
 
 
-async def seed_kb_data():
-    print("Beginning KB Data Seeding...")
-    async with AsyncSessionLocal() as session:
-        # 检查是否已有数据（幂等）
-        count = (await session.execute(select(func.count(KBDocument.id)))).scalar()
-        if count and count > 0:
-            print(f"KB data already exists ({count} documents). Skipping.")
-            await engine.dispose()
-            return
+def _join_doc_content(chunks: list[dict]) -> str:
+    parts = []
+    for item in chunks:
+        section = (item.get("section") or "").strip()
+        content = (item.get("content") or "").strip()
+        if section:
+            parts.append(f"## {section}\n{content}".strip())
+        else:
+            parts.append(content)
+    return "\n\n".join([p for p in parts if p]).strip()
 
-        now = datetime.now(timezone.utc)
 
-        # 1. 插入文档 + 分段
-        doc_ids = []
-        for idx, doc_data in enumerate(SAMPLE_DOCS):
+async def _resolve_seed_user_ids(session: AsyncSession) -> tuple[int | None, list[int]]:
+    admin_res = await session.execute(select(User.id).where(User.username == "admin"))
+    admin_id = admin_res.scalar_one_or_none()
+
+    user_res = await session.execute(
+        select(User.id).where(User.is_active == True).order_by(User.id.asc())
+    )
+    user_ids = [int(row[0]) for row in user_res.all()]
+    return (int(admin_id) if admin_id else None), user_ids
+
+
+async def _upsert_documents(session: AsyncSession, now: datetime, created_by: int | None) -> list[int]:
+    doc_ids: list[int] = []
+    for idx, doc_data in enumerate(SAMPLE_DOCS):
+        created_at = now - timedelta(days=len(SAMPLE_DOCS) - idx)
+        tags_json = json.dumps(doc_data["tags"], ensure_ascii=False)
+        acl_json = json.dumps(doc_data["acl"], ensure_ascii=False)
+        content = _join_doc_content(doc_data["chunks"])
+
+        existing_res = await session.execute(
+            select(KBDocument).where(KBDocument.title == doc_data["title"])
+        )
+        doc = existing_res.scalars().first()
+
+        if not doc:
             doc = KBDocument(
                 title=doc_data["title"],
                 source_type=doc_data["source_type"],
-                tags=json.dumps(doc_data["tags"], ensure_ascii=False),
-                acl=json.dumps(doc_data["acl"]),
+                content=content,
+                tags=tags_json,
+                acl=acl_json,
                 status="ready",
                 chunk_count=len(doc_data["chunks"]),
-                created_by=1,  # admin user
-                created_at=now - timedelta(days=len(SAMPLE_DOCS) - idx),
+                created_by=created_by,
+                created_at=created_at,
             )
             session.add(doc)
-            await session.flush()  # 获取 doc.id
-            doc_ids.append(doc.id)
+            await session.flush()
+        else:
+            doc.source_type = doc_data["source_type"]
+            doc.content = content
+            doc.tags = tags_json
+            doc.acl = acl_json
+            doc.status = "ready"
+            doc.chunk_count = len(doc_data["chunks"])
+            if doc.created_by is None and created_by is not None:
+                doc.created_by = created_by
+            if doc.created_at is None:
+                doc.created_at = created_at
+            await session.execute(delete(KBChunk).where(KBChunk.doc_id == doc.id))
 
-            for ci, chunk_data in enumerate(doc_data["chunks"]):
-                chunk = KBChunk(
+        for ci, chunk_data in enumerate(doc_data["chunks"]):
+            session.add(
+                KBChunk(
                     doc_id=doc.id,
                     section=chunk_data["section"],
                     content=chunk_data["content"],
@@ -196,14 +231,30 @@ async def seed_kb_data():
                     embedding=ZERO_VEC,
                     created_at=doc.created_at,
                 )
-                session.add(chunk)
+            )
 
-            print(f"  > Document [{doc.id}] {doc.title} ({len(doc_data['chunks'])} chunks)")
+        doc_ids.append(doc.id)
+        print(f"  > Upsert document [{doc.id}] {doc.title} ({len(doc_data['chunks'])} chunks)")
 
+    return doc_ids
+
+
+async def seed_kb_data():
+    print("Beginning KB Data Seeding...")
+    async with AsyncSessionLocal() as session:
+        now = datetime.now(timezone.utc)
+        created_by, user_ids = await _resolve_seed_user_ids(session)
+
+        # 1. Upsert 文档 + 分段
+        doc_ids = await _upsert_documents(session, now, created_by)
         await session.commit()
-        print(f"Inserted {len(SAMPLE_DOCS)} documents with chunks.")
+        print(f"Upserted {len(doc_ids)} documents with chunks.")
 
-        # 2. 插入模拟检索日志（最近 7 天）
+        # 2. 清理旧 seed 检索日志，避免重复膨胀
+        await session.execute(delete(KBQueryLog).where(KBQueryLog.trace_id.like("seed-kb-%")))
+        await session.commit()
+
+        # 3. 插入模拟检索日志（最近 7 天）
         logs = []
         for day_offset in range(7, -1, -1):
             day = now - timedelta(days=day_offset)
@@ -222,8 +273,8 @@ async def seed_kb_data():
                     hit_level=hit_level,
                     hit_doc_ids=json.dumps(random.sample(doc_ids, min(3, len(doc_ids)))),
                     called_llm=hit_level != "strong",
-                    trace_id=str(uuid.uuid4()),
-                    user_id=random.randint(1, 10),
+                    trace_id=f"seed-kb-{uuid.uuid4()}",
+                    user_id=random.choice(user_ids) if user_ids else None,
                     created_at=day.replace(
                         hour=random.randint(8, 18),
                         minute=random.randint(0, 59),

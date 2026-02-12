@@ -669,28 +669,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                     <div className="space-y-2">
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">软件名称</span>
-                            <span className="text-sm text-slate-800 dark:text-white text-right">{systemInfo?.software_name || 'Loading...'}</span>
+                            <span className="text-sm font-medium text-slate-800 dark:text-white text-right">{systemInfo?.software_name || 'Loading...'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">软件版本</span>
                             <div className="flex items-center gap-2">
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">LATEST</span>
-                                <span className="text-sm text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
+                                <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
                             </div>
                         </div>
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">访问地址</span>
-                            <a href={systemInfo?.access_address} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline truncate max-w-[150px] text-right" title={systemInfo?.access_address}>
+                            <a href={systemInfo?.access_address} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline truncate max-w-[150px] text-right" title={systemInfo?.access_address}>
                                 {systemInfo?.access_address ? new URL(systemInfo.access_address).hostname : '---'}
                             </a>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">许可 ID</span>
-                            <span className="text-xs font-mono text-slate-600 dark:text-slate-300">{systemInfo?.license_id || '---'}</span>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">序列号</span>
+                            <span className="text-sm font-medium text-slate-800 dark:text-white whitespace-nowrap text-right">{systemInfo?.serial_number || systemInfo?.license_id || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权单位</span>
-                            <span className="text-sm text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
+                            <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
                         </div>
                     </div>
                 </div>

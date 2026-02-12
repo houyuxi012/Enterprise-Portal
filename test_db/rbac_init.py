@@ -2,7 +2,7 @@ import time
 import logging
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, exists, update, delete
+from sqlalchemy import select, exists, update, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.dialects.postgresql import insert
 import models
@@ -37,6 +37,23 @@ SYSTEM_PERMISSIONS = {
     "todo:admin": "管理所有待办任务",
     "admin:access": "Access Admin Interface", # Critical permission for separate login
 }
+
+DEMO_PORTAL_USERS = [
+    {
+        "username": "test_portal_plain",
+        "password": "password123",
+        "email": "test_portal_plain@example.com",
+        "name": "Portal 普通测试账号",
+        "role_codes": ["user"],
+    },
+    {
+        "username": "test_portal_admin",
+        "password": "password123",
+        "email": "test_portal_admin@example.com",
+        "name": "Portal 管理测试账号",
+        "role_codes": ["user", "PortalAdmin"],
+    },
+]
 
 
 async def _merge_and_remove_legacy_admin_role(
@@ -93,6 +110,81 @@ async def _merge_and_remove_legacy_admin_role(
     await db.execute(delete(models.Role).where(models.Role.id == legacy_admin_role_id))
     logger.info("Merged and removed legacy role 'admin' (affected users: %s)", len(affected_user_ids))
     return affected_user_ids
+
+
+async def _ensure_demo_portal_users(
+    db: AsyncSession,
+    role_map: dict[str, int],
+) -> list[int]:
+    """
+    Ensure deterministic demo portal users for integration testing.
+    """
+    affected_ids: list[int] = []
+    required_role_codes = {"user", "PortalAdmin"}
+    missing_roles = [code for code in required_role_codes if not role_map.get(code)]
+    if missing_roles:
+        logger.warning("Skip demo portal users seeding; missing roles: %s", ",".join(missing_roles))
+        return affected_ids
+
+    for item in DEMO_PORTAL_USERS:
+        user_res = await db.execute(
+            select(models.User)
+            .options(selectinload(models.User.roles))
+            .where(models.User.username == item["username"])
+        )
+        user = user_res.scalars().first()
+
+        if not user:
+            user = models.User(
+                username=item["username"],
+                email=item["email"],
+                hashed_password=utils.get_password_hash(item["password"]),
+                account_type="PORTAL",
+                is_active=True,
+                name=item["name"],
+            )
+            db.add(user)
+            await db.flush()
+            changed = True
+        else:
+            changed = False
+            if (user.account_type or "").upper() != "PORTAL":
+                user.account_type = "PORTAL"
+                changed = True
+            if not user.is_active:
+                user.is_active = True
+                changed = True
+            if not user.email:
+                user.email = item["email"]
+                changed = True
+            if not user.name:
+                user.name = item["name"]
+                changed = True
+            if not user.hashed_password:
+                user.hashed_password = utils.get_password_hash(item["password"])
+                changed = True
+
+        wanted_roles = []
+        for role_code in item["role_codes"]:
+            role_id = role_map.get(role_code)
+            if not role_id:
+                continue
+            role_obj = await db.get(models.Role, role_id)
+            if role_obj:
+                wanted_roles.append(role_obj)
+
+        current_codes = sorted([r.code for r in (user.roles or [])])
+        target_codes = sorted([r.code for r in wanted_roles])
+        if current_codes != target_codes:
+            user.roles = wanted_roles
+            changed = True
+
+        if changed:
+            affected_ids.append(user.id)
+            logger.info("Upserted demo portal user %s with roles %s", user.username, target_codes)
+
+    return affected_ids
+
 
 async def init_rbac(db: AsyncSession):
     """
@@ -169,6 +261,8 @@ async def init_rbac(db: AsyncSession):
     role_result = await db.execute(select(models.Role))
     role_map = {r.code: r.id for r in role_result.scalars().all()}
 
+    demo_user_affected_ids = await _ensure_demo_portal_users(db, role_map)
+
     # 4. Bind Permissions to Roles (SuperAdmin gets ALL)
     print("Binding SuperAdmin Permissions...")
     super_admin_role_id = role_map.get("SuperAdmin")
@@ -190,13 +284,22 @@ async def init_rbac(db: AsyncSession):
     print("Binding PortalAdmin Permissions...")
     portal_admin_role_id = role_map.get("PortalAdmin")
     if portal_admin_role_id:
-        # Define what PortalAdmin can do. For now, let's give them admin:access and some system views
-        # In reality, this should be configurable. Here we seed a default set.
         target_perms = [
             "admin:access",
-            "sys:user:view", "sys:role:view", 
-            "content:news:edit", "content:announcement:edit", "content:tool:edit",
-            "portal.logs.business.read", "kb:manage", "todo:admin"
+            "sys:settings:view",
+            "sys:user:view",
+            "sys:role:view",
+            "content:news:edit",
+            "content:announcement:edit",
+            "content:tool:edit",
+            "portal.logs.system.read",
+            "portal.logs.business.read",
+            "portal.logs.forwarding.admin",
+            "portal.ai_audit.read",
+            "portal.carousel.manage",
+            "file:upload",
+            "kb:manage",
+            "todo:admin",
         ]
         
         pa_perms_data = []
@@ -243,6 +346,8 @@ async def init_rbac(db: AsyncSession):
     affected_user_ids = []
     if legacy_admin_affected_user_ids:
         affected_user_ids.extend(legacy_admin_affected_user_ids)
+    if demo_user_affected_ids:
+        affected_user_ids.extend(demo_user_affected_ids)
     
     for user in users_without_roles:
         # Determine Role
