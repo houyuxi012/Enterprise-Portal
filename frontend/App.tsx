@@ -146,15 +146,15 @@ const App: React.FC = () => {
       }
 
       const [employeesResult, newsResult, toolsResult, configResult] = await Promise.allSettled([
-        canUseAdminPlane ? ApiClient.getEmployees() : Promise.resolve([] as Employee[]),
+        ApiClient.getEmployees(),
         ApiClient.getNews(),
         ApiClient.getTools(),
         canUseAdminPlane ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
       ]);
 
-      if (employeesResult.status === 'fulfilled' && canUseAdminPlane) {
+      if (employeesResult.status === 'fulfilled') {
         setEmployees(employeesResult.value);
-      } else if (canUseAdminPlane) {
+      } else {
         console.error('Failed to fetch employees', employeesResult.reason);
       }
 

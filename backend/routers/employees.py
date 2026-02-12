@@ -7,11 +7,37 @@ from sqlalchemy import select
 from fastapi import Request
 from services.audit_service import AuditService
 from dependencies import PermissionChecker
+from routers.auth import get_current_user
 
 router = APIRouter(
     prefix="/employees",
     tags=["employees"]
 )
+
+app_router = APIRouter(
+    prefix="/employees",
+    tags=["employees"]
+)
+
+@app_router.get("/", response_model=List[schemas.Employee])
+async def read_employees_for_portal(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """
+    Portal-facing employee directory.
+    Returns only active employees so frontend通讯录与“启用状态”一致。
+    """
+    result = await db.execute(
+        select(models.Employee)
+        .filter(models.Employee.status == "Active")
+        .offset(skip)
+        .limit(limit)
+    )
+    employees = result.scalars().all()
+    return employees
 
 @router.get("/", response_model=List[schemas.Employee])
 async def read_employees(

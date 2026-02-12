@@ -137,6 +137,7 @@ app_router.include_router(ai.router)
 app_router.include_router(kb.router) 
 app_router.include_router(upload.router)  # Portal uploads
 app_router.include_router(logs.app_event_router)  # Portal business behavior logs
+app_router.include_router(employees.app_router)  # Portal employee directory
 # Shared Resources (Accessible by Portal)
 app_router.include_router(news.router)
 app_router.include_router(announcements.router)
