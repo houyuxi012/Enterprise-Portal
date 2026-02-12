@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Spin } from 'antd';
 import { AppView, Employee, NewsItem, QuickToolDTO } from './types';
 import ApiClient from './services/api';
@@ -132,6 +132,35 @@ const App: React.FC = () => {
     return 'system';
   });
 
+  const applyBrandingConfig = useCallback((config: Record<string, string>) => {
+    if (!config) return;
+
+    if (config.app_name) {
+      localStorage.setItem('sys_app_name', config.app_name);
+    }
+    if (config.logo_url) {
+      localStorage.setItem('sys_logo_url', config.logo_url);
+    }
+    if (config.footer_text) {
+      localStorage.setItem('sys_footer_text', config.footer_text);
+    }
+
+    if (config.browser_title) {
+      document.title = config.browser_title;
+    }
+    if (config.favicon_url) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = config.favicon_url;
+      } else {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = config.favicon_url;
+        document.head.appendChild(newLink);
+      }
+    }
+  }, []);
+
   // Fetch App Data when authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -177,25 +206,48 @@ const App: React.FC = () => {
         console.error('Failed to fetch config', configResult.reason);
       }
 
-      // Apply Config
-      if (fetchedConfig.browser_title) {
-        document.title = fetchedConfig.browser_title;
-      }
-      if (fetchedConfig.favicon_url) {
-        const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-        if (link) {
-          link.href = fetchedConfig.favicon_url;
-        } else {
-          const newLink = document.createElement('link');
-          newLink.rel = 'icon';
-          newLink.href = fetchedConfig.favicon_url;
-          document.head.appendChild(newLink);
+      applyBrandingConfig(fetchedConfig);
+    };
+
+    fetchAppData();
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig]);
+
+  // Keep branding synced when backend config changes during active sessions.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let canceled = false;
+    const refreshConfig = async () => {
+      const isAdminPath = window.location.pathname.startsWith('/admin');
+      const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+      try {
+        const latest = canUseAdminPlane
+          ? await ApiClient.getSystemConfig()
+          : await ApiClient.getPublicSystemConfig();
+        if (canceled) return;
+        setSystemConfig(latest);
+        applyBrandingConfig(latest);
+      } catch (error) {
+        if (!canceled) {
+          console.error('Failed to refresh system config', error);
         }
       }
     };
 
-    fetchAppData();
-  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions]);
+    const timer = window.setInterval(() => {
+      void refreshConfig();
+    }, 30000);
+    const onFocus = () => {
+      void refreshConfig();
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      canceled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig]);
 
   useEffect(() => {
     const root = document.documentElement;
