@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, ChevronRight, Folder, FolderOpen, Building2, Users } from 'lucide-react';
-import { Department } from '../../types';
+import { Department, UserOption } from '../../types';
 import ApiClient from '../../services/api';
 import { message, Tree, Empty, Input, Select, Popconfirm, Card, Descriptions, Tag, Statistic, Row, Col } from 'antd';
 import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined } from '@ant-design/icons';
@@ -23,6 +23,7 @@ const OrganizationList: React.FC = () => {
     const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
     const [form] = AppForm.useForm();
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [userOptions, setUserOptions] = useState<UserOption[]>([]);
 
     // 计算部门总数
     const countDepts = (list: Department[]): number =>
@@ -34,13 +35,24 @@ const OrganizationList: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const data = await ApiClient.getDepartments();
+            const [data, users] = await Promise.all([
+                ApiClient.getDepartments(),
+                ApiClient.getUserOptions().catch(() => []),
+            ]);
             setDepartments(data);
             setTreeData(buildTreeData(data));
             setExpandedKeys(data.map(d => d.id));
+            setUserOptions(Array.isArray(users) ? users : []);
         } catch (error) {
             message.error("加载部门数据失败");
         }
+    };
+
+    const getManagerDisplay = (manager?: string | null) => {
+        if (!manager) return '';
+        const matched = userOptions.find((u) => u.username === manager);
+        if (!matched) return manager;
+        return matched.name ? `${matched.name}（${matched.username}）` : matched.username;
     };
 
     const buildTreeData = (depts: Department[]): DataNode[] => {
@@ -93,7 +105,7 @@ const OrganizationList: React.FC = () => {
 
     const openCreateModal = (parentId: number | null) => {
         setEditingId(null);
-        form.setFieldsValue({ name: '', parent_id: parentId, description: '', manager: '' });
+        form.setFieldsValue({ name: '', parent_id: parentId, description: '', manager: undefined });
         setIsEditorOpen(true);
     }
 
@@ -103,7 +115,7 @@ const OrganizationList: React.FC = () => {
             name: dept.name,
             parent_id: dept.parent_id,
             description: dept.description || '',
-            manager: dept.manager || ''
+            manager: dept.manager || undefined
         });
         setIsEditorOpen(true);
     }
@@ -200,7 +212,7 @@ const OrganizationList: React.FC = () => {
                                             <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
                                                 <span className="font-mono">ID: {selectedDept.id}</span>
                                                 {selectedDept.manager && (
-                                                    <Tag icon={<UserOutlined />} color="processing">{selectedDept.manager}</Tag>
+                                                    <Tag icon={<UserOutlined />} color="processing">{getManagerDisplay(selectedDept.manager)}</Tag>
                                                 )}
                                             </div>
                                         </div>
@@ -224,7 +236,7 @@ const OrganizationList: React.FC = () => {
                                     labelStyle={{ width: 120, fontWeight: 600 }}
                                 >
                                     <Descriptions.Item label="部门名称">{selectedDept.name}</Descriptions.Item>
-                                    <Descriptions.Item label="负责人">{selectedDept.manager || <span className="text-slate-400">未设置</span>}</Descriptions.Item>
+                                    <Descriptions.Item label="负责人">{selectedDept.manager ? getManagerDisplay(selectedDept.manager) : <span className="text-slate-400">未设置</span>}</Descriptions.Item>
                                     <Descriptions.Item label="上级部门">
                                         {selectedDept.parent_id
                                             ? allDepts.find(d => d.id === selectedDept.parent_id)?.name || '未知'
@@ -265,7 +277,7 @@ const OrganizationList: React.FC = () => {
                                                     <div className="flex items-center gap-3">
 
                                                         <span className="font-medium text-slate-700 dark:text-slate-200">{child.name}</span>
-                                                        {child.manager && <Tag>{child.manager}</Tag>}
+                                                        {child.manager && <Tag>{getManagerDisplay(child.manager)}</Tag>}
                                                     </div>
                                                     <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
                                                 </div>
@@ -313,7 +325,19 @@ const OrganizationList: React.FC = () => {
                         />
                     </AppForm.Item>
                     <AppForm.Item name="manager" label="负责人">
-                        <Input placeholder="请输入负责人姓名" />
+                        <Select
+                            placeholder="请选择负责人"
+                            allowClear
+                            showSearch
+                            optionFilterProp="label"
+                            options={userOptions.map((user) => ({
+                                value: user.username,
+                                label: user.name ? `${user.name}（${user.username}）` : user.username,
+                            }))}
+                            filterOption={(input, option) =>
+                                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+                            }
+                        />
                     </AppForm.Item>
                     <AppForm.Item name="description" label="描述">
                         <TextArea placeholder="请输入部门描述" rows={3} />

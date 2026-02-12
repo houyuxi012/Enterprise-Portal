@@ -448,7 +448,7 @@
           "format": "time_series",
           "rawQuery": true,
           "refId": "A",
-          "sql": "SELECT\n+  $__timeGroupAlias(timestamp, '5m'),\n+  COUNT(*) FILTER (WHERE action = 'iam.login.success') AS \"login.success\",\n+  COUNT(*) FILTER (WHERE action = 'iam.login.fail') AS \"login.fail\"\n+FROM iam_audit_logs\n+WHERE $__timeFilter(timestamp)\n+GROUP BY 1\n+ORDER BY 1;"
+          "sql": "SELECT\n  $__timeGroupAlias(timestamp, '5m'),\n  COUNT(*) FILTER (WHERE action = 'iam.login.success') AS \"login.success\",\n  COUNT(*) FILTER (WHERE action = 'iam.login.fail') AS \"login.fail\"\nFROM iam_audit_logs\nWHERE $__timeFilter(timestamp)\nGROUP BY 1\nORDER BY 1;"
         }
       ],
       "title": "IAM 登录成功/失败趋势",
