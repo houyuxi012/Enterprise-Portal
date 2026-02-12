@@ -171,9 +171,9 @@ const App: React.FC = () => {
       }
 
       const fetchedConfig = configResult.status === 'fulfilled' ? configResult.value : {};
-      if (configResult.status === 'fulfilled' && canUseAdminPlane) {
+      if (configResult.status === 'fulfilled') {
         setSystemConfig(fetchedConfig);
-      } else if (canUseAdminPlane) {
+      } else {
         console.error('Failed to fetch config', configResult.reason);
       }
 
