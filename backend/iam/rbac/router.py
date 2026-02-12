@@ -28,6 +28,12 @@ def _is_reserved_role_code(role_code: str) -> bool:
     return (role_code or "").strip().lower() in RESERVED_ROLE_CODES
 
 
+def _is_protected_system_admin(user: models.User) -> bool:
+    account_type = (getattr(user, "account_type", "PORTAL") or "PORTAL").upper()
+    username = (getattr(user, "username", "") or "").strip().lower()
+    return account_type == "SYSTEM" and username == "admin"
+
+
 async def _load_roles_by_ids(db: AsyncSession, role_ids: List[int], app_id: str = PORTAL_APP_ID) -> List[models.Role]:
     unique_role_ids = list(set(role_ids))
     if not unique_role_ids:
@@ -188,6 +194,9 @@ async def update_user(
     update_data = user_update.dict(exclude_unset=True)
     changes = {}
 
+    if _is_protected_system_admin(user) and update_data.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="系统内置 admin 账户不可禁用")
+
     if 'role_ids' in update_data:
         role_ids = update_data.pop('role_ids')
         if role_ids is not None:
@@ -254,6 +263,9 @@ async def delete_user(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if _is_protected_system_admin(user):
+        raise HTTPException(status_code=403, detail="系统内置 admin 账户不可删除")
     
     target_name = user.username
     await db.delete(user)

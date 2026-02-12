@@ -76,7 +76,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/portal_db
       REDIS_URL: redis://redis:6379
       SECRET_KEY: "super-secret-fixed-key-for-persistence"
-      ACCESS_TOKEN_EXPIRE_MINUTES: "10080" # 7 days
+      ACCESS_TOKEN_EXPIRE_MINUTES: "480" # 8 hours
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       STORAGE_TYPE: minio
       PUBLIC_BASE_URL: "https://127.0.0.1" # Frontend entry point

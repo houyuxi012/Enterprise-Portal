@@ -80,7 +80,44 @@ sh import_test_data.sh
 
 ---
 
-## ✅ 接口级联调清单（2026-02-11）
+## ✅ 接口级联调清单（2026-02-12）
+
+新增脚本化安全链路回归清单：`backend/verify_security_chain.py`。  
+目标是对“零信任架构 · 身份驱动安全 · 全链路审计”关键路径做可重复验收。
+
+### 执行方式
+
+```bash
+docker compose exec -T backend python verify_security_chain.py
+```
+
+### 默认配置（可选覆盖）
+
+- `VERIFY_BASE_URL=https://frontend`（容器内走统一入口）
+- `VERIFY_SSL=false`（自签证书场景建议保持 false）
+- `VERIFY_ADMIN_USER=admin`
+- `VERIFY_ADMIN_PASS=admin`
+
+### 覆盖项
+
+- PORTAL 普通用户登录后台接口拒绝：`POST /api/iam/auth/admin/token` -> `403`
+- Admin 平面细粒度权限二次校验：无 `sys:user:edit` 调用员工写接口 -> `403`
+- 越权拒绝入审计链：`AUTHZ_DENIED` 可在业务日志（`domain=IAM`）查询到
+- 权限回收即时生效：回收 `PortalAdmin` 后，原有效 `admin_session` 立即被拒绝
+- 会话吊销生效：登出后重放旧 token 被拒绝（`401`）
+- 业务日志防污染：客户端非法 `action` 被拒绝（`400`），合法 action 被服务端规范化并强制 `status=SUCCESS`
+
+### 通过标准
+
+脚本输出结尾出现：
+
+```text
+ALL CHECKS PASSED
+```
+
+---
+
+## ✅ 接口级联调清单（2026-02-11，历史记录）
 
 基于 Docker Compose 运行环境，按“认证 -> 业务 -> 审计”链路完成实测，结果 **13/13 全部通过**。
 

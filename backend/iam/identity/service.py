@@ -19,6 +19,7 @@ class IdentityService:
 
     ACCOUNT_TYPE_SYSTEM = "SYSTEM"
     ACCOUNT_TYPE_PORTAL = "PORTAL"
+    REVOKED_JTI_PREFIX = "iam:revoked:jti:"
 
     @staticmethod
     def _normalize_account_type(user) -> str:
@@ -55,6 +56,71 @@ class IdentityService:
         return IdentityService._has_permission(user, "admin:access") or IdentityService._has_role(
             user, {"PortalAdmin", "portal_admin", "SuperAdmin"}
         )
+
+    @staticmethod
+    def _revoked_jti_cache_key(jti: str) -> str:
+        return f"{IdentityService.REVOKED_JTI_PREFIX}{jti}"
+
+    @staticmethod
+    def _exp_to_epoch(exp_claim) -> int | None:
+        if exp_claim is None:
+            return None
+        if isinstance(exp_claim, (int, float)):
+            return int(exp_claim)
+        if isinstance(exp_claim, str):
+            try:
+                return int(float(exp_claim))
+            except ValueError:
+                return None
+        if isinstance(exp_claim, datetime):
+            dt = exp_claim if exp_claim.tzinfo else exp_claim.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp())
+        return None
+
+    @staticmethod
+    async def _is_jti_revoked(jti: str | None) -> bool:
+        if not jti:
+            return True
+        from services.cache_manager import cache
+        try:
+            revoked = await cache.get(IdentityService._revoked_jti_cache_key(jti), is_json=False)
+            return revoked is not None
+        except Exception as e:
+            logger.warning("Failed to check token denylist for jti=%s: %s", jti, e)
+            return False
+
+    @staticmethod
+    async def _revoke_token(token: str | None):
+        if not token:
+            return
+        import utils
+        from services.cache_manager import cache
+
+        try:
+            payload = jwt.decode(
+                token,
+                utils.SECRET_KEY,
+                algorithms=[utils.ALGORITHM],
+                options={"verify_aud": False, "verify_exp": False},
+            )
+        except JWTError:
+            return
+
+        jti = payload.get("jti")
+        exp_ts = IdentityService._exp_to_epoch(payload.get("exp"))
+        if not jti or exp_ts is None:
+            return
+
+        ttl = max(1, exp_ts - int(datetime.now(timezone.utc).timestamp()))
+        try:
+            await cache.set(
+                IdentityService._revoked_jti_cache_key(jti),
+                "1",
+                ttl=ttl,
+                is_json=False,
+            )
+        except Exception as e:
+            logger.warning("Failed to add token jti=%s into denylist: %s", jti, e)
     
     @staticmethod
     async def get_current_user(request: Request, db: AsyncSession, audience: str = None):
@@ -104,6 +170,9 @@ class IdentityService:
             payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM], audience=audience, options=options)
             username: str = payload.get("sub")
             if username is None:
+                raise credentials_exception
+            token_jti: str | None = payload.get("jti")
+            if await IdentityService._is_jti_revoked(token_jti):
                 raise credentials_exception
         except JWTError:
             raise credentials_exception
@@ -273,6 +342,10 @@ class IdentityService:
         await db.commit()
 
         access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
+        previous_token = request.cookies.get(cookie_name)
+        if previous_token:
+            # Rotate same-audience session token on login to limit concurrent stale token reuse.
+            await IdentityService._revoke_token(previous_token)
         # Issue token with Audience
         access_token = utils.create_access_token(
             data={"sub": username}, expires_delta=access_token_expires, audience=audience
@@ -350,6 +423,11 @@ class IdentityService:
                     await db.commit()
             except Exception as e:
                 logger.warning("Failed to write logout audit log: %s", e)
+
+        if request:
+            await IdentityService._revoke_token(request.cookies.get("access_token"))
+            await IdentityService._revoke_token(request.cookies.get("portal_session"))
+            await IdentityService._revoke_token(request.cookies.get("admin_session"))
         
         # Clear ALL potential cookies
         response.delete_cookie(key="access_token", path="/", domain=utils.COOKIE_DOMAIN, secure=utils.COOKIE_SECURE, samesite=utils.COOKIE_SAMESITE)

@@ -17,7 +17,7 @@ import {
 
 const { Option } = Select;
 
-const EmployeeList: React.FC = () => {
+const UserList: React.FC = () => {
     const { message, modal } = App.useApp();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -25,6 +25,9 @@ const EmployeeList: React.FC = () => {
     const [deptTreeData, setDeptTreeData] = useState<DataNode[]>([]);
     const [selectedDeptName, setSelectedDeptName] = useState<string | null>(null);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+    const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+    const [targetDepartment, setTargetDepartment] = useState<string>();
+    const [moving, setMoving] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -71,6 +74,38 @@ const EmployeeList: React.FC = () => {
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
         }));
     };
+
+    const flattenDepartments = (depts: Department[], parentPath = ''): Array<{ name: string; label: string }> => {
+        const list: Array<{ name: string; label: string }> = [];
+        depts.forEach((dept) => {
+            const label = parentPath ? `${parentPath} / ${dept.name}` : dept.name;
+            list.push({ name: dept.name, label });
+            if (dept.children && dept.children.length > 0) {
+                list.push(...flattenDepartments(dept.children, label));
+            }
+        });
+        return list;
+    };
+
+    const departmentOptions = useMemo(
+        () => flattenDepartments(departments),
+        [departments]
+    );
+
+    const buildEmployeeUpdatePayload = (emp: Employee, overrides: Partial<Employee> = {}) => ({
+        account: emp.account,
+        job_number: emp.job_number || '',
+        name: emp.name,
+        gender: emp.gender,
+        department: emp.department,
+        role: emp.role || '',
+        email: emp.email,
+        phone: emp.phone,
+        location: emp.location || '',
+        avatar: emp.avatar || '',
+        status: emp.status || 'Active',
+        ...overrides,
+    });
 
     // Helper to count employees in a department (recursive rough check or exact match?)
     // For now, strict match.
@@ -165,6 +200,57 @@ const EmployeeList: React.FC = () => {
         });
     };
 
+    const handleOpenBatchMoveModal = () => {
+        if (selectedRowKeys.length === 0) return;
+        setTargetDepartment(undefined);
+        setIsMoveModalOpen(true);
+    };
+
+    const handleBatchMoveDepartment = async () => {
+        if (!targetDepartment) {
+            message.warning('请选择目标组织');
+            return;
+        }
+
+        const selectedEmployees = employees.filter((e) => selectedRowKeys.includes(e.id));
+        if (selectedEmployees.length === 0) {
+            message.warning('未找到可移动的用户');
+            return;
+        }
+
+        setMoving(true);
+        const hide = message.loading('正在移动用户...', 0);
+        try {
+            const settled = await Promise.allSettled(
+                selectedEmployees.map((emp) =>
+                    ApiClient.updateEmployee(
+                        Number(emp.id),
+                        buildEmployeeUpdatePayload(emp, { department: targetDepartment })
+                    )
+                )
+            );
+
+            const successCount = settled.filter((item) => item.status === 'fulfilled').length;
+            const failedCount = settled.length - successCount;
+
+            if (failedCount === 0) {
+                message.success(`已将 ${successCount} 位用户移动到“${targetDepartment}”`);
+                setIsMoveModalOpen(false);
+                setSelectedRowKeys([]);
+                setSelectedDeptName(targetDepartment);
+            } else {
+                message.warning(`移动完成：成功 ${successCount}，失败 ${failedCount}`);
+            }
+
+            await fetchData();
+        } catch (error) {
+            message.error('批量移动失败');
+        } finally {
+            hide();
+            setMoving(false);
+        }
+    };
+
     const handleResetPassword = async (account: string) => {
         if (!userAccounts.has(account)) {
             message.warning(`用户 ${account} 未开通系统账户，无法重置密码`);
@@ -190,7 +276,7 @@ const EmployeeList: React.FC = () => {
             const updatedEmp = { ...emp, status: newStatus };
             setEmployees(prev => prev.map(e => e.id === emp.id ? updatedEmp : e));
 
-            await ApiClient.updateEmployee(Number(emp.id), { ...emp, status: newStatus });
+            await ApiClient.updateEmployee(Number(emp.id), buildEmployeeUpdatePayload(emp, { status: newStatus }));
             message.success(`用户 ${emp.name} 已${checked ? '启用' : '禁用'}`);
             fetchData(); // Refresh to ensure sync
         } catch (error) {
@@ -249,58 +335,43 @@ const EmployeeList: React.FC = () => {
 
     const columns: ColumnsType<Employee> = [
         {
-            title: '基本信息',
+            title: '头像',
+            dataIndex: 'avatar',
+            key: 'avatar',
+            width: 90,
+            render: (avatar: string, record: Employee) => (
+                <Avatar
+                    src={avatar}
+                    size={40}
+                    icon={<UserOutlined />}
+                    className="border border-slate-200"
+                >
+                    {!avatar ? record.name?.[0] : null}
+                </Avatar>
+            ),
+        },
+        {
+            title: '姓名',
             dataIndex: 'name',
             key: 'name',
-            render: (text: string, record: Employee) => (
-                <div className="flex items-center gap-3">
-                    <Avatar
-                        src={record.avatar}
-                        size={40}
-                        icon={<UserOutlined />}
-                        className="border border-slate-200"
-                    />
-                    <div>
-                        <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            {text}
-                            <AppTag status={record.gender === '男' ? 'info' : 'error'}>
-                                {record.gender}
-                            </AppTag>
-                        </div>
-                        <div className="text-xs text-slate-400">
-                            #{record.job_number || '-'} · @{record.account}
-                        </div>
-                    </div>
-                </div>
-            ),
-        },
-        {
-            title: '职位/部门',
-            dataIndex: 'role',
-            key: 'role',
-            render: (text: string, record: Employee) => (
-                <div>
-                    <div className="font-medium text-slate-700 dark:text-slate-300">{text || '-'}</div>
-                    <AppTag status="info">{record.department}</AppTag>
-                </div>
-            ),
-        },
-        {
-            title: '联系方式',
-            key: 'contact',
-            render: (_: any, record: Employee) => (
-                <div className="space-y-0.5">
-                    <div className="text-sm text-slate-600 dark:text-slate-400">{record.email}</div>
-                    <div className="text-xs text-slate-400">{record.phone}</div>
-                </div>
-            ),
-        },
-        {
-            title: '位置',
-            dataIndex: 'location',
-            key: 'location',
             render: (text: string) => (
-                <span className="text-sm text-slate-500">{text || '-'}</span>
+                <span className="font-medium text-slate-800 dark:text-slate-200">{text}</span>
+            ),
+        },
+        {
+            title: '账户',
+            dataIndex: 'account',
+            key: 'account',
+            render: (text: string) => (
+                <span className="font-mono text-slate-600 dark:text-slate-300">{text}</span>
+            ),
+        },
+        {
+            title: '邮箱',
+            dataIndex: 'email',
+            key: 'email',
+            render: (text: string) => (
+                <span className="text-sm text-slate-600 dark:text-slate-400">{text || '-'}</span>
             ),
         },
         {
@@ -431,6 +502,14 @@ const EmployeeList: React.FC = () => {
                                     <span className="text-sm text-slate-500 font-medium mr-2">
                                         已选 {selectedRowKeys.length} 项
                                     </span>
+                                    <AppButton
+                                        intent="secondary"
+                                        size="sm"
+                                        icon={<FolderOutlined />}
+                                        onClick={handleOpenBatchMoveModal}
+                                    >
+                                        移动组织
+                                    </AppButton>
                                     <AppButton
                                         intent="secondary"
                                         size="sm"
@@ -599,8 +678,36 @@ const EmployeeList: React.FC = () => {
                     </AppForm.Item>
                 </AppForm>
             </AppModal>
+
+            <AppModal
+                title="移动用户到组织"
+                open={isMoveModalOpen}
+                onCancel={() => setIsMoveModalOpen(false)}
+                onOk={handleBatchMoveDepartment}
+                confirmLoading={moving}
+                okText="确认移动"
+                width={560}
+            >
+                <div className="space-y-4">
+                    <div className="text-sm text-slate-500">
+                        将已选 <span className="font-semibold text-slate-700">{selectedRowKeys.length}</span> 位用户移动到以下组织：
+                    </div>
+                    <Select
+                        showSearch
+                        allowClear
+                        placeholder="请选择目标组织"
+                        value={targetDepartment}
+                        onChange={(value) => setTargetDepartment(value)}
+                        optionFilterProp="label"
+                        options={departmentOptions.map((dept) => ({
+                            value: dept.name,
+                            label: dept.label,
+                        }))}
+                    />
+                </div>
+            </AppModal>
         </div>
     );
 };
 
-export default EmployeeList;
+export default UserList;

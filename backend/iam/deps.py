@@ -50,6 +50,39 @@ async def get_permissions(
     return user, permissions_set, perm_version
 
 
+async def _audit_authz_denied(
+    *,
+    db: AsyncSession,
+    request: Request,
+    user,
+    required_code: str,
+):
+    """Best-effort authorization denial audit; must not break normal response path."""
+    from services.audit_service import AuditService
+
+    try:
+        ip = request.client.host if request.client else "unknown"
+        method = request.method
+        path = request.url.path
+        trace_id = request.headers.get("X-Request-ID")
+        await AuditService.log_business_action(
+            db=db,
+            user_id=user.id,
+            username=user.username,
+            action="AUTHZ_DENIED",
+            target=path,
+            status="FAIL",
+            detail=f"required={required_code}, method={method}",
+            ip_address=ip,
+            trace_id=trace_id,
+            domain="IAM",
+        )
+        await db.commit()
+    except Exception as e:
+        logger.warning("Failed to persist authorization denial audit: %s", e)
+        await db.rollback()
+
+
 class PermissionChecker:
     """权限检查器（权限集模式，使用 Redis 缓存）"""
     
@@ -72,6 +105,12 @@ class PermissionChecker:
 
         required_code = self._normalize_permission_code(self.required_permission)
         if required_code not in permissions_set:
+            await _audit_authz_denied(
+                db=db,
+                request=request,
+                user=user,
+                required_code=required_code,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation not permitted. Required: {required_code}"
@@ -95,9 +134,16 @@ async def verify_admin_aud(
 ):
     """验证 Admin Audience"""
     from iam.identity.service import IdentityService
-    # This will throw 401 if token is invalid or aud mismatch
-    # Note: Logic to check if user *can* be admin is inside Login, 
-    # but strictly speaking, the Token *possession* with aud=admin proves they passed that check.
-    # However, for defense in depth, we could re-check permissions here, 
-    # but `get_current_user` mainly validates the token content.
-    return await IdentityService.get_current_user(request, db, audience="admin")
+    user = await IdentityService.get_current_user(request, db, audience="admin")
+    if not IdentityService._can_login_admin(user):
+        await _audit_authz_denied(
+            db=db,
+            request=request,
+            user=user,
+            required_code="portal.admin:access",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access has been revoked.",
+        )
+    return user

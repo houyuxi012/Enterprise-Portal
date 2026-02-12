@@ -13,6 +13,7 @@ import ast
 import json
 import os
 import logging
+import re
 from services.audit_service import AuditService
 from pydantic import BaseModel, Field
 
@@ -32,10 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 class BusinessActionCreate(BaseModel):
-    action: str = Field(..., min_length=1, max_length=120)
+    action: str = Field(..., min_length=2, max_length=80)
     target: Optional[str] = Field(default=None, max_length=255)
-    status: str = Field(default="SUCCESS", pattern="^(SUCCESS|FAIL)$")
-    detail: Optional[str] = Field(default=None, max_length=2000)
+    detail: Optional[str] = Field(default=None, max_length=1000)
 
 
 def _loki_headers() -> dict[str, str]:
@@ -77,6 +77,38 @@ def _get_client_ip(request: Optional[Request]) -> str:
     x_real_ip = request.headers.get("X-Real-IP")
     x_forwarded_for = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
     return x_real_ip or x_forwarded_for or (request.client.host if request.client else "unknown")
+
+
+CLIENT_ACTION_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{2,80}$")
+
+
+def _normalize_client_action(raw_action: str, *, prefix: str) -> str:
+    action = (raw_action or "").strip()
+    if not CLIENT_ACTION_PATTERN.fullmatch(action):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid action format. Allowed: letters, digits, _, ., :, -",
+        )
+    normalized = action.upper()
+    normalized = normalized.replace("-", "_").replace(".", "_").replace(":", "_")
+    normalized = re.sub(r"[^A-Z0-9_]", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Invalid action.")
+    return f"{prefix}{normalized}"[:120]
+
+
+def _sanitize_client_target(raw_target: Optional[str]) -> Optional[str]:
+    if not raw_target:
+        return None
+    return raw_target.strip()[:255] or None
+
+
+def _sanitize_client_detail(raw_detail: Optional[str]) -> Optional[str]:
+    if not raw_detail:
+        return None
+    compact = " ".join(raw_detail.split())
+    return compact[:1000] or None
 
 
 async def _record_log_query_audit(
@@ -330,13 +362,14 @@ async def create_business_log(
 ):
     trace_id = request.headers.get("X-Request-ID") if request else None
     client_ip = _get_client_ip(request)
+    normalized_action = _normalize_client_action(log.action, prefix="ADMIN_CLIENT_")
     db_log = models.BusinessLog(
         operator=current_user.username if current_user else "unknown",
-        action=log.action,
-        target=log.target,
+        action=normalized_action,
+        target=_sanitize_client_target(log.target),
         ip_address=client_ip,
-        status=log.status,
-        detail=log.detail,
+        status="SUCCESS",
+        detail=_sanitize_client_detail(log.detail),
         trace_id=trace_id,
         source="WEB",
         domain="BUSINESS",
@@ -361,13 +394,14 @@ async def create_business_log_for_portal(
     """
     trace_id = request.headers.get("X-Request-ID")
     client_ip = _get_client_ip(request)
+    normalized_action = _normalize_client_action(log.action, prefix="PORTAL_CLIENT_")
     db_log = models.BusinessLog(
         operator=current_user.username,
-        action=log.action,
-        target=log.target,
+        action=normalized_action,
+        target=_sanitize_client_target(log.target),
         ip_address=client_ip,
-        status=log.status,
-        detail=log.detail,
+        status="SUCCESS",
+        detail=_sanitize_client_detail(log.detail),
         trace_id=trace_id,
         source="WEB",
         domain="BUSINESS",

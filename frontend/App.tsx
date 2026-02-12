@@ -25,7 +25,7 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const NewsList = lazy(() => import('./pages/admin/NewsList'));
-const EmployeeList = lazy(() => import('./pages/admin/EmployeeList'));
+const UserList = lazy(() => import('./pages/admin/UserList'));
 const ToolList = lazy(() => import('./pages/admin/ToolList'));
 const AppPermissions = lazy(() => import('./pages/admin/AppPermissions'));
 const CarouselList = lazy(() => import('./pages/admin/CarouselList'));
@@ -688,7 +688,7 @@ const App: React.FC = () => {
           {activeAdminTab === 'news' && <NewsList />}
           {activeAdminTab === 'carousel' && <CarouselList />}
           {activeAdminTab === 'announcements' && <AnnouncementList />}
-          {activeAdminTab === 'employees' && <EmployeeList />}
+          {activeAdminTab === 'employees' && <UserList />}
           {activeAdminTab === 'users' && <SystemUserList />}
           {activeAdminTab === 'roles' && <RoleList />}
           {activeAdminTab === 'tools' && <ToolList />}

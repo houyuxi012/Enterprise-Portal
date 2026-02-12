@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func
 from datetime import datetime, timedelta
 import database
 import models
 import schemas
-from routers.auth import get_current_user
+from dependencies import PermissionChecker
 
 router = APIRouter(
     prefix="/dashboard",
@@ -15,7 +15,7 @@ router = APIRouter(
 @router.get("/stats", response_model=schemas.DashboardStats)
 async def get_dashboard_stats(
     db: AsyncSession = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    _: models.User = Depends(PermissionChecker("sys:user:view"))
 ):
     # Try Cache First
     from services.cache_manager import cache

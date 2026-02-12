@@ -14,6 +14,7 @@ import {
     AppFilterBar,
 } from '../../components/admin';
 import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n';
+import { hasAdminAccess } from '../../utils/adminAccess';
 
 const SystemUserList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -114,6 +115,10 @@ const SystemUserList: React.FC = () => {
     };
 
     const handleStatusChange = async (user: User, isActive: boolean) => {
+        if (isProtectedSystemAdmin(user) && !isActive) {
+            message.warning('系统内置 admin 账户不可禁用');
+            return;
+        }
         try {
             await ApiClient.updateUser(user.id, { is_active: isActive });
             message.success(`用户已${isActive ? '启用' : '禁用'}`);
@@ -128,6 +133,10 @@ const SystemUserList: React.FC = () => {
         (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
 
+    const isProtectedSystemAdmin = (user: User) => {
+        return (user.account_type || '').toUpperCase() === 'SYSTEM' && (user.username || '').trim().toLowerCase() === 'admin';
+    };
+
     const columns: ColumnsType<User> = [
         {
             title: '用户名',
@@ -137,7 +146,7 @@ const SystemUserList: React.FC = () => {
             render: (text: string, record: User) => (
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-medium text-slate-600 dark:text-slate-300 text-sm overflow-hidden">
-                        {(record.username === 'admin' || record.username === 'Admin') ? (
+                        {hasAdminAccess(record as any) ? (
                             <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
                         ) : (
                             record.avatar ? (
@@ -182,6 +191,7 @@ const SystemUserList: React.FC = () => {
                         checked={isActive}
                         onChange={(checked) => handleStatusChange(record, checked)}
                         size="small"
+                        disabled={isProtectedSystemAdmin(record) && isActive}
                     />
                     <AppTag status={isActive ? 'success' : 'default'}>
                         {isActive ? '启用' : '禁用'}
@@ -227,22 +237,33 @@ const SystemUserList: React.FC = () => {
                             title="重置密码"
                         />
                     </Popconfirm>
-                    <Popconfirm
-                        title="删除用户"
-                        description="确定要删除该用户吗？此操作不可恢复。"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="删除"
-                        cancelText="取消"
-                        okButtonProps={{ danger: true }}
-                    >
+                    {isProtectedSystemAdmin(record) ? (
                         <AppButton
-                            intent="danger"
+                            intent="tertiary"
                             iconOnly
                             size="sm"
                             icon={<Trash2 size={15} />}
-                            title="删除"
+                            title="系统内置 admin 账户不可删除"
+                            disabled
                         />
-                    </Popconfirm>
+                    ) : (
+                        <Popconfirm
+                            title="删除用户"
+                            description="确定要删除该用户吗？此操作不可恢复。"
+                            onConfirm={() => handleDelete(record.id)}
+                            okText="删除"
+                            cancelText="取消"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <AppButton
+                                intent="danger"
+                                iconOnly
+                                size="sm"
+                                icon={<Trash2 size={15} />}
+                                title="删除"
+                            />
+                        </Popconfirm>
+                    )}
                 </div>
             ),
         },

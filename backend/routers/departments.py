@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, selectinload
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List, Any
+from typing import List
 import models
 import schemas
 from database import get_db
-from routers.auth import get_current_user
 from fastapi import Request
 from services.audit_service import AuditService
-import uuid
+from dependencies import PermissionChecker
 
 router = APIRouter(
     prefix="/departments",
@@ -29,7 +27,10 @@ async def build_department_tree(departments: List[models.Department], parent_id:
     return []
 
 @router.get("/", response_model=List[schemas.Department])
-async def read_departments(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def read_departments(
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(PermissionChecker("sys:user:view")),
+):
     # Fetch only root departments, but load children recursively
     # Recursion with asyncio selectinload works if configured
     # For simplicity if tree is not huge: Fetch ALL and let Pydantic or Frontend helper build tree?
@@ -91,7 +92,7 @@ async def create_department(
     request: Request,
     dept: schemas.DepartmentCreate, 
     db: AsyncSession = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
 ):
     db_dept = models.Department(**dept.dict())
     db.add(db_dept)
@@ -130,7 +131,7 @@ async def update_department(
     request: Request,
     dept: schemas.DepartmentUpdate, 
     db: AsyncSession = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
 ):
     result = await db.execute(select(models.Department).filter(models.Department.id == dept_id))
     db_dept = result.scalars().first()
@@ -173,7 +174,7 @@ async def delete_department(
     dept_id: int, 
     request: Request,
     db: AsyncSession = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
 ):
     # Check existence
     result = await db.execute(select(models.Department).filter(models.Department.id == dept_id))
