@@ -242,16 +242,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 }}
             >
                 <div className="h-20 flex items-center justify-center border-b border-slate-50 dark:border-slate-800/50 mb-2">
-                    <div className="flex items-center space-x-3 transition-all duration-300">
+                    <div className="flex items-center space-x-3 transition-all duration-300 w-full px-4 overflow-hidden">
                         {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm flex-shrink-0" />
                         ) : (
-                            <img src="/images/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                            <img src="/images/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm flex-shrink-0" />
                         )}
                         {!collapsed && (
-                            <div className="flex flex-col">
-                                <span className="font-black text-lg text-slate-900 dark:text-white leading-tight">{appName || 'Admin Portal'}</span>
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">下一代企业门户系统</span>
+                            <div className="flex flex-col overflow-hidden whitespace-nowrap min-w-0 flex-1">
+                                <span className="font-black text-lg text-slate-900 dark:text-white leading-tight truncate w-full block">{appName || 'Admin Portal'}</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest truncate w-full block">下一代企业门户系统</span>
                             </div>
                         )}
                     </div>

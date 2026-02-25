@@ -271,6 +271,17 @@ export interface SystemVersion {
   db_schema_version?: string;
 }
 
+export interface TodoUserResponse {
+  id: number;
+  name?: string;
+  username: string;
+}
+
+export interface TodoDeptResponse {
+  id: number;
+  name: string;
+}
+
 export interface Todo {
   id: number;
   title: string;
@@ -278,11 +289,11 @@ export interface Todo {
   status: 'pending' | 'in_progress' | 'completed' | 'canceled';
   priority: number; // 0=Emergency, 1=High, 2=Medium, 3=Low
   due_at?: string; // ISO8601 UTC
-  assignee_id: number;
+  assigned_users: TodoUserResponse[];
+  assigned_departments: TodoDeptResponse[];
   creator_id?: number;
   created_at: string;
   updated_at: string;
-  assignee_name?: string;
   creator_name?: string;
 }
 

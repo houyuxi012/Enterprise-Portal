@@ -7,7 +7,7 @@ import schemas
 from database import get_db
 from fastapi import Request
 from services.audit_service import AuditService
-from dependencies import PermissionChecker
+from dependencies import PermissionChecker, get_current_user
 
 router = APIRouter(
     prefix="/departments",
@@ -29,7 +29,7 @@ async def build_department_tree(departments: List[models.Department], parent_id:
 @router.get("/", response_model=List[schemas.Department])
 async def read_departments(
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(PermissionChecker("sys:user:view")),
+    current_user: models.User = Depends(get_current_user),
 ):
     # Fetch only root departments, but load children recursively
     # Recursion with asyncio selectinload works if configured

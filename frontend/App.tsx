@@ -1,7 +1,8 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Spin } from 'antd';
-import { AppView, Employee, NewsItem, QuickToolDTO } from './types';
+import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from './types';
 import ApiClient from './services/api';
+import TodoService from './services/todos';
 import { getIcon } from './utils/iconMap';
 import { getColorClass } from './utils/colorMap';
 import { hasAdminAccess } from './utils/adminAccess';
@@ -103,6 +104,7 @@ const App: React.FC = () => {
     localStorage.setItem('activeAdminTab', activeAdminTab);
   }, [activeAdminTab]);
   const [activeNewsTab, setActiveNewsTab] = useState('全部');
+  const [activeAppCategory, setActiveAppCategory] = useState('全部');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -112,6 +114,7 @@ const App: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
 
   // Team Filter State
@@ -174,11 +177,12 @@ const App: React.FC = () => {
         setIsAdminMode(true);
       }
 
-      const [employeesResult, newsResult, toolsResult, configResult] = await Promise.allSettled([
+      const [employeesResult, newsResult, toolsResult, configResult, todosResult] = await Promise.allSettled([
         ApiClient.getEmployees(),
         ApiClient.getNews(),
         ApiClient.getTools(),
         canUseAdminPlane ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
+        TodoService.getMyTasks({ page_size: 100 })
       ]);
 
       if (employeesResult.status === 'fulfilled') {
@@ -204,6 +208,12 @@ const App: React.FC = () => {
         setSystemConfig(fetchedConfig);
       } else {
         console.error('Failed to fetch config', configResult.reason);
+      }
+
+      if (todosResult.status === 'fulfilled') {
+        setTodos(todosResult.value.items || []);
+      } else {
+        console.error('Failed to fetch todos', todosResult.reason);
       }
 
       applyBrandingConfig(fetchedConfig);
@@ -319,6 +329,13 @@ const App: React.FC = () => {
     );
   }, [globalSearch, newsList]);
 
+  const filteredTodos = useMemo(() => {
+    return todos.filter(todo =>
+      (todo.title && todo.title.toLowerCase().includes(globalSearch.toLowerCase())) ||
+      (todo.description && todo.description.toLowerCase().includes(globalSearch.toLowerCase()))
+    );
+  }, [globalSearch, todos]);
+
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
       const matchesSearch =
@@ -404,6 +421,12 @@ const App: React.FC = () => {
           </div>
         );
       case AppView.TOOLS:
+        const appCategories = ['全部', ...Array.from(new Set(tools.map(t => t.category).filter(Boolean)))];
+        const tabFilteredTools = filteredTools.filter(t => {
+          if (activeAppCategory === '全部') return true;
+          return t.category === activeAppCategory;
+        });
+
         return (
           <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
@@ -411,10 +434,25 @@ const App: React.FC = () => {
                 <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">应用中心</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">点击启动您的工作流</p>
               </div>
+
+              <div className="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto no-scrollbar max-w-full">
+                {appCategories.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => setActiveAppCategory(category)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 whitespace-nowrap ${activeAppCategory === category
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-              {filteredTools.map(tool => (
+              {tabFilteredTools.map(tool => (
                 <a
                   key={tool.id}
                   href={tool.url}
@@ -538,6 +576,7 @@ const App: React.FC = () => {
                   <tr>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">成员</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">部门</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">职位</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">操作</th>
                   </tr>
                 </thead>
@@ -553,6 +592,7 @@ const App: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-8 py-4 text-xs font-bold text-slate-500">{emp.department}</td>
+                      <td className="px-8 py-4 text-xs font-bold text-slate-500">{emp.role || '-'}</td>
                       <td className="px-8 py-4"><Mail size={16} className="text-blue-600 cursor-pointer" /></td>
                     </tr>
                   ))}
@@ -646,7 +686,40 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {filteredTools.length === 0 && filteredNews.length === 0 && filteredEmployees.length === 0 && (
+            {filteredTodos.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关待办</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredTodos.map(todo => (
+                    <div key={todo.id} className="group mica rounded-[2rem] overflow-hidden shadow-lg p-5 flex flex-col hover:bg-white dark:hover:bg-slate-800 transition text-left cursor-pointer border border-slate-100 dark:border-slate-700/50" onClick={() => setCurrentView(AppView.TODOS)}>
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-blue-600 transition-colors flex-1 pr-4">{todo.title}</h4>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black uppercase shadow-sm ${todo.priority === 3 ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' :
+                          todo.priority === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
+                            todo.priority === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
+                              'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                          }`}>
+                          {todo.priority === 3 ? '紧急' : todo.priority === 2 ? '高' : todo.priority === 1 ? '中' : '低'}
+                        </span>
+                      </div>
+                      {todo.description && <p className="text-xs text-slate-500 line-clamp-2 mb-4 flex-1">{todo.description}</p>}
+                      <div className="flex items-center justify-between mt-auto">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{new Date(todo.created_at).toLocaleDateString()}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${todo.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
+                          todo.status === 'in_progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
+                            todo.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                              'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                          {todo.status === 'pending' ? '未开始' : todo.status === 'in_progress' ? '进行中' : todo.status === 'completed' ? '已完成' : '已取消'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredTools.length === 0 && filteredNews.length === 0 && filteredEmployees.length === 0 && filteredTodos.length === 0 && (
               <div className="text-center py-20">
                 <p className="text-slate-400 font-bold">没有找到相关内容</p>
               </div>
@@ -665,6 +738,7 @@ const App: React.FC = () => {
                   <tr>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">成员</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">部门</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">职位</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">操作</th>
                   </tr>
                 </thead>
@@ -680,6 +754,7 @@ const App: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-8 py-4 text-xs font-bold text-slate-500">{emp.department}</td>
+                      <td className="px-8 py-4 text-xs font-bold text-slate-500">{emp.role || '-'}</td>
                       <td className="px-8 py-4"><Mail size={16} className="text-blue-600 cursor-pointer" /></td>
                     </tr>
                   ))}

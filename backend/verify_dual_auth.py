@@ -43,6 +43,7 @@ async def _setup_users():
             role_objects: list,
             email: str,
             name: str,
+            is_active: bool = True,
         ):
             result = await db.execute(
                 select(models.User)
@@ -55,7 +56,7 @@ async def _setup_users():
                     username=username,
                     email=email,
                     hashed_password=utils.get_password_hash(password),
-                    is_active=True,
+                    is_active=is_active,
                     name=name,
                 )
                 db.add(user)
@@ -63,11 +64,17 @@ async def _setup_users():
 
             user.email = email
             user.name = name
-            user.is_active = True
+            user.is_active = is_active
             user.account_type = account_type
             user.hashed_password = utils.get_password_hash(password)
-            user.roles = role_objects
             db.add(user)
+            await db.flush()
+            
+            # Wipe and insert roles directly using user_roles table to avoid lazy load issues
+            from sqlalchemy import delete, insert
+            await db.execute(delete(models.user_roles).where(models.user_roles.c.user_id == user.id))
+            for role in role_objects:
+                await db.execute(insert(models.user_roles).values(user_id=user.id, role_id=role.id))
 
         await upsert_user(
             username="test_portal_plain",
@@ -93,6 +100,16 @@ async def _setup_users():
             email="admin@example.com",
             name="System Administrator",
         )
+        await upsert_user(
+            username="test_portal_disabled",
+            password="password123",
+            account_type="PORTAL",
+            role_objects=[user_role],
+            email="disabled@example.com",
+            name="Disabled User",
+            is_active=False,
+        )
+
         await db.commit()
 
 
@@ -118,53 +135,65 @@ def test_dual_auth_flow():
         res = _login(portal_plain_client, "/api/iam/auth/portal/token", "test_portal_plain", "password123")
         _assert_status(res, [200], "portal plain login to /portal/token must succeed")
         assert "portal_session" in portal_plain_client.cookies, "portal_session cookie missing"
+        token = res.json().get("access_token")
+        portal_plain_client.headers["Authorization"] = f"Bearer {token}"
         print("✅ portal plain login portal/token success")
 
         # /api/app/* should pass
-        res = portal_plain_client.get("/api/app/news")
-        _assert_status(res, [200], "portal plain access /api/app/news must succeed")
-        print("✅ portal plain access /api/app/news success")
+        res = portal_plain_client.get("/api/app/news/")
+        _assert_status(res, [200], "portal plain access /api/app/news/ must succeed")
+        print("✅ portal plain access /api/app/news/ success")
 
         # /api/admin/* should fail
-        res = portal_plain_client.get("/api/admin/news")
-        _assert_status(res, [401, 403], "portal plain access /api/admin/news must fail")
-        print("✅ portal plain blocked from /api/admin/news")
+        res = portal_plain_client.get("/api/admin/news/")
+        _assert_status(res, [401, 403], "portal plain access /api/admin/news/ must fail")
+        print("✅ portal plain blocked from /api/admin/news/")
 
         # portal plain cannot login admin/token
         res = _login(portal_plain_client, "/api/iam/auth/admin/token", "test_portal_plain", "password123")
         _assert_status(res, [403], "portal plain login to /admin/token must fail")
         print("✅ portal plain login admin/token blocked")
+        
+    # 1.5) PORTAL disabled account cannot login portal/token
+    with httpx.Client(base_url=BASE_URL, timeout=10.0) as disabled_client:
+        res = _login(disabled_client, "/api/iam/auth/portal/token", "test_portal_disabled", "password123")
+        _assert_status(res, [401], "disabled portal login must fail with 401")
+        print("✅ disabled portal login portal/token blocked")
 
     # 2) PORTAL with PortalAdmin can login admin/token and access /api/admin
     with httpx.Client(base_url=BASE_URL, timeout=10.0) as portal_admin_client:
         res = _login(portal_admin_client, "/api/iam/auth/admin/token", "test_portal_admin", "password123")
         _assert_status(res, [200], "portal admin login /admin/token must succeed")
         assert "admin_session" in portal_admin_client.cookies, "admin_session cookie missing"
+        token = res.json().get("access_token")
+        portal_admin_client.headers["Authorization"] = f"Bearer {token}"
         print("✅ portal admin login admin/token success")
 
-        res = portal_admin_client.get("/api/admin/news")
-        _assert_status(res, [200], "portal admin access /api/admin/news must succeed")
-        print("✅ portal admin access /api/admin/news success")
+        res = portal_admin_client.get("/api/admin/news/")
+        _assert_status(res, [200], "portal admin access /api/admin/news/ must succeed")
+        print("✅ portal admin access /api/admin/news/ success")
 
         # admin_session should not pass /api/app
-        res = portal_admin_client.get("/api/app/news")
-        _assert_status(res, [401, 403], "admin session access /api/app/news must fail")
-        print("✅ admin session blocked from /api/app/news")
+        res = portal_admin_client.get("/api/app/news/")
+        _assert_status(res, [401, 403], "admin session access /api/app/news/ must fail")
+        print("✅ admin session blocked from /api/app/news/")
 
     # 3) SYSTEM admin can login admin/token and must fail portal/token (policy)
     with httpx.Client(base_url=BASE_URL, timeout=10.0) as system_client:
         res = _login(system_client, "/api/iam/auth/admin/token", "admin", "admin")
         _assert_status(res, [200], "system login /admin/token must succeed")
         assert "admin_session" in system_client.cookies, "admin_session cookie missing for system"
+        token = res.json().get("access_token")
+        system_client.headers["Authorization"] = f"Bearer {token}"
         print("✅ system login admin/token success")
 
         res = _login(system_client, "/api/iam/auth/portal/token", "admin", "admin")
         _assert_status(res, [403], "system login /portal/token must fail by policy")
         print("✅ system blocked from portal/token")
 
-        res = system_client.get("/api/app/news")
-        _assert_status(res, [401, 403], "system admin session must not access /api/app/news")
-        print("✅ system blocked from /api/app/news")
+        res = system_client.get("/api/app/news/")
+        _assert_status(res, [401, 403], "system admin session must not access /api/app/news/")
+        print("✅ system blocked from /api/app/news/")
 
     print("🎉 ALL CHECKS PASSED")
 

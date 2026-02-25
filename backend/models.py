@@ -18,6 +18,21 @@ user_roles = Table(
     Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True)
 )
 
+todo_user_assignees = Table(
+    'todo_user_assignees',
+    Base.metadata,
+    Column('todo_id', Integer, ForeignKey('todos.id', ondelete="CASCADE"), primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id', ondelete="CASCADE"), primary_key=True)
+)
+
+todo_dept_assignees = Table(
+    'todo_dept_assignees',
+    Base.metadata,
+    Column('todo_id', Integer, ForeignKey('todos.id', ondelete="CASCADE"), primary_key=True),
+    Column('department_id', Integer, ForeignKey('departments.id', ondelete="CASCADE"), primary_key=True)
+)
+
+
 class Permission(Base):
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
@@ -381,11 +396,11 @@ class Todo(Base):
     due_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    assignee_id = Column(Integer, ForeignKey("users.id"), index=True)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    assignee = relationship("User", foreign_keys=[assignee_id], backref="assigned_todos")
+    assigned_users = relationship("User", secondary=todo_user_assignees, backref="assigned_todos")
+    assigned_departments = relationship("Department", secondary=todo_dept_assignees, backref="assigned_todos")
     creator = relationship("User", foreign_keys=[creator_id], backref="created_todos")

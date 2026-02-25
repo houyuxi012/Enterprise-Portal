@@ -63,31 +63,37 @@ async def seed_todos_data():
             return
 
         selected_ids = [int(u.id) for u in selected_users]
-        await db.execute(
-            delete(Todo).where(
-                Todo.assignee_id.in_(selected_ids),
+        
+        # Find existing seed todos for these users
+        result = await db.execute(
+            select(Todo.id).where(
+                Todo.assigned_users.any(User.id.in_(selected_ids)),
                 Todo.description.like(f"{SEED_MARKER}%"),
             )
         )
+        todo_ids = result.scalars().all()
+        if todo_ids:
+            await db.execute(delete(Todo).where(Todo.id.in_(todo_ids)))
+            
         await db.commit()
 
         now = datetime.now(timezone.utc)
         created_count = 0
 
         for index, user in enumerate(selected_users):
-            time_shift = now + timedelta(minutes=index * 15)
             for tpl in TODO_TEMPLATES:
+                time_shift = now + timedelta(minutes=index * 15)
                 todo = Todo(
                     title=tpl["title"],
                     description=f"{SEED_MARKER} assignee={user.username}; priority={tpl['priority']}",
                     status=tpl["status"],
                     priority=tpl["priority"],
                     due_at=_calc_due_at(time_shift, tpl),
-                    assignee_id=user.id,
                     creator_id=admin_id or user.id,
                     created_at=time_shift,
                     updated_at=time_shift,
                 )
+                todo.assigned_users.append(user)
                 db.add(todo)
                 created_count += 1
 

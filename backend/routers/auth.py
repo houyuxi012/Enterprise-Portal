@@ -35,5 +35,5 @@ async def logout(
     return await IdentityService.logout(response, request=request, db=db)
 
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):
-    from iam.identity.service import IdentityService
-    return await IdentityService.get_current_user(request, db)
+    from iam.deps import get_current_identity
+    return await get_current_identity(request, db)

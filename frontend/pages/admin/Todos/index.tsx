@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Input, Select, DatePicker, message, Row, Col, Popconfirm, Card, Tooltip } from 'antd';
+import { Input, Select, DatePicker, message, Row, Col, Popconfirm, Card, Tooltip, TreeSelect } from 'antd';
 import { Plus, Trash2, Edit } from 'lucide-react';
 import dayjs from 'dayjs';
 import { Todo, User, UserOption } from '../../../types';
@@ -19,7 +19,7 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 // Helper to fetch users for assignment
-const UserSelect: React.FC<{ value?: number; onChange?: (val: number) => void }> = ({ value, onChange }) => {
+const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
     const [users, setUsers] = useState<UserOption[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -40,7 +40,9 @@ const UserSelect: React.FC<{ value?: number; onChange?: (val: number) => void }>
 
     return (
         <Select
+            mode={mode}
             showSearch
+            allowClear
             placeholder="选择指派用户"
             optionFilterProp="label"
             loading={loading}
@@ -61,6 +63,53 @@ const UserSelect: React.FC<{ value?: number; onChange?: (val: number) => void }>
     );
 };
 
+// Helper to fetch departments for assignment
+const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
+    const [departments, setDepartments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const loadDepts = async () => {
+            setLoading(true);
+            try {
+                const data = await ApiClient.getDepartments();
+                setDepartments(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadDepts();
+    }, []);
+
+    const mapTreeData = (depts: any[]): any[] => {
+        return depts.map(d => ({
+            title: d.name,
+            value: d.id,
+            key: d.id,
+            children: d.children ? mapTreeData(d.children) : []
+        }));
+    };
+
+    return (
+        <TreeSelect
+            multiple={mode === "multiple"}
+            treeCheckable={mode === "multiple"}
+            showSearch
+            allowClear
+            placeholder="选择指派部门"
+            treeNodeFilterProp="title"
+            loading={loading}
+            value={value}
+            onChange={onChange}
+            className="w-full"
+            treeData={mapTreeData(departments)}
+            style={{ borderRadius: '8px' }}
+        />
+    );
+};
+
 const AdminTodoList: React.FC = () => {
     const [todos, setTodos] = useState<Todo[]>([]);
     const [total, setTotal] = useState(0);
@@ -74,7 +123,8 @@ const AdminTodoList: React.FC = () => {
 
     // Filters
     const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
-    const [assigneeFilter, setAssigneeFilter] = useState<number | undefined>(undefined);
+    const [assigneeUserFilter, setAssigneeUserFilter] = useState<number | undefined>(undefined);
+    const [assigneeDeptFilter, setAssigneeDeptFilter] = useState<number | undefined>(undefined);
 
     const fetchTodos = async (page = 1, size = 10) => {
         setLoading(true);
@@ -83,7 +133,8 @@ const AdminTodoList: React.FC = () => {
                 page,
                 page_size: size,
                 status: statusFilter,
-                assignee_id: assigneeFilter
+                assignee_user_id: assigneeUserFilter,
+                assignee_dept_id: assigneeDeptFilter
             });
             setTodos(data.items);
             setTotal(data.total);
@@ -98,7 +149,7 @@ const AdminTodoList: React.FC = () => {
 
     useEffect(() => {
         fetchTodos(currentPage, pageSize);
-    }, [statusFilter, assigneeFilter]);
+    }, [statusFilter, assigneeUserFilter, assigneeDeptFilter]);
 
     const handleCreate = () => {
         setEditingTodo(null);
@@ -116,7 +167,9 @@ const AdminTodoList: React.FC = () => {
         form.setFieldsValue({
             ...record,
             due_at: record.due_at ? dayjs(record.due_at) : undefined,
-            priority: record.priority
+            priority: record.priority,
+            assignee_user_ids: record.assigned_users?.map(u => u.id) || [],
+            assignee_dept_ids: record.assigned_departments?.map(d => d.id) || []
         });
         setIsModalOpen(true);
     };
@@ -139,7 +192,8 @@ const AdminTodoList: React.FC = () => {
                 description: values.description,
                 status: values.status,
                 priority: values.priority,
-                assignee_id: values.assignee_id,
+                assignee_user_ids: values.assignee_user_ids || [],
+                assignee_dept_ids: values.assignee_dept_ids || [],
                 due_at: values.due_at ? values.due_at.toISOString() : undefined,
             };
 
@@ -184,9 +238,25 @@ const AdminTodoList: React.FC = () => {
         },
         {
             title: '指派给',
-            dataIndex: 'assignee_name',
-            key: 'assignee_name',
-            render: (text: string) => <AppTag status="processing">{text || 'Unknown'}</AppTag>
+            key: 'assignees',
+            // @ts-ignore
+            render: (_: any, record: Todo) => (
+                <div className="flex flex-wrap gap-1 w-48">
+                    {record.assigned_users && record.assigned_users.length > 0 ? (
+                        record.assigned_users.map(u => (
+                            <AppTag key={`u-${u.id}`} status="processing">{u.name || u.username}</AppTag>
+                        ))
+                    ) : null}
+                    {record.assigned_departments && record.assigned_departments.length > 0 ? (
+                        record.assigned_departments.map(d => (
+                            <AppTag key={`d-${d.id}`} status="warning">{d.name}</AppTag>
+                        ))
+                    ) : null}
+                    {(!record.assigned_users?.length && !record.assigned_departments?.length) && (
+                        <span className="text-slate-400 text-xs mt-1">未指派</span>
+                    )}
+                </div>
+            )
         },
         {
             title: '创建者',
@@ -254,10 +324,13 @@ const AdminTodoList: React.FC = () => {
                 subtitle="全员待办任务监控与调度"
                 action={
                     <div className="flex gap-3">
-                        <div className="w-48 hidden sm:block">
-                            <UserSelect value={assigneeFilter} onChange={setAssigneeFilter} />
+                        <div className="w-40 hidden sm:block">
+                            <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} />
                         </div>
                         <div className="w-40 hidden sm:block">
+                            <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} />
+                        </div>
+                        <div className="w-32 hidden sm:block">
                             <Select
                                 placeholder="状态筛选"
                                 allowClear
@@ -280,14 +353,19 @@ const AdminTodoList: React.FC = () => {
             />
 
             {/* Mobile Filters (visible only on small screens) */}
-            <div className="sm:hidden mb-4 flex gap-2">
-                <div className="w-1/2">
-                    <UserSelect value={assigneeFilter} onChange={setAssigneeFilter} />
+            <div className="sm:hidden mb-4 flex flex-col gap-2">
+                <div className="flex gap-2 w-full">
+                    <div className="w-1/2">
+                        <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} />
+                    </div>
+                    <div className="w-1/2">
+                        <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} />
+                    </div>
                 </div>
                 <Select
                     placeholder="状态筛选"
                     allowClear
-                    className="w-1/2"
+                    className="w-full"
                     value={statusFilter}
                     onChange={setStatusFilter}
                     style={{ borderRadius: '8px' }}
@@ -328,9 +406,18 @@ const AdminTodoList: React.FC = () => {
                         <Input placeholder="任务名称" />
                     </AppForm.Item>
 
-                    <AppForm.Item name="assignee_id" label="指派给" rules={[{ required: true, message: '请选择指派对象' }]}>
-                        <UserSelect />
-                    </AppForm.Item>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <AppForm.Item name="assignee_user_ids" label="指派用户">
+                                <UserSelect mode="multiple" />
+                            </AppForm.Item>
+                        </Col>
+                        <Col span={12}>
+                            <AppForm.Item name="assignee_dept_ids" label="指派部门">
+                                <DepartmentSelect mode="multiple" />
+                            </AppForm.Item>
+                        </Col>
+                    </Row>
 
                     <AppForm.Item name="description" label="描述">
                         <TextArea rows={3} placeholder="任务详情..." />

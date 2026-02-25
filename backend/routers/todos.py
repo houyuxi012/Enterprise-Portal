@@ -14,15 +14,33 @@ router = APIRouter(
 )
 
 
+from sqlalchemy.orm import selectinload
+
+async def _resolve_user_dept_id(db: AsyncSession, username: str) -> Optional[int]:
+    emp_result = await db.execute(select(models.Employee).filter(models.Employee.account == username))
+    employee = emp_result.scalars().first()
+    if employee and employee.department:
+        dept_result = await db.execute(select(models.Department).filter(models.Department.name == employee.department))
+        dept = dept_result.scalars().first()
+        return dept.id if dept else None
+    return None
+
 def _apply_task_filters(
     query,
     user_id: int,
+    user_dept_id: Optional[int] = None,
     status: Optional[str] = None,
     priority: Optional[int] = None,
     q: Optional[str] = None,
     preset: Optional[str] = None,
 ):
-    query = query.filter(models.Todo.assignee_id == user_id)
+    access_condition = models.Todo.creator_id == user_id
+    access_condition = or_(access_condition, models.Todo.assigned_users.any(models.User.id == user_id))
+    if user_dept_id:
+        access_condition = or_(access_condition, models.Todo.assigned_departments.any(models.Department.id == user_dept_id))
+    
+    query = query.filter(access_condition)
+
     if status:
         query = query.filter(models.Todo.status == status)
     if priority is not None:
@@ -68,7 +86,15 @@ async def get_my_task_stats(
         func.coalesce(func.sum(case((models.Todo.status == "in_progress", 1), else_=0)), 0).label("in_progress"),
         func.coalesce(func.sum(case((models.Todo.status == "completed", 1), else_=0)), 0).label("completed"),
         func.coalesce(func.sum(case((models.Todo.status == "canceled", 1), else_=0)), 0).label("canceled"),
-    ).filter(models.Todo.assignee_id == current_user.id)
+    )
+    
+    user_dept_id = await _resolve_user_dept_id(db, current_user.username)
+    access_condition = models.Todo.creator_id == current_user.id
+    access_condition = or_(access_condition, models.Todo.assigned_users.any(models.User.id == current_user.id))
+    if user_dept_id:
+        access_condition = or_(access_condition, models.Todo.assigned_departments.any(models.Department.id == user_dept_id))
+        
+    base_query = base_query.filter(access_condition)
 
     if scope == "active":
         base_query = base_query.filter(models.Todo.status.in_(["pending", "in_progress"]))
@@ -106,9 +132,16 @@ async def get_my_tasks(
     """
     Get current user's tasks with pagination and filtering.
     """
+    user_dept_id = await _resolve_user_dept_id(db, current_user.username)
+    
     query = _apply_task_filters(
-        select(models.Todo),
+        select(models.Todo).options(
+            selectinload(models.Todo.assigned_users),
+            selectinload(models.Todo.assigned_departments),
+            selectinload(models.Todo.creator)
+        ),
         user_id=current_user.id,
+        user_dept_id=user_dept_id,
         status=status,
         priority=priority,
         q=q,
@@ -139,6 +172,7 @@ async def get_my_tasks(
     count_q = _apply_task_filters(
         select(func.count(models.Todo.id)),
         user_id=current_user.id,
+        user_dept_id=user_dept_id,
         status=status,
         priority=priority,
         q=q,
@@ -149,7 +183,7 @@ async def get_my_tasks(
 
     # Enrich names
     for todo in items:
-        todo.assignee_name = current_user.name or current_user.username
+        todo.creator_name = todo.creator.name or todo.creator.username if todo.creator else "System"
 
     return {
         "items": items,
@@ -171,13 +205,32 @@ async def create_task(
         status="pending",
         priority=todo_in.priority if todo_in.priority is not None else 2,
         due_at=todo_in.due_at,
-        assignee_id=current_user.id,
         creator_id=current_user.id
     )
     
+    if todo_in.assignee_user_ids:
+        users = await db.execute(select(models.User).filter(models.User.id.in_(todo_in.assignee_user_ids)))
+        db_todo.assigned_users = list(users.scalars().all())
+    elif not todo_in.assignee_dept_ids:
+        # Default to self if no assignees are provided
+        db_todo.assigned_users = [current_user]
+        
+    if todo_in.assignee_dept_ids:
+        depts = await db.execute(select(models.Department).filter(models.Department.id.in_(todo_in.assignee_dept_ids)))
+        db_todo.assigned_departments = list(depts.scalars().all())
+    
     db.add(db_todo)
     await db.commit()
-    await db.refresh(db_todo)
+    
+    # Reload with relationships
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == db_todo.id)
+    )
+    db_todo = result.scalars().first()
+    if db_todo.creator:
+        db_todo.creator_name = db_todo.creator.name or db_todo.creator.username
     
     # Audit Log
     await AuditService.log_business_action(
@@ -202,14 +255,34 @@ async def update_task(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    result = await db.execute(select(models.Todo).filter(models.Todo.id == task_id, models.Todo.assignee_id == current_user.id))
+    user_dept_id = await _resolve_user_dept_id(db, current_user.username)
+    
+    access_condition = models.Todo.creator_id == current_user.id
+    access_condition = or_(access_condition, models.Todo.assigned_users.any(models.User.id == current_user.id))
+    if user_dept_id:
+        access_condition = or_(access_condition, models.Todo.assigned_departments.any(models.Department.id == user_dept_id))
+
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == task_id, access_condition)
+    )
     todo = result.scalars().first()
     
     if not todo:
         raise HTTPException(status_code=404, detail="Task not found")
         
     update_data = todo_update.dict(exclude_unset=True)
-    if 'assignee_id' in update_data: del update_data['assignee_id']
+    
+    if 'assignee_user_ids' in update_data:
+        users = await db.execute(select(models.User).filter(models.User.id.in_(update_data['assignee_user_ids'])))
+        todo.assigned_users = list(users.scalars().all())
+        del update_data['assignee_user_ids']
+        
+    if 'assignee_dept_ids' in update_data:
+        depts = await db.execute(select(models.Department).filter(models.Department.id.in_(update_data['assignee_dept_ids'])))
+        todo.assigned_departments = list(depts.scalars().all())
+        del update_data['assignee_dept_ids']
         
     for key, value in update_data.items():
         setattr(todo, key, value)
@@ -226,7 +299,16 @@ async def update_task(
     )
     
     await db.commit()
-    await db.refresh(todo)
+    
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == todo.id)
+    )
+    todo = result.scalars().first()
+    if todo.creator:
+        todo.creator_name = todo.creator.name or todo.creator.username
+        
     return todo
 
 # State Actions
@@ -243,7 +325,17 @@ async def cancel_task(task_id: int, request: Request, db: AsyncSession = Depends
     return await _update_status(task_id, "canceled", request, db, current_user)
 
 async def _update_status(task_id: int, status_val: str, request: Request, db: AsyncSession, current_user: models.User):
-    result = await db.execute(select(models.Todo).filter(models.Todo.id == task_id, models.Todo.assignee_id == current_user.id))
+    user_dept_id = await _resolve_user_dept_id(db, current_user.username)
+    access_condition = models.Todo.creator_id == current_user.id
+    access_condition = or_(access_condition, models.Todo.assigned_users.any(models.User.id == current_user.id))
+    if user_dept_id:
+        access_condition = or_(access_condition, models.Todo.assigned_departments.any(models.Department.id == user_dept_id))
+
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == task_id, access_condition)
+    )
     todo = result.scalars().first()
     if not todo: raise HTTPException(status_code=404, detail="Task not found")
     
@@ -259,5 +351,13 @@ async def _update_status(task_id: int, status_val: str, request: Request, db: As
         trace_id=request.headers.get("X-Request-ID")
     )
     await db.commit()
-    await db.refresh(todo)
+    
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == todo.id)
+    )
+    todo = result.scalars().first()
+    if todo.creator:
+        todo.creator_name = todo.creator.name or todo.creator.username
     return todo

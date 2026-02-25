@@ -190,7 +190,7 @@ export const ApiClient = {
 
   optimizeStorage: async () => {
 
-    const response = await api.post('/system/optimize-storage', {});
+    const response = await api.post('/admin/system/optimize-storage', {});
     return response.data;
   },
 
@@ -315,7 +315,7 @@ export const ApiClient = {
   },
 
   getSystemConfig: async (): Promise<Record<string, string>> => {
-    const response = await api.get('/system/config');
+    const response = await api.get('/admin/system/config');
     return response.data;
   },
 
@@ -326,17 +326,17 @@ export const ApiClient = {
 
   updateSystemConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
 
-    const response = await api.post('/system/config', config);
+    const response = await api.post('/admin/system/config', config);
     return response.data;
   },
 
   getSystemInfo: async (): Promise<SystemInfo> => {
-    const response = await api.get<SystemInfo>('/system/info');
+    const response = await api.get<SystemInfo>('/admin/system/info');
     return response.data;
   },
 
   getSystemVersion: async (): Promise<SystemVersion> => {
-    const response = await api.get<SystemVersion>('/system/version');
+    const response = await api.get<SystemVersion>('/admin/system/version');
     return response.data;
   },
 
@@ -428,12 +428,12 @@ export const ApiClient = {
   // System Resources
   getSystemResources: async () => {
 
-    const response = await api.get('/system/resources');
+    const response = await api.get('/admin/system/resources');
     return response.data;
   },
 
   getStorageStats: async (): Promise<import('../types').StorageStats> => {
-    const response = await api.get('/system/storage');
+    const response = await api.get('/admin/system/storage');
     return response.data;
   },
 

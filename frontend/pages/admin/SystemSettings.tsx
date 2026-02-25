@@ -24,7 +24,7 @@ const SystemSettings: React.FC = () => {
         setLoading(true);
         try {
             await ApiClient.updateSystemConfig(values);
-            message.success('Settings updated successfully. Please refresh the page to see changes.');
+            message.success('设置更新成功，请刷新页面查看更改。');
             // Update document title immediately for feedback
             if (values.browser_title) {
                 document.title = values.browser_title;

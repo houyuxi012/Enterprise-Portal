@@ -484,7 +484,8 @@ class TodoBase(BaseModel):
     status: Optional[str] = "pending"
     priority: Optional[int] = 2  # 0=Emergency, 1=High, 2=Medium, 3=Low
     due_at: Optional[datetime] = None
-    assignee_id: Optional[int] = None
+    assignee_user_ids: List[int] = []
+    assignee_dept_ids: List[int] = []
 
 class TodoCreate(TodoBase):
     pass
@@ -495,7 +496,23 @@ class TodoUpdate(BaseModel):
     status: Optional[str] = None
     priority: Optional[int] = None
     due_at: Optional[datetime] = None
-    assignee_id: Optional[int] = None
+    assignee_user_ids: Optional[List[int]] = None
+    assignee_dept_ids: Optional[List[int]] = None
+
+class TodoUserResponse(BaseModel):
+    id: int
+    name: Optional[str] = None
+    username: str
+
+    class Config:
+        from_attributes = True
+
+class TodoDeptResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
 
 class Todo(TodoBase):
     id: int
@@ -503,8 +520,9 @@ class Todo(TodoBase):
     created_at: datetime
     updated_at: datetime
     
-    # Optional nested user info for display
-    assignee_name: Optional[str] = None
+    # Nested information for display
+    assigned_users: List[TodoUserResponse] = []
+    assigned_departments: List[TodoDeptResponse] = []
     creator_name: Optional[str] = None
 
     class Config:

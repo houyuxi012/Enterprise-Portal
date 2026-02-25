@@ -146,6 +146,7 @@ async def _ensure_demo_portal_users(
             db.add(user)
             await db.flush()
             changed = True
+            current_codes = []
         else:
             changed = False
             if (user.account_type or "").upper() != "PORTAL":
@@ -163,20 +164,34 @@ async def _ensure_demo_portal_users(
             if not user.hashed_password:
                 user.hashed_password = utils.get_password_hash(item["password"])
                 changed = True
+            current_codes = sorted([r.code for r in (user.roles or [])])
 
-        wanted_roles = []
+        wanted_role_ids: list[int] = []
+        wanted_role_codes: list[str] = []
         for role_code in item["role_codes"]:
             role_id = role_map.get(role_code)
             if not role_id:
                 continue
-            role_obj = await db.get(models.Role, role_id)
-            if role_obj:
-                wanted_roles.append(role_obj)
+            wanted_role_ids.append(role_id)
+            wanted_role_codes.append(role_code)
 
-        current_codes = sorted([r.code for r in (user.roles or [])])
-        target_codes = sorted([r.code for r in wanted_roles])
-        if current_codes != target_codes:
-            user.roles = wanted_roles
+        target_role_ids = sorted(set(wanted_role_ids))
+        current_role_ids_result = await db.execute(
+            select(models.user_roles.c.role_id).where(models.user_roles.c.user_id == user.id)
+        )
+        current_role_ids = sorted([row[0] for row in current_role_ids_result.fetchall()])
+
+        target_codes = sorted(wanted_role_codes)
+        if current_role_ids != target_role_ids:
+            await db.execute(
+                delete(models.user_roles).where(models.user_roles.c.user_id == user.id)
+            )
+            if target_role_ids:
+                stmt = insert(models.user_roles).values(
+                    [{"user_id": user.id, "role_id": rid} for rid in target_role_ids]
+                )
+                stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "role_id"])
+                await db.execute(stmt)
             changed = True
 
         if changed:

@@ -143,43 +143,53 @@ class IdentityService:
                 audience = "portal"
 
         # Strict cookie isolation when audience is explicitly required.
+        # Strict cookie isolation when audience is explicitly required.
         token = None
         if audience == "admin":
             token = request.cookies.get("admin_session")
-            if not token:
-                raise credentials_exception
         elif audience == "portal":
             token = request.cookies.get("portal_session")
-            if not token:
-                raise credentials_exception
         else:
             # Legacy/global auth fallback for endpoints that don't lock to one audience.
             token = request.cookies.get("admin_session") or request.cookies.get("portal_session")
             if not token:
                 token = request.cookies.get("access_token")
-            if not token:
-                auth_header = request.headers.get("Authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    token = auth_header.split(" ")[1]
-                else:
-                    raise credentials_exception
         
+        # Fallback to Authorization Header if token not in cookies
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+            else:
+                print(f"IAM Debug: Cannot find token in cookies or headers for audience={audience}")
+                raise credentials_exception
+        
+        print(f"IAM Debug: Found token for audience={audience}: {token[:15]}...")
         try:
             # Decode with audience verification if audience is specified
             options = {"verify_aud": True} if audience else {"verify_aud": False}
             payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM], audience=audience, options=options)
             username: str = payload.get("sub")
             if username is None:
+                print("IAM Debug: Payload sub is None")
                 raise credentials_exception
             token_jti: str | None = payload.get("jti")
             if await IdentityService._is_jti_revoked(token_jti):
+                print(f"IAM Debug: Token JTI {token_jti} revoked")
                 raise credentials_exception
-        except JWTError:
+        except JWTError as e:
+            print(f"IAM Debug: JWTError {e}")
             raise credentials_exception
+        
+        print(f"IAM Debug: Looking up user {username}")
         
         result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
         user = result.scalars().first()
-        if user is None or not user.is_active:
+        if user is None:
+            print(f"IAM Debug: User {username} not found")
+            raise credentials_exception
+        if not user.is_active:
+            print(f"IAM Debug: User {username} is inactive")
             raise credentials_exception
         return user
     

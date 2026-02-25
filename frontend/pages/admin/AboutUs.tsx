@@ -1,30 +1,30 @@
 import React from 'react';
-import { Users, Globe, Zap, Heart } from 'lucide-react';
+import { ShieldCheck, BrainCircuit, Database, Fingerprint } from 'lucide-react';
 
 const AboutUs: React.FC = () => {
     const stats = [
         {
-            icon: <Users className="w-6 h-6 text-indigo-500" />,
-            value: '1,200+',
-            label: '全球员工',
+            icon: <ShieldCheck className="w-6 h-6 text-indigo-500" />,
+            value: '零信任架构',
+            label: '双重认证与 RBAC 权限',
             color: 'indigo'
         },
         {
-            icon: <Globe className="w-6 h-6 text-blue-500" />,
-            value: '24',
-            label: '覆盖城市',
+            icon: <BrainCircuit className="w-6 h-6 text-blue-500" />,
+            value: '大模型聚合',
+            label: '多厂商 AI 引擎接入',
             color: 'blue'
         },
         {
-            icon: <Zap className="w-6 h-6 text-violet-500" />,
-            value: '150+',
-            label: '专利技术',
+            icon: <Database className="w-6 h-6 text-violet-500" />,
+            value: '智能知识库',
+            label: '基于 RAG 的向量检索',
             color: 'violet'
         },
         {
-            icon: <Heart className="w-6 h-6 text-rose-500" />,
-            value: '99.2%',
-            label: '客户满意度',
+            icon: <Fingerprint className="w-6 h-6 text-rose-500" />,
+            value: '全链路审计',
+            label: '细粒度行为与 AI 追责',
             color: 'rose'
         }
     ];

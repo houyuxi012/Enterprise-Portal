@@ -24,7 +24,8 @@ export interface CreateTodoDTO {
     description?: string;
     priority?: number; // 0|1|2|3
     due_at?: string;
-    assignee_id?: number; // Only used for Admin
+    assignee_user_ids?: number[]; // Used for assigning users
+    assignee_dept_ids?: number[]; // Used for assigning departments
 }
 
 export interface UpdateTodoDTO {
@@ -32,7 +33,8 @@ export interface UpdateTodoDTO {
     description?: string;
     priority?: number;
     due_at?: string;
-    assignee_id?: number; // Only used for Admin
+    assignee_user_ids?: number[];
+    assignee_dept_ids?: number[];
 }
 
 export interface TodoQueryParams {
@@ -44,7 +46,8 @@ export interface TodoQueryParams {
     preset?: 'today' | 'week' | 'urgent';
     sort?: string;
     order?: 'asc' | 'desc';
-    assignee_id?: number; // Admin only
+    assignee_user_id?: number; // Admin only
+    assignee_dept_id?: number; // Admin only
 }
 
 export interface TodoStats {
@@ -108,7 +111,8 @@ const TodoService = {
         if (params.page) searchParams.append('page', params.page.toString());
         if (params.page_size) searchParams.append('page_size', params.page_size.toString());
         if (params.status) searchParams.append('status', params.status);
-        if (params.assignee_id) searchParams.append('assignee_id', params.assignee_id.toString());
+        if (params.assignee_user_id) searchParams.append('assignee_user_id', params.assignee_user_id.toString());
+        if (params.assignee_dept_id) searchParams.append('assignee_dept_id', params.assignee_dept_id.toString());
 
         return api.get(`/admin/tasks/?${searchParams.toString()}`);
     },

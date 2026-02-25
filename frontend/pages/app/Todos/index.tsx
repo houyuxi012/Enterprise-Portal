@@ -1,12 +1,105 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Button, Modal, Form, Input, Select, DatePicker, message, Row, Col, Popconfirm, Tooltip, Pagination } from 'antd';
+import { Button, Modal, Form, Input, Select, DatePicker, message, Row, Col, Popconfirm, Tooltip, Pagination, TreeSelect } from 'antd';
 import { CheckCircle, Clock, Plus, Trash2, Edit2 } from 'lucide-react';
 import dayjs from 'dayjs';
-import { Todo } from '../../../types';
+import { Todo, UserOption } from '../../../types';
 import TodoService, { CreateTodoDTO, UpdateTodoDTO } from '../../../services/todos';
+import ApiClient from '../../../services/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+// Helper to fetch users for assignment
+const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
+    const [users, setUsers] = useState<UserOption[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const loadUsers = async () => {
+            setLoading(true);
+            try {
+                const data = await ApiClient.getUserOptions();
+                setUsers(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadUsers();
+    }, []);
+
+    return (
+        <Select
+            mode={mode}
+            showSearch
+            allowClear
+            placeholder="指派用户..."
+            optionFilterProp="label"
+            loading={loading}
+            value={value}
+            onChange={onChange}
+            className="w-full"
+            style={{ borderRadius: '8px' }}
+        >
+            {users.map(u => (
+                <Option key={u.id} value={u.id} label={`${u.name || ''} ${u.username}`}>
+                    <div className="flex items-center gap-2">
+                        {u.name || u.username}
+                        <span className="text-xs text-slate-400">({u.username})</span>
+                    </div>
+                </Option>
+            ))}
+        </Select>
+    );
+};
+
+// Helper to fetch departments for assignment
+const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
+    const [departments, setDepartments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const loadDepts = async () => {
+            setLoading(true);
+            try {
+                const data = await ApiClient.getDepartments();
+                setDepartments(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadDepts();
+    }, []);
+
+    const mapTreeData = (depts: any[]): any[] => {
+        return depts.map(d => ({
+            title: d.name,
+            value: d.id,
+            key: d.id,
+            children: d.children ? mapTreeData(d.children) : []
+        }));
+    };
+
+    return (
+        <TreeSelect
+            multiple={mode === "multiple"}
+            treeCheckable={mode === "multiple"}
+            showSearch
+            allowClear
+            placeholder="指派部门..."
+            treeNodeFilterProp="title"
+            loading={loading}
+            value={value}
+            onChange={onChange}
+            className="w-full"
+            treeData={mapTreeData(departments)}
+            style={{ borderRadius: '8px' }}
+        />
+    );
+};
 
 const TodoList: React.FC = () => {
     const [todos, setTodos] = useState<Todo[]>([]);
@@ -82,6 +175,8 @@ const TodoList: React.FC = () => {
         form.setFieldsValue({
             ...record,
             due_at: record.due_at ? dayjs(record.due_at) : undefined,
+            assignee_user_ids: record.assigned_users?.map(u => u.id) || [],
+            assignee_dept_ids: record.assigned_departments?.map(d => d.id) || []
         });
         setIsModalVisible(true);
     };
@@ -124,6 +219,8 @@ const TodoList: React.FC = () => {
                 title: values.title,
                 description: values.description,
                 priority: values.priority, // number
+                assignee_user_ids: values.assignee_user_ids || [],
+                assignee_dept_ids: values.assignee_dept_ids || [],
                 due_at: values.due_at ? values.due_at.toISOString() : undefined,
             };
 
@@ -263,7 +360,7 @@ const TodoList: React.FC = () => {
                                         : 'border-slate-100 dark:border-slate-700 text-slate-300 hover:border-blue-500 hover:text-blue-500'
                                         }`}
                                 >
-                                    <CheckCircle size={24} className={todo.status === 'completed' ? 'animate-in zoom-in spin-in-180 duration-500' : ''} weight={todo.status === 'completed' ? "fill" : "regular"} />
+                                    <CheckCircle size={24} className={todo.status === 'completed' ? 'animate-in zoom-in spin-in-180 duration-500' : ''} fill={todo.status === 'completed' ? "currentColor" : "none"} color={todo.status === 'completed' ? "white" : "currentColor"} />
                                 </button>
 
                                 {/* Content */}
@@ -292,6 +389,23 @@ const TodoList: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+                                    {/* Assignees Tags */}
+                                    {/* 隐藏前台分配人/部门标签显示
+                                    {(todo.assigned_users?.length > 0 || todo.assigned_departments?.length > 0) && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {todo.assigned_users?.map(u => (
+                                                <span key={`u-${u.id}`} className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                                    @{u.name || u.username}
+                                                </span>
+                                            ))}
+                                            {todo.assigned_departments?.map(d => (
+                                                <span key={`d-${d.id}`} className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-600 text-[10px] font-bold border border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
+                                                    🏢 {d.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    */}
                                 </div>
 
                                 {/* Actions */}
@@ -350,6 +464,7 @@ const TodoList: React.FC = () => {
                 width={600}
                 className="mica-modal"
                 styles={{
+                    // @ts-ignore
                     content: {
                         borderRadius: '2rem',
                         padding: '2rem',
@@ -372,6 +487,21 @@ const TodoList: React.FC = () => {
                     <Form.Item name="description" label={<span className="font-bold text-slate-700 dark:text-slate-300">任务描述</span>}>
                         <TextArea rows={4} placeholder="添加详细描述..." className="rounded-2xl bg-slate-50 border-slate-200 focus:bg-white transition-all p-4 font-medium" />
                     </Form.Item>
+
+                    {/* 隐藏指派人和部门表单项
+                    <Row gutter={24}>
+                        <Col span={12}>
+                            <Form.Item name="assignee_user_ids" label={<span className="font-bold text-slate-700 dark:text-slate-300">指派给用户（默认自己）</span>}>
+                                <UserSelect mode="multiple" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="assignee_dept_ids" label={<span className="font-bold text-slate-700 dark:text-slate-300">指派给部门</span>}>
+                                <DepartmentSelect mode="multiple" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    */}
 
                     <Row gutter={24}>
                         <Col span={12}>

@@ -17,7 +17,8 @@ router = APIRouter(
 
 @router.get("/", response_model=schemas.PaginatedTodoResponse)
 async def get_all_tasks(
-    assignee_id: Optional[int] = None,
+    assignee_user_id: Optional[int] = None,
+    assignee_dept_id: Optional[int] = None,
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -28,12 +29,15 @@ async def get_all_tasks(
     Get all tasks (Admin only) with pagination.
     """
     query = select(models.Todo).options(
-        selectinload(models.Todo.assignee),
+        selectinload(models.Todo.assigned_users),
+        selectinload(models.Todo.assigned_departments),
         selectinload(models.Todo.creator)
     )
     
-    if assignee_id:
-        query = query.filter(models.Todo.assignee_id == assignee_id)
+    if assignee_user_id:
+        query = query.filter(models.Todo.assigned_users.any(models.User.id == assignee_user_id))
+    if assignee_dept_id:
+        query = query.filter(models.Todo.assigned_departments.any(models.Department.id == assignee_dept_id))
         
     if status:
         query = query.filter(models.Todo.status == status)
@@ -48,15 +52,15 @@ async def get_all_tasks(
     
     # Map names
     for todo in items:
-        if todo.assignee:
-            todo.assignee_name = todo.assignee.name or todo.assignee.username
         if todo.creator:
             todo.creator_name = todo.creator.name or todo.creator.username
             
     # Count
     count_q = select(models.Todo)
-    if assignee_id:
-        count_q = count_q.filter(models.Todo.assignee_id == assignee_id)
+    if assignee_user_id:
+        count_q = count_q.filter(models.Todo.assigned_users.any(models.User.id == assignee_user_id))
+    if assignee_dept_id:
+        count_q = count_q.filter(models.Todo.assigned_departments.any(models.Department.id == assignee_dept_id))
     if status:
         count_q = count_q.filter(models.Todo.status == status)
         
@@ -80,8 +84,8 @@ async def admin_create_task(
     """
     Create a task assigned to anyone (Admin only).
     """
-    if not todo_in.assignee_id:
-        raise HTTPException(status_code=400, detail="assignee_id is required for admin task creation")
+    if not todo_in.assignee_user_ids and not todo_in.assignee_dept_ids:
+        raise HTTPException(status_code=400, detail="assignee_user_ids or assignee_dept_ids is required for admin task creation")
 
     db_todo = models.Todo(
         title=todo_in.title,
@@ -89,24 +93,27 @@ async def admin_create_task(
         status="pending",
         priority=todo_in.priority if todo_in.priority is not None else 2,
         due_at=todo_in.due_at,
-        assignee_id=todo_in.assignee_id,
         creator_id=current_user.id
     )
     
+    if todo_in.assignee_user_ids:
+        users = await db.execute(select(models.User).filter(models.User.id.in_(todo_in.assignee_user_ids)))
+        db_todo.assigned_users = list(users.scalars().all())
+    if todo_in.assignee_dept_ids:
+        depts = await db.execute(select(models.Department).filter(models.Department.id.in_(todo_in.assignee_dept_ids)))
+        db_todo.assigned_departments = list(depts.scalars().all())
+    
     db.add(db_todo)
     await db.commit()
-    await db.refresh(db_todo)
     
     # Populate names for response
     result = await db.execute(
         select(models.Todo)
-        .options(selectinload(models.Todo.assignee), selectinload(models.Todo.creator))
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
         .filter(models.Todo.id == db_todo.id)
     )
     db_todo = result.scalars().first()
     
-    if db_todo.assignee:
-        db_todo.assignee_name = db_todo.assignee.name or db_todo.assignee.username
     if db_todo.creator:
         db_todo.creator_name = db_todo.creator.name or db_todo.creator.username
     
@@ -140,7 +147,7 @@ async def admin_update_task(
     """
     result = await db.execute(
         select(models.Todo)
-        .options(selectinload(models.Todo.assignee), selectinload(models.Todo.creator))
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
         .filter(models.Todo.id == task_id)
     )
     todo = result.scalars().first()
@@ -149,6 +156,15 @@ async def admin_update_task(
         raise HTTPException(status_code=404, detail="Task not found")
         
     update_data = todo_update.dict(exclude_unset=True)
+    
+    if 'assignee_user_ids' in update_data:
+        users = await db.execute(select(models.User).filter(models.User.id.in_(update_data['assignee_user_ids'])))
+        todo.assigned_users = list(users.scalars().all())
+        del update_data['assignee_user_ids']
+    if 'assignee_dept_ids' in update_data:
+        depts = await db.execute(select(models.Department).filter(models.Department.id.in_(update_data['assignee_dept_ids'])))
+        todo.assigned_departments = list(depts.scalars().all())
+        del update_data['assignee_dept_ids']
     
     for key, value in update_data.items():
         setattr(todo, key, value)
@@ -165,10 +181,14 @@ async def admin_update_task(
     )
     
     await db.commit()
-    await db.refresh(todo)
     
-    if todo.assignee:
-        todo.assignee_name = todo.assignee.name or todo.assignee.username
+    result = await db.execute(
+        select(models.Todo)
+        .options(selectinload(models.Todo.assigned_users), selectinload(models.Todo.assigned_departments), selectinload(models.Todo.creator))
+        .filter(models.Todo.id == todo.id)
+    )
+    todo = result.scalars().first()
+    
     if todo.creator:
         todo.creator_name = todo.creator.name or todo.creator.username
         
