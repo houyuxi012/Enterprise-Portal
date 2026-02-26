@@ -24,6 +24,19 @@ const AnnouncementList: React.FC = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = AppForm.useForm();
 
+    const formatPublishTime = (record: Announcement) => {
+        const createdAt = record.created_at ? new Date(record.created_at) : null;
+        if (createdAt && !Number.isNaN(createdAt.getTime())) {
+            return createdAt.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        }
+        return record.time || '-';
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -60,10 +73,9 @@ const AnnouncementList: React.FC = () => {
         setEditingItem(null);
         form.resetFields();
         form.setFieldsValue({
-            tag: '通知',
+            tag: '公告',
             color: 'blue',
             is_urgent: false,
-            time: '刚刚'
         });
         setIsModalOpen(true);
     };
@@ -125,15 +137,16 @@ const AnnouncementList: React.FC = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5 animate-pulse"></span>
                         紧急
                     </span> :
-                    <span className="text-xs font-bold text-slate-400">普通通知</span>
+                    <span className="text-xs font-bold text-slate-400">普通公告</span>
             )
         },
         {
             title: '发布时间',
-            dataIndex: 'time',
             key: 'time',
             width: 120,
-            render: (text: string) => <span className="text-xs font-bold text-slate-400">{text}</span>
+            render: (_: string, record: Announcement) => (
+                <span className="text-xs font-bold text-slate-400">{formatPublishTime(record)}</span>
+            )
         },
         {
             title: '操作',
@@ -154,7 +167,7 @@ const AnnouncementList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             <AppPageHeader
                 title="公告管理"
-                subtitle="管理发布到首页的大屏通知"
+                subtitle="管理发布到首页的大屏公告"
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
                         发布公告
@@ -190,7 +203,7 @@ const AnnouncementList: React.FC = () => {
                         <AppForm.Item name="tag" label="标签" rules={[{ required: true, message: '请选择或输入标签' }]}>
                             <AutoComplete
                                 options={[
-                                    { value: '通知' },
+                                    { value: '公告' },
                                     { value: '维护' },
                                     { value: '警告' },
                                     { value: '更新' },
@@ -210,9 +223,6 @@ const AnnouncementList: React.FC = () => {
                         </AppForm.Item>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item name="time" label="显示时间" rules={[{ required: true, message: '请输入显示时间' }]}>
-                            <Input placeholder="例如: 10分钟前" />
-                        </AppForm.Item>
                         <AppForm.Item name="is_urgent" label="紧急提醒" valuePropName="checked">
                             <Switch checkedChildren="紧急" unCheckedChildren="普通" />
                         </AppForm.Item>

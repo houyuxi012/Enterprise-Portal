@@ -292,19 +292,22 @@ class IdentityService:
 
         # Check password policy compliance
         if user:
-            from services.password_policy import validate_password
+            from services.password_policy import validate_password, is_password_expired
+            policy_violates = False
             try:
-                await validate_password(db, form_data.password, user)
-                if getattr(user, "password_violates_policy", True):
-                    user.password_violates_policy = False
-                    db.add(user)
+                # Login should only evaluate complexity/user-info/max-age policy.
+                # Password history reuse is for password change/reset only.
+                await validate_password(db, form_data.password, user, check_history=False)
             except HTTPException as e:
                 if getattr(e, "status_code", 400) == 400:
-                    if not getattr(user, "password_violates_policy", False):
-                        user.password_violates_policy = True
-                        db.add(user)
+                    policy_violates = True
                 else:
                     raise e
+            if await is_password_expired(db, user):
+                policy_violates = True
+            if getattr(user, "password_violates_policy", False) != policy_violates:
+                user.password_violates_policy = policy_violates
+                db.add(user)
 
         # Disabled accounts check
         if not user.is_active:

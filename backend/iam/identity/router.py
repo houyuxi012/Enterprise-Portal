@@ -2,16 +2,20 @@
 Identity Router - 认证路由
 /iam/auth/portal/token, /iam/auth/admin/token, /iam/auth/logout, /iam/auth/me
 """
-from fastapi import APIRouter, Depends, Request, Response, Query
+from fastapi import APIRouter, Depends, Request, Response, Query, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .service import IdentityService
-from .schemas import UserMeResponse, TokenResponse, LogoutResponse, RoleOut
+from .schemas import UserMeResponse, TokenResponse, LogoutResponse, RoleOut, PasswordChangeRequest
 from iam.deps import get_db, get_current_identity
 from iam.rbac.service import RBACService
+from iam.audit.service import IAMAuditService
+from services.password_policy import set_user_password
+import utils
 
 router = APIRouter(prefix="/auth", tags=["iam-identity"])
+user_router = APIRouter(prefix="/users", tags=["iam-identity"])
 
 @router.post("/portal/token", response_model=TokenResponse)
 async def login_portal(
@@ -67,3 +71,34 @@ async def get_me(
         permissions=list(permissions_set),
         perm_version=perm_version
     )
+
+
+@user_router.put("/me/password", status_code=status.HTTP_200_OK)
+async def change_my_password(
+    request: Request,
+    payload: PasswordChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_identity),
+):
+    if not utils.verify_password(payload.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="原密码不正确")
+    if payload.old_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="新密码不能与原密码相同")
+
+    await set_user_password(db, current_user, payload.new_password, validate=True)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db,
+        action="iam.user.password_change",
+        target_type="user",
+        user_id=current_user.id,
+        username=current_user.username,
+        target_id=current_user.id,
+        target_name=current_user.username,
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+    await db.commit()
+    return {"message": "密码修改成功"}

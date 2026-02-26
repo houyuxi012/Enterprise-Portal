@@ -65,6 +65,14 @@ async def apply_startup_migrations():
             "ALTER TABLE users "
             "ADD COLUMN IF NOT EXISTS password_violates_policy BOOLEAN DEFAULT FALSE"
         ))
+        await conn.execute(text(
+            "ALTER TABLE users "
+            "ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NOW()"
+        ))
+        await conn.execute(text(
+            "UPDATE users SET password_changed_at = NOW() "
+            "WHERE password_changed_at IS NULL"
+        ))
         # Keep built-in admin as system account by default
         await conn.execute(text(
             "UPDATE users SET account_type = 'SYSTEM' "
@@ -72,6 +80,89 @@ async def apply_startup_migrations():
         ))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_users_account_type ON users (account_type)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_users_password_changed_at ON users (password_changed_at)"
+        ))
+
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS user_password_history ("
+            "id SERIAL PRIMARY KEY, "
+            "user_id INTEGER NOT NULL REFERENCES users(id), "
+            "hashed_password VARCHAR NOT NULL, "
+            "changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_user_password_history_user_id_changed_at "
+            "ON user_password_history (user_id, changed_at DESC)"
+        ))
+
+        await conn.execute(text(
+            "ALTER TABLE announcements "
+            "ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()"
+        ))
+        await conn.execute(text(
+            "UPDATE announcements SET created_at = NOW() "
+            "WHERE created_at IS NULL"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_announcements_created_at "
+            "ON announcements (created_at DESC)"
+        ))
+
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS announcement_reads ("
+            "id SERIAL PRIMARY KEY, "
+            "user_id INTEGER NOT NULL REFERENCES users(id), "
+            "announcement_id INTEGER NOT NULL REFERENCES announcements(id), "
+            "read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+            "CONSTRAINT uq_announcement_read_user_announcement UNIQUE (user_id, announcement_id)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_announcement_reads_user_announcement "
+            "ON announcement_reads (user_id, announcement_id)"
+        ))
+
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS notifications ("
+            "id SERIAL PRIMARY KEY, "
+            "title VARCHAR NOT NULL, "
+            "message TEXT NOT NULL, "
+            "type VARCHAR(20) NOT NULL DEFAULT 'info', "
+            "action_url VARCHAR, "
+            "created_by INTEGER REFERENCES users(id), "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_notifications_created_at "
+            "ON notifications (created_at DESC)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_notifications_created_by "
+            "ON notifications (created_by)"
+        ))
+
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS notification_receipts ("
+            "id SERIAL PRIMARY KEY, "
+            "notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE, "
+            "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+            "is_read BOOLEAN NOT NULL DEFAULT FALSE, "
+            "read_at TIMESTAMPTZ, "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+            "CONSTRAINT uq_notification_receipt_notification_user UNIQUE (notification_id, user_id)"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_notification_receipts_user_read_created_at "
+            "ON notification_receipts (user_id, is_read, created_at DESC)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_notification_receipts_notification_id "
+            "ON notification_receipts (notification_id)"
         ))
 
         # AI provider model kind (text / multimodal)

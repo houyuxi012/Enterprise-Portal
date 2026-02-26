@@ -51,6 +51,24 @@ body {
     100% { transform: translateY(0px); }
 }
 
+.animate-bell-shake {
+    animation: bell-shake 1.2s ease-in-out infinite;
+    transform-origin: top center;
+}
+
+@keyframes bell-shake {
+    0%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(-16deg); }
+    20% { transform: rotate(14deg); }
+    30% { transform: rotate(-12deg); }
+    40% { transform: rotate(10deg); }
+    50% { transform: rotate(-8deg); }
+    60% { transform: rotate(6deg); }
+    70% { transform: rotate(-4deg); }
+    80% { transform: rotate(2deg); }
+    90% { transform: rotate(-1deg); }
+}
+
 /* Markdown Styles */
 .prose p { margin-bottom: 0.5em; }
 .prose p:last-child { margin-bottom: 0; }

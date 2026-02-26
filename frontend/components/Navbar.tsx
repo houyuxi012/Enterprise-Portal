@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { KeyOutlined } from '@ant-design/icons';
 import { AppView, Notification } from '../types';
-import { MOCK_NOTIFICATIONS } from '../constants';
 import ApiClient from '../services/api';
 import { hasAdminAccess } from '../utils/adminAccess';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -33,71 +32,103 @@ const Navbar: React.FC<NavbarProps> = ({
   currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout,
   tools, news, employees, currentUser, systemConfig
 }) => {
+  const formatRelativeTime = (value?: string): string => {
+    if (!value) return '刚刚';
+    const ts = new Date(value).getTime();
+    if (Number.isNaN(ts)) return value;
+    const diffMs = Date.now() - ts;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin <= 1) return '刚刚';
+    if (diffMin < 60) return `${diffMin} 分钟前`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour} 小时前`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay} 天前`;
+  };
+
+  const parseBackendNotificationId = (id: string): number | null => {
+    if (!id.startsWith('notification-')) return null;
+    const numeric = Number(id.slice('notification-'.length));
+    return Number.isFinite(numeric) ? numeric : null;
+  };
+
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showSearchPreview, setShowSearchPreview] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const initialNotes: Notification[] = [];
-    if (currentUser?.password_violates_policy) {
-      initialNotes.push({
-        id: 'weak-password-warning',
-        title: '安全提醒',
-        message: '您的密码不符合当前安全策略规定，请尽快修改。',
-        time: '刚刚',
-        type: 'warning',
-        isRead: false,
-      });
-    }
-
-    // Load read states from localStorage
-    try {
-      if (currentUser?.id) {
-        const readIds = JSON.parse(localStorage.getItem(`read_notifications_${currentUser.id}`) || '[]');
-        return initialNotes.map(n => readIds.includes(n.id) ? { ...n, isRead: true } : n);
-      }
-    } catch (e) {
-      console.error('Failed to parse read notifications', e);
-    }
-    return initialNotes;
-  });
-
-  // Re-evaluate if currentUser changes
-  useEffect(() => {
-    setNotifications(prev => {
-      const hasWarning = prev.some(n => n.id === 'weak-password-warning');
-      const needsWarning = !!currentUser?.password_violates_policy;
-
-      let nextNotes = [...prev];
-      if (needsWarning && !hasWarning) {
-        nextNotes = [{
-          id: 'weak-password-warning',
-          title: '安全提醒',
-          message: '您的密码不符合当前安全策略规定，请尽快修改。',
-          time: '刚刚',
-          type: 'warning',
-          isRead: false,
-        }, ...nextNotes];
-      } else if (!needsWarning && hasWarning) {
-        nextNotes = nextNotes.filter(n => n.id !== 'weak-password-warning');
-      }
-
-      try {
-        if (currentUser?.id) {
-          const readIds = JSON.parse(localStorage.getItem(`read_notifications_${currentUser.id}`) || '[]');
-          nextNotes = nextNotes.map(n => readIds.includes(n.id) ? { ...n, isRead: true } : n);
-        }
-      } catch (e) { }
-
-      return nextNotes;
-    });
-  }, [currentUser?.password_violates_policy, currentUser?.id]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const persistReadStates = (notes: Notification[]) => {
     if (!currentUser?.id) return;
-    const readIds = notes.filter(n => n.isRead).map(n => n.id);
+    // Only persist local (non-backend) notification read states.
+    const readIds = notes
+      .filter(n => n.isRead && parseBackendNotificationId(n.id) === null)
+      .map(n => n.id);
     localStorage.setItem(`read_notifications_${currentUser.id}`, JSON.stringify(readIds));
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshNotifications = async () => {
+      if (!currentUser?.id) {
+        setNotifications([]);
+        return;
+      }
+
+      const localReadIds = new Set<string>();
+      try {
+        const readIds = JSON.parse(localStorage.getItem(`read_notifications_${currentUser.id}`) || '[]');
+        if (Array.isArray(readIds)) {
+          readIds.forEach((id) => localReadIds.add(String(id)));
+        }
+      } catch (e) {
+        console.error('Failed to parse read notifications', e);
+      }
+
+      const backendNotifications: Notification[] = [];
+      try {
+        const rows = await ApiClient.getMyNotifications({ limit: 20, offset: 0 });
+        rows.forEach((item) => {
+          const type = ['info', 'success', 'warning', 'reminder'].includes(item.type) ? item.type : 'info';
+          backendNotifications.push({
+            id: `notification-${item.id}`,
+            title: item.title,
+            message: item.message,
+            time: formatRelativeTime(item.created_at),
+            type: type as Notification['type'],
+            isRead: Boolean(item.is_read),
+          });
+        });
+      } catch (e) {
+        console.error('Failed to load notifications', e);
+      }
+
+      let nextNotifications = backendNotifications;
+
+      if (currentUser?.password_violates_policy) {
+        nextNotifications = [
+          {
+            id: 'weak-password-warning',
+            title: '安全提醒',
+            message: '您的密码不符合当前安全策略规定，请尽快修改。',
+            time: '刚刚',
+            type: 'warning',
+            isRead: localReadIds.has('weak-password-warning'),
+          },
+          ...nextNotifications,
+        ];
+      }
+
+      if (!cancelled) {
+        setNotifications(nextNotifications);
+      }
+    };
+
+    refreshNotifications();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, currentUser?.password_violates_policy]);
 
   const [aiPreviewAnswer, setAiPreviewAnswer] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -212,6 +243,10 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const markAllAsRead = () => {
+    ApiClient.markAllNotificationsRead().catch((e) => {
+      console.error('Failed to mark all notifications as read', e);
+    });
+
     setNotifications(prev => {
       const next = prev.map(n => ({ ...n, isRead: true }));
       persistReadStates(next);
@@ -220,6 +255,13 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const markAsRead = (id: string) => {
+    const backendNotificationId = parseBackendNotificationId(id);
+    if (backendNotificationId !== null) {
+      ApiClient.markNotificationsRead([backendNotificationId]).catch((e) => {
+        console.error('Failed to mark notification as read', e);
+      });
+    }
+
     setNotifications(prev => {
       const next = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
       persistReadStates(next);
@@ -422,7 +464,13 @@ const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 {notifications.length > 0 && (
                   <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                    <button className="w-full py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors">
+                    <button
+                      onClick={() => {
+                        setView(AppView.TODOS);
+                        setIsNotificationsOpen(false);
+                      }}
+                      className="w-full py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                    >
                       查看全部通知
                     </button>
                   </div>

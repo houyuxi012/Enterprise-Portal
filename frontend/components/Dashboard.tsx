@@ -42,6 +42,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
   const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
+  const formatAnnouncementTime = (createdAt?: string, fallback?: string) => {
+    if (!createdAt) return fallback || '-';
+    const ts = new Date(createdAt).getTime();
+    if (Number.isNaN(ts)) return fallback || '-';
+    const diffMin = Math.floor((Date.now() - ts) / 60000);
+    if (diffMin <= 1) return '刚刚';
+    if (diffMin < 60) return `${diffMin}分钟前`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}小时前`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}天前`;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -134,6 +147,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     urgent: announcements.filter(a => a.is_urgent).length,
     today: 2
   }), [announcements]);
+
+  const hasUrgentAnnouncements = useMemo(
+    () => announcements.some((a) => a.is_urgent),
+    [announcements]
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pt-2 relative">
@@ -267,16 +285,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                 <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></div>
                 <h3 className="font-black text-[10px] uppercase tracking-widest">实时公告</h3>
               </div>
-              <BellRing size={14} className="text-slate-400" />
+              <BellRing
+                size={14}
+                className={hasUrgentAnnouncements ? 'text-rose-500 animate-bell-shake' : 'text-slate-400'}
+              />
             </div>
             <div className="p-3 space-y-1">
               {announcements.slice(0, 3).map((item) => (
                 <div key={item.id} className="group p-4 rounded-2xl hover:bg-white dark:hover:bg-slate-700/50 transition-all cursor-pointer">
                   <div className="flex justify-between items-center mb-1">
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${getTagStyles(item.color)}`}>
-                      {item.tag}
-                    </span>
-                    <span className="text-[8px] text-slate-400 font-bold">{item.time}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${getTagStyles(item.color)}`}>
+                        {item.tag}
+                      </span>
+                      {item.is_urgent && (
+                        <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40">
+                          紧急
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[8px] text-slate-400 font-bold">{formatAnnouncementTime(item.created_at, item.time)}</span>
                   </div>
                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1">{item.title}</p>
                 </div>

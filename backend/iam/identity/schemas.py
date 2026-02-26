@@ -45,3 +45,8 @@ class TokenResponse(BaseModel):
 class LogoutResponse(BaseModel):
     """登出成功响应"""
     message: str = "Logout successful"
+
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str

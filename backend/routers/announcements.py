@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +7,9 @@ from database import get_db
 from services.audit_service import AuditService
 from routers.auth import get_current_user
 import models, schemas
-from sqlalchemy import select
+from sqlalchemy import select, desc
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/announcements",
@@ -15,11 +18,94 @@ router = APIRouter(
 
 @router.get("/", response_model=List[schemas.Announcement])
 async def read_announcements(
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
-    result = await db.execute(select(models.Announcement))
-    return result.scalars().all()
+    result = await db.execute(
+        select(models.Announcement).order_by(
+            desc(models.Announcement.created_at),
+            desc(models.Announcement.id),
+        )
+    )
+    announcements = result.scalars().all()
+    try:
+        await AuditService.log_business_action(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="READ_ANNOUNCEMENTS",
+            target="公告列表",
+            detail=f"count={len(announcements)}",
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="CONTENT",
+        )
+        await db.commit()
+    except Exception as e:
+        logger.warning("Failed to write announcement read audit: %s", e)
+        await db.rollback()
+    return announcements
+
+
+@router.get("/read-state", response_model=schemas.AnnouncementReadStateResponse)
+async def read_announcement_state(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(models.AnnouncementRead.announcement_id).filter(
+            models.AnnouncementRead.user_id == current_user.id
+        )
+    )
+    return {"announcement_ids": sorted(set(result.scalars().all()))}
+
+
+@router.post("/read-state", response_model=schemas.AnnouncementReadStateResponse)
+async def upsert_announcement_state(
+    payload: schemas.AnnouncementReadStateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    ids = sorted({int(i) for i in (payload.announcement_ids or []) if int(i) > 0})
+    if not ids:
+        return {"announcement_ids": []}
+
+    existing_announcement_ids = set(
+        (
+            await db.execute(
+                select(models.Announcement.id).filter(models.Announcement.id.in_(ids))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not existing_announcement_ids:
+        return {"announcement_ids": []}
+
+    existing_read_ids = set(
+        (
+            await db.execute(
+                select(models.AnnouncementRead.announcement_id).filter(
+                    models.AnnouncementRead.user_id == current_user.id,
+                    models.AnnouncementRead.announcement_id.in_(existing_announcement_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    for announcement_id in sorted(existing_announcement_ids - existing_read_ids):
+        db.add(
+            models.AnnouncementRead(
+                user_id=current_user.id,
+                announcement_id=announcement_id,
+            )
+        )
+
+    await db.commit()
+    return {"announcement_ids": sorted(existing_announcement_ids | existing_read_ids)}
 
 @router.post("/", response_model=schemas.Announcement, dependencies=[Depends(PermissionChecker("content:announcement:edit"))])
 async def create_announcement(
@@ -28,7 +114,14 @@ async def create_announcement(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    db_announcement = models.Announcement(**announcement.dict())
+    # Do not trust client-supplied display time. Lifecycle/audit timeline uses server created_at.
+    db_announcement = models.Announcement(
+        tag=announcement.tag,
+        title=announcement.title,
+        content=announcement.content,
+        color=announcement.color,
+        is_urgent=announcement.is_urgent,
+    )
     db.add(db_announcement)
     await db.commit()
     await db.refresh(db_announcement)
@@ -62,8 +155,12 @@ async def update_announcement(
     if not announcement:
         raise HTTPException(status_code=404, detail="Announcement not found")
         
-    for key, value in announcement_update.dict().items():
-        setattr(announcement, key, value)
+    # Keep created_at immutable and ignore legacy time mutation from clients.
+    announcement.tag = announcement_update.tag
+    announcement.title = announcement_update.title
+    announcement.content = announcement_update.content
+    announcement.color = announcement_update.color
+    announcement.is_urgent = announcement_update.is_urgent
         
     await db.commit()
     await db.refresh(announcement)

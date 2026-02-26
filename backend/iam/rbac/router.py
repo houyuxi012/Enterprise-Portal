@@ -11,9 +11,15 @@ from sqlalchemy.orm import selectinload
 from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from .service import RBACService
 from . import schemas
-import models, utils
+import models
 from services.audit_service import AuditService
 from iam.audit.service import IAMAuditService
+from services.password_policy import (
+    validate_password,
+    generate_compliant_password,
+    get_password_policy_configs,
+    set_user_password,
+)
 
 router = APIRouter(
     prefix="/admin",
@@ -109,18 +115,13 @@ async def create_user(
         if email_exists.scalars().first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
-    config_result = await db.execute(select(models.SystemConfig))
-    configs = {c.key: c.value for c in config_result.scalars().all()}
-    min_length = int(configs.get("security_password_min_length", 8))
-
     password = user_data.password
-    if len(password) < min_length:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters")
+    configs = await get_password_policy_configs(db)
+    await validate_password(db, password, user_data, configs=configs)
 
     db_user = models.User(
         username=user_data.username,
         email=user_data.email,
-        hashed_password=utils.get_password_hash(password),
         account_type="PORTAL",
         is_active=user_data.is_active,
         name=user_data.name,
@@ -151,6 +152,13 @@ async def create_user(
         db_user.roles = [default_role]
         assigned_role_codes = [default_role.code]
     
+    await set_user_password(
+        db,
+        db_user,
+        password,
+        validate=False,
+        configs=configs,
+    )
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
@@ -205,16 +213,10 @@ async def update_user(
             await RBACService.invalidate_user(user_id)
             changes["role_ids"] = role_ids
 
-    config_result = await db.execute(select(models.SystemConfig))
-    configs = {c.key: c.value for c in config_result.scalars().all()}
-    min_length = int(configs.get("security_password_min_length", 8))
-
     if "password" in update_data:
         new_password = update_data.pop("password")
         if new_password is not None:
-            if len(new_password) < min_length:
-                raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters")
-            user.hashed_password = utils.get_password_hash(new_password)
+            await set_user_password(db, user, new_password, validate=True)
             changes["password"] = "***"
 
     if "username" in update_data and update_data["username"] and update_data["username"] != user.username:
@@ -411,22 +413,28 @@ async def reset_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    config_result = await db.execute(select(models.SystemConfig))
-    configs = {c.key: c.value for c in config_result.scalars().all()}
-    min_length = int(configs.get("security_password_min_length", 8))
+    configs = await get_password_policy_configs(db)
     provided_password = (payload.new_password or "").strip()
     auto_generated = False
     if provided_password:
         new_pwd = provided_password
     else:
         auto_generated = True
-        default_pwd = "12345678"
-        new_pwd = default_pwd if len(default_pwd) >= min_length else default_pwd + ("0" * (min_length - len(default_pwd)))
+        generated = None
+        for _ in range(8):
+            candidate = generate_compliant_password(configs)
+            try:
+                await validate_password(db, candidate, user, configs=configs)
+                generated = candidate
+                break
+            except HTTPException as e:
+                if e.status_code != 400:
+                    raise
+        if not generated:
+            raise HTTPException(status_code=500, detail="Failed to generate a compliant password")
+        new_pwd = generated
 
-    if len(new_pwd) < min_length:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
-
-    user.hashed_password = utils.get_password_hash(new_pwd)
+    await set_user_password(db, user, new_pwd, validate=True, configs=configs)
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"

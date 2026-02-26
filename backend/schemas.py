@@ -94,7 +94,6 @@ class AnnouncementBase(BaseModel):
     tag: str
     title: str
     content: str
-    time: str
     color: str
     is_urgent: bool = False
 
@@ -103,8 +102,57 @@ class AnnouncementCreate(AnnouncementBase):
 
 class Announcement(AnnouncementBase):
     id: int
+    time: Optional[str] = None
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+
+
+class AnnouncementReadStateUpdate(BaseModel):
+    announcement_ids: List[int] = []
+
+
+class AnnouncementReadStateResponse(BaseModel):
+    announcement_ids: List[int] = []
+
+
+class NotificationBase(BaseModel):
+    title: str
+    message: str
+    type: str = "info"  # info/success/warning/reminder
+    action_url: Optional[str] = None
+
+
+class NotificationPushRequest(NotificationBase):
+    user_ids: List[int] = []
+    broadcast: bool = False
+
+
+class NotificationItem(NotificationBase):
+    id: int
+    created_at: Optional[datetime] = None
+    is_read: bool = False
+    read_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationReadStateUpdate(BaseModel):
+    notification_ids: List[int] = []
+
+
+class NotificationReadStateResponse(BaseModel):
+    notification_ids: List[int] = []
+
+
+class NotificationUnreadCount(BaseModel):
+    unread_count: int = 0
+
+
+class NotificationPushResult(BaseModel):
+    notification_id: int
+    recipient_count: int
 
 # Role/Permission Schemas
 class PermissionBase(BaseModel):

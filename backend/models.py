@@ -110,7 +110,9 @@ class Announcement(Base):
     tag = Column(String)
     title = Column(String)
     content = Column(Text)
-    time = Column(String) # Keeping as string for "20 mins ago" etc for now, or timestamp later
+    # Legacy display field retained for backward compatibility.
+    time = Column(String)
+    created_at = Column(DateTime(timezone=True), nullable=True, default=datetime.utcnow, index=True)
     color = Column(String)
     is_urgent = Column(Boolean, default=False)
 
@@ -130,6 +132,7 @@ class User(Base):
     name = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
     password_violates_policy = Column(Boolean, default=False)
+    password_changed_at = Column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
     
     roles = relationship("Role", secondary=user_roles, backref="users")
 
@@ -144,6 +147,59 @@ class User(Base):
                 if r.code in {'admin', 'PortalAdmin', 'SuperAdmin', 'portal_admin'}:
                     return 'admin'
         return 'user'
+
+
+class UserPasswordHistory(Base):
+    __tablename__ = "user_password_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    changed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+
+class AnnouncementRead(Base):
+    __tablename__ = "announcement_reads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    announcement_id = Column(Integer, ForeignKey("announcements.id"), nullable=False, index=True)
+    read_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "announcement_id", name="uq_announcement_read_user_announcement"),
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String(20), nullable=False, default="info")  # info/success/warning/reminder
+    action_url = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+    receipts = relationship("NotificationReceipt", back_populates="notification", cascade="all, delete-orphan")
+
+
+class NotificationReceipt(Base):
+    __tablename__ = "notification_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    notification_id = Column(Integer, ForeignKey("notifications.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_read = Column(Boolean, nullable=False, default=False, index=True)
+    read_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+    notification = relationship("Notification", back_populates="receipts")
+
+    __table_args__ = (
+        UniqueConstraint("notification_id", "user_id", name="uq_notification_receipt_notification_user"),
+    )
 
 class SystemConfig(Base):
     __tablename__ = "system_config"

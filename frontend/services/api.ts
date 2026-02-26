@@ -68,6 +68,17 @@ export interface ResetPasswordResponse {
   new_password?: string | null;
 }
 
+export interface UserNotificationDTO {
+  id: number;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'reminder';
+  action_url?: string | null;
+  created_at?: string;
+  is_read: boolean;
+  read_at?: string | null;
+}
+
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
     const response = await api.get<Employee[]>('/employees/?limit=1000');
@@ -133,6 +144,50 @@ export const ApiClient = {
       return [];
     }
     return response.data.map(a => ({ ...a, id: String(a.id) }));
+  },
+
+  getAnnouncementReadState: async (): Promise<number[]> => {
+    const response = await api.get<{ announcement_ids?: number[] }>('/announcements/read-state');
+    return Array.isArray(response.data?.announcement_ids) ? response.data.announcement_ids : [];
+  },
+
+  markAnnouncementsRead: async (announcementIds: number[]): Promise<number[]> => {
+    const ids = Array.from(new Set((announcementIds || []).filter((id) => Number.isFinite(id))));
+    if (ids.length === 0) {
+      return [];
+    }
+    const response = await api.post<{ announcement_ids?: number[] }>('/announcements/read-state', { announcement_ids: ids });
+    return Array.isArray(response.data?.announcement_ids) ? response.data.announcement_ids : [];
+  },
+
+  getMyNotifications: async (params?: { limit?: number; offset?: number; unread_only?: boolean }): Promise<UserNotificationDTO[]> => {
+    const response = await api.get<UserNotificationDTO[]>('/notifications/', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  markNotificationsRead: async (notificationIds: number[]): Promise<number[]> => {
+    const ids = Array.from(new Set((notificationIds || []).filter((id) => Number.isFinite(id))));
+    if (ids.length === 0) return [];
+    const response = await api.post<{ notification_ids?: number[] }>('/notifications/read', {
+      notification_ids: ids,
+    });
+    return Array.isArray(response.data?.notification_ids) ? response.data.notification_ids : [];
+  },
+
+  markAllNotificationsRead: async (): Promise<void> => {
+    await api.post('/notifications/read-all', {});
+  },
+
+  pushNotification: async (data: {
+    title: string;
+    message: string;
+    type?: 'info' | 'success' | 'warning' | 'reminder';
+    action_url?: string;
+    user_ids?: number[];
+    broadcast?: boolean;
+  }): Promise<{ notification_id: number; recipient_count: number }> => {
+    const response = await api.post<{ notification_id: number; recipient_count: number }>('/notifications/push', data);
+    return response.data;
   },
 
   createAnnouncement: async (data: any): Promise<Announcement> => {

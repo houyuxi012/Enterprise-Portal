@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public
+from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public, notifications
 import os
 import database
 import models
@@ -138,6 +138,7 @@ app_router.include_router(kb.router)
 app_router.include_router(upload.router)  # Portal uploads
 app_router.include_router(logs.app_event_router)  # Portal business behavior logs
 app_router.include_router(employees.app_router)  # Portal employee directory
+app_router.include_router(notifications.router)
 # Shared Resources (Accessible by Portal)
 app_router.include_router(news.router)
 app_router.include_router(announcements.router)
@@ -156,6 +157,8 @@ admin_router.include_router(logs.router)
 admin_router.include_router(ai_admin.router)
 admin_router.include_router(admin_tasks.router)
 admin_router.include_router(kb.router)  # KB management in admin plane
+admin_router.include_router(notifications.router)
+admin_router.include_router(notifications.admin_router)
 # Shared Resources (Manageable by Admin)
 admin_router.include_router(news.router)
 admin_router.include_router(announcements.router)

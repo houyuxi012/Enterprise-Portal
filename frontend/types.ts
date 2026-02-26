@@ -75,7 +75,8 @@ export interface Announcement {
   tag: string;
   title: string;
   content: string;
-  time: string;
+  time?: string;
+  created_at?: string;
   color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple';
   is_urgent?: boolean;
 }

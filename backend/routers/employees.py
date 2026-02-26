@@ -2,12 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
-import models, schemas, utils
+import models, schemas
 from sqlalchemy import select
 from fastapi import Request
 from services.audit_service import AuditService
 from dependencies import PermissionChecker
 from routers.auth import get_current_user
+from services.password_policy import (
+    generate_compliant_password,
+    get_password_policy_configs,
+    set_user_password,
+    validate_password,
+)
 
 router = APIRouter(
     prefix="/employees",
@@ -93,16 +99,7 @@ async def create_employee(
         if employee.avatar:
             existing_user.avatar = employee.avatar
     else:
-        config_result = await db.execute(select(models.SystemConfig))
-        configs = {c.key: c.value for c in config_result.scalars().all()}
-        min_length = int(configs.get("security_password_min_length", 8))
-        base_password = "Portal#1234"
-        default_password = (
-            base_password
-            if len(base_password) >= min_length
-            else base_password + ("0" * (min_length - len(base_password)))
-        )
-        portal_initial_password = default_password
+        configs = await get_password_policy_configs(db)
 
         user_email = employee.email
         email_result = await db.execute(select(models.User).filter(models.User.email == employee.email))
@@ -110,14 +107,41 @@ async def create_employee(
         if email_conflict:
             user_email = None
 
+        policy_subject = models.User(username=employee.account, email=user_email)
+        generated_password: str | None = None
+        for _ in range(12):
+            candidate = generate_compliant_password(configs)
+            try:
+                await validate_password(
+                    db,
+                    candidate,
+                    policy_subject,
+                    configs=configs,
+                    check_history=False,
+                )
+                generated_password = candidate
+                break
+            except HTTPException as e:
+                if e.status_code != 400:
+                    raise
+        if not generated_password:
+            raise HTTPException(status_code=500, detail="无法生成符合密码策略的初始密码")
+        portal_initial_password = generated_password
+
         new_user = models.User(
             username=employee.account,
             email=user_email,
-            hashed_password=utils.get_password_hash(default_password),
             account_type="PORTAL",
             is_active=(employee.status == "Active"),
             name=employee.name,
             avatar=employee.avatar,
+        )
+        await set_user_password(
+            db,
+            new_user,
+            portal_initial_password,
+            validate=False,
+            configs=configs,
         )
 
         role_result = await db.execute(
