@@ -68,6 +68,7 @@ export interface Notification {
   time: string;
   type: 'info' | 'success' | 'warning' | 'reminder';
   isRead: boolean;
+  actionUrl?: string;
 }
 
 export interface Announcement {

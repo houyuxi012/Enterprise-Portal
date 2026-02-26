@@ -97,6 +97,7 @@ const Navbar: React.FC<NavbarProps> = ({
             time: formatRelativeTime(item.created_at),
             type: type as Notification['type'],
             isRead: Boolean(item.is_read),
+            actionUrl: item.action_url || undefined,
           });
         });
       } catch (e) {
@@ -254,19 +255,44 @@ const Navbar: React.FC<NavbarProps> = ({
     });
   };
 
-  const markAsRead = (id: string) => {
-    const backendNotificationId = parseBackendNotificationId(id);
+  const openNotificationTarget = (actionUrl?: string) => {
+    if (!actionUrl) return;
+    const target = actionUrl.trim();
+    if (!target) return;
+    if (/^https?:\/\//i.test(target)) {
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.assign(target.startsWith('/') ? target : `/${target}`);
+  };
+
+  const markAsRead = async (notification: Notification) => {
+    const backendNotificationId = parseBackendNotificationId(notification.id);
     if (backendNotificationId !== null) {
-      ApiClient.markNotificationsRead([backendNotificationId]).catch((e) => {
+      try {
+        await ApiClient.markNotificationsRead([backendNotificationId]);
+      } catch (e) {
         console.error('Failed to mark notification as read', e);
-      });
+      }
+    } else {
+      try {
+        await ApiClient.logBusinessAction({
+          action: 'LOCAL_NOTIFICATION_CLICK',
+          target: notification.title,
+          detail: `notification_id=${notification.id}`,
+        });
+      } catch (e) {
+        console.error('Failed to log local notification click', e);
+      }
     }
 
     setNotifications(prev => {
-      const next = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
+      const next = prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n);
       persistReadStates(next);
       return next;
     });
+    setIsNotificationsOpen(false);
+    openNotificationTarget(notification.actionUrl);
   };
 
   const getNotificationIcon = (type: Notification['type']) => {
@@ -435,16 +461,27 @@ const Navbar: React.FC<NavbarProps> = ({
                       {notifications.map(notification => (
                         <div
                           key={notification.id}
-                          onClick={() => markAsRead(notification.id)}
-                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                          onClick={() => {
+                            void markAsRead(notification);
+                          }}
+                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 ${
+                            !notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'opacity-70'
+                          }`}
                         >
                           <div className="mt-0.5 shrink-0">
                             {getNotificationIcon(notification.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm mb-0.5 ${!notification.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
-                              {notification.title}
-                            </p>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className={`text-sm ${!notification.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
+                                {notification.title}
+                              </p>
+                              {notification.isRead && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                  已读
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                               {notification.message}
                             </p>
@@ -466,7 +503,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                     <button
                       onClick={() => {
-                        setView(AppView.TODOS);
+                        setView(AppView.DASHBOARD);
                         setIsNotificationsOpen(false);
                       }}
                       className="w-full py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"

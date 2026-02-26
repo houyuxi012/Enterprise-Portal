@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   TrendingUp, Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
   X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
@@ -39,6 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [readAnnouncementIds, setReadAnnouncementIds] = useState<Set<number>>(new Set());
   const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
@@ -63,18 +65,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
           fetchedNews,
           fetchedAnnouncements,
           fetchedCarousel,
-          todoStatsData
+          todoStatsData,
+          readAnnouncementIdsData
         ] = await Promise.all([
           ApiClient.getTools(),
           ApiClient.getNews(),
           ApiClient.getAnnouncements(),
           ApiClient.getCarouselItems(),
-          TodoService.getMyTaskStats('active')
+          TodoService.getMyTaskStats('active'),
+          ApiClient.getAnnouncementReadState()
         ]);
         setTools(fetchedTools);
         setNewsList(fetchedNews);
         setAnnouncements(fetchedAnnouncements);
         setCarouselItems(fetchedCarousel);
+        setReadAnnouncementIds(new Set((readAnnouncementIdsData || []).map((id) => Number(id)).filter((id) => Number.isFinite(id))));
         setTodoStats({
           total: todoStatsData.total,
           emergency: todoStatsData.emergency,
@@ -152,6 +157,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     () => announcements.some((a) => a.is_urgent),
     [announcements]
   );
+
+  const handleAnnouncementRead = async (announcementId: string) => {
+    const numericId = Number(announcementId);
+    if (!Number.isFinite(numericId)) return;
+    const wasRead = readAnnouncementIds.has(numericId);
+    if (!wasRead) {
+      setReadAnnouncementIds((prev) => {
+        const next = new Set(prev);
+        next.add(numericId);
+        return next;
+      });
+    }
+    try {
+      await ApiClient.markAnnouncementsRead([numericId]);
+    } catch (error) {
+      if (!wasRead) {
+        setReadAnnouncementIds((prev) => {
+          const next = new Set(prev);
+          next.delete(numericId);
+          return next;
+        });
+      }
+      console.error('Failed to mark announcement as read', error);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pt-2 relative">
@@ -292,22 +322,36 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
             </div>
             <div className="p-3 space-y-1">
               {announcements.slice(0, 3).map((item) => (
-                <div key={item.id} className="group p-4 rounded-2xl hover:bg-white dark:hover:bg-slate-700/50 transition-all cursor-pointer">
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${getTagStyles(item.color)}`}>
-                        {item.tag}
-                      </span>
-                      {item.is_urgent && (
-                        <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40">
-                          紧急
-                        </span>
-                      )}
+                (() => {
+                  const isRead = readAnnouncementIds.has(Number(item.id));
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleAnnouncementRead(item.id)}
+                      className={`group p-4 rounded-2xl hover:bg-white dark:hover:bg-slate-700/50 transition-all cursor-pointer ${isRead ? 'opacity-70' : ''}`}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${getTagStyles(item.color)}`}>
+                            {item.tag}
+                          </span>
+                          {item.is_urgent && (
+                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40">
+                              紧急
+                            </span>
+                          )}
+                          {isRead && (
+                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-slate-500 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                              已读
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[8px] text-slate-400 font-bold">{formatAnnouncementTime(item.created_at, item.time)}</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1">{item.title}</p>
                     </div>
-                    <span className="text-[8px] text-slate-400 font-bold">{formatAnnouncementTime(item.created_at, item.time)}</span>
-                  </div>
-                  <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1">{item.title}</p>
-                </div>
+                  );
+                })()
               ))}
             </div>
             <button
@@ -356,7 +400,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
       </div>
 
       {
-        isAnnouncementsModalOpen && (
+        isAnnouncementsModalOpen && typeof document !== 'undefined' && createPortal((
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
             <div
               className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
@@ -392,25 +436,41 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
               <div className="flex-1 overflow-y-auto pt-8 pb-8 px-6 no-scrollbar relative bg-slate-50/50 dark:bg-black/40">
                 <div className="space-y-6">
                   {filteredAnnouncements.map((item) => (
-                    <div key={item.id} className="mica p-4 rounded-[1.5rem] border border-white dark:border-white/5">
-                      <h3 className="font-bold text-slate-900 dark:text-white">{item.title}</h3>
-                      <p className="text-slate-600 dark:text-slate-400 text-sm">{item.content}</p>
-                      {item.is_urgent && (
-                        <span className="text-[7px] font-black text-rose-600 uppercase tracking-widest bg-rose-100/50 px-1.5 py-0.5 rounded-md ml-2">
-                          紧急
-                        </span>
-                      )}
-                    </div>
+                    (() => {
+                      const isRead = readAnnouncementIds.has(Number(item.id));
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleAnnouncementRead(item.id)}
+                          className={`mica p-4 rounded-[1.5rem] border border-white dark:border-white/5 cursor-pointer ${isRead ? 'opacity-70' : ''}`}
+                        >
+                          <h3 className="font-bold text-slate-900 dark:text-white">{item.title}</h3>
+                          <p className="text-slate-600 dark:text-slate-400 text-sm">{item.content}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            {item.is_urgent && (
+                              <span className="text-[7px] font-black text-rose-600 uppercase tracking-widest bg-rose-100/50 px-1.5 py-0.5 rounded-md">
+                                紧急
+                              </span>
+                            )}
+                            {isRead && (
+                              <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                                已读
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        )
+        ), document.body)
       }
 
       {
-        selectedNews && (
+        selectedNews && typeof document !== 'undefined' && createPortal((
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
             <div
               className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
@@ -450,7 +510,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
               </div>
             </div>
           </div>
-        )
+        ), document.body)
       }
     </div >
   );

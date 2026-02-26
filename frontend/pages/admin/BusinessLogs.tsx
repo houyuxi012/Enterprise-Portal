@@ -47,6 +47,10 @@ const ACTION_MAP: Record<string, string> = {
     'UPDATE_KB_DOC': '更新知识库文档',
     'DELETE_KB_DOC': '删除知识库文档',
     'REINDEX_KB_DOC': '重建知识库索引',
+    'MARK_NOTIFICATIONS_READ': '通知已读',
+    'MARK_ALL_NOTIFICATIONS_READ': '全部通知已读',
+    'MARK_ANNOUNCEMENTS_READ': '公告已读',
+    'PORTAL_CLIENT_LOCAL_NOTIFICATION_CLICK': '本地通知点击',
 };
 
 const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {

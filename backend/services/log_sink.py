@@ -133,6 +133,7 @@ class LokiSink(LogSink):
         self.flush_interval = flush_interval
         self._lock = asyncio.Lock()
         self._flush_task: Optional[asyncio.Task] = None
+        self._flush_now_task: Optional[asyncio.Task] = None
         self._running = True
         
         # Metrics (for Prometheus integration later)
@@ -143,9 +144,10 @@ class LokiSink(LogSink):
         """Add entry to buffer. Always returns True (non-blocking)."""
         async with self._lock:
             self.buffer.append(entry)
-            if len(self.buffer) >= self.buffer_size:
-                # Schedule immediate flush
-                asyncio.create_task(self._flush())
+            # Schedule immediate flush so DB/Loki visibility gap stays minimal.
+            # Keep at most one in-flight immediate flush task.
+            if self._flush_now_task is None or self._flush_now_task.done():
+                self._flush_now_task = asyncio.create_task(self._flush())
         return True
 
     async def start_periodic_flush(self):
@@ -225,6 +227,11 @@ class LokiSink(LogSink):
     async def close(self):
         """Stop periodic flush and flush remaining entries."""
         self._running = False
+        if self._flush_now_task:
+            try:
+                await self._flush_now_task
+            except Exception:
+                pass
         if self._flush_task:
             self._flush_task.cancel()
             try:

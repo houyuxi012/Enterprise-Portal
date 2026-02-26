@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -137,7 +138,9 @@ async def mark_notifications_as_read(
 
     receipts = (
         await db.execute(
-            select(models.NotificationReceipt).filter(
+            select(models.NotificationReceipt)
+            .options(selectinload(models.NotificationReceipt.notification))
+            .filter(
                 models.NotificationReceipt.user_id == current_user.id,
                 models.NotificationReceipt.notification_id.in_(notification_ids),
             )
@@ -145,24 +148,46 @@ async def mark_notifications_as_read(
     ).scalars().all()
 
     read_ids: List[int] = []
+    newly_marked_ids: List[int] = []
+    notification_summaries: List[dict] = []
     now = datetime.now(timezone.utc)
     for receipt in receipts:
         read_ids.append(receipt.notification_id)
+        if receipt.notification is not None:
+            notification_summaries.append(
+                {
+                    "id": receipt.notification_id,
+                    "title": (receipt.notification.title or "").strip(),
+                    "message": (receipt.notification.message or "").strip()[:200],
+                }
+            )
         if not receipt.is_read:
             receipt.is_read = True
             receipt.read_at = now
             db.add(receipt)
+            newly_marked_ids.append(receipt.notification_id)
 
+    detail_payload = {
+        "requested_ids": notification_ids,
+        "matched_ids": sorted(set(read_ids)),
+        "newly_marked_ids": sorted(set(newly_marked_ids)),
+        "changed_count": len(newly_marked_ids),
+        "notifications": notification_summaries[:10],
+    }
+    if len(notification_summaries) > 10:
+        detail_payload["notifications_more_count"] = len(notification_summaries) - 10
+
+    await db.commit()
     await AuditService.log_business_action(
         db=db,
         user_id=current_user.id,
         username=current_user.username,
-        action="READ_NOTIFICATIONS",
+        action="MARK_NOTIFICATIONS_READ",
         target="通知已读",
-        detail=f"notification_ids={read_ids}",
+        detail=json.dumps(detail_payload, ensure_ascii=False, indent=2),
         ip_address=request.client.host if request.client else "unknown",
         trace_id=request.headers.get("X-Request-ID"),
-        domain="SYSTEM",
+        domain="BUSINESS",
     )
     await db.commit()
     return {"notification_ids": sorted(set(read_ids))}
@@ -176,7 +201,9 @@ async def mark_all_notifications_as_read(
 ):
     receipts = (
         await db.execute(
-            select(models.NotificationReceipt).filter(
+            select(models.NotificationReceipt)
+            .options(selectinload(models.NotificationReceipt.notification))
+            .filter(
                 models.NotificationReceipt.user_id == current_user.id,
                 models.NotificationReceipt.is_read.is_(False),
             )
@@ -185,22 +212,39 @@ async def mark_all_notifications_as_read(
 
     now = datetime.now(timezone.utc)
     changed = 0
+    changed_notifications: List[dict] = []
     for receipt in receipts:
         receipt.is_read = True
         receipt.read_at = now
         db.add(receipt)
         changed += 1
+        if receipt.notification is not None:
+            changed_notifications.append(
+                {
+                    "id": receipt.notification_id,
+                    "title": (receipt.notification.title or "").strip(),
+                    "message": (receipt.notification.message or "").strip()[:200],
+                }
+            )
 
+    detail_payload = {
+        "changed_count": changed,
+        "notifications": changed_notifications[:10],
+    }
+    if len(changed_notifications) > 10:
+        detail_payload["notifications_more_count"] = len(changed_notifications) - 10
+
+    await db.commit()
     await AuditService.log_business_action(
         db=db,
         user_id=current_user.id,
         username=current_user.username,
-        action="READ_ALL_NOTIFICATIONS",
+        action="MARK_ALL_NOTIFICATIONS_READ",
         target="通知已读",
-        detail=f"changed={changed}",
+        detail=json.dumps(detail_payload, ensure_ascii=False, indent=2),
         ip_address=request.client.host if request.client else "unknown",
         trace_id=request.headers.get("X-Request-ID"),
-        domain="SYSTEM",
+        domain="BUSINESS",
     )
     await db.commit()
     return {"unread_count": 0}

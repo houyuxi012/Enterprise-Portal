@@ -63,6 +63,7 @@ async def read_announcement_state(
 
 @router.post("/read-state", response_model=schemas.AnnouncementReadStateResponse)
 async def upsert_announcement_state(
+    request: Request,
     payload: schemas.AnnouncementReadStateUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -96,7 +97,8 @@ async def upsert_announcement_state(
         .all()
     )
 
-    for announcement_id in sorted(existing_announcement_ids - existing_read_ids):
+    newly_marked_ids = sorted(existing_announcement_ids - existing_read_ids)
+    for announcement_id in newly_marked_ids:
         db.add(
             models.AnnouncementRead(
                 user_id=current_user.id,
@@ -105,6 +107,27 @@ async def upsert_announcement_state(
         )
 
     await db.commit()
+    try:
+        await AuditService.log_business_action(
+            db=db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="MARK_ANNOUNCEMENTS_READ",
+            target="公告已读",
+            detail=(
+                f"requested_ids={ids}, "
+                f"matched_ids={sorted(existing_announcement_ids)}, "
+                f"newly_marked_ids={newly_marked_ids}, "
+                f"changed_count={len(newly_marked_ids)}"
+            ),
+            ip_address=request.client.host if request.client else "unknown",
+            trace_id=request.headers.get("X-Request-ID"),
+            domain="BUSINESS",
+        )
+        await db.commit()
+    except Exception as e:
+        logger.warning("Failed to write announcement read-state audit: %s", e)
+        await db.rollback()
     return {"announcement_ids": sorted(existing_announcement_ids | existing_read_ids)}
 
 @router.post("/", response_model=schemas.Announcement, dependencies=[Depends(PermissionChecker("content:announcement:edit"))])

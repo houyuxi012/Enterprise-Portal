@@ -69,9 +69,9 @@ class AuditService:
                         ip_address=ip_address,
                         detail=detail
                     )
-                    # Fire-and-forget to sidecar (non-blocking)
-                    import asyncio
-                    asyncio.create_task(sink.emit(loki_entry))
+                    # Ensure sidecar sink receives this log before returning.
+                    # Note: sink implementation remains non-blocking for network flush.
+                    await sink.emit(loki_entry)
 
                 emit_log_fire_and_forget(
                     domain,
