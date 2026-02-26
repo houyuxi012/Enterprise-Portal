@@ -27,13 +27,14 @@ import { getCurrentLocale, getLocalizedRoleMeta } from '../utils/iamRoleI18n';
 import { hasAdminAccess } from '../utils/adminAccess';
 
 import VersionModal from '../components/VersionModal';
+import AdminChangePasswordModal from '../components/AdminChangePasswordModal';
 
 const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -43,6 +44,7 @@ interface AdminLayoutProps {
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText, logoUrl, appName }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
+    const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
     // We are overriding Antd token themes with CSS classes, but keeping this for safety
     const { token: { borderRadiusLG } } = theme.useToken();
@@ -62,6 +64,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         }
         if (e.key === 'about') {
             setVersionModalOpen(true);
+            return;
+        }
+        if (e.key === 'change_password') {
+            setChangePasswordModalOpen(true);
             return;
         }
     };
@@ -176,15 +182,25 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             ]
         },
         {
+            key: 'sub_security',
+            label: '安全设置',
+            icon: <SafetyCertificateOutlined />,
+            children: [
+                {
+                    key: 'security',
+                    label: '基础设置',
+                },
+                {
+                    key: 'password_policy',
+                    label: '密码策略',
+                },
+            ]
+        },
+        {
             key: 'sub_system',
             label: '系统管理',
             icon: <SettingOutlined />,
             children: [
-                {
-                    key: 'security',
-                    label: '安全设置',
-                },
-
                 {
                     key: 'settings',
                     label: '客户化设置',
@@ -205,6 +221,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
             key: 'about',
             icon: <InfoCircleOutlined />,
             label: '关于系统',
+        },
+        {
+            key: 'change_password',
+            icon: <KeyOutlined />,
+            label: '修改密码',
         },
         {
             type: 'divider',
@@ -302,7 +323,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 </Footer>
             </Layout>
 
+            {/* Modals */}
             <VersionModal open={versionModalOpen} onClose={() => setVersionModalOpen(false)} />
+            <AdminChangePasswordModal
+                open={changePasswordModalOpen}
+                onClose={() => setChangePasswordModalOpen(false)}
+                onSuccess={() => setChangePasswordModalOpen(false)}
+            />
 
             {/* Global Styles specific to Admin to override Antd defaults directly */}
             <style>{`

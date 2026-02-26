@@ -33,6 +33,7 @@ const CarouselList = lazy(() => import('./pages/admin/CarouselList'));
 const AnnouncementList = lazy(() => import('./pages/admin/AnnouncementList'));
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'));
 const SecuritySettings = lazy(() => import('./pages/admin/SecuritySettings'));
+const PasswordPolicy = lazy(() => import('./pages/admin/PasswordPolicy'));
 const SystemUserList = lazy(() => import('./pages/admin/SystemUserList'));
 const RoleList = lazy(() => import('./pages/admin/RoleList'));
 const OrganizationList = lazy(() => import('./pages/admin/OrganizationList'));
@@ -90,7 +91,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -822,6 +823,7 @@ const App: React.FC = () => {
           {activeAdminTab === 'app_permissions' && <AppPermissions />}
           {activeAdminTab === 'settings' && <SystemSettings />}
           {activeAdminTab === 'security' && <SecuritySettings />}
+          {activeAdminTab === 'password_policy' && <PasswordPolicy />}
           {activeAdminTab === 'org' && <OrganizationList />}
           {activeAdminTab === 'business_logs' && <BusinessLogs />}
           {activeAdminTab === 'access_logs' && <AccessLogs />}

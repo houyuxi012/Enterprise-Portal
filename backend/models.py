@@ -129,6 +129,7 @@ class User(Base):
     locked_until = Column(DateTime(timezone=True), nullable=True)
     name = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
+    password_violates_policy = Column(Boolean, default=False)
     
     roles = relationship("Role", secondary=user_roles, backref="users")
 

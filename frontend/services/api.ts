@@ -252,6 +252,11 @@ export const ApiClient = {
     return response.data;
   },
 
+  changeMyPassword: async (data: any): Promise<any> => {
+    const response = await api.put('/iam/users/me/password', data);
+    return response.data;
+  },
+
   grantPortalAdmin: async (id: number): Promise<any> => {
     const response = await api.post(`/iam/admin/users/${id}/portal-admin/grant`);
     return response.data;

@@ -16,7 +16,6 @@ const SecuritySettings: React.FC = () => {
                 const formattedConfig = {
                     ...config,
                     security_mfa_enabled: config.security_mfa_enabled === 'true',
-                    security_password_min_length: config.security_password_min_length ? parseInt(config.security_password_min_length) : 8,
                     security_login_max_retries: config.security_login_max_retries ? parseInt(config.security_login_max_retries) : 5,
                     security_lockout_duration: config.security_lockout_duration ? parseInt(config.security_lockout_duration) : 15,
                 };
@@ -36,7 +35,6 @@ const SecuritySettings: React.FC = () => {
             const payload = {
                 ...values,
                 security_mfa_enabled: String(values.security_mfa_enabled),
-                security_password_min_length: String(values.security_password_min_length),
                 security_login_max_retries: String(values.security_login_max_retries),
                 security_lockout_duration: String(values.security_lockout_duration),
             };
@@ -75,7 +73,6 @@ const SecuritySettings: React.FC = () => {
                     onFinish={handleSave}
                     className="space-y-5"
                     initialValues={{
-                        security_password_min_length: 8,
                         security_login_max_retries: 5,
                         security_lockout_duration: 15,
                         security_mfa_enabled: false
@@ -88,13 +85,6 @@ const SecuritySettings: React.FC = () => {
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <Form.Item
-                                name="security_password_min_length"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">密码最小长度</span>}
-                            >
-                                <InputNumber min={6} max={32} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
-
                             <Form.Item
                                 name="security_mfa_enabled"
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">强制 MFA 认证</span>}

@@ -5,10 +5,12 @@ import {
   Search, Bell, Grid, Sparkles, Loader2,
   CheckCircle2, Info, AlertCircle, Clock, ChevronRight
 } from 'lucide-react';
+import { KeyOutlined } from '@ant-design/icons';
 import { AppView, Notification } from '../types';
 import { MOCK_NOTIFICATIONS } from '../constants';
 import ApiClient from '../services/api';
 import { hasAdminAccess } from '../utils/adminAccess';
+import ChangePasswordModal from './ChangePasswordModal';
 
 interface NavbarProps {
   currentView: AppView;
@@ -35,10 +37,71 @@ const Navbar: React.FC<NavbarProps> = ({
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showSearchPreview, setShowSearchPreview] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const initialNotes: Notification[] = [];
+    if (currentUser?.password_violates_policy) {
+      initialNotes.push({
+        id: 'weak-password-warning',
+        title: '安全提醒',
+        message: '您的密码不符合当前安全策略规定，请尽快修改。',
+        time: '刚刚',
+        type: 'warning',
+        isRead: false,
+      });
+    }
+
+    // Load read states from localStorage
+    try {
+      if (currentUser?.id) {
+        const readIds = JSON.parse(localStorage.getItem(`read_notifications_${currentUser.id}`) || '[]');
+        return initialNotes.map(n => readIds.includes(n.id) ? { ...n, isRead: true } : n);
+      }
+    } catch (e) {
+      console.error('Failed to parse read notifications', e);
+    }
+    return initialNotes;
+  });
+
+  // Re-evaluate if currentUser changes
+  useEffect(() => {
+    setNotifications(prev => {
+      const hasWarning = prev.some(n => n.id === 'weak-password-warning');
+      const needsWarning = !!currentUser?.password_violates_policy;
+
+      let nextNotes = [...prev];
+      if (needsWarning && !hasWarning) {
+        nextNotes = [{
+          id: 'weak-password-warning',
+          title: '安全提醒',
+          message: '您的密码不符合当前安全策略规定，请尽快修改。',
+          time: '刚刚',
+          type: 'warning',
+          isRead: false,
+        }, ...nextNotes];
+      } else if (!needsWarning && hasWarning) {
+        nextNotes = nextNotes.filter(n => n.id !== 'weak-password-warning');
+      }
+
+      try {
+        if (currentUser?.id) {
+          const readIds = JSON.parse(localStorage.getItem(`read_notifications_${currentUser.id}`) || '[]');
+          nextNotes = nextNotes.map(n => readIds.includes(n.id) ? { ...n, isRead: true } : n);
+        }
+      } catch (e) { }
+
+      return nextNotes;
+    });
+  }, [currentUser?.password_violates_policy, currentUser?.id]);
+
+  const persistReadStates = (notes: Notification[]) => {
+    if (!currentUser?.id) return;
+    const readIds = notes.filter(n => n.isRead).map(n => n.id);
+    localStorage.setItem(`read_notifications_${currentUser.id}`, JSON.stringify(readIds));
+  };
 
   const [aiPreviewAnswer, setAiPreviewAnswer] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
   // Cached logo URL to prevent flash on refresh
   const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
@@ -149,7 +212,19 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setNotifications(prev => {
+      const next = prev.map(n => ({ ...n, isRead: true }));
+      persistReadStates(next);
+      return next;
+    });
+  };
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => {
+      const next = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
+      persistReadStates(next);
+      return next;
+    });
   };
 
   const getNotificationIcon = (type: Notification['type']) => {
@@ -300,6 +375,60 @@ const Navbar: React.FC<NavbarProps> = ({
                 <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white dark:border-slate-900 animate-pulse"></span>
               )}
             </button>
+
+            {/* Notifications Dropdown */}
+            {isNotificationsOpen && (
+              <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">通知消息</h3>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllAsRead} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                      全部已读
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[300px] overflow-y-auto overscroll-contain">
+                  {notifications.length > 0 ? (
+                    <div className="py-2">
+                      {notifications.map(notification => (
+                        <div
+                          key={notification.id}
+                          onClick={() => markAsRead(notification.id)}
+                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                        >
+                          <div className="mt-0.5 shrink-0">
+                            {getNotificationIcon(notification.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm mb-0.5 ${!notification.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                              {notification.message}
+                            </p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium">
+                              {notification.time}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                      <Bell size={32} className="mb-3 text-slate-300 dark:text-slate-600" />
+                      <p className="text-sm">暂无新通知</p>
+                    </div>
+                  )}
+                </div>
+                {notifications.length > 0 && (
+                  <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                    <button className="w-full py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors">
+                      查看全部通知
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Profile Dropdown Trigger */}
@@ -342,6 +471,16 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                   <button
                     onClick={() => {
+                      setChangePasswordModalOpen(true);
+                      setIsProfileOpen(false);
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
+                  >
+                    <KeyOutlined size={16} className="text-slate-400" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">修改密码</span>
+                  </button>
+                  <button
+                    onClick={() => {
                       if (onLogout) onLogout();
                       setIsProfileOpen(false);
                     }}
@@ -356,6 +495,15 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </nav>
+      {/* Modals */}
+      <ChangePasswordModal
+        open={changePasswordModalOpen}
+        onClose={() => setChangePasswordModalOpen(false)}
+        onSuccess={() => {
+          setChangePasswordModalOpen(false);
+          // Optional: handle auth refresh or force relogin; for now just close
+        }}
+      />
     </div>
   );
 };

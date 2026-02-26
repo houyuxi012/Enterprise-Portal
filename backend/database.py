@@ -61,6 +61,10 @@ async def apply_startup_migrations():
             "UPDATE users SET account_type = 'PORTAL' "
             "WHERE account_type IS NULL OR account_type = ''"
         ))
+        await conn.execute(text(
+            "ALTER TABLE users "
+            "ADD COLUMN IF NOT EXISTS password_violates_policy BOOLEAN DEFAULT FALSE"
+        ))
         # Keep built-in admin as system account by default
         await conn.execute(text(
             "UPDATE users SET account_type = 'SYSTEM' "

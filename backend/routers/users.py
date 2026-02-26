@@ -12,6 +12,7 @@ from iam.deps import PermissionChecker
 from dependencies import get_current_user
 from iam.audit.service import IAMAuditService
 from iam.rbac.service import RBACService
+from services.password_policy import validate_password, generate_compliant_password
 
 router = APIRouter(
     prefix="/users",
@@ -25,6 +26,47 @@ async def read_users_me(current_user: models.User = Depends(get_current_user), d
     # Refresh to load roles and permissions
     result = await db.execute(select(models.User).options(selectinload(models.User.roles).selectinload(models.Role.permissions)).filter(models.User.id == current_user.id))
     return result.scalars().first()
+
+@router.put("/me/password", status_code=status.HTTP_200_OK)
+async def change_password(
+    request: Request,
+    payload: schemas.UserChangePasswordRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allow authenticated users to change their own password.
+    Enforces password logic and requires old password verification.
+    """
+    # Verify old password
+    if not utils.verify_password(payload.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="原密码不正确")
+
+    # Prevent reusing the current password as the new one
+    if payload.old_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="新密码不能与原密码相同")
+
+    # Validate against actual policy
+    await validate_password(db, payload.new_password, current_user)
+
+    # Hash and save
+    new_hashed = utils.get_password_hash(payload.new_password)
+    current_user.hashed_password = new_hashed
+    current_user.password_violates_policy = False
+    db.add(current_user)
+
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    await IAMAuditService.log(
+        db, action="iam.user.password_change", target_type="user",
+        user_id=current_user.id, username=current_user.username,
+        target_id=current_user.id, target_name=current_user.username,
+        ip_address=ip, trace_id=trace_id
+    )
+    
+    await db.commit()
+    return {"message": "密码修改成功"}
 
 @router.get("/", response_model=List[schemas.User], dependencies=[Depends(PermissionChecker("sys:user:view"))])
 async def read_users(db: AsyncSession = Depends(get_db)):
@@ -52,13 +94,8 @@ async def create_user(
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Username already registered")
 
-    # Fetch Password Policy
-    config_result = await db.execute(select(models.SystemConfig))
-    configs = {c.key: c.value for c in config_result.scalars().all()}
-    min_length = int(configs.get("security_password_min_length", 8))
-
-    if len(user.password) < min_length:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
+    # Fetch Password Policy and Validate
+    await validate_password(db, user.password, user)
         
     pwd_hash = utils.get_password_hash(user.password)
     db_user = models.User(
@@ -349,7 +386,6 @@ async def reset_password(
     # Fetch Password Policy
     config_result = await db.execute(select(models.SystemConfig))
     configs = {c.key: c.value for c in config_result.scalars().all()}
-    min_length = int(configs.get("security_password_min_length", 8))
     
     # Reset password (default password adapts to current policy length)
     provided_password = (payload.new_password or "").strip()
@@ -358,11 +394,10 @@ async def reset_password(
         new_pwd = provided_password
     else:
         auto_generated = True
-        default_pwd = "12345678"
-        new_pwd = default_pwd if len(default_pwd) >= min_length else default_pwd + ("0" * (min_length - len(default_pwd)))
+        new_pwd = generate_compliant_password(configs)
 
-    if len(new_pwd) < min_length:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {min_length} characters long")
+    # Validate against actual policy
+    await validate_password(db, new_pwd, user)
 
     user.hashed_password = utils.get_password_hash(new_pwd)
     

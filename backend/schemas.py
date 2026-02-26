@@ -161,6 +161,7 @@ class UserBase(BaseModel):
     avatar: Optional[str] = None
     is_active: Optional[bool] = True
     role: Optional[str] = "user"  # Deprecated, kept for compatibility
+    password_violates_policy: Optional[bool] = False
 
 
 class UserCreate(UserBase):
@@ -199,6 +200,7 @@ class UserMeResponse(BaseModel):
     roles: List[RoleOut] = []
     permissions: List[str] = []  # Flattened permission codes
     perm_version: int = 1
+    password_violates_policy: bool = False
     
     class Config:
         from_attributes = True
@@ -223,6 +225,10 @@ class AIChatResponse(BaseModel):
 class PasswordResetRequest(BaseModel):
     username: str
     new_password: Optional[str] = None
+
+class UserChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
 
 # Log Management Schemas
 class SystemLogBase(BaseModel):

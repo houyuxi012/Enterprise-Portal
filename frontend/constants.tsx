@@ -38,10 +38,6 @@ export const CAROUSEL_ITEMS = [
 ];
 
 
-export const MOCK_NOTIFICATIONS: any[] = [
-  { id: '1', type: 'success', content: '您的报销申请已通过审批', time: '10分钟前', isRead: false },
-  { id: '2', type: 'warning', content: '请在今日下班前提交周报', time: '2小时前', isRead: false },
-  { id: '3', type: 'reminder', content: '明天下午 14:00 参加全员大会', time: '1天前', isRead: true },
-];
+export const MOCK_NOTIFICATIONS: any[] = [];
 export const MOCK_ANNOUNCEMENTS: any[] = [];
 

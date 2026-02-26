@@ -29,6 +29,7 @@ class UserMeResponse(BaseModel):
     roles: List[RoleOut] = []
     permissions: List[str] = []
     perm_version: int = 1
+    password_violates_policy: bool = False
     
     class Config:
         from_attributes = True

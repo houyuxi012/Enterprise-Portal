@@ -62,6 +62,7 @@ async def get_me(
         name=user.name,
         avatar=user.avatar,
         is_active=user.is_active,
+        password_violates_policy=getattr(user, "password_violates_policy", False),
         roles=[RoleOut(**r) for r in roles],
         permissions=list(permissions_set),
         perm_version=perm_version

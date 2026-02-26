@@ -290,6 +290,22 @@ class IdentityService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # Check password policy compliance
+        if user:
+            from services.password_policy import validate_password
+            try:
+                await validate_password(db, form_data.password, user)
+                if getattr(user, "password_violates_policy", True):
+                    user.password_violates_policy = False
+                    db.add(user)
+            except HTTPException as e:
+                if getattr(e, "status_code", 400) == 400:
+                    if not getattr(user, "password_violates_policy", False):
+                        user.password_violates_policy = True
+                        db.add(user)
+                else:
+                    raise e
+
         # Disabled accounts check
         if not user.is_active:
             await IAMAuditService.log_login(
