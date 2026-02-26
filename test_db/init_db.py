@@ -26,12 +26,12 @@ from utils import get_password_hash
 
 # Data
 EMPLOYEES = [
-  { "name": '陈莎莎', "role": '产品设计主管', "department": '设计部', "email": 'sarah.c@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=sarah', "status": 'Active', "job_number": "1001", "account": "sarah", "gender": "女", "phone": "13800138001" },
-  { "name": '马库斯', "role": '高级工程师', "department": '技术部', "email": 'm.miller@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=marcus', "status": 'Inactive', "job_number": "1002", "account": "marcus", "gender": "男", "phone": "13800138002" },
-  { "name": '艾莎', "role": '市场经理', "department": '增长部', "email": 'aisha.g@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=aisha', "status": 'Active', "job_number": "1003", "account": "aisha", "gender": "女", "phone": "13800138003" },
-  { "name": '王汤姆', "role": '人力资源专员', "department": '人事部', "email": 'tom.w@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=tom', "status": 'Inactive', "job_number": "1004", "account": "tom", "gender": "男", "phone": "13800138004" },
-  { "name": '李小明', "role": '前端工程师', "department": '技术部', "email": 'xiaoming.li@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=xiaoming', "status": 'Active', "job_number": "1005", "account": "xiaoming", "gender": "男", "phone": "13800138005" },
-  { "name": '张雨晴', "role": 'UI设计师', "department": '设计部', "email": 'yuqing.z@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=yuqing', "status": 'Active', "job_number": "1006", "account": "yuqing", "gender": "女", "phone": "13800138006" },
+  { "name": '陈莎莎', "role": '产品设计主管', "department": '设计部', "email": 'sarah.c@shiku.com', "status": 'Active', "job_number": "1001", "account": "sarah", "gender": "女", "phone": "13800138001" },
+  { "name": '马库斯', "role": '高级工程师', "department": '技术部', "email": 'm.miller@shiku.com', "status": 'Inactive', "job_number": "1002", "account": "marcus", "gender": "男", "phone": "13800138002" },
+  { "name": '艾莎', "role": '市场经理', "department": '增长部', "email": 'aisha.g@shiku.com', "status": 'Active', "job_number": "1003", "account": "aisha", "gender": "女", "phone": "13800138003" },
+  { "name": '王汤姆', "role": '人力资源专员', "department": '人事部', "email": 'tom.w@shiku.com', "status": 'Inactive', "job_number": "1004", "account": "tom", "gender": "男", "phone": "13800138004" },
+  { "name": '李小明', "role": '前端工程师', "department": '技术部', "email": 'xiaoming.li@shiku.com', "status": 'Active', "job_number": "1005", "account": "xiaoming", "gender": "男", "phone": "13800138005" },
+  { "name": '张雨晴', "role": 'UI设计师', "department": '设计部', "email": 'yuqing.z@shiku.com', "status": 'Active', "job_number": "1006", "account": "yuqing", "gender": "女", "phone": "13800138006" },
   { "name": '刘大伟', "role": '后端工程师', "department": '技术部', "email": 'dawei.l@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=dawei', "status": 'Inactive', "job_number": "1007", "account": "dawei", "gender": "男", "phone": "13800138007" },
   { "name": '赵雪梅', "role": '财务主管', "department": '财务部', "email": 'xuemei.z@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=xuemei', "status": 'Active', "job_number": "1008", "account": "xuemei", "gender": "女", "phone": "13800138008" },
   { "name": '孙博文', "role": '运维工程师', "department": '运维部', "email": 'bowen.s@shiku.com', "avatar": 'https://i.pravatar.cc/150?u=bowen', "status": 'Inactive', "job_number": "1009", "account": "bowen", "gender": "男", "phone": "13800138009" },
@@ -255,7 +255,7 @@ async def init_db():
             print("Creating default admin user...")
             admin_user = User(
                 username="admin",
-                email="admin@shiku.com",
+                email="admin@houyuxi.com",
                 hashed_password=get_password_hash("admin"),
                 account_type="SYSTEM",
                 is_active=True,
@@ -276,7 +276,7 @@ async def init_db():
             admin_user.account_type = "SYSTEM"
             admin_user.is_active = True
             if not admin_user.email:
-                admin_user.email = "admin@shiku.com"
+                admin_user.email = "admin@houyuxi.com"
             if not admin_user.name:
                 admin_user.name = "Administrator"
 

@@ -1,5 +1,20 @@
 import axios from 'axios';
-import { Employee, NewsItem, QuickTool, Announcement, CarouselItem, AIProvider, AISecurityPolicy, AIModelOption, SystemInfo, SystemVersion, UserOption } from '../types';
+import {
+  Employee,
+  NewsItem,
+  QuickTool,
+  Announcement,
+  CarouselItem,
+  AIProvider,
+  AISecurityPolicy,
+  AIModelOption,
+  SystemInfo,
+  SystemVersion,
+  UserOption,
+  OnlineUserSession,
+  SessionRevokeResult,
+} from '../types';
+import { triggerSessionInvalid } from './sessionGuard';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
@@ -23,7 +38,7 @@ const ensureScopedPath = (url: string): string => {
   if (/^https?:\/\//i.test(url)) return url;
 
   const normalized = url.startsWith('/') ? url : `/${url}`;
-  if (normalized.startsWith('/iam/') || normalized.startsWith('/public/')) return normalized;
+  if (normalized.startsWith('/iam/') || normalized.startsWith('/public/') || normalized.startsWith('/system/')) return normalized;
   if (normalized.startsWith('/admin/') || normalized.startsWith('/app/')) return normalized;
 
   return `${getRuntimeScopePrefix()}${normalized}`;
@@ -40,10 +55,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error?.response?.status;
-    const requestUrl = String(error?.config?.url || '');
-    const isExpectedMeProbe = status === 401 && requestUrl.includes('/iam/auth/me');
-    if (!isExpectedMeProbe) {
+    const handled = triggerSessionInvalid(error, { source: 'api-interceptor' });
+    if (!handled) {
       console.error('API Error:', error);
     }
     return Promise.reject(error);
@@ -322,6 +335,24 @@ export const ApiClient = {
     return response.data;
   },
 
+  getOnlineUsers: async (params?: {
+    audience_scope?: 'admin' | 'portal' | 'all';
+    keyword?: string;
+  }): Promise<OnlineUserSession[]> => {
+    const response = await api.get<OnlineUserSession[]>('/iam/auth/sessions/online', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  kickUserSessions: async (
+    userId: number,
+    audience_scope: 'admin' | 'portal' | 'all' = 'all'
+  ): Promise<SessionRevokeResult> => {
+    const response = await api.post<SessionRevokeResult>(`/iam/auth/sessions/${userId}/kick`, {
+      audience_scope,
+    });
+    return response.data;
+  },
+
   getRoles: async (): Promise<any[]> => {
 
     const response = await api.get('/iam/admin/roles');
@@ -381,6 +412,20 @@ export const ApiClient = {
 
   getPublicSystemConfig: async (): Promise<Record<string, string>> => {
     const response = await api.get('/public/config');
+    return response.data;
+  },
+
+  sessionPing: async (audience: 'admin' | 'portal'): Promise<{
+    message: string;
+    audience: 'admin' | 'portal';
+    refreshed: boolean;
+    expires_at_epoch: number;
+    expires_in_seconds: number;
+    absolute_timeout_minutes: number;
+  }> => {
+    const response = await api.post('/system/session/ping', null, {
+      params: { audience },
+    });
     return response.data;
   },
 
@@ -646,7 +691,13 @@ export const ApiClient = {
   queryKB: async (query: string, topK: number = 5): Promise<any> => {
     const response = await api.post('/kb/query', { query, top_k: topK });
     return response.data;
-  }
+  },
+
+  // Captcha (public endpoint, no scope prefix)
+  getCaptcha: async (): Promise<{ captcha_id: string; captcha_image: string }> => {
+    const response = await axios.get(`${API_BASE_URL}/captcha/generate`);
+    return response.data;
+  },
 };
 
 export default ApiClient;

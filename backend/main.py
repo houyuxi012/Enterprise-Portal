@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public, notifications
+from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public, notifications, captcha, session
 import os
 import database
 import models
@@ -126,6 +126,8 @@ api_router = APIRouter(prefix="/api")
 from iam import router as iam_router
 api_router.include_router(iam_router)
 api_router.include_router(public.router)
+api_router.include_router(captcha.router)
+api_router.include_router(session.router)
 
 # 3.2 App Routers (Audience: portal)
 app_router = APIRouter(prefix="/app", dependencies=[Depends(verify_portal_aud)])

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Todo, PaginatedTodoResponse } from '../types';
+import { triggerSessionInvalid } from './sessionGuard';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
@@ -14,7 +15,10 @@ const api = axios.create({
 api.interceptors.response.use(
     (response) => response.data,
     (error) => {
-        console.error('API Error:', error);
+        const handled = triggerSessionInvalid(error, { source: 'todo-interceptor' });
+        if (!handled) {
+            console.error('API Error:', error);
+        }
         return Promise.reject(error);
     }
 );

@@ -14,6 +14,7 @@ const ACTION_MAP: Record<string, string> = {
     'iam.user.update': '更新用户',
     'iam.user.create': '创建用户',
     'iam.user.delete': '删除用户',
+    'iam.user.password_reset': '重置用户密码',
     'iam.permission.assign': '分配权限',
     'iam.permission.revoke': '撤销权限',
 };
@@ -51,6 +52,7 @@ interface AuditLog {
     target_name?: string;
     detail?: any;
     ip_address?: string;
+    user_agent?: string;
     result?: string;
     reason?: string;
     trace_id?: string;
@@ -133,6 +135,23 @@ const AuditLogs: React.FC = () => {
     const handleViewDetail = (record: AuditLog) => {
         setSelectedLog(record);
         setDrawerOpen(true);
+    };
+
+    const extractClientContext = (log?: AuditLog | null): { deviceType?: string; os?: string; browser?: string } => {
+        if (!log) return {};
+        const detail = log.detail;
+        if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+            const d = detail as Record<string, any>;
+            const client = d.client_context && typeof d.client_context === 'object'
+                ? d.client_context
+                : d;
+            return {
+                deviceType: client.device_type || client.deviceType,
+                os: client.os || client.os_name,
+                browser: client.browser || client.browser_name,
+            };
+        }
+        return {};
     };
 
     const columns = [
@@ -246,6 +265,7 @@ const AuditLogs: React.FC = () => {
         value: action,
         label: ACTION_MAP[action] || action
     }));
+    const selectedClientContext = extractClientContext(selectedLog);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
@@ -411,21 +431,24 @@ const AuditLogs: React.FC = () => {
                             <Descriptions.Item label="IP 地址">
                                 {selectedLog.ip_address || '-'}
                             </Descriptions.Item>
+                            <Descriptions.Item label="设备类型">
+                                {selectedClientContext.deviceType || '-'}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="操作系统">
+                                {selectedClientContext.os || '-'}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="浏览器">
+                                {selectedClientContext.browser || '-'}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="User-Agent">
+                                <span className="text-xs break-all">{selectedLog.user_agent || '-'}</span>
+                            </Descriptions.Item>
                             <Descriptions.Item label="结果">
                                 <Tag color={selectedLog.result === 'success' ? 'green' : 'red'}>
                                     {selectedLog.result === 'success' ? '成功' : '失败'}
                                 </Tag>
                                 {selectedLog.reason && <span className="text-red-500 ml-2">{selectedLog.reason}</span>}
                             </Descriptions.Item>
-                            {selectedLog.detail && (
-                                <Descriptions.Item label="详细信息">
-                                    <pre className="text-xs bg-slate-50 p-3 rounded-lg whitespace-pre-wrap max-h-48 overflow-auto">
-                                        {typeof selectedLog.detail === 'string'
-                                            ? selectedLog.detail
-                                            : JSON.stringify(selectedLog.detail, null, 2)}
-                                    </pre>
-                                </Descriptions.Item>
-                            )}
                         </Descriptions>
                     </div>
                 )}

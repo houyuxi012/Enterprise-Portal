@@ -201,7 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
           {employees.slice(0, 4).map((emp, i) => (
             <img
               key={emp.id || i}
-              src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.name)}&background=random&color=fff`}
+              src={emp.avatar || '/images/default-avatar.svg'}
               alt={emp.name}
               className="w-10 h-10 rounded-xl border-2 border-slate-50 dark:border-slate-900 shadow-md object-cover"
             />
@@ -227,7 +227,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
             desc: `${todoStats.emergency} 紧急 · ${todoStats.high} 高 · ${todoStats.medium} 中 · ${todoStats.low} 低${todoStats.unclassified > 0 ? ` · ${todoStats.unclassified} 未分级` : ''}`,
             onClick: onNavigateToTodos
           },
-          { icon: <Calendar size={18} />, label: '今日会议', val: '04', color: 'purple', desc: '下一场：14:00 产品周会' },
+          { icon: <Calendar size={18} />, label: '今日会议', val: '04场', color: 'purple', desc: '下一场：14:00 产品周会' },
           { icon: <Clock size={18} />, label: '工时完成', val: '32h', color: 'rose', desc: '剩余目标 8h' },
         ].map((stat, i) => (
           <div

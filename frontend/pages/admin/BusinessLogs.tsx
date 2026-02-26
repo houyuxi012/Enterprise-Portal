@@ -51,6 +51,7 @@ const ACTION_MAP: Record<string, string> = {
     'MARK_ALL_NOTIFICATIONS_READ': '全部通知已读',
     'MARK_ANNOUNCEMENTS_READ': '公告已读',
     'PORTAL_CLIENT_LOCAL_NOTIFICATION_CLICK': '本地通知点击',
+    'READ_IAM_AUDIT_LOGS': '查看IAM审计日志',
 };
 
 const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {

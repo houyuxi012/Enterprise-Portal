@@ -5,13 +5,24 @@ Identity Router - 认证路由
 from fastapi import APIRouter, Depends, Request, Response, Query, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from .service import IdentityService
-from .schemas import UserMeResponse, TokenResponse, LogoutResponse, RoleOut, PasswordChangeRequest
-from iam.deps import get_db, get_current_identity
+from .schemas import (
+    UserMeResponse,
+    TokenResponse,
+    LogoutResponse,
+    RoleOut,
+    PasswordChangeRequest,
+    SessionScopeRequest,
+    SessionRevokeResponse,
+    OnlineUserSessionItem,
+)
+from iam.deps import get_db, get_current_identity, PermissionChecker, verify_admin_aud
 from iam.rbac.service import RBACService
 from iam.audit.service import IAMAuditService
 from services.password_policy import set_user_password
+import models
 import utils
 
 router = APIRouter(prefix="/auth", tags=["iam-identity"])
@@ -48,6 +59,63 @@ async def logout(
     return await IdentityService.logout(response, request=request, db=db)
 
 
+@router.post("/logout-all", response_model=SessionRevokeResponse)
+async def logout_all(
+    request: Request,
+    response: Response,
+    payload: SessionScopeRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """当前用户全端下线（可按 audience_scope）。"""
+    return await IdentityService.logout_all(
+        response=response,
+        request=request,
+        db=db,
+        audience_scope=(payload.audience_scope if payload else "all"),
+    )
+
+
+@router.post(
+    "/sessions/{user_id}/kick",
+    response_model=SessionRevokeResponse,
+    dependencies=[Depends(verify_admin_aud)],
+)
+async def kick_user_sessions(
+    user_id: int,
+    request: Request,
+    payload: SessionScopeRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(PermissionChecker("sys:user:edit")),
+):
+    """管理员踢指定用户下线（可按 audience_scope）。"""
+    return await IdentityService.kick_user_sessions(
+        operator=current_user,
+        target_user_id=user_id,
+        audience_scope=(payload.audience_scope if payload else "all"),
+        request=request,
+        db=db,
+    )
+
+
+@router.get(
+    "/sessions/online",
+    response_model=list[OnlineUserSessionItem],
+    dependencies=[Depends(verify_admin_aud)],
+)
+async def list_online_users(
+    audience_scope: str = Query(default="all", pattern="^(admin|portal|all)$"),
+    keyword: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(PermissionChecker("sys:user:view")),
+):
+    """在线用户列表（按 audience_scope 聚合）。"""
+    return await IdentityService.list_online_users(
+        db=db,
+        audience_scope=audience_scope,
+        keyword=keyword,
+    )
+
+
 @router.get("/me", response_model=UserMeResponse)
 async def get_me(
     request: Request,
@@ -56,6 +124,14 @@ async def get_me(
 ):
     """获取当前用户信息"""
     user = await IdentityService.get_current_user(request, db, audience=audience)
+    resolved_avatar = user.avatar
+    if not resolved_avatar:
+        employee_result = await db.execute(
+            select(models.Employee).filter(models.Employee.account == user.username)
+        )
+        employee = employee_result.scalars().first()
+        if employee and employee.avatar:
+            resolved_avatar = employee.avatar
     roles, permissions_set, perm_version = await RBACService.get_user_permissions(user.id, db)
     
     return UserMeResponse(
@@ -64,7 +140,7 @@ async def get_me(
         email=user.email,
         account_type=getattr(user, "account_type", "PORTAL"),
         name=user.name,
-        avatar=user.avatar,
+        avatar=resolved_avatar,
         is_active=user.is_active,
         password_violates_policy=getattr(user, "password_violates_policy", False),
         roles=[RoleOut(**r) for r in roles],

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import os
 from uuid import uuid4
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 8)) # Default 8 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 5)) # Default 5 minutes
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
 ALGORITHM = "HS256"
 

@@ -129,8 +129,8 @@ const SystemUserList: React.FC = () => {
     };
 
     const filteredUsers = users.filter(u =>
-        u.username.toLowerCase().includes(search.toLowerCase()) ||
-        (u.email || '').toLowerCase().includes(search.toLowerCase())
+        String(u.username || '').toLowerCase().includes(String(search || '').toLowerCase()) ||
+        String(u.email || '').toLowerCase().includes(String(search || '').toLowerCase())
     );
 
     const isProtectedSystemAdmin = (user: User) => {
@@ -152,7 +152,7 @@ const SystemUserList: React.FC = () => {
                             record.avatar ? (
                                 <img src={record.avatar} alt={record.username} className="w-full h-full object-cover" />
                             ) : (
-                                text[0].toUpperCase()
+                                String(text || 'U')[0].toUpperCase()
                             )
                         )}
                     </div>

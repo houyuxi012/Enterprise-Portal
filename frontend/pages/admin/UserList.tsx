@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import { Employee, Department } from '../../types';
@@ -22,6 +22,7 @@ const UserList: React.FC = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [userAccounts, setUserAccounts] = useState<Set<string>>(new Set());
+    const [userIdByAccount, setUserIdByAccount] = useState<Map<string, number>>(new Map());
     const [deptTreeData, setDeptTreeData] = useState<DataNode[]>([]);
     const [selectedDeptName, setSelectedDeptName] = useState<string | null>(null);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -50,7 +51,15 @@ const UserList: React.FC = () => {
             ]);
             setEmployees(empData);
             setDepartments(deptData);
-            setUserAccounts(new Set((userOptions || []).map((u) => u.username)));
+            const accountMap = new Map<string, number>();
+            (userOptions || []).forEach((u) => {
+                const key = String(u.username || '').trim().toLowerCase();
+                if (key && Number.isFinite(Number(u.id))) {
+                    accountMap.set(key, Number(u.id));
+                }
+            });
+            setUserIdByAccount(accountMap);
+            setUserAccounts(new Set(accountMap.keys()));
             setDeptTreeData(buildTreeData(deptData));
         } catch (error) {
             console.error(error);
@@ -168,7 +177,7 @@ const UserList: React.FC = () => {
                 const hide = message.loading('正在重置...', 0);
                 try {
                     const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
-                    const resettable = selectedEmps.filter(e => userAccounts.has(e.account));
+                    const resettable = selectedEmps.filter(e => userAccounts.has(String(e.account || '').toLowerCase()));
                     const skipped = selectedEmps.length - resettable.length;
 
                     if (resettable.length === 0) {
@@ -195,6 +204,57 @@ const UserList: React.FC = () => {
                 } catch (e) {
                     hide();
                     message.error('批量重置失败');
+                }
+            }
+        });
+    };
+
+    const handleBatchKickOffline = () => {
+        if (selectedRowKeys.length === 0) return;
+
+        modal.confirm({
+            title: `确定将选中的 ${selectedRowKeys.length} 位用户退出全部设备吗？`,
+            content: '该操作会立即使所选用户在线会话失效。',
+            okText: '确认踢下线',
+            cancelText: '取消',
+            onOk: async () => {
+                const hide = message.loading('正在执行踢下线...', 0);
+                try {
+                    const selectedEmps = employees.filter((e) => selectedRowKeys.includes(e.id));
+                    const kickTargets = selectedEmps
+                        .map((emp) => ({
+                            account: emp.account,
+                            userId: userIdByAccount.get(String(emp.account || '').toLowerCase()),
+                        }))
+                        .filter((item): item is { account: string; userId: number } => Number.isFinite(item.userId as number));
+                    const skipped = selectedEmps.length - kickTargets.length;
+
+                    if (kickTargets.length === 0) {
+                        hide();
+                        message.warning('所选用户未开通系统账户，无法执行踢下线');
+                        return;
+                    }
+
+                    const settled = await Promise.allSettled(
+                        kickTargets.map((item) => ApiClient.kickUserSessions(item.userId, 'all'))
+                    );
+                    const success = settled.filter((item) => item.status === 'fulfilled') as PromiseFulfilledResult<any>[];
+                    const failedCount = settled.length - success.length;
+                    const revokedTotal = success.reduce(
+                        (sum, item) => sum + Number(item.value?.revoked_sessions || 0),
+                        0
+                    );
+                    hide();
+
+                    if (failedCount === 0) {
+                        message.success(`批量踢下线完成：成功 ${success.length}，失效会话 ${revokedTotal}，跳过 ${skipped}`);
+                    } else {
+                        message.warning(`批量踢下线完成：成功 ${success.length}，失败 ${failedCount}，跳过 ${skipped}`);
+                    }
+                    setSelectedRowKeys([]);
+                } catch (e) {
+                    hide();
+                    message.error('批量踢下线失败');
                 }
             }
         });
@@ -252,7 +312,7 @@ const UserList: React.FC = () => {
     };
 
     const handleResetPassword = async (account: string) => {
-        if (!userAccounts.has(account)) {
+        if (!userAccounts.has(String(account || '').toLowerCase())) {
             message.warning(`用户 ${account} 未开通系统账户，无法重置密码`);
             return;
         }
@@ -413,13 +473,15 @@ const UserList: React.FC = () => {
     ];
 
     const filteredData = useMemo(() => {
+        const keyword = String(searchText || '').toLowerCase();
+        const normalize = (value: unknown) => String(value ?? '').toLowerCase();
         return employees.filter(e => {
             const matchesSearch =
-                e.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                e.department.toLowerCase().includes(searchText.toLowerCase()) ||
-                e.account.toLowerCase().includes(searchText.toLowerCase());
+                normalize(e?.name).includes(keyword) ||
+                normalize(e?.department).includes(keyword) ||
+                normalize(e?.account).includes(keyword);
 
-            const matchesDept = selectedDeptName ? e.department === selectedDeptName : true;
+            const matchesDept = selectedDeptName ? String(e?.department ?? '') === selectedDeptName : true;
 
             return matchesSearch && matchesDept;
         });
@@ -509,6 +571,14 @@ const UserList: React.FC = () => {
                                         onClick={handleOpenBatchMoveModal}
                                     >
                                         移动组织
+                                    </AppButton>
+                                    <AppButton
+                                        intent="secondary"
+                                        size="sm"
+                                        icon={<DisconnectOutlined />}
+                                        onClick={handleBatchKickOffline}
+                                    >
+                                        退出全部设备/踢下线
                                     </AppButton>
                                     <AppButton
                                         intent="secondary"

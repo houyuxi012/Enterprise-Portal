@@ -21,13 +21,23 @@ interface AuthResponse {
 }
 
 class AuthService {
-    async login(username: string, password: string, type: 'portal' | 'admin' = 'portal'): Promise<User> {
+    async login(username: string, password: string, type: 'portal' | 'admin' = 'portal', extraHeaders?: Record<string, string>): Promise<User> {
         // Phase 2: Remove RSA, send plain password (protected by HTTPS)
         // Phase 1: Cookie Auth (No token storage in localStorage)
 
         const params = new URLSearchParams();
         params.append('username', username);
         params.append('password', password);
+        // Keep captcha in both custom headers and OAuth form fields.
+        // Some proxy chains may strip non-standard headers.
+        const captchaId = extraHeaders?.['X-Captcha-ID'] || extraHeaders?.['x-captcha-id'];
+        const captchaCode = extraHeaders?.['X-Captcha-Code'] || extraHeaders?.['x-captcha-code'];
+        if (captchaId) {
+            params.append('client_id', captchaId);
+        }
+        if (captchaCode) {
+            params.append('client_secret', captchaCode);
+        }
 
         const endpoint = type === 'admin' ? '/iam/auth/admin/token' : '/iam/auth/portal/token';
 
@@ -37,7 +47,8 @@ class AuthService {
 
         await axios.post<AuthResponse>(`${API_URL}${endpoint}`, params, {
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
+                ...extraHeaders,
             },
             withCredentials: true
         });

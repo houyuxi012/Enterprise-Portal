@@ -15,7 +15,7 @@ from sqlalchemy import select, desc
 from pydantic import BaseModel
 
 from iam.deps import get_db, PermissionChecker, verify_admin_aud
-from iam.audit.service import IAMAuditService
+from services.audit_service import AuditService
 from .models import IAMAuditLog
 
 router = APIRouter(
@@ -36,6 +36,7 @@ class AuditLogResponse(BaseModel):
     target_name: Optional[str]
     detail: Optional[Any] # Changed from Dict to Any to support Lists/Primitives in JSON
     ip_address: Optional[str]
+    user_agent: Optional[str]
     result: Optional[str]     # Changed from success: int to result: str
     reason: Optional[str]     # Added reason
     trace_id: Optional[str]   # Added trace_id
@@ -114,6 +115,7 @@ async def list_audit_logs(
     # Query from DB
     if source in ("db", "all"):
         query = select(IAMAuditLog).order_by(desc(IAMAuditLog.timestamp))
+        query = query.filter(IAMAuditLog.action != "iam.audit.read")
         
         if action:
             query = query.filter(IAMAuditLog.action == action)
@@ -144,6 +146,7 @@ async def list_audit_logs(
                 "target_name": item.target_name,
                 "detail": item.detail,
                 "ip_address": item.ip_address,
+                "user_agent": item.user_agent,
                 "result": item.result,
                 "reason": item.reason,
                 "trace_id": item.trace_id,
@@ -192,6 +195,8 @@ async def list_audit_logs(
                                 # Apply filters
                                 if action and log_line.get("action") != action:
                                     continue
+                                if log_line.get("action") == "iam.audit.read":
+                                    continue
                                 if username and username.lower() not in (log_line.get("username") or "").lower():
                                     continue
                                 if result and log_line.get("result") != result:
@@ -213,6 +218,7 @@ async def list_audit_logs(
                                     "target_name": log_line.get("target_name"),
                                     "detail": log_line.get("detail"),
                                     "ip_address": log_line.get("ip_address"),
+                                    "user_agent": log_line.get("user_agent"),
                                     "result": log_line.get("result"),
                                     "reason": log_line.get("reason"),
                                     "trace_id": log_line.get("trace_id"),
@@ -263,29 +269,34 @@ async def list_audit_logs(
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await IAMAuditService.log(
+    await AuditService.log_business_action(
         db=db,
-        action="iam.audit.read",
-        target_type="iam_audit_logs",
+        action="READ_IAM_AUDIT_LOGS",
+        target="IAM审计日志",
         user_id=current_user.id,
         username=current_user.username,
-        detail={
-            "query": {
-                "action": action,
-                "username": username,
-                "target_type": target_type,
-                "result": result,
-                "source": source,
-                "page": page,
-                "page_size": page_size,
-                "start_time": start_time.isoformat() if start_time else None,
-                "end_time": end_time.isoformat() if end_time else None,
+        detail=json.dumps(
+            {
+                "query": {
+                    "action": action,
+                    "username": username,
+                    "target_type": target_type,
+                    "result": result,
+                    "source": source,
+                    "page": page,
+                    "page_size": page_size,
+                    "start_time": start_time.isoformat() if start_time else None,
+                    "end_time": end_time.isoformat() if end_time else None,
+                },
+                "returned": len(items),
+                "total": total,
             },
-            "returned": len(items),
-            "total": total,
-        },
+            ensure_ascii=False,
+            default=str,
+        ),
         ip_address=ip,
         trace_id=trace_id,
+        domain="BUSINESS",
     )
     await db.commit()
     

@@ -137,6 +137,28 @@ export interface UserOption {
   avatar?: string;
 }
 
+export interface OnlineUserSession {
+  user_id: number;
+  username: string;
+  name?: string | null;
+  email?: string | null;
+  avatar?: string | null;
+  is_active: boolean;
+  admin_sessions: number;
+  portal_sessions: number;
+  total_sessions: number;
+  latest_exp_epoch?: number | null;
+  latest_exp_at?: string | null;
+}
+
+export interface SessionRevokeResult {
+  message: string;
+  audience_scope: 'admin' | 'portal' | 'all';
+  revoked_sessions: number;
+  target_user_id?: number | null;
+  target_username?: string | null;
+}
+
 export interface SystemLog {
   id: number;
   level: 'INFO' | 'WARN' | 'ERROR';

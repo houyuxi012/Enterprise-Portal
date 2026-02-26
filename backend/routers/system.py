@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict
 
 import psutil
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ import models
 import schemas
 from dependencies import PermissionChecker
 from services.audit_service import AuditService
+from services.cache_manager import cache
 from services.loki_config import update_loki_retention
 from services.storage import storage
 
@@ -42,6 +43,31 @@ VERSION_DEFAULTS = {
     "release_id": "unknown",
     "api_version": "v1",
     "db_schema_version": "1.0.0",
+}
+
+NUMERIC_SECURITY_CONFIG_RULES: dict[str, tuple[int, int]] = {
+    "login_captcha_threshold": (1, 20),
+    "security_login_max_retries": (1, 50),
+    "security_lockout_duration": (1, 1440),
+    "login_session_timeout_minutes": (5, 43200),
+    "login_session_absolute_timeout_minutes": (5, 43200),
+    "login_session_refresh_window_minutes": (1, 120),
+    "max_concurrent_sessions": (0, 100),
+}
+
+ENUM_SECURITY_CONFIG_RULES: dict[str, set[str]] = {
+    "security_lockout_scope": {"account", "ip"},
+}
+
+LOGIN_RUNTIME_POLICY_KEYS = {
+    "login_captcha_threshold",
+    "security_login_max_retries",
+    "security_lockout_duration",
+    "security_lockout_scope",
+    "login_session_timeout_minutes",
+    "login_session_absolute_timeout_minutes",
+    "login_session_refresh_window_minutes",
+    "max_concurrent_sessions",
 }
 
 # Simple state for network speed calculation
@@ -250,7 +276,42 @@ async def update_system_config(
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
+    normalized_config: Dict[str, str] = {}
     for key, value in config.items():
+        normalized_value = value
+        if key in NUMERIC_SECURITY_CONFIG_RULES:
+            min_value, max_value = NUMERIC_SECURITY_CONFIG_RULES[key]
+            candidate = str(value).strip() if value is not None else ""
+            if candidate == "":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"配置项 {key} 不能为空",
+                )
+            try:
+                numeric_value = int(candidate)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"配置项 {key} 必须是整数",
+                )
+            if numeric_value < min_value or numeric_value > max_value:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"配置项 {key} 取值范围为 [{min_value}, {max_value}]",
+                )
+            normalized_value = str(numeric_value)
+        elif key in ENUM_SECURITY_CONFIG_RULES:
+            allowed_values = ENUM_SECURITY_CONFIG_RULES[key]
+            candidate = str(value).strip().lower() if value is not None else ""
+            if candidate not in allowed_values:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"配置项 {key} 仅支持: {', '.join(sorted(allowed_values))}",
+                )
+            normalized_value = candidate
+        normalized_config[key] = normalized_value
+
+    for key, value in normalized_config.items():
         result = await db.execute(
             select(models.SystemConfig).filter(models.SystemConfig.key == key)
         )
@@ -262,15 +323,25 @@ async def update_system_config(
             db.add(models.SystemConfig(key=key, value=value))
 
     # Sync Loki retention if access log retention is updated
-    if "log_retention_access_days" in config:
+    if "log_retention_access_days" in normalized_config:
         try:
-            retention_days = int(config["log_retention_access_days"])
+            retention_days = int(normalized_config["log_retention_access_days"])
             if update_loki_retention(retention_days):
                 logger.info("Loki retention synced to %s days", retention_days)
             else:
                 logger.warning("Loki retention sync failed - config may not be mounted")
         except (ValueError, TypeError) as e:
             logger.error("Invalid access log retention value: %s", e)
+
+    # Runtime login policies changed: clear transient login fail caches so
+    # the new threshold/config takes effect immediately.
+    if LOGIN_RUNTIME_POLICY_KEYS.intersection(normalized_config.keys()):
+        try:
+            await cache.delete_pattern("iam:login:fail:principal:*")
+            await cache.delete_pattern("iam:login:fail:ip:*")
+            await cache.delete_pattern("iam:login:lock:ip:*")
+        except Exception as e:
+            logger.warning("Failed to clear login fail caches after policy update: %s", e)
 
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
@@ -281,7 +352,7 @@ async def update_system_config(
         username=current_user.username,
         action="UPDATE_SYSTEM_CONFIG",
         target="系统配置",
-        detail=f"Updated keys: {', '.join(config.keys())}",
+        detail=f"Updated keys: {', '.join(normalized_config.keys())}",
         ip_address=ip,
         trace_id=trace_id,
     )

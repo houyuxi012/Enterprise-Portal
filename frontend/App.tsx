@@ -35,6 +35,7 @@ const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'));
 const SecuritySettings = lazy(() => import('./pages/admin/SecuritySettings'));
 const PasswordPolicy = lazy(() => import('./pages/admin/PasswordPolicy'));
 const SystemUserList = lazy(() => import('./pages/admin/SystemUserList'));
+const OnlineUsers = lazy(() => import('./pages/admin/OnlineUsers'));
 const RoleList = lazy(() => import('./pages/admin/RoleList'));
 const OrganizationList = lazy(() => import('./pages/admin/OrganizationList'));
 const BusinessLogs = lazy(() => import('./pages/admin/BusinessLogs'));
@@ -67,7 +68,7 @@ const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: str
     setHasError(false);
   }, [src]);
 
-  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
+  const fallbackUrl = '/images/default-avatar.svg';
 
   if (!src || hasError) {
     return <img src={fallbackUrl} className={className} alt={name} />;
@@ -85,13 +86,13 @@ const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: str
 
 const App: React.FC = () => {
   // Use AuthContext instead of local state
-  const { user: currentUser, isAuthenticated, isLoading, logout } = useAuth();
+  const { user: currentUser, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
 
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -127,6 +128,11 @@ const App: React.FC = () => {
   // Search AI Insights State
   const [searchAiInsight, setSearchAiInsight] = useState<string | null>(null);
   const [isSearchAiLoading, setIsSearchAiLoading] = useState(false);
+  const emptyTodoPage = useMemo(
+    () => ({ items: [], total: 0, page: 1, page_size: 100, total_pages: 0 }),
+    []
+  );
+  const normalizeSearchText = useCallback((value: unknown) => String(value ?? '').toLowerCase(), []);
 
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
@@ -183,7 +189,7 @@ const App: React.FC = () => {
         ApiClient.getNews(),
         ApiClient.getTools(),
         canUseAdminPlane ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
-        TodoService.getMyTasks({ page_size: 100 })
+        canUseAdminPlane ? Promise.resolve(emptyTodoPage) : TodoService.getMyTasks({ page_size: 100 })
       ]);
 
       if (employeesResult.status === 'fulfilled') {
@@ -221,7 +227,7 @@ const App: React.FC = () => {
     };
 
     fetchAppData();
-  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig]);
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig, emptyTodoPage]);
 
   // Keep branding synced when backend config changes during active sessions.
   useEffect(() => {
@@ -317,38 +323,44 @@ const App: React.FC = () => {
   }, [currentView, globalSearch, systemConfig]);
 
   const filteredTools = useMemo(() => {
+    const keyword = normalizeSearchText(globalSearch);
     return tools.filter(tool =>
-      tool.name.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      tool.category?.toLowerCase().includes(globalSearch.toLowerCase())
+      normalizeSearchText(tool?.name).includes(keyword) ||
+      normalizeSearchText(tool?.category).includes(keyword)
     );
-  }, [globalSearch, tools]);
+  }, [globalSearch, tools, normalizeSearchText]);
 
   const filteredNews = useMemo(() => {
+    const keyword = normalizeSearchText(globalSearch);
     return newsList.filter(news =>
-      news.title.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      news.summary.toLowerCase().includes(globalSearch.toLowerCase())
+      normalizeSearchText(news?.title).includes(keyword) ||
+      normalizeSearchText(news?.summary).includes(keyword)
     );
-  }, [globalSearch, newsList]);
+  }, [globalSearch, newsList, normalizeSearchText]);
 
   const filteredTodos = useMemo(() => {
+    const keyword = normalizeSearchText(globalSearch);
     return todos.filter(todo =>
-      (todo.title && todo.title.toLowerCase().includes(globalSearch.toLowerCase())) ||
-      (todo.description && todo.description.toLowerCase().includes(globalSearch.toLowerCase()))
+      normalizeSearchText(todo?.title).includes(keyword) ||
+      normalizeSearchText(todo?.description).includes(keyword)
     );
-  }, [globalSearch, todos]);
+  }, [globalSearch, todos, normalizeSearchText]);
 
   const filteredEmployees = useMemo(() => {
+    const keyword = normalizeSearchText(globalSearch);
     return employees.filter(emp => {
       const matchesSearch =
-        emp.name.toLowerCase().includes(globalSearch.toLowerCase()) ||
-        emp.role.toLowerCase().includes(globalSearch.toLowerCase()) ||
-        emp.department.toLowerCase().includes(globalSearch.toLowerCase());
+        normalizeSearchText(emp?.name).includes(keyword) ||
+        normalizeSearchText(emp?.role).includes(keyword) ||
+        normalizeSearchText(emp?.department).includes(keyword);
 
-      const matchesDept = activeFilters.departments.length === 0 || activeFilters.departments.includes(emp.department);
+      const matchesDept =
+        activeFilters.departments.length === 0 ||
+        activeFilters.departments.includes(String(emp?.department ?? ''));
 
       return matchesSearch && matchesDept;
     });
-  }, [globalSearch, activeFilters, employees]);
+  }, [globalSearch, activeFilters, employees, normalizeSearchText]);
 
   const handleOpenAssistantWithPrompt = (prompt: string) => {
     setAssistantInitialPrompt(prompt);
@@ -481,12 +493,13 @@ const App: React.FC = () => {
           </div>
         );
       case AppView.NEWS:
+        const newsKeyword = normalizeSearchText(globalSearch);
         const tabFilteredNews = newsList.filter(n => {
           if (activeNewsTab === '全部') return true;
           return n.category === activeNewsTab;
         }).filter(news =>
-          news.title.toLowerCase().includes(globalSearch.toLowerCase()) ||
-          news.summary.toLowerCase().includes(globalSearch.toLowerCase())
+          normalizeSearchText(news?.title).includes(newsKeyword) ||
+          normalizeSearchText(news?.summary).includes(newsKeyword)
         );
 
         return (
@@ -748,7 +761,7 @@ const App: React.FC = () => {
                     <tr key={emp.id} className="border-t border-slate-50 dark:border-slate-800/50">
                       <td className="px-8 py-4">
                         <div className="flex items-center space-x-3">
-                          <img src={emp.avatar} className="w-10 h-10 rounded-full" />
+                          <img src={emp.avatar || '/images/default-avatar.svg'} className="w-10 h-10 rounded-full" />
                           <div>
                             <p className="font-bold text-slate-900 dark:text-white">{emp.name}</p>
                           </div>
@@ -769,7 +782,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <Spin size="large" />
@@ -818,6 +831,7 @@ const App: React.FC = () => {
           {activeAdminTab === 'announcements' && <AnnouncementList />}
           {activeAdminTab === 'employees' && <UserList />}
           {activeAdminTab === 'users' && <SystemUserList />}
+          {activeAdminTab === 'online_users' && <OnlineUsers />}
           {activeAdminTab === 'roles' && <RoleList />}
           {activeAdminTab === 'tools' && <ToolList />}
           {activeAdminTab === 'app_permissions' && <AppPermissions />}

@@ -2,7 +2,7 @@
 Identity Schemas - 认证相关数据结构
 """
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -50,3 +50,38 @@ class LogoutResponse(BaseModel):
 class PasswordChangeRequest(BaseModel):
     old_password: str
     new_password: str
+
+
+class SessionScopeRequest(BaseModel):
+    audience_scope: Literal["admin", "portal", "all"] = "all"
+
+
+class SessionRevokeResponse(BaseModel):
+    message: str
+    audience_scope: Literal["admin", "portal", "all"] = "all"
+    revoked_sessions: int = 0
+    target_user_id: Optional[int] = None
+    target_username: Optional[str] = None
+
+
+class OnlineUserSessionItem(BaseModel):
+    user_id: int
+    username: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    avatar: Optional[str] = None
+    is_active: bool = True
+    admin_sessions: int = 0
+    portal_sessions: int = 0
+    total_sessions: int = 0
+    latest_exp_epoch: Optional[int] = None
+    latest_exp_at: Optional[datetime] = None
+
+
+class SessionPingResponse(BaseModel):
+    message: str
+    audience: Literal["admin", "portal"]
+    refreshed: bool = False
+    expires_at_epoch: int
+    expires_in_seconds: int
+    absolute_timeout_minutes: int

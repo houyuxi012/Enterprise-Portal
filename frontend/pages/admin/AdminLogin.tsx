@@ -22,6 +22,21 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
+    const [requiresCaptcha, setRequiresCaptcha] = useState(false);
+    const [captchaId, setCaptchaId] = useState('');
+    const [captchaImage, setCaptchaImage] = useState('');
+    const [captchaCode, setCaptchaCode] = useState('');
+
+    const fetchCaptcha = async () => {
+        try {
+            const data = await ApiClient.getCaptcha();
+            setCaptchaId(data.captcha_id);
+            setCaptchaImage(data.captcha_image);
+        } catch (e) {
+            message.error('获取验证码失败');
+        }
+    };
+
     React.useEffect(() => {
         const fetchConfig = async () => {
             try {
@@ -40,7 +55,20 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const user = await login(username, password, 'admin');
+            const headers: any = {};
+            if (requiresCaptcha) {
+                const normalizedCaptcha = captchaCode.trim();
+                if (!captchaId) {
+                    await fetchCaptcha();
+                    throw new Error('验证码加载中，请稍后重试');
+                }
+                if (normalizedCaptcha.length !== 4) {
+                    throw new Error('请输入4位验证码');
+                }
+                headers['X-Captcha-ID'] = captchaId;
+                headers['X-Captcha-Code'] = normalizedCaptcha;
+            }
+            const user = await login(username, password, 'admin', headers);
 
             if (!hasAdminAccess(user)) {
                 const msg = '权限不足：需要管理员权限';
@@ -53,13 +81,36 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             onLoginSuccess();
         } catch (err: any) {
             // Parse backend error response
-            const detail = err?.response?.data?.detail || '';
-            let msg = '登录失败，请检查网络连接';
+            const detailPayload = err?.response?.data?.detail;
+            const detail = typeof detailPayload === 'string'
+                ? detailPayload
+                : (detailPayload?.message || '');
+            const detailCode = typeof detailPayload === 'object' && detailPayload?.code
+                ? String(detailPayload.code)
+                : '';
+            let msg = err?.message || '登录失败，请检查网络连接';
+            const shouldShowCaptcha =
+                err?.response?.status === 428 ||
+                err?.response?.headers?.['x-requires-captcha'] === 'true' ||
+                /captcha/i.test(`${detail} ${detailCode}`);
 
-            if (detail.includes('locked')) {
+            if (shouldShowCaptcha) {
+                setRequiresCaptcha(true);
+                fetchCaptcha();
+                setCaptchaCode('');
+                if (/invalid|expired/i.test(String(detail))) {
+                    msg = '验证码错误或已过期，请重试';
+                } else if (/verification required/i.test(String(detail))) {
+                    msg = '需要验证码，请输入后重试';
+                } else {
+                    msg = detail || '请输入验证码';
+                }
+            } else if (detail.includes('locked')) {
                 msg = '账户已被锁定，请稍后再试';
             } else if (detail.includes('IP')) {
                 msg = '当前 IP 地址无访问权限';
+            } else if (err?.response?.status === 403 && (/并发|concurrent/i.test(String(detail)))) {
+                msg = '该用户超过并发设定，请退出其他设备后再次尝试登陆';
             } else if (err?.response?.status === 401) {
                 msg = '用户名或密码错误';
             }
@@ -166,16 +217,34 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             </div>
                         </div>
 
-                        <div className="flex items-center ml-1">
-                            <input
-                                id="remember-me"
-                                type="checkbox"
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                            />
-                            <label htmlFor="remember-me" className="ml-2 block text-xs text-slate-500 font-medium">
-                                记住本次登录
-                            </label>
-                        </div>
+                        {requiresCaptcha && (
+                            <div className="flex items-center space-x-3 ml-1 animate-in fade-in slide-in-from-top-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={captchaCode}
+                                        onChange={(e) => setCaptchaCode(e.target.value)}
+                                        className="block w-full px-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
+                                        placeholder="验证码"
+                                        required
+                                        maxLength={4}
+                                    />
+                                </div>
+                                <div
+                                    className="h-[52px] min-w-[120px] bg-slate-100 rounded-2xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-slate-200 dark:border-slate-700"
+                                    onClick={fetchCaptcha}
+                                    title="点击刷新验证码"
+                                >
+                                    {captchaImage ? (
+                                        <img src={captchaImage} alt="captcha" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                            <Loader2 size={18} className="animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold text-center animate-in fade-in slide-in-from-top-2">
@@ -190,8 +259,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         >
                             {isLoading ? <Loader2 size={20} className="animate-spin" /> : (
                                 <>
-                                    <span className="mr-2">登录</span>
-                                    <ArrowRight size={16} />
+                                    <span className="mr-2">立即登录</span>
                                 </>
                             )}
                         </button>

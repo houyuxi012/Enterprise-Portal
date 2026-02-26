@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, message, Switch, InputNumber, Divider } from 'antd';
+import { Form, Input, message, Switch, InputNumber, Divider, Select } from 'antd';
 import { SaveOutlined, SafetyCertificateOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
@@ -18,11 +18,20 @@ const SecuritySettings: React.FC = () => {
                     security_mfa_enabled: config.security_mfa_enabled === 'true',
                     security_login_max_retries: config.security_login_max_retries ? parseInt(config.security_login_max_retries) : 5,
                     security_lockout_duration: config.security_lockout_duration ? parseInt(config.security_lockout_duration) : 15,
+                    security_lockout_scope: ['account', 'ip'].includes((config.security_lockout_scope || '').toLowerCase())
+                        ? (config.security_lockout_scope || '').toLowerCase()
+                        : 'account',
+                    max_concurrent_sessions: config.max_concurrent_sessions ? parseInt(config.max_concurrent_sessions) : 0,
+                    login_session_timeout_minutes: config.login_session_timeout_minutes ? parseInt(config.login_session_timeout_minutes) : 5,
+                    login_session_absolute_timeout_minutes: config.login_session_absolute_timeout_minutes
+                        ? parseInt(config.login_session_absolute_timeout_minutes)
+                        : 480,
+                    login_captcha_threshold: config.login_captcha_threshold ? parseInt(config.login_captcha_threshold) : 3,
                 };
 
                 form.setFieldsValue(formattedConfig);
             } catch (error) {
-                message.error('Failed to load security settings');
+                message.error('安全设置加载失败');
             }
         };
         fetchConfig();
@@ -37,12 +46,17 @@ const SecuritySettings: React.FC = () => {
                 security_mfa_enabled: String(values.security_mfa_enabled),
                 security_login_max_retries: String(values.security_login_max_retries),
                 security_lockout_duration: String(values.security_lockout_duration),
+                security_lockout_scope: String(values.security_lockout_scope || 'account'),
+                max_concurrent_sessions: String(values.max_concurrent_sessions),
+                login_session_timeout_minutes: String(values.login_session_timeout_minutes),
+                login_session_absolute_timeout_minutes: String(values.login_session_absolute_timeout_minutes),
+                login_captcha_threshold: String(values.login_captcha_threshold),
             };
 
             await ApiClient.updateSystemConfig(payload);
-            message.success('Security settings updated successfully.');
+            message.success('安全设置保存成功');
         } catch (error) {
-            message.error('Failed to update settings');
+            message.error('安全设置保存失败');
         } finally {
             setLoading(false);
         }
@@ -53,8 +67,8 @@ const SecuritySettings: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
                 <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">安全设置</h2>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">Security Policies</p>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">基础设置</h2>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">Security Basic Configuration</p>
                 </div>
                 <AppButton
                     intent="primary"
@@ -75,13 +89,18 @@ const SecuritySettings: React.FC = () => {
                     initialValues={{
                         security_login_max_retries: 5,
                         security_lockout_duration: 15,
-                        security_mfa_enabled: false
+                        security_lockout_scope: 'account',
+                        security_mfa_enabled: false,
+                        max_concurrent_sessions: 0,
+                        login_session_timeout_minutes: 5,
+                        login_session_absolute_timeout_minutes: 480,
+                        login_captcha_threshold: 3,
                     }}
                 >
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
 
-                            <LockOutlined className="mr-2" /> 密码与认证
+                            <LockOutlined className="mr-2" /> 多因素认证
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -103,7 +122,7 @@ const SecuritySettings: React.FC = () => {
                             <SafetyCertificateOutlined className="mr-2" /> 登录防护
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <Form.Item
                                 name="security_login_max_retries"
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">最大重试次数</span>}
@@ -116,6 +135,59 @@ const SecuritySettings: React.FC = () => {
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">锁定时间 (分钟)</span>}
                             >
                                 <InputNumber min={5} max={1440} className="w-full rounded-lg" size="middle" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="security_lockout_scope"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">锁定方式</span>}
+                                help={<span className="text-[10px] text-slate-400">账户锁定：仅锁定当前账户；IP锁定：锁定当前来源 IP。</span>}
+                            >
+                                <Select
+                                    options={[
+                                        { value: 'account', label: '按账户锁定' },
+                                        { value: 'ip', label: '按 IP 锁定' },
+                                    ]}
+                                    className="w-full"
+                                />
+                            </Form.Item>
+                        </div>
+                    </div>
+
+                    <Divider className="my-2 border-slate-100 dark:border-slate-700" />
+
+                    <div>
+                        <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
+                            <SafetyCertificateOutlined className="mr-2" /> 会话与验证码策略
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                            <Form.Item
+                                name="max_concurrent_sessions"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">最大并发会话数</span>}
+                            >
+                                <InputNumber min={0} max={100} className="w-full rounded-lg" size="middle" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="login_session_timeout_minutes"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">登录会话超时 (分钟)</span>}
+                            >
+                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="login_session_absolute_timeout_minutes"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">会话绝对超时 (分钟)</span>}
+                                help={<span className="text-[10px] text-slate-400">默认 480 分钟（8小时）</span>}
+                            >
+                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="login_captcha_threshold"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">验证码阈值 (次)</span>}
+                            >
+                                <InputNumber min={1} max={20} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
                         </div>
                     </div>

@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, message, Card, Upload } from 'antd';
+import { Form, Input, message, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
+
+const SYSTEM_BRANDING_KEYS = [
+    'app_name',
+    'browser_title',
+    'logo_url',
+    'favicon_url',
+    'footer_text',
+    'privacy_policy',
+] as const;
 
 const SystemSettings: React.FC = () => {
     const [form] = Form.useForm();
@@ -23,7 +32,13 @@ const SystemSettings: React.FC = () => {
     const handleSave = async (values: any) => {
         setLoading(true);
         try {
-            await ApiClient.updateSystemConfig(values);
+            const payload = SYSTEM_BRANDING_KEYS.reduce((acc, key) => {
+                if (values[key] !== undefined) {
+                    acc[key] = values[key];
+                }
+                return acc;
+            }, {} as Record<string, any>);
+            await ApiClient.updateSystemConfig(payload);
             message.success('设置更新成功，请刷新页面查看更改。');
             // Update document title immediately for feedback
             if (values.browser_title) {

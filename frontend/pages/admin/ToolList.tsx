@@ -159,7 +159,7 @@ const ToolList: React.FC = () => {
             />
 
             <List
-                grid={{ gutter: 24, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 6 }}
+                grid={{ gutter: 28, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
                 dataSource={tools}
                 loading={loading}
                 className="pb-10"
@@ -168,6 +168,7 @@ const ToolList: React.FC = () => {
                         <Card
                             hoverable
                             className="rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 bg-white dark:bg-slate-800 group"
+                            bodyStyle={{ padding: 24 }}
                             actions={[
                                 <AppButton key="edit" intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(item)} />,
                                 <Popconfirm key="delete" title="确定删除?" onConfirm={() => handleDelete(item.id)}>

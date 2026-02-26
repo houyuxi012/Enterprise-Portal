@@ -16,3 +16,4 @@ minio>=7.2.0
 filetype>=1.2.0
 httpx
 pgvector>=0.3.0
+captcha>=0.6.0

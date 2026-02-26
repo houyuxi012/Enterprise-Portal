@@ -10,6 +10,7 @@ from starlette.requests import Request
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
 from iam.identity.service import IdentityService
+import utils
 
 
 def _perm(code: str):
@@ -71,6 +72,7 @@ async def test_admin_audience_rejects_authorization_header_without_admin_cookie(
     with pytest.raises(HTTPException) as exc_info:
         await IdentityService.get_current_user(request, db=None, audience="admin")
     assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["code"] == IdentityService.AUTH_CODE_SESSION_EXPIRED
 
 
 @pytest.mark.asyncio
@@ -79,3 +81,26 @@ async def test_portal_audience_rejects_authorization_header_without_portal_cooki
     with pytest.raises(HTTPException) as exc_info:
         await IdentityService.get_current_user(request, db=None, audience="portal")
     assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["code"] == IdentityService.AUTH_CODE_SESSION_EXPIRED
+
+
+@pytest.mark.asyncio
+async def test_admin_audience_mismatch_returns_structured_code():
+    portal_token = utils.create_access_token(
+        data={"sub": "tester", "uid": 1},
+        audience="portal",
+    )
+    request = _request_with_headers([(b"cookie", f"admin_session={portal_token}".encode("utf-8"))])
+    with pytest.raises(HTTPException) as exc_info:
+        await IdentityService.get_current_user(request, db=None, audience="admin")
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["code"] == IdentityService.AUTH_CODE_AUDIENCE_MISMATCH
+
+
+@pytest.mark.asyncio
+async def test_invalid_bearer_token_returns_token_revoked_code():
+    request = _request_with_headers([(b"authorization", b"Bearer malformed-token")])
+    with pytest.raises(HTTPException) as exc_info:
+        await IdentityService.get_current_user(request, db=None, audience=None)
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["code"] == IdentityService.AUTH_CODE_TOKEN_REVOKED

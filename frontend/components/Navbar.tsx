@@ -214,11 +214,12 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const previewResults = useMemo(() => {
     if (!globalSearch.trim()) return null;
-    const s = globalSearch.toLowerCase();
+    const normalize = (value: unknown) => String(value ?? '').toLowerCase();
+    const s = normalize(globalSearch);
     return {
-      tools: tools.filter(t => t.name.toLowerCase().includes(s)).slice(0, 3),
-      news: news.filter(n => n.title.toLowerCase().includes(s)).slice(0, 2),
-      employees: employees.filter(e => e.name.toLowerCase().includes(s)).slice(0, 3),
+      tools: tools.filter(t => normalize(t?.name).includes(s)).slice(0, 3),
+      news: news.filter(n => normalize(n?.title).includes(s)).slice(0, 2),
+      employees: employees.filter(e => normalize(e?.name).includes(s)).slice(0, 3),
     };
   }, [globalSearch, tools, news, employees]);
 
@@ -314,7 +315,7 @@ const Navbar: React.FC<NavbarProps> = ({
     if (hasAdminIdentity) {
       userAvatar = '/images/admin-avatar.svg';
     } else {
-      userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+      userAvatar = '/images/default-avatar.svg';
     }
   }
 

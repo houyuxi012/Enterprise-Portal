@@ -197,3 +197,29 @@ async def apply_startup_migrations():
             "ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
         ))
         await conn.execute(text("ANALYZE kb_chunks"))
+
+        # Default security config values (only if absent)
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('max_concurrent_sessions', '0') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('login_session_timeout_minutes', '5') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('login_session_absolute_timeout_minutes', '480') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('login_session_refresh_window_minutes', '10') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('login_captcha_threshold', '3') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('security_lockout_scope', 'account') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))

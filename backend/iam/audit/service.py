@@ -2,6 +2,7 @@
 IAM Audit Service - IAM 专用审计服务 (P2 Compliance)
 """
 import logging
+import re
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from iam.audit.models import IAMAuditLog
@@ -10,6 +11,91 @@ logger = logging.getLogger(__name__)
 
 class IAMAuditService:
     """IAM 审计服务"""
+
+    @staticmethod
+    def _parse_user_agent(user_agent: Optional[str]) -> Dict[str, str]:
+        ua = (user_agent or "").strip()
+        ua_lower = ua.lower()
+        if not ua:
+            return {"device_type": "unknown", "os": "unknown", "browser": "unknown"}
+
+        # Device type
+        device_type = "desktop"
+        if any(k in ua_lower for k in ("bot", "spider", "crawler", "curl", "postman")):
+            device_type = "bot"
+        elif any(k in ua_lower for k in ("ipad", "tablet")):
+            device_type = "tablet"
+        elif any(k in ua_lower for k in ("mobile", "iphone", "android")):
+            device_type = "mobile"
+
+        # OS
+        os_name = "unknown"
+        if "windows nt 10.0" in ua_lower:
+            os_name = "Windows 10/11"
+        elif "windows nt 6.3" in ua_lower:
+            os_name = "Windows 8.1"
+        elif "windows nt 6.1" in ua_lower:
+            os_name = "Windows 7"
+        elif "iphone os" in ua_lower or "cpu iphone os" in ua_lower:
+            m = re.search(r"(?:iphone os|cpu iphone os)\s+([\d_]+)", ua_lower)
+            os_name = f"iOS {m.group(1).replace('_', '.')}" if m else "iOS"
+        elif "android" in ua_lower:
+            m = re.search(r"android\s+([\d.]+)", ua_lower)
+            os_name = f"Android {m.group(1)}" if m else "Android"
+        elif "mac os x" in ua_lower:
+            m = re.search(r"mac os x\s+([\d_]+)", ua_lower)
+            os_name = f"macOS {m.group(1).replace('_', '.')}" if m else "macOS"
+        elif "linux" in ua_lower:
+            os_name = "Linux"
+        elif "cros" in ua_lower:
+            os_name = "ChromeOS"
+
+        # Browser
+        browser = "unknown"
+        if "edg/" in ua_lower:
+            m = re.search(r"edg/([\d.]+)", ua_lower)
+            browser = f"Edge {m.group(1)}" if m else "Edge"
+        elif "opr/" in ua_lower or "opera" in ua_lower:
+            m = re.search(r"(?:opr|opera)/([\d.]+)", ua_lower)
+            browser = f"Opera {m.group(1)}" if m else "Opera"
+        elif "firefox/" in ua_lower:
+            m = re.search(r"firefox/([\d.]+)", ua_lower)
+            browser = f"Firefox {m.group(1)}" if m else "Firefox"
+        elif "chrome/" in ua_lower and "chromium" not in ua_lower:
+            m = re.search(r"chrome/([\d.]+)", ua_lower)
+            browser = f"Chrome {m.group(1)}" if m else "Chrome"
+        elif "safari/" in ua_lower and "chrome/" not in ua_lower and "chromium" not in ua_lower:
+            m = re.search(r"version/([\d.]+)", ua_lower)
+            browser = f"Safari {m.group(1)}" if m else "Safari"
+        elif "trident/" in ua_lower or "msie" in ua_lower:
+            browser = "Internet Explorer"
+
+        return {
+            "device_type": device_type,
+            "os": os_name,
+            "browser": browser,
+        }
+
+    @staticmethod
+    def _build_detail_with_client_context(
+        detail: Optional[Any],
+        user_agent: Optional[str],
+    ) -> Dict[str, Any]:
+        context = IAMAuditService._parse_user_agent(user_agent)
+        if detail is None:
+            return {"client_context": context}
+        if isinstance(detail, dict):
+            merged = dict(detail)
+            existing_ctx = merged.get("client_context")
+            if not isinstance(existing_ctx, dict):
+                merged["client_context"] = context
+            else:
+                ctx = dict(existing_ctx)
+                for key, value in context.items():
+                    ctx.setdefault(key, value)
+                merged["client_context"] = ctx
+            return merged
+        return {"original_detail": detail, "client_context": context}
     
     @staticmethod
     async def log(
@@ -20,7 +106,7 @@ class IAMAuditService:
         username: Optional[str] = None,
         target_id: Optional[int] = None,
         target_name: Optional[str] = None,
-        detail: Optional[Dict[str, Any]] = None,
+        detail: Optional[Any] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
         trace_id: Optional[str] = None,
@@ -30,6 +116,8 @@ class IAMAuditService:
         """通用日志记录 - 写入 DB 并推送到 Loki"""
         from iam.audit.models import IAMAuditLog
         from datetime import datetime
+        enriched_detail = IAMAuditService._build_detail_with_client_context(detail, user_agent)
+        client_context = enriched_detail.get("client_context", {})
         
         # 1. Write to DB (primary)
         log_entry = IAMAuditLog(
@@ -39,7 +127,7 @@ class IAMAuditService:
             target_type=target_type,
             target_id=target_id,
             target_name=target_name,
-            detail=detail,
+            detail=enriched_detail,
             result=result,
             reason=reason,
             ip_address=ip_address,
@@ -66,7 +154,11 @@ class IAMAuditService:
                     "result": result,
                     "reason": reason,
                     "ip_address": ip_address,
-                    "detail": detail,
+                    "user_agent": user_agent,
+                    "device_type": client_context.get("device_type"),
+                    "os": client_context.get("os"),
+                    "browser": client_context.get("browser"),
+                    "detail": enriched_detail,
                     "trace_id": trace_id,
                 }
             )
@@ -93,7 +185,11 @@ class IAMAuditService:
                     "result": result,
                     "reason": reason,
                     "ip_address": ip_address,
-                    "detail": detail,
+                    "user_agent": user_agent,
+                    "device_type": client_context.get("device_type"),
+                    "os": client_context.get("os"),
+                    "browser": client_context.get("browser"),
+                    "detail": enriched_detail,
                     "trace_id": trace_id
                 }, ensure_ascii=False)
                 
