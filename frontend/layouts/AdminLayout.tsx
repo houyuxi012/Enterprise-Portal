@@ -7,7 +7,6 @@ import {
     FileTextOutlined,
     NotificationOutlined,
     LogoutOutlined,
-    HomeOutlined,
     SafetyCertificateOutlined,
     AppstoreOutlined,
     SettingOutlined,
@@ -217,14 +216,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         },
     ]; const userMenuItems = [
         {
-            key: 'exit',
-            icon: <HomeOutlined />,
-            label: '返回前台',
-        },
-        {
             key: 'about',
             icon: <InfoCircleOutlined />,
-            label: '关于系统',
+            label: '系统版本',
         },
         {
             key: 'change_password',

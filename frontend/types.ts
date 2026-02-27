@@ -273,6 +273,10 @@ export interface SystemInfo {
   database: string;
   serial_number: string;
   license_id?: string; // legacy field for backward compatibility
+  license_type?: string;
+  license_status?: string;
+  license_expires_at?: string;
+  license_expired?: boolean;
   authorized_unit: string;
   access_address: string;
   environment: string;

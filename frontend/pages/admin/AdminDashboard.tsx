@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Sector } from 'recharts';
 import ApiClient from '../../services/api';
-import { DashboardStats, SystemResources, StorageStats } from '../../types';
+import { DashboardStats, SystemResources, StorageStats, SystemInfo } from '../../types';
 
 interface AdminDashboardProps {
     employeeCount: number;
@@ -142,7 +142,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
     } | null>(null);
 
     // System Info State
-    const [systemInfo, setSystemInfo] = useState<any>(null);
+    const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
 
     // Fetch AI Stats on mount
     useEffect(() => {
@@ -169,6 +169,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         };
         fetchSystemInfo();
     }, []);
+
+    const getLicenseBadge = () => {
+        const rawType = String(systemInfo?.license_type || '').trim();
+        const rawStatus = String(systemInfo?.license_status || '').trim();
+        const rawExpiresAt = String(systemInfo?.license_expires_at || '').trim();
+        const rawFlagExpired = Boolean(systemInfo?.license_expired);
+
+        let expired = rawFlagExpired;
+        if (!expired && rawExpiresAt) {
+            const expiresAtMs = Date.parse(rawExpiresAt);
+            if (!Number.isNaN(expiresAtMs) && expiresAtMs <= Date.now()) {
+                expired = true;
+            }
+        }
+
+        const normalized = `${rawType} ${rawStatus}`.toLowerCase();
+        if (expired || /到期|expired|expire/.test(normalized)) {
+            return {
+                label: '授权到期',
+                className: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
+            };
+        }
+        if (/测试|trial|beta|dev/.test(normalized)) {
+            return {
+                label: '测试授权',
+                className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+            };
+        }
+        return {
+            label: '正式授权',
+            className: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        };
+    };
 
 
     const statCards = [
@@ -209,6 +242,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
             color: 'indigo'
         }
     ];
+
+    const licenseBadge = getLicenseBadge();
 
 
     return (
@@ -673,10 +708,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                         </div>
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">软件版本</span>
-                            <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">LATEST</span>
-                                <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
-                            </div>
+                            <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">访问地址</span>
@@ -689,7 +721,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                             <span className="text-sm font-medium text-slate-800 dark:text-white whitespace-nowrap text-right">{systemInfo?.serial_number || systemInfo?.license_id || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权单位</span>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权类型</span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${licenseBadge.className}`}>
+                                {licenseBadge.label}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权客户</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
                         </div>
                     </div>

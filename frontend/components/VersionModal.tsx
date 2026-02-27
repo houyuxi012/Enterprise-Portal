@@ -135,7 +135,16 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                         </div>
 
                         <div className="text-center text-xs text-slate-400 pt-2">
-                            {versionInfo.version}
+                            ©{' '}
+                            <a
+                                href="https://ngep.houyuxi.com"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-slate-500 hover:text-blue-600 no-underline"
+                            >
+                                侯钰熙
+                            </a>{' '}
+                            All Rights Reserved.
                         </div>
                     </div>
                 ) : (
