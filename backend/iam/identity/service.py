@@ -40,7 +40,7 @@ class IdentityService:
     @staticmethod
     def _auth_error_message(code: str) -> str:
         if code == IdentityService.AUTH_CODE_TOKEN_REVOKED:
-            return "Token has been revoked. Please log in again."
+            return "当前会话已失效，请重新登录。"
         if code == IdentityService.AUTH_CODE_AUDIENCE_MISMATCH:
             return "Audience mismatch for current session."
         return "登录会话已过期，请重新登录。"

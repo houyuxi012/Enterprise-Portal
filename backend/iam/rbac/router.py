@@ -172,11 +172,6 @@ async def create_user(
         detail={"email": db_user.email, "roles": assigned_role_codes},
         ip_address=ip, trace_id=trace_id
     )
-    await AuditService.log_business_action(
-        db, user_id=current_user.id, username=current_user.username,
-        action="CREATE_USER", target=f"用户:{db_user.username}",
-        ip_address=ip, trace_id=trace_id
-    )
     await db.commit()
     
     return {"id": db_user.id, "username": db_user.username}
@@ -244,11 +239,6 @@ async def update_user(
         db, operator=current_user, target_username=user.username,
         changes=changes, ip_address=ip, trace_id=trace_id
     )
-    await AuditService.log_business_action(
-        db, user_id=current_user.id, username=current_user.username,
-        action="UPDATE_USER", target=f"用户:{user.username}",
-        ip_address=ip, trace_id=trace_id
-    )
     
     await db.commit()
     return {"id": user.id, "username": user.username}
@@ -278,11 +268,6 @@ async def delete_user(
         db, action="iam.user.delete", target_type="user",
         user_id=current_user.id, username=current_user.username,
         target_id=user_id, target_name=target_name,
-        ip_address=ip, trace_id=trace_id
-    )
-    await AuditService.log_business_action(
-        db, user_id=current_user.id, username=current_user.username,
-        action="DELETE_USER", target=f"用户:{target_name}",
         ip_address=ip, trace_id=trace_id
     )
     await db.commit()
@@ -442,11 +427,6 @@ async def reset_password(
         db, action="iam.user.password_reset", target_type="user",
         user_id=current_user.id, username=current_user.username,
         target_id=user.id, target_name=user.username,
-        ip_address=ip, trace_id=trace_id
-    )
-    await AuditService.log_business_action(
-        db, user_id=current_user.id, username=current_user.username,
-        action="RESET_USER_PASSWORD", target=f"用户:{user.username}",
         ip_address=ip, trace_id=trace_id
     )
     await db.commit()

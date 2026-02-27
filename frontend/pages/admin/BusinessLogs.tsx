@@ -12,6 +12,7 @@ const ACTION_MAP: Record<string, string> = {
     'DELETE_USER': '删除用户',
     'UPDATE_USER': '更新用户',
     'RESET_PASSWORD': '重置密码',
+    'RESET_USER_PASSWORD': '重置用户密码',
     'APP_LAUNCH': '启动应用',
     'SEARCH_QUERY': '搜索查询',
     'CREATE_NEWS': '新增新闻',
@@ -47,10 +48,42 @@ const ACTION_MAP: Record<string, string> = {
     'UPDATE_KB_DOC': '更新知识库文档',
     'DELETE_KB_DOC': '删除知识库文档',
     'REINDEX_KB_DOC': '重建知识库索引',
+    'CREATE_TASK': '创建任务',
+    'UPDATE_TASK': '更新任务',
+    'CHANGE_TASK_STATUS': '变更任务状态',
+    'ADMIN_CREATE_TASK': '后台创建任务',
+    'ADMIN_UPDATE_TASK': '后台更新任务',
+    'ADMIN_DELETE_TASK': '后台删除任务',
+    'UPLOAD_IMAGE': '上传图片',
+    'VIEW_FILE': '查看文件',
+    'CHAT': 'AI 对话',
+    'READ_ANNOUNCEMENTS': '查看公告列表',
+    'READ_BUSINESS_LOGS': '查看业务日志',
+    'READ_SYSTEM_LOGS': '查看系统日志',
+    'READ_ACCESS_LOGS': '查看访问日志',
+    'READ_LOG_FORWARDING_CONFIG': '查看日志转发配置',
+    'CREATE_LOG_FORWARDING_CONFIG': '创建日志转发配置',
+    'DELETE_LOG_FORWARDING_CONFIG': '删除日志转发配置',
+    'READ_AI_AUDIT_LOGS': '查看 AI 审计日志',
+    'READ_AI_AUDIT_DETAIL': '查看 AI 审计详情',
+    'READ_AI_AUDIT_STATS': '查看 AI 审计统计',
+    'READ_SYSTEM_CONFIG': '查看系统配置',
+    'OPTIMIZE_STORAGE': '执行存储优化',
+    'SYSTEM_UPGRADE': '系统版本升级',
+    'AUTO_LOG_CLEANUP': '自动日志清理',
+    'AUTO_IAM_ARCHIVE': '自动 IAM 归档',
+    'CREATE_PERMISSION': '新增权限',
+    'UPDATE_AI_QUOTA': '更新 AI 配额',
+    'TEST_AI_PROVIDER': '测试 AI 供应商',
+    'ADMIN_TEST_AI_PROVIDER': '后台测试 AI 供应商',
+    'AUTHZ_DENIED': '权限拒绝',
+    'HTTP_REQUEST': 'HTTP 请求',
     'MARK_NOTIFICATIONS_READ': '通知已读',
     'MARK_ALL_NOTIFICATIONS_READ': '全部通知已读',
     'MARK_ANNOUNCEMENTS_READ': '公告已读',
+    'PUSH_NOTIFICATION': '推送通知',
     'PORTAL_CLIENT_LOCAL_NOTIFICATION_CLICK': '本地通知点击',
+    'PORTAL_CLIENT_SEARCH_QUERY': '门户搜索查询',
     'READ_IAM_AUDIT_LOGS': '查看IAM审计日志',
 };
 
@@ -64,11 +97,12 @@ const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {
 };
 
 const getActionCategory = (action: string): { label: string; color: string } => {
-    if (action.startsWith('CREATE')) return ACTION_CATEGORIES['CREATE'];
-    if (action.startsWith('UPDATE')) return ACTION_CATEGORIES['UPDATE'];
-    if (action.startsWith('DELETE')) return ACTION_CATEGORIES['DELETE'];
-    if (action.startsWith('REINDEX')) return ACTION_CATEGORIES['REINDEX'];
-    if (action === 'LOGIN') return ACTION_CATEGORIES['LOGIN'];
+    const normalized = (action || '').toUpperCase();
+    if (normalized === 'LOGIN') return ACTION_CATEGORIES['LOGIN'];
+    if (normalized.includes('CREATE')) return ACTION_CATEGORIES['CREATE'];
+    if (normalized.includes('UPDATE')) return ACTION_CATEGORIES['UPDATE'];
+    if (normalized.includes('DELETE')) return ACTION_CATEGORIES['DELETE'];
+    if (normalized.includes('REINDEX')) return ACTION_CATEGORIES['REINDEX'];
     return ACTION_CATEGORIES['OTHER'];
 };
 
@@ -104,9 +138,10 @@ const BusinessLogs: React.FC = () => {
             // Calculate business-specific stats
             const today = dayjs().format('YYYY-MM-DD');
             const todayLogs = data.filter((log: BusinessLog) => log.timestamp?.startsWith(today));
-            const createLogs = data.filter((log: BusinessLog) => log.action?.startsWith('CREATE'));
+            const createLogs = data.filter((log: BusinessLog) => (log.action || '').toUpperCase().includes('CREATE'));
             const modifyLogs = data.filter((log: BusinessLog) =>
-                log.action?.startsWith('UPDATE') || log.action?.startsWith('DELETE')
+                (log.action || '').toUpperCase().includes('UPDATE') ||
+                (log.action || '').toUpperCase().includes('DELETE')
             );
             setStats({
                 total: data.length,
