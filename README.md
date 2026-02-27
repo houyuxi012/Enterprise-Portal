@@ -73,10 +73,25 @@ sh import_test_data.sh
 
 - **统一入口**: 所有流量通过 HTTPS 443 端口
 - **HttpOnly Cookie**: JWT 存储防 XSS
+- **双会话隔离**: `admin_session` / `portal_session` 分离，按 `aud` 严格校验
 - **RBAC 权限模型**: 细粒度应用/资源权限控制
 - **API Key 加密**: Fernet 对称加密存储
 - **限流保护**: Nginx 层 API 限流
 - **文件上传安全**: 魔数校验、大小限制
+
+### 登录与会话策略（当前实现）
+
+- **登录会话超时（分钟）**: `login_session_timeout_minutes`，用于签发会话 cookie 的 `Max-Age/Expires`
+- **会话绝对超时（分钟）**: `login_session_absolute_timeout_minutes`，超过阈值后即使持续活跃也强制重新登录
+- **滚动续期**: 前端活跃时每 3 分钟心跳 `POST /api/system/session/ping`，后端在接近过期窗口内自动续签
+- **并发会话限制**: `max_concurrent_sessions`，超限返回提示“该用户超过并发设定，请退出其他设备后再次尝试登陆”
+- **验证码阈值**: `login_captcha_threshold`，连续失败达到阈值后必须输入验证码
+- **锁定方式**: `security_lockout_scope` 支持按账户或按 IP 锁定
+
+### 配置生效说明
+
+- 修改“登录会话超时 / 绝对超时 / 并发会话”后，**新策略对新签发会话生效**；已登录用户需重新登录后按新超时计时。
+- 心跳仅在认证失败（`401/419` 或 `SESSION_EXPIRED` / `TOKEN_REVOKED` / `AUDIENCE_MISMATCH`）时触发统一退出；网络抖动或临时 `5xx` 不会强制登出。
 
 ---
 
