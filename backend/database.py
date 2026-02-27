@@ -13,16 +13,20 @@ if not DATABASE_URL:
 
 # 2. Debug setting
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "50"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "100"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 
 # 3. Production Engine Config
 engine = create_async_engine(
     DATABASE_URL,
     echo=DEBUG,
     future=True,
-    pool_size=10,
-    max_overflow=20,
-    pool_timeout=30,
-    pool_recycle=1800,
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_MAX_OVERFLOW,
+    pool_timeout=DB_POOL_TIMEOUT,
+    pool_recycle=DB_POOL_RECYCLE,
     pool_pre_ping=True,
 )
 

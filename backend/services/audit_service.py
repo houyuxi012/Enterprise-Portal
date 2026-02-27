@@ -1,12 +1,139 @@
+import asyncio
 import logging
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 import uuid
+from fastapi import BackgroundTasks
 
 logger = logging.getLogger(__name__)
 
 class AuditService:
+    @staticmethod
+    async def _persist_business_action_with_new_session(
+        *,
+        user_id: int,
+        username: str,
+        action: str,
+        target: str,
+        status: str = "SUCCESS",
+        detail: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        domain: str = "BUSINESS",
+    ):
+        from database import SessionLocal
+
+        async with SessionLocal() as db:
+            await AuditService.log_business_action(
+                db=db,
+                user_id=user_id,
+                username=username,
+                action=action,
+                target=target,
+                status=status,
+                detail=detail,
+                ip_address=ip_address,
+                trace_id=trace_id,
+                domain=domain,
+            )
+            await db.commit()
+
+    @staticmethod
+    def enqueue_business_action(
+        background_tasks: BackgroundTasks,
+        *,
+        user_id: int,
+        username: str,
+        action: str,
+        target: str,
+        status: str = "SUCCESS",
+        detail: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        domain: str = "BUSINESS",
+    ):
+        background_tasks.add_task(
+            AuditService._persist_business_action_with_new_session,
+            user_id=user_id,
+            username=username,
+            action=action,
+            target=target,
+            status=status,
+            detail=detail,
+            ip_address=ip_address,
+            trace_id=trace_id,
+            domain=domain,
+        )
+
+    @staticmethod
+    def emit_business_action_fire_and_forget(
+        *,
+        user_id: int,
+        username: str,
+        action: str,
+        target: str,
+        status: str = "SUCCESS",
+        detail: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        domain: str = "BUSINESS",
+    ):
+        asyncio.create_task(
+            AuditService._persist_business_action_with_new_session(
+                user_id=user_id,
+                username=username,
+                action=action,
+                target=target,
+                status=status,
+                detail=detail,
+                ip_address=ip_address,
+                trace_id=trace_id,
+                domain=domain,
+            )
+        )
+
+    @staticmethod
+    def schedule_business_action(
+        *,
+        background_tasks: Optional[BackgroundTasks] = None,
+        user_id: int,
+        username: str,
+        action: str,
+        target: str,
+        status: str = "SUCCESS",
+        detail: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        domain: str = "BUSINESS",
+    ):
+        if background_tasks is not None:
+            AuditService.enqueue_business_action(
+                background_tasks,
+                user_id=user_id,
+                username=username,
+                action=action,
+                target=target,
+                status=status,
+                detail=detail,
+                ip_address=ip_address,
+                trace_id=trace_id,
+                domain=domain,
+            )
+            return
+
+        AuditService.emit_business_action_fire_and_forget(
+            user_id=user_id,
+            username=username,
+            action=action,
+            target=target,
+            status=status,
+            detail=detail,
+            ip_address=ip_address,
+            trace_id=trace_id,
+            domain=domain,
+        )
+
     @staticmethod
     async def log_business_action(
         db: AsyncSession,
@@ -69,9 +196,8 @@ class AuditService:
                         ip_address=ip_address,
                         detail=detail
                     )
-                    # Ensure sidecar sink receives this log before returning.
-                    # Note: sink implementation remains non-blocking for network flush.
-                    await sink.emit(loki_entry)
+                    # Sidecar network flush should not block request path.
+                    asyncio.create_task(sink.emit(loki_entry))
 
                 emit_log_fire_and_forget(
                     domain,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, case
 from typing import Optional
@@ -195,6 +195,7 @@ async def get_my_tasks(
 @router.post("/", response_model=schemas.Todo, status_code=status.HTTP_201_CREATED)
 async def create_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     todo_in: schemas.TodoCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -233,8 +234,8 @@ async def create_task(
         db_todo.creator_name = db_todo.creator.name or db_todo.creator.username
     
     # Audit Log
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="CREATE_TASK",
@@ -243,14 +244,13 @@ async def create_task(
         ip_address=request.client.host if request.client else "unknown",
         trace_id=request.headers.get("X-Request-ID")
     )
-    
-    await db.commit()
     return db_todo
 
 @router.patch("/{task_id}/", response_model=schemas.Todo)
 async def update_task(
     task_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     todo_update: schemas.TodoUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -287,8 +287,10 @@ async def update_task(
     for key, value in update_data.items():
         setattr(todo, key, value)
         
-    await AuditService.log_business_action(
-        db,
+    await db.commit()
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="UPDATE_TASK",
@@ -297,8 +299,6 @@ async def update_task(
         ip_address=request.client.host if request.client else "unknown",
         trace_id=request.headers.get("X-Request-ID")
     )
-    
-    await db.commit()
     
     result = await db.execute(
         select(models.Todo)
@@ -313,18 +313,43 @@ async def update_task(
 
 # State Actions
 @router.post("/{task_id}/complete/", response_model=schemas.Todo)
-async def complete_task(task_id: int, request: Request, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return await _update_status(task_id, "completed", request, db, current_user)
+async def complete_task(
+    task_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return await _update_status(task_id, "completed", request, background_tasks, db, current_user)
 
 @router.post("/{task_id}/reopen/", response_model=schemas.Todo)
-async def reopen_task(task_id: int, request: Request, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return await _update_status(task_id, "pending", request, db, current_user)
+async def reopen_task(
+    task_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return await _update_status(task_id, "pending", request, background_tasks, db, current_user)
 
 @router.post("/{task_id}/cancel/", response_model=schemas.Todo)
-async def cancel_task(task_id: int, request: Request, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return await _update_status(task_id, "canceled", request, db, current_user)
+async def cancel_task(
+    task_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return await _update_status(task_id, "canceled", request, background_tasks, db, current_user)
 
-async def _update_status(task_id: int, status_val: str, request: Request, db: AsyncSession, current_user: models.User):
+async def _update_status(
+    task_id: int,
+    status_val: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession,
+    current_user: models.User,
+):
     user_dept_id = await _resolve_user_dept_id(db, current_user.username)
     access_condition = models.Todo.creator_id == current_user.id
     access_condition = or_(access_condition, models.Todo.assigned_users.any(models.User.id == current_user.id))
@@ -340,8 +365,10 @@ async def _update_status(task_id: int, status_val: str, request: Request, db: As
     if not todo: raise HTTPException(status_code=404, detail="Task not found")
     
     todo.status = status_val
-    await AuditService.log_business_action(
-        db,
+    await db.commit()
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="CHANGE_TASK_STATUS",
@@ -350,7 +377,6 @@ async def _update_status(task_id: int, status_val: str, request: Request, db: As
         ip_address=request.client.host if request.client else "unknown",
         trace_id=request.headers.get("X-Request-ID")
     )
-    await db.commit()
     
     result = await db.execute(
         select(models.Todo)

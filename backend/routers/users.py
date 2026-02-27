@@ -39,7 +39,7 @@ async def change_password(
     Enforces password logic and requires old password verification.
     """
     # Verify old password
-    if not utils.verify_password(payload.old_password, current_user.hashed_password):
+    if not await utils.verify_password(payload.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="原密码不正确")
 
     # Prevent reusing the current password as the new one
@@ -50,7 +50,7 @@ async def change_password(
     await validate_password(db, payload.new_password, current_user)
 
     # Hash and save
-    new_hashed = utils.get_password_hash(payload.new_password)
+    new_hashed = await utils.get_password_hash(payload.new_password)
     current_user.hashed_password = new_hashed
     current_user.password_violates_policy = False
     db.add(current_user)
@@ -97,7 +97,7 @@ async def create_user(
     # Fetch Password Policy and Validate
     await validate_password(db, user.password, user)
         
-    pwd_hash = utils.get_password_hash(user.password)
+    pwd_hash = await utils.get_password_hash(user.password)
     db_user = models.User(
         username=user.username, 
         email=user.email, 
@@ -399,7 +399,7 @@ async def reset_password(
     # Validate against actual policy
     await validate_password(db, new_pwd, user)
 
-    user.hashed_password = utils.get_password_hash(new_pwd)
+    user.hashed_password = await utils.get_password_hash(new_pwd)
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")

@@ -38,22 +38,7 @@ SYSTEM_PERMISSIONS = {
     "admin:access": "Access Admin Interface", # Critical permission for separate login
 }
 
-DEMO_PORTAL_USERS = [
-    {
-        "username": "test_portal_plain",
-        "password": "password123",
-        "email": "test_portal_plain@example.com",
-        "name": "Portal 普通测试账号",
-        "role_codes": ["user"],
-    },
-    {
-        "username": "test_portal_admin",
-        "password": "password123",
-        "email": "test_portal_admin@example.com",
-        "name": "Portal 管理测试账号",
-        "role_codes": ["user", "PortalAdmin"],
-    },
-]
+LEGACY_DEMO_PORTAL_USERNAMES = ("test_portal_plain", "test_portal_admin")
 
 
 async def _merge_and_remove_legacy_admin_role(
@@ -112,93 +97,60 @@ async def _merge_and_remove_legacy_admin_role(
     return affected_user_ids
 
 
-async def _ensure_demo_portal_users(
-    db: AsyncSession,
-    role_map: dict[str, int],
-) -> list[int]:
+async def _cleanup_legacy_demo_portal_users(db: AsyncSession) -> list[int]:
     """
-    Ensure deterministic demo portal users for integration testing.
+    Remove legacy demo users from production/system account list.
+    Also clears dependent references that do not have ON DELETE CASCADE.
     """
-    affected_ids: list[int] = []
-    required_role_codes = {"user", "PortalAdmin"}
-    missing_roles = [code for code in required_role_codes if not role_map.get(code)]
-    if missing_roles:
-        logger.warning("Skip demo portal users seeding; missing roles: %s", ",".join(missing_roles))
-        return affected_ids
-
-    for item in DEMO_PORTAL_USERS:
-        user_res = await db.execute(
-            select(models.User)
-            .options(selectinload(models.User.roles))
-            .where(models.User.username == item["username"])
-        )
-        user = user_res.scalars().first()
-
-        if not user:
-            user = models.User(
-                username=item["username"],
-                email=item["email"],
-                hashed_password=utils.get_password_hash(item["password"]),
-                account_type="PORTAL",
-                is_active=True,
-                name=item["name"],
+    user_rows = (
+        await db.execute(
+            select(models.User.id, models.User.username).where(
+                models.User.username.in_(LEGACY_DEMO_PORTAL_USERNAMES)
             )
-            db.add(user)
-            await db.flush()
-            changed = True
-            current_codes = []
-        else:
-            changed = False
-            if (user.account_type or "").upper() != "PORTAL":
-                user.account_type = "PORTAL"
-                changed = True
-            if not user.is_active:
-                user.is_active = True
-                changed = True
-            if not user.email:
-                user.email = item["email"]
-                changed = True
-            if not user.name:
-                user.name = item["name"]
-                changed = True
-            if not user.hashed_password:
-                user.hashed_password = utils.get_password_hash(item["password"])
-                changed = True
-            current_codes = sorted([r.code for r in (user.roles or [])])
-
-        wanted_role_ids: list[int] = []
-        wanted_role_codes: list[str] = []
-        for role_code in item["role_codes"]:
-            role_id = role_map.get(role_code)
-            if not role_id:
-                continue
-            wanted_role_ids.append(role_id)
-            wanted_role_codes.append(role_code)
-
-        target_role_ids = sorted(set(wanted_role_ids))
-        current_role_ids_result = await db.execute(
-            select(models.user_roles.c.role_id).where(models.user_roles.c.user_id == user.id)
         )
-        current_role_ids = sorted([row[0] for row in current_role_ids_result.fetchall()])
+    ).all()
+    if not user_rows:
+        return []
 
-        target_codes = sorted(wanted_role_codes)
-        if current_role_ids != target_role_ids:
-            await db.execute(
-                delete(models.user_roles).where(models.user_roles.c.user_id == user.id)
-            )
-            if target_role_ids:
-                stmt = insert(models.user_roles).values(
-                    [{"user_id": user.id, "role_id": rid} for rid in target_role_ids]
-                )
-                stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "role_id"])
-                await db.execute(stmt)
-            changed = True
+    affected_user_ids = [row[0] for row in user_rows]
+    affected_usernames = [row[1] for row in user_rows]
 
-        if changed:
-            affected_ids.append(user.id)
-            logger.info("Upserted demo portal user %s with roles %s", user.username, target_codes)
+    await db.execute(delete(models.user_roles).where(models.user_roles.c.user_id.in_(affected_user_ids)))
+    await db.execute(
+        delete(models.UserPasswordHistory).where(
+            models.UserPasswordHistory.user_id.in_(affected_user_ids)
+        )
+    )
+    await db.execute(
+        delete(models.AnnouncementRead).where(
+            models.AnnouncementRead.user_id.in_(affected_user_ids)
+        )
+    )
 
-    return affected_ids
+    await db.execute(
+        update(models.FileMetadata)
+        .where(models.FileMetadata.uploader_id.in_(affected_user_ids))
+        .values(uploader_id=None)
+    )
+    await db.execute(
+        update(models.Notification)
+        .where(models.Notification.created_by.in_(affected_user_ids))
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(models.KBDocument)
+        .where(models.KBDocument.created_by.in_(affected_user_ids))
+        .values(created_by=None)
+    )
+    await db.execute(
+        update(models.Todo)
+        .where(models.Todo.creator_id.in_(affected_user_ids))
+        .values(creator_id=None)
+    )
+
+    await db.execute(delete(models.User).where(models.User.id.in_(affected_user_ids)))
+    logger.info("Removed legacy demo users: %s", ",".join(affected_usernames))
+    return affected_user_ids
 
 
 async def init_rbac(db: AsyncSession):
@@ -276,7 +228,7 @@ async def init_rbac(db: AsyncSession):
     role_result = await db.execute(select(models.Role))
     role_map = {r.code: r.id for r in role_result.scalars().all()}
 
-    demo_user_affected_ids = await _ensure_demo_portal_users(db, role_map)
+    demo_user_affected_ids = await _cleanup_legacy_demo_portal_users(db)
 
     # 4. Bind Permissions to Roles (SuperAdmin gets ALL)
     print("Binding SuperAdmin Permissions...")
@@ -333,7 +285,7 @@ async def init_rbac(db: AsyncSession):
     admin_user_data = {
         "username": "admin",
         "email": "admin@example.com",
-        "hashed_password": utils.get_password_hash("admin"),
+        "hashed_password": await utils.get_password_hash("admin"),
         "account_type": "SYSTEM",
         # "role": "admin", # Legacy field REMOVED
         "is_active": True,

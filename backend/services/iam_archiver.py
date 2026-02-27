@@ -90,8 +90,7 @@ class IAMAuditArchiver:
         
         if total_to_archive == 0:
             logger.info("No logs to archive.")
-            await AuditService.log_business_action(
-                db=db,
+            AuditService.schedule_business_action(
                 user_id=0,
                 username="system_auto",
                 action="AUTO_IAM_ARCHIVE",
@@ -109,7 +108,6 @@ class IAMAuditArchiver:
                 ip_address="127.0.0.1",
                 domain="SYSTEM",
             )
-            await db.commit()
             return
 
         logger.info(f"Found {total_to_archive} logs to archive.")
@@ -203,8 +201,7 @@ class IAMAuditArchiver:
                 break
                 
         logger.info("Archiving complete.")
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
             user_id=0,
             username="system_auto",
             action="AUTO_IAM_ARCHIVE",
@@ -224,4 +221,3 @@ class IAMAuditArchiver:
             ip_address="127.0.0.1",
             domain="SYSTEM",
         )
-        await db.commit()

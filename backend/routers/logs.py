@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List, Optional
@@ -118,15 +118,16 @@ async def _record_log_query_audit(
     audit_action: str,
     target: str,
     detail: str,
-    domain: str
+    domain: str,
+    background_tasks: BackgroundTasks | None = None,
 ):
     """
     Audit who queried logs, with filters and result count.
     This is best-effort and should never break read APIs.
     """
     try:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action=audit_action,
@@ -136,16 +137,15 @@ async def _record_log_query_audit(
             trace_id=request.headers.get("X-Request-ID") if request else None,
             domain=domain,
         )
-        await db.commit()
     except Exception as e:
         logger.warning(f"Failed to persist log query audit ({audit_action}): {e}")
-        await db.rollback()
 
 # --- System Logs ---
 
 @router.get("/system", response_model=List[schemas.SystemLog])
 async def read_system_logs(
     request: Request,
+    background_tasks: BackgroundTasks,
     level: Optional[str] = None,
     module: Optional[str] = None,
     exclude_module: Optional[str] = None,
@@ -176,6 +176,7 @@ async def read_system_logs(
             f"offset={offset}, result_count={len(logs)}"
         ),
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return logs
 
@@ -184,6 +185,7 @@ async def read_system_logs(
 @router.get("/business", response_model=List[schemas.BusinessLog])
 async def read_business_logs(
     request: Request,
+    background_tasks: BackgroundTasks,
     operator: Optional[str] = None,
     action: Optional[str] = None,
     domain: str = "BUSINESS", # Default filter by domain
@@ -349,6 +351,7 @@ async def read_business_logs(
             f"result_count={len(page)}"
         ),
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return page
 
@@ -417,6 +420,7 @@ async def create_business_log_for_portal(
 @router.get("/config", response_model=List[schemas.LogForwardingConfig])
 async def read_log_configs(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
@@ -430,6 +434,7 @@ async def read_log_configs(
         target="日志转发配置",
         detail=f"result_count={len(configs)}",
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return [
         {
@@ -447,6 +452,7 @@ async def read_log_configs(
 @router.post("/config", response_model=schemas.LogForwardingConfig)
 async def create_log_config(
     request: Request,
+    background_tasks: BackgroundTasks,
     config: schemas.LogForwardingConfigCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
@@ -463,8 +469,8 @@ async def create_log_config(
     db.add(db_config)
     await db.commit()
     await db.refresh(db_config)
-    await AuditService.log_business_action(
-        db=db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="CREATE_LOG_FORWARDING_CONFIG",
@@ -474,7 +480,6 @@ async def create_log_config(
         trace_id=request.headers.get("X-Request-ID"),
         domain="SYSTEM",
     )
-    await db.commit()
     invalidate_forwarding_cache()
     return {
         "id": db_config.id,
@@ -490,6 +495,7 @@ async def create_log_config(
 async def delete_log_config(
     config_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
@@ -507,8 +513,8 @@ async def delete_log_config(
     }
     await db.delete(db_config)
     await db.commit()
-    await AuditService.log_business_action(
-        db=db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="DELETE_LOG_FORWARDING_CONFIG",
@@ -518,7 +524,6 @@ async def delete_log_config(
         trace_id=request.headers.get("X-Request-ID"),
         domain="SYSTEM",
     )
-    await db.commit()
     invalidate_forwarding_cache()
     return {"message": "Config deleted"}
 
@@ -527,6 +532,7 @@ async def delete_log_config(
 @router.get("/access")
 async def read_access_logs(
     request: Request,
+    background_tasks: BackgroundTasks,
     path: Optional[str] = None,
     status_code: Optional[int] = None,
     limit: int = 100,
@@ -550,6 +556,7 @@ async def read_access_logs(
             target="访问日志",
             detail=f"path={path or '*'}, status_code={status_code or '*'}, limit={limit}, result_count=0, reason=no_repository",
             domain="SYSTEM",
+            background_tasks=background_tasks,
         )
         return []
     
@@ -583,6 +590,7 @@ async def read_access_logs(
         target="访问日志",
         detail=f"path={path or '*'}, status_code={status_code or '*'}, limit={limit}, result_count={len(formatted_results)}",
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return formatted_results
 
@@ -592,6 +600,7 @@ async def read_access_logs(
 @router.get("/ai-audit", response_model=List[schemas.AIAuditLog])
 async def read_ai_audit_logs(
     request: Request,
+    background_tasks: BackgroundTasks,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     actor_id: Optional[int] = None,
@@ -794,6 +803,7 @@ async def read_ai_audit_logs(
             f"result_count={len(page)}"
         ),
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return page
 
@@ -804,6 +814,7 @@ async def read_ai_audit_logs(
 async def get_ai_audit_detail(
     event_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
@@ -821,6 +832,7 @@ async def get_ai_audit_detail(
             target="AI审计日志",
             detail=f"event_id={event_id}, result=not_found",
             domain="SYSTEM",
+            background_tasks=background_tasks,
         )
         raise HTTPException(status_code=404, detail="AI audit log not found")
     await _record_log_query_audit(
@@ -831,6 +843,7 @@ async def get_ai_audit_detail(
         target="AI审计日志",
         detail=f"event_id={event_id}, result=found",
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return log
 
@@ -838,6 +851,7 @@ async def get_ai_audit_detail(
 @router.get("/ai-audit/stats/summary")
 async def get_ai_audit_stats(
     request: Request,
+    background_tasks: BackgroundTasks,
     days: int = 7,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
@@ -985,5 +999,6 @@ async def get_ai_audit_stats(
         target="AI审计统计",
         detail=f"days={days}, total_requests={total}, total_tokens={stats_payload['total_tokens']}",
         domain="SYSTEM",
+        background_tasks=background_tasks,
     )
     return stats_payload

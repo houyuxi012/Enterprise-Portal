@@ -3,6 +3,7 @@ from jose import jwt
 from datetime import datetime, timedelta, timezone
 import os
 from uuid import uuid4
+import anyio
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 5)) # Default 5 minutes
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
@@ -16,11 +17,18 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+async def verify_password(plain_password, hashed_password):
+    return await anyio.to_thread.run_sync(
+        pwd_context.verify,
+        plain_password,
+        hashed_password,
+    )
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+async def get_password_hash(password):
+    return await anyio.to_thread.run_sync(
+        pwd_context.hash,
+        password,
+    )
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None, audience: str | None = None):
     to_encode = data.copy()

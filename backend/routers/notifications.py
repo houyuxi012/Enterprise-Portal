@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import json
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -128,6 +128,7 @@ async def get_unread_notification_count(
 @router.post("/read", response_model=schemas.NotificationReadStateResponse)
 async def mark_notifications_as_read(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: schemas.NotificationReadStateUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -178,8 +179,8 @@ async def mark_notifications_as_read(
         detail_payload["notifications_more_count"] = len(notification_summaries) - 10
 
     await db.commit()
-    await AuditService.log_business_action(
-        db=db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="MARK_NOTIFICATIONS_READ",
@@ -189,13 +190,13 @@ async def mark_notifications_as_read(
         trace_id=request.headers.get("X-Request-ID"),
         domain="BUSINESS",
     )
-    await db.commit()
     return {"notification_ids": sorted(set(read_ids))}
 
 
 @router.post("/read-all", response_model=schemas.NotificationUnreadCount)
 async def mark_all_notifications_as_read(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -235,8 +236,8 @@ async def mark_all_notifications_as_read(
         detail_payload["notifications_more_count"] = len(changed_notifications) - 10
 
     await db.commit()
-    await AuditService.log_business_action(
-        db=db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="MARK_ALL_NOTIFICATIONS_READ",
@@ -246,7 +247,6 @@ async def mark_all_notifications_as_read(
         trace_id=request.headers.get("X-Request-ID"),
         domain="BUSINESS",
     )
-    await db.commit()
     return {"unread_count": 0}
 
 
@@ -257,6 +257,7 @@ async def mark_all_notifications_as_read(
 )
 async def push_notification(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: schemas.NotificationPushRequest,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("content:announcement:edit")),
@@ -286,8 +287,9 @@ async def push_notification(
             )
         )
 
-    await AuditService.log_business_action(
-        db=db,
+    await db.commit()
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="PUSH_NOTIFICATION",
@@ -300,7 +302,6 @@ async def push_notification(
         trace_id=request.headers.get("X-Request-ID"),
         domain="SYSTEM",
     )
-    await db.commit()
 
     return {
         "notification_id": db_notification.id,

@@ -1,5 +1,6 @@
 import logging
 import time
+import asyncio
 from typing import List, Optional
 import json
 import base64
@@ -17,18 +18,21 @@ import re
 from urllib.parse import urlparse
 from google import genai
 from google.genai import types
+from fastapi import BackgroundTasks
 
 logger = logging.getLogger("ai_engine")
 
 
 class AIEngine:
     def __init__(self, db: AsyncSession, user_id: Optional[int] = None, user_ip: Optional[str] = None, 
-                 trace_id: Optional[str] = None, session_id: Optional[str] = None):
+                 trace_id: Optional[str] = None, session_id: Optional[str] = None,
+                 background_tasks: Optional[BackgroundTasks] = None):
         self.db = db
         self.user_id = user_id
         self.user_ip = user_ip
         self.trace_id = trace_id
         self.session_id = session_id
+        self.background_tasks = background_tasks
 
     async def get_active_provider(self) -> Optional[models.AIProvider]:
         stmt = select(models.AIProvider).where(models.AIProvider.is_active == True).limit(1)
@@ -234,7 +238,10 @@ class AIEngine:
             # 计算延迟并写入审计日志
             audit_entry.latency_ms = int((time.time() - start_time) * 1000)
             try:
-                await log_ai_audit(audit_entry)
+                if self.background_tasks:
+                    self.background_tasks.add_task(log_ai_audit, audit_entry)
+                else:
+                    asyncio.create_task(log_ai_audit(audit_entry))
             except Exception as e:
                 logger.error(f"Failed to write AI audit log: {e}")
 

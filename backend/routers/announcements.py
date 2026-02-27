@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -19,6 +19,7 @@ router = APIRouter(
 @router.get("/", response_model=List[schemas.Announcement])
 async def read_announcements(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -30,8 +31,8 @@ async def read_announcements(
     )
     announcements = result.scalars().all()
     try:
-        await AuditService.log_business_action(
-            db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="READ_ANNOUNCEMENTS",
@@ -41,10 +42,8 @@ async def read_announcements(
             trace_id=request.headers.get("X-Request-ID"),
             domain="CONTENT",
         )
-        await db.commit()
     except Exception as e:
         logger.warning("Failed to write announcement read audit: %s", e)
-        await db.rollback()
     return announcements
 
 
@@ -64,6 +63,7 @@ async def read_announcement_state(
 @router.post("/read-state", response_model=schemas.AnnouncementReadStateResponse)
 async def upsert_announcement_state(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: schemas.AnnouncementReadStateUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -108,8 +108,8 @@ async def upsert_announcement_state(
 
     await db.commit()
     try:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="MARK_ANNOUNCEMENTS_READ",
@@ -124,15 +124,14 @@ async def upsert_announcement_state(
             trace_id=request.headers.get("X-Request-ID"),
             domain="BUSINESS",
         )
-        await db.commit()
     except Exception as e:
         logger.warning("Failed to write announcement read-state audit: %s", e)
-        await db.rollback()
     return {"announcement_ids": sorted(existing_announcement_ids | existing_read_ids)}
 
 @router.post("/", response_model=schemas.Announcement, dependencies=[Depends(PermissionChecker("content:announcement:edit"))])
 async def create_announcement(
     request: Request,
+    background_tasks: BackgroundTasks,
     announcement: schemas.AnnouncementCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -152,8 +151,8 @@ async def create_announcement(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_ANNOUNCEMENT", 
@@ -161,13 +160,13 @@ async def create_announcement(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
 
     return db_announcement
 
 @router.put("/{announcement_id}", response_model=schemas.Announcement, dependencies=[Depends(PermissionChecker("content:announcement:edit"))])
 async def update_announcement(
     request: Request,
+    background_tasks: BackgroundTasks,
     announcement_id: int, 
     announcement_update: schemas.AnnouncementCreate, 
     db: AsyncSession = Depends(get_db),
@@ -191,8 +190,8 @@ async def update_announcement(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_ANNOUNCEMENT", 
@@ -200,13 +199,13 @@ async def update_announcement(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
 
     return announcement
 
 @router.delete("/{announcement_id}", dependencies=[Depends(PermissionChecker("content:announcement:edit"))])
 async def delete_announcement(
     request: Request,
+    background_tasks: BackgroundTasks,
     announcement_id: int, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -223,8 +222,8 @@ async def delete_announcement(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_ANNOUNCEMENT", 
@@ -232,6 +231,5 @@ async def delete_announcement(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
     
     return {"ok": True}

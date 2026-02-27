@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, cast, Date
@@ -33,6 +33,7 @@ async def get_providers(db: AsyncSession = Depends(get_db)):
 @router.post("/providers", response_model=schemas.AIProviderRead)
 async def create_provider(
     request: Request,
+    background_tasks: BackgroundTasks,
     provider: schemas.AIProviderCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
@@ -86,16 +87,16 @@ async def create_provider(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_AI_PROVIDER", 
         target=f"AI供应商:{db_provider.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
 
     return db_provider
 
@@ -103,6 +104,7 @@ async def create_provider(
 @router.post("/providers/test")
 async def test_provider(
     request: Request,
+    background_tasks: BackgroundTasks,
     request_body: schemas.AIProviderTestRequest,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
@@ -119,8 +121,8 @@ async def test_provider(
             is_active=True,
         )
         response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="ADMIN_TEST_AI_PROVIDER",
@@ -130,11 +132,10 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         return {"status": "success", "message": "Connection successful", "response": response}
     except ValueError as e:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="ADMIN_TEST_AI_PROVIDER",
@@ -145,7 +146,6 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         logger.warning(
             "Admin provider test blocked for user %s: %s",
             getattr(current_user, "username", "unknown"),
@@ -153,8 +153,8 @@ async def test_provider(
         )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="ADMIN_TEST_AI_PROVIDER",
@@ -165,7 +165,6 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         logger.exception(
             "Admin provider test failed for user %s",
             getattr(current_user, "username", "unknown"),
@@ -176,6 +175,7 @@ async def test_provider(
 async def update_provider(
     id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     provider: schemas.AIProviderUpdate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
@@ -234,16 +234,16 @@ async def update_provider(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_AI_PROVIDER", 
         target=f"AI供应商:{db_provider.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
     
     return db_provider
 
@@ -251,6 +251,7 @@ async def update_provider(
 async def delete_provider(
     id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
@@ -258,24 +259,21 @@ async def delete_provider(
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
     await db.delete(db_provider)
+    await db.commit()
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_AI_PROVIDER", 
         target=f"AI供应商:{db_provider.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit() # Audit needs commit but provider already deleted in session. 
-    # Actually `db.delete` just marks for deletion. The commit handles both.
-    # But wait, lines above say `await db.commit()` then return message.
-    # I should insert audit logging BEFORE the commit for deletion, OR do a second commit.
-    # Since I replaced lines 97-99, `await db.commit()` is inside my ReplacementContent.
     
     return {"message": "Provider deleted"}
 
@@ -290,6 +288,7 @@ async def get_policies(db: AsyncSession = Depends(get_db)):
 @router.post("/policies", response_model=schemas.AISecurityPolicy)
 async def create_policy(
     request: Request,
+    background_tasks: BackgroundTasks,
     policy: schemas.AISecurityPolicyCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
@@ -309,16 +308,16 @@ async def create_policy(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_AI_POLICY", 
         target=f"AI策略:{db_policy.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
 
     return db_policy
 
@@ -326,6 +325,7 @@ async def create_policy(
 async def update_policy(
     id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     policy: schemas.AISecurityPolicyUpdate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
@@ -344,16 +344,16 @@ async def update_policy(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_AI_POLICY", 
         target=f"AI策略:{db_policy.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
 
     return db_policy
 
@@ -361,6 +361,7 @@ async def update_policy(
 async def delete_policy(
     id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
@@ -368,20 +369,21 @@ async def delete_policy(
     if not db_policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     await db.delete(db_policy)
+    await db.commit()
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_AI_POLICY", 
         target=f"AI策略:{db_policy.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
     
     return {"message": "Policy deleted"}
 
@@ -496,6 +498,7 @@ async def get_usage_stats(
 async def update_quota(
     quota: schemas.AIModelQuotaCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit"))
 ):
@@ -522,15 +525,15 @@ async def update_quota(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_AI_QUOTA", 
         target=f"AI模型:{db_quota.model_name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
 
     return db_quota

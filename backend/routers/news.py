@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -28,6 +28,7 @@ async def read_news(
 @router.post("/", response_model=schemas.NewsItem, status_code=status.HTTP_201_CREATED, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def create_news(
     request: Request,
+    background_tasks: BackgroundTasks,
     news: schemas.NewsItemCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -41,8 +42,8 @@ async def create_news(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_NEWS", 
@@ -50,13 +51,13 @@ async def create_news(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit() # Commit audit log
     
     return db_news
 
 @router.put("/{news_id}", response_model=schemas.NewsItem, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def update_news(
     request: Request,
+    background_tasks: BackgroundTasks,
     news_id: int, 
     news_update: schemas.NewsItemCreate, 
     db: AsyncSession = Depends(get_db),
@@ -77,8 +78,8 @@ async def update_news(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_NEWS", 
@@ -86,13 +87,13 @@ async def update_news(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
 
     return news
 
 @router.delete("/{news_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(PermissionChecker("content:news:edit"))])
 async def delete_news(
     request: Request,
+    background_tasks: BackgroundTasks,
     news_id: int, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -110,8 +111,8 @@ async def delete_news(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_NEWS", 
@@ -119,6 +120,5 @@ async def delete_news(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
     
     return None

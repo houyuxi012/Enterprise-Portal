@@ -34,7 +34,7 @@ async def seed_todos_data():
         admin_res = await db.execute(select(User.id).where(User.username == "admin"))
         admin_id = admin_res.scalar_one_or_none()
 
-        preferred_usernames = ["test_portal_plain", "sarah", "marcus"]
+        preferred_usernames = ["sarah", "marcus", "tom"]
         selected_users = []
         for username in preferred_usernames:
             user_res = await db.execute(

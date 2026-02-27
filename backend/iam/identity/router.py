@@ -156,7 +156,7 @@ async def change_my_password(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_identity),
 ):
-    if not utils.verify_password(payload.old_password, current_user.hashed_password):
+    if not await utils.verify_password(payload.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="原密码不正确")
     if payload.old_password == payload.new_password:
         raise HTTPException(status_code=400, detail="新密码不能与原密码相同")

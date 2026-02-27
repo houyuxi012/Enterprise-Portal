@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict
 
 import psutil
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -224,8 +224,7 @@ async def check_version_upgrade(session_factory):
                 # We try to attribute this to system (ID 1 usually Admin, or 0 if supported)
                 # If ID 1 doesn't exist, this might fail, so we wrap in try/except or assume seeded DB
                 try:
-                    await AuditService.log_business_action(
-                        db,
+                    AuditService.schedule_business_action(
                         user_id=1,  # Assume Admin ID 1 exists
                         username="system_auto",
                         action="SYSTEM_UPGRADE",
@@ -233,6 +232,7 @@ async def check_version_upgrade(session_factory):
                         detail=f"Upgrade: {stored_version} -> {current_version} (Build {stored_build} -> {current_build})",
                         ip_address="127.0.0.1",
                         trace_id=f"upgrade-{int(time.time())}",
+                        domain="SYSTEM",
                     )
                 except Exception as audit_err:
                     logger.warning("Failed to write upgrade audit log: %s", audit_err)
@@ -248,14 +248,15 @@ async def check_version_upgrade(session_factory):
 @router.get("/config", response_model=Dict[str, str])
 async def get_system_config(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
 ):
     result = await db.execute(select(models.SystemConfig))
     configs = result.scalars().all()
     config_map = {c.key: c.value for c in configs}
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="READ_SYSTEM_CONFIG",
@@ -265,13 +266,13 @@ async def get_system_config(
         trace_id=request.headers.get("X-Request-ID"),
         domain="SYSTEM",
     )
-    await db.commit()
     return config_map
 
 
 @router.post("/config", response_model=Dict[str, str])
 async def update_system_config(
     request: Request,
+    background_tasks: BackgroundTasks,
     config: Dict[str, str],
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
@@ -346,8 +347,8 @@ async def update_system_config(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="UPDATE_SYSTEM_CONFIG",
@@ -355,6 +356,7 @@ async def update_system_config(
         detail=f"Updated keys: {', '.join(normalized_config.keys())}",
         ip_address=ip,
         trace_id=trace_id,
+        domain="SYSTEM",
     )
 
     await db.commit()
@@ -494,6 +496,7 @@ async def get_storage_stats(
 @router.post("/optimize-storage")
 async def optimize_storage(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
@@ -505,8 +508,8 @@ async def optimize_storage(
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="OPTIMIZE_STORAGE",
@@ -514,8 +517,8 @@ async def optimize_storage(
         detail=f"optimize_database_success={optimize_ok}",
         ip_address=ip,
         trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()
 
     return {
         "ok": optimize_ok,

@@ -201,8 +201,7 @@ async def cleanup_logs(db_session_factory):
                     logger.warning(f"Cleanup stopped after {iteration} iterations. Disk usage still {current_usage_percent}%")
 
             post_cleanup_usage = psutil.disk_usage('/').percent
-            await AuditService.log_business_action(
-                db=db,
+            AuditService.schedule_business_action(
                 user_id=0,
                 username="system_auto",
                 action="AUTO_LOG_CLEANUP",
@@ -220,7 +219,6 @@ async def cleanup_logs(db_session_factory):
                 ip_address="127.0.0.1",
                 domain="SYSTEM",
             )
-            await db.commit()
 
         except Exception as e:
             logger.error(f"Error during log cleanup: {e}")

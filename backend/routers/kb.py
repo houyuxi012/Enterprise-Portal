@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, conint
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,6 +79,7 @@ class KBStatsResponse(BaseModel):
 @router.post("/documents", response_model=DocumentResponse)
 async def create_document(
     request: Request,
+    background_tasks: BackgroundTasks,
     req: DocumentCreateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("kb:manage")),
@@ -102,8 +103,8 @@ async def create_document(
     try:
         trace_id = request.headers.get("X-Request-ID")
         ip = request.client.host if request.client else "unknown"
-        await AuditService.log_business_action(
-            db, 
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id, 
             username=current_user.username, 
             action="CREATE_KB_DOC", 
@@ -112,7 +113,6 @@ async def create_document(
             trace_id=trace_id,
             domain="BUSINESS"
         )
-        await db.commit()
     except Exception as e:
         logger.error(f"Audit log failed for CREATE_KB_DOC: {e}", exc_info=True)
     
@@ -190,6 +190,7 @@ async def get_document_detail(
 async def delete_document(
     doc_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
@@ -204,8 +205,8 @@ async def delete_document(
     try:
         trace_id = request.headers.get("X-Request-ID")
         ip = request.client.host if request.client else "unknown"
-        await AuditService.log_business_action(
-            db, 
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id, 
             username=current_user.username, 
             action="DELETE_KB_DOC", 
@@ -225,6 +226,7 @@ async def delete_document(
 async def update_document(
     doc_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     req: DocumentCreateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("kb:manage")),
@@ -251,8 +253,8 @@ async def update_document(
     try:
         trace_id = request.headers.get("X-Request-ID")
         ip = request.client.host if request.client else "unknown"
-        await AuditService.log_business_action(
-            db, 
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id, 
             username=current_user.username, 
             action="UPDATE_KB_DOC", 
@@ -261,7 +263,6 @@ async def update_document(
             trace_id=trace_id,
             domain="BUSINESS"
         )
-        await db.commit()
     except Exception as e:
         logger.error(f"Audit log failed for UPDATE_KB_DOC: {e}", exc_info=True)
 
@@ -281,6 +282,7 @@ async def update_document(
 async def reindex_document(
     doc_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
@@ -295,8 +297,8 @@ async def reindex_document(
     try:
         trace_id = request.headers.get("X-Request-ID")
         ip = request.client.host if request.client else "unknown"
-        await AuditService.log_business_action(
-            db, 
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id, 
             username=current_user.username, 
             action="REINDEX_KB_DOC", 
@@ -305,7 +307,6 @@ async def reindex_document(
             trace_id=trace_id,
             domain="BUSINESS"
         )
-        await db.commit()
     except Exception as e:
         logger.error(f"Audit log failed: {e}")
 

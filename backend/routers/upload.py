@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, UploadFile, File, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 import models
@@ -25,6 +25,7 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 @router.post("/image")
 async def upload_image(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
@@ -76,8 +77,8 @@ async def upload_image(
         # 7. Return URL (Stable Public URL for Images)
         url = storage.get_url(stored_path, is_public=True)
         ip = request.client.host if request.client else "unknown"
-        await AuditService.log_business_action(
-            db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=user.id,
             username=user.username,
             action="UPLOAD_IMAGE",
@@ -86,7 +87,6 @@ async def upload_image(
             ip_address=ip,
             domain="BUSINESS",
         )
-        await db.commit()
         return {"url": url}
 
     except Exception as e:
@@ -101,6 +101,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 async def view_file(
     filename: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
@@ -119,8 +120,8 @@ async def view_file(
     if os.getenv("STORAGE_TYPE") == "minio":
         # Redirect to Presigned URL
         url = storage.get_url(filename, is_public=False) # Helper handles presigned
-        await AuditService.log_business_action(
-            db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=user.id,
             username=user.username,
             action="VIEW_FILE",
@@ -129,14 +130,13 @@ async def view_file(
             ip_address=ip,
             domain="BUSINESS",
         )
-        await db.commit()
         return RedirectResponse(url)
     else:
         # Local Storage - Serve File
         file_path = os.path.join("uploads", filename)
         if not os.path.exists(file_path):
-             await AuditService.log_business_action(
-                 db,
+             AuditService.schedule_business_action(
+                 background_tasks=background_tasks,
                  user_id=user.id,
                  username=user.username,
                  action="VIEW_FILE",
@@ -146,10 +146,9 @@ async def view_file(
                  ip_address=ip,
                  domain="BUSINESS",
              )
-             await db.commit()
              raise HTTPException(status_code=404, detail="File not found")
-        await AuditService.log_business_action(
-            db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=user.id,
             username=user.username,
             action="VIEW_FILE",
@@ -158,5 +157,4 @@ async def view_file(
             ip_address=ip,
             domain="BUSINESS",
         )
-        await db.commit()
         return FileResponse(file_path)

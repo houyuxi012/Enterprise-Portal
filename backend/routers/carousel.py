@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from services.audit_service import AuditService
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -34,6 +34,7 @@ async def get_all_carousel_items(
 @router.post("/", response_model=schemas.CarouselItem)
 async def create_carousel_item(
     request: Request,
+    background_tasks: BackgroundTasks,
     item: schemas.CarouselItemCreate, 
     db: AsyncSession = Depends(database.get_db), 
     current_user: models.User = Depends(PermissionChecker("portal.carousel.manage"))
@@ -46,22 +47,23 @@ async def create_carousel_item(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_CAROUSEL_ITEM", 
         target=f"Carousel:{db_item.id} ({db_item.title})", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="BUSINESS",
     )
-    await db.commit()
 
     return db_item
 
 @router.put("/{item_id}", response_model=schemas.CarouselItem)
 async def update_carousel_item(
     request: Request,
+    background_tasks: BackgroundTasks,
     item_id: int, 
     item: schemas.CarouselItemUpdate, 
     db: AsyncSession = Depends(database.get_db), 
@@ -81,22 +83,23 @@ async def update_carousel_item(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="UPDATE_CAROUSEL_ITEM", 
         target=f"Carousel:{db_item.id} ({db_item.title})", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="BUSINESS",
     )
-    await db.commit()
 
     return db_item
 
 @router.delete("/{item_id}")
 async def delete_carousel_item(
     request: Request,
+    background_tasks: BackgroundTasks,
     item_id: int, 
     db: AsyncSession = Depends(database.get_db), 
     current_user: models.User = Depends(PermissionChecker("portal.carousel.manage"))
@@ -114,15 +117,15 @@ async def delete_carousel_item(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_CAROUSEL_ITEM", 
         target=f"轮播图:{item_id} ({title})", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="BUSINESS",
     )
-    await db.commit()
     
     return {"ok": True}

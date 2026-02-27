@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -89,6 +89,7 @@ async def update_role(
 async def delete_role(
     role_id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -103,17 +104,18 @@ async def delete_role(
         raise HTTPException(status_code=400, detail="Cannot delete admin role")
         
     await db.delete(db_role)
+    await db.commit()
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_ROLE", 
         target=f"角色:{db_role.name}", 
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="SYSTEM",
     )
-    await db.commit()

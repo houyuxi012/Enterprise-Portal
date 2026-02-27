@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database import get_db
@@ -71,6 +71,7 @@ async def read_employee(
 @router.post("/", response_model=schemas.EmployeeCreateResult, status_code=status.HTTP_201_CREATED)
 async def create_employee(
     request: Request,
+    background_tasks: BackgroundTasks,
     employee: schemas.EmployeeCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
@@ -160,8 +161,8 @@ async def create_employee(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_EMPLOYEE", 
@@ -194,6 +195,7 @@ async def create_employee(
 async def update_employee(
     employee_id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     employee_update: schemas.EmployeeCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
@@ -220,8 +222,8 @@ async def update_employee(
     
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="UPDATE_EMPLOYEE",
@@ -239,6 +241,7 @@ async def update_employee(
 async def delete_employee(
     employee_id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
 ):
@@ -252,8 +255,8 @@ async def delete_employee(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_EMPLOYEE", 

@@ -1,6 +1,6 @@
 import logging
 import os
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
@@ -71,6 +71,7 @@ async def get_models(
 @router.post("/admin/providers/test")
 async def test_provider(
     request: Request,
+    background_tasks: BackgroundTasks,
     request_body: AIProviderTestRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("sys:settings:edit"))
@@ -88,8 +89,8 @@ async def test_provider(
         )
         
         response = await engine._call_provider(temp_provider, "Hello, this is a connection test.", "")
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="TEST_AI_PROVIDER",
@@ -99,11 +100,10 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         return {"status": "success", "message": "Connection successful", "response": response}
     except ValueError as e:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="TEST_AI_PROVIDER",
@@ -114,12 +114,11 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         logger.warning("Provider test blocked for user %s: %s", getattr(current_user, "username", "unknown"), e)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        await AuditService.log_business_action(
-            db=db,
+        AuditService.schedule_business_action(
+            background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="TEST_AI_PROVIDER",
@@ -130,7 +129,6 @@ async def test_provider(
             trace_id=request.headers.get("X-Request-ID"),
             domain="SYSTEM",
         )
-        await db.commit()
         logger.exception("Provider test failed for user %s", getattr(current_user, "username", "unknown"))
         raise HTTPException(status_code=400, detail="Provider test failed")
 
@@ -138,6 +136,7 @@ async def test_provider(
 async def chat(
     request_body: AIChatRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("portal.ai.chat.use")),
 ):
@@ -168,7 +167,8 @@ async def chat(
             user_id=user_id, 
             user_ip=user_ip, 
             trace_id=trace_id, 
-            session_id=session_id
+            session_id=session_id,
+            background_tasks=background_tasks,
         )
 
         if request_body.model_id is not None:
@@ -293,7 +293,7 @@ async def chat(
             # For strict compliance, we should check output policy. 
             # But let's assume KB content is safe.
             audit_entry.output = response_text
-            await log_ai_audit(audit_entry)
+            background_tasks.add_task(log_ai_audit, audit_entry)
             logger.debug("Strong-hit audit log persisted")
             
             await db.commit()

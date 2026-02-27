@@ -1,45 +1,115 @@
-from fastapi import FastAPI, APIRouter, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from routers import employees, news, tools, announcements, ai, auth, upload, system, departments, logs, carousel, dashboard, public, notifications, captcha, session
+import asyncio
+import fcntl
+import logging
 import os
+import time
+from pathlib import Path
+
 import database
 import models
 import schemas
-from iam.deps import verify_portal_aud, verify_admin_aud
+from fastapi import APIRouter, Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from iam.deps import verify_admin_aud, verify_portal_aud
+from routers import (
+    ai,
+    announcements,
+    auth,
+    captcha,
+    carousel,
+    dashboard,
+    departments,
+    employees,
+    logs,
+    news,
+    notifications,
+    public,
+    session,
+    system,
+    tools,
+    upload,
+)
 
 app = FastAPI(title="ShiKu Portal API", version="1.0.0")
+logger = logging.getLogger(__name__)
 
-@app.on_event("startup")
-async def startup():
-    # Enable pgvector extension
+_BOOT_ID = str(os.getppid())
+_STARTUP_READY_WAIT_SECONDS = int(os.getenv("STARTUP_READY_WAIT_SECONDS", "180"))
+_STARTUP_READY_PATH = Path(f"/tmp/enterprise_portal_startup.ready.{_BOOT_ID}")
+_STARTUP_LEADER_LOCK_PATH = Path(f"/tmp/enterprise_portal_startup.leader.{_BOOT_ID}.lock")
+_STARTUP_LEADER_FD = None
+_LEADER_TASKS = []
+
+
+def _acquire_startup_leader_lock() -> bool:
+    """Elect one worker as startup leader within current gunicorn master lifecycle."""
+    global _STARTUP_LEADER_FD
+    _STARTUP_LEADER_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(_STARTUP_LEADER_LOCK_PATH), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return False
+    _STARTUP_LEADER_FD = fd
+    return True
+
+
+def _mark_startup_ready() -> None:
+    _STARTUP_READY_PATH.write_text(str(int(time.time())), encoding="utf-8")
+
+
+async def _wait_for_startup_ready(timeout_seconds: int) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if _STARTUP_READY_PATH.exists():
+            return True
+        await asyncio.sleep(0.2)
+    return False
+
+
+async def _run_shared_startup_initialization() -> None:
+    """Run idempotent schema/init tasks once per master startup."""
     from database import init_pgvector
-    await init_pgvector()
+    from test_db.rbac_init import init_rbac
 
-    # Create Tables
+    await init_pgvector()
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
 
-    # Apply startup migrations/indexes for existing deployments
-    try:
-        await database.apply_startup_migrations()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Startup migrations skipped due to error: %s", e)
-    
-    # Init Cache (Redis / Memory) First
-    from services.cache_manager import cache
-    await cache.init()
+    await database.apply_startup_migrations()
 
-    # Init RBAC
-    from test_db.rbac_init import init_rbac
     async with database.SessionLocal() as session:
         await init_rbac(session)
 
-    # Schedule Log Cleanup Task
-    from services.log_storage import run_log_cleanup_scheduler
-    import asyncio
-    asyncio.create_task(run_log_cleanup_scheduler(database.SessionLocal))
+@app.on_event("startup")
+async def startup():
+    is_startup_leader = _acquire_startup_leader_lock()
+
+    # Cache client is process-local, initialize for each worker.
+    from services.cache_manager import cache
+    await cache.init()
+
+    # One-time startup DDL/init to avoid multi-worker startup deadlocks.
+    if is_startup_leader:
+        try:
+            await _run_shared_startup_initialization()
+            _mark_startup_ready()
+            logger.info("Startup leader initialization completed (boot_id=%s).", _BOOT_ID)
+        except Exception as e:
+            logger.warning("Startup leader initialization failed: %s", e)
+            raise
+    else:
+        ready = await _wait_for_startup_ready(_STARTUP_READY_WAIT_SECONDS)
+        if not ready:
+            logger.warning(
+                "Startup readiness wait timed out (%ss). Running fallback shared init locally.",
+                _STARTUP_READY_WAIT_SECONDS,
+            )
+            await _run_shared_startup_initialization()
+        else:
+            logger.info("Startup follower observed readiness marker (boot_id=%s).", _BOOT_ID)
 
     # --- Initialize LogSink (Loki Sidecar) ---
     from services.log_sink import init_log_sink
@@ -62,21 +132,30 @@ async def startup():
         loki_url=loki_url or "http://loki:3100"
     )
 
-    # Schedule IAM Audit Archiving Job
-    from services.iam_archiver import IAMAuditArchiver
-    asyncio.create_task(IAMAuditArchiver.run_archiving_job())
+    # Leader-only background schedulers.
+    if is_startup_leader:
+        from services.iam_archiver import IAMAuditArchiver
+        from services.log_storage import run_log_cleanup_scheduler
 
-    # Version Audit Check
-    try:
-        from routers.system import check_version_upgrade
-        # Run in background to avoid blocking startup
-        asyncio.create_task(check_version_upgrade(database.SessionLocal))
-    except Exception as e:
-        print(f"Startup Version Check Failed: {e}")
+        _LEADER_TASKS.append(asyncio.create_task(run_log_cleanup_scheduler(database.SessionLocal)))
+        _LEADER_TASKS.append(asyncio.create_task(IAMAuditArchiver.run_archiving_job()))
+
+        try:
+            from routers.system import check_version_upgrade
+
+            _LEADER_TASKS.append(asyncio.create_task(check_version_upgrade(database.SessionLocal)))
+        except Exception as e:
+            logger.warning("Startup version check scheduling failed: %s", e)
+    else:
+        logger.info("Skipping leader-only schedulers in follower worker.")
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    for task in _LEADER_TASKS:
+        task.cancel()
+    _LEADER_TASKS.clear()
+
     from services.log_sink import shutdown_log_sink
     await shutdown_log_sink()
     from services.log_repository import shutdown_log_repository

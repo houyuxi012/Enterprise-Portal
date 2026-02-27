@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -90,6 +90,7 @@ async def read_departments(
 @router.post("/", response_model=schemas.Department)
 async def create_department(
     request: Request,
+    background_tasks: BackgroundTasks,
     dept: schemas.DepartmentCreate, 
     db: AsyncSession = Depends(get_db), 
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
@@ -101,8 +102,8 @@ async def create_department(
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="CREATE_DEPARTMENT",
@@ -111,7 +112,6 @@ async def create_department(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
     
     # Manually construct response to avoid lazy loading 'children'
     # We use the Schema model directly
@@ -129,6 +129,7 @@ async def create_department(
 async def update_department(
     dept_id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     dept: schemas.DepartmentUpdate, 
     db: AsyncSession = Depends(get_db), 
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
@@ -146,8 +147,8 @@ async def update_department(
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="UPDATE_DEPARTMENT",
@@ -156,7 +157,6 @@ async def update_department(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
     
     # Return manually constructed Schema to avoid implicit lazy load of children
     return schemas.Department(
@@ -173,6 +173,7 @@ async def update_department(
 async def delete_department(
     dept_id: int, 
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db), 
     current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
 ):
@@ -201,8 +202,8 @@ async def delete_department(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_DEPARTMENT", 

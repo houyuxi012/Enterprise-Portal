@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -70,6 +70,7 @@ async def read_tools(
 @router.post("/", response_model=schemas.QuickTool, dependencies=[Depends(PermissionChecker("content:tool:edit"))])
 async def create_tool(
     request: Request,
+    background_tasks: BackgroundTasks,
     tool: schemas.QuickToolCreate, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -82,8 +83,8 @@ async def create_tool(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="CREATE_APP", 
@@ -91,13 +92,13 @@ async def create_tool(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
 
     return db_tool
 
 @router.put("/{tool_id}", response_model=schemas.QuickTool, dependencies=[Depends(PermissionChecker("content:tool:edit"))])
 async def update_tool(
     request: Request,
+    background_tasks: BackgroundTasks,
     tool_id: int, 
     tool_update: schemas.QuickToolCreate, 
     db: AsyncSession = Depends(get_db),
@@ -129,8 +130,8 @@ async def update_tool(
     if "visible_to_departments" in tool_update.dict(exclude_unset=True):
          action = "UPDATE_APP_PERMISSION"
     
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action=action, 
@@ -139,13 +140,13 @@ async def update_tool(
         trace_id=trace_id,
         detail=f"权限变更: {tool.visible_to_departments}" if action == "UPDATE_APP_PERMISSION" else None
     )
-    await db.commit()
 
     return tool
 
 @router.delete("/{tool_id}", dependencies=[Depends(PermissionChecker("content:tool:edit"))])
 async def delete_tool(
     request: Request,
+    background_tasks: BackgroundTasks,
     tool_id: int, 
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -162,8 +163,8 @@ async def delete_tool(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db, 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id, 
         username=current_user.username, 
         action="DELETE_APP", 
@@ -171,6 +172,5 @@ async def delete_tool(
         ip_address=ip,
         trace_id=trace_id
     )
-    await db.commit()
     
     return {"ok": True}

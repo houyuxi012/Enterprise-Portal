@@ -55,7 +55,7 @@ async def _setup_users():
                 user = models.User(
                     username=username,
                     email=email,
-                    hashed_password=utils.get_password_hash(password),
+                    hashed_password=await utils.get_password_hash(password),
                     is_active=is_active,
                     name=name,
                 )
@@ -66,7 +66,7 @@ async def _setup_users():
             user.name = name
             user.is_active = is_active
             user.account_type = account_type
-            user.hashed_password = utils.get_password_hash(password)
+            user.hashed_password = await utils.get_password_hash(password)
             db.add(user)
             await db.flush()
             

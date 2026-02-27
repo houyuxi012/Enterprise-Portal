@@ -1097,7 +1097,7 @@ class IdentityService:
                 await db.commit()
 
         # Password Verification
-        if not user or not utils.verify_password(form_data.password, user.hashed_password):
+        if not user or not await utils.verify_password(form_data.password, user.hashed_password):
             fail_count_principal = await IdentityService._increase_login_fail_count(
                 audience=audience,
                 ip=ip,

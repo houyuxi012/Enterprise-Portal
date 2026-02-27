@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
@@ -77,6 +77,7 @@ async def get_all_tasks(
 @router.post("/", response_model=schemas.Todo, status_code=status.HTTP_201_CREATED)
 async def admin_create_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     todo_in: schemas.TodoCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("todo:admin")) # Returns user actually
@@ -120,24 +121,27 @@ async def admin_create_task(
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="ADMIN_CREATE_TASK",
         target=f"task:{db_todo.id}",
-        detail=f"Created task for user {todo_in.assignee_id}: {db_todo.title}",
+        detail=(
+            f"title={db_todo.title}, assigned_users={len(todo_in.assignee_user_ids or [])}, "
+            f"assigned_departments={len(todo_in.assignee_dept_ids or [])}"
+        ),
         ip_address=ip,
-        trace_id=trace_id
+        trace_id=trace_id,
+        domain="BUSINESS",
     )
-    
-    await db.commit()
     return db_todo
 
 @router.patch("/{task_id}/", response_model=schemas.Todo)
 async def admin_update_task(
     task_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     todo_update: schemas.TodoUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("todo:admin"))
@@ -169,18 +173,17 @@ async def admin_update_task(
     for key, value in update_data.items():
         setattr(todo, key, value)
         
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="ADMIN_UPDATE_TASK",
         target=f"task:{todo.id}",
         detail=f"Admin updated task: {list(update_data.keys())}",
         ip_address=request.client.host if request.client else "unknown",
-        trace_id=request.headers.get("X-Request-ID")
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
     )
-    
-    await db.commit()
     
     result = await db.execute(
         select(models.Todo)
@@ -198,6 +201,7 @@ async def admin_update_task(
 async def admin_delete_task(
     task_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("todo:admin"))
 ):
@@ -211,16 +215,16 @@ async def admin_delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
         
     await db.delete(todo)
+    await db.commit()
     
-    await AuditService.log_business_action(
-        db,
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
         user_id=current_user.id,
         username=current_user.username,
         action="ADMIN_DELETE_TASK",
         target=f"task:{task_id}",
         detail=f"Admin deleted task: {todo.title}",
         ip_address=request.client.host if request.client else "unknown",
-        trace_id=request.headers.get("X-Request-ID")
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
     )
-    
-    await db.commit()
