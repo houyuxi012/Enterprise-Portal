@@ -23,9 +23,9 @@ const LogStorage: React.FC = () => {
             const config = await ApiClient.getSystemConfig();
             storageForm.setFieldsValue({
                 log_retention_system_days: config.log_retention_system_days || 7,
-                log_retention_business_days: config.log_retention_business_days || 30,
-                log_retention_ai_days: config.log_retention_ai_days || 30,
-                log_retention_iam_days: config.log_retention_iam_days || 90,
+                log_retention_business_days: config.log_retention_business_days || 180,
+                log_retention_ai_days: config.log_retention_ai_days || 180,
+                log_retention_iam_days: config.log_retention_iam_days || 180,
                 log_retention_access_days: config.log_retention_access_days || 7,
                 log_max_disk_usage: config.log_max_disk_usage || 80
             });
@@ -147,13 +147,13 @@ const LogStorage: React.FC = () => {
                         <InputNumber min={1} max={365} addonAfter="天" className="w-full rounded-xl" />
                     </Form.Item>
 
-                    {/* IAM 与登录审计 */}
+                    {/* IAM 审计 */}
                     <Form.Item
                         name="log_retention_iam_days"
                         label={
                             <span className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                                IAM 与登录审计
+                                IAM 审计
                                 <Tooltip title="包含用户登录、角色分配、权限变更等">
                                     <InfoCircleOutlined className="text-slate-400" />
                                 </Tooltip>

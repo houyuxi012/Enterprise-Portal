@@ -129,9 +129,9 @@ SYSTEM_CONFIG_DEFAULTS = [
     {"key": "security_ip_allowlist", "value": ""},
     {"key": "log_retention_access_days", "value": "30"},
     {"key": "log_retention_system_days", "value": "7"},
-    {"key": "log_retention_business_days", "value": "30"},
-    {"key": "log_retention_ai_days", "value": "30"},
-    {"key": "log_retention_iam_days", "value": "90"},
+    {"key": "log_retention_business_days", "value": "180"},
+    {"key": "log_retention_ai_days", "value": "180"},
+    {"key": "log_retention_iam_days", "value": "180"},
 ]
 
 

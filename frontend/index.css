@@ -77,12 +77,15 @@ body {
 .prose strong { font-weight: 700; }
 .prose a { text-decoration: underline; }
 
-/* Tooltip & Popover Overrides for Contrast */
-.ant-tooltip-inner {
-    @apply bg-slate-800 text-white !important;
+/* Tooltip global text color */
+.ant-tooltip .ant-tooltip-inner,
+.ant-popover .ant-popover-inner-content {
+    color: #111827 !important;
 }
-.ant-tooltip-arrow::before {
-    @apply bg-slate-800 !important;
+
+.ant-tooltip .ant-tooltip-inner *,
+.ant-popover .ant-popover-inner-content * {
+    color: #111827 !important;
 }
 
 /* Ensure Popconfirm buttons are visible */

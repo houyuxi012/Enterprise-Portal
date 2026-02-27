@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 # field_type: 'str' = Column is String, 'dt' = Column is DateTime
 LOG_RETENTION_CONFIG = {
     "system": ("log_retention_system_days", 7, models.SystemLog, "timestamp", "str"),
-    "business": ("log_retention_business_days", 30, models.BusinessLog, "timestamp", "str"),
-    "ai": ("log_retention_ai_days", 30, models.AIAuditLog, "ts", "dt"),
-    "iam": ("log_retention_iam_days", 90, IAMAuditLog, "timestamp", "dt"),
+    "business": ("log_retention_business_days", 180, models.BusinessLog, "timestamp", "str"),
+    "ai": ("log_retention_ai_days", 180, models.AIAuditLog, "ts", "dt"),
+    "iam": ("log_retention_iam_days", 180, IAMAuditLog, "timestamp", "dt"),
 }
 
 async def get_config_value(db: AsyncSession, key: str, default: str) -> str:

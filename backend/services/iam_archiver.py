@@ -20,7 +20,7 @@ class IAMAuditArchiver:
     """
     
     BUCKET_NAME = "archive-iam-logs"
-    RETENTION_DAYS = 30 # 默认保留 30 天热数据
+    RETENTION_DAYS = 180 # 默认保留 180 天热数据
     DEFAULT_INTERVAL_SECONDS = 24 * 3600
     
     @staticmethod
