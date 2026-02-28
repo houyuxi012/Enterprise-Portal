@@ -703,31 +703,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
                     <div className="space-y-2">
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">软件名称</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">软件名称</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white text-right">{systemInfo?.software_name || 'Loading...'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">软件版本</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">软件版本</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">访问地址</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">访问地址</span>
                             <a href={systemInfo?.access_address} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline truncate max-w-[150px] text-right" title={systemInfo?.access_address}>
                                 {systemInfo?.access_address ? new URL(systemInfo.access_address).hostname : '---'}
                             </a>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">序列号</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">序列号</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white whitespace-nowrap text-right">{systemInfo?.serial_number || systemInfo?.license_id || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权类型</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">授权类型</span>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${licenseBadge.className}`}>
                                 {licenseBadge.label}
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">客户名称</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">客户名称</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
                         </div>
                     </div>

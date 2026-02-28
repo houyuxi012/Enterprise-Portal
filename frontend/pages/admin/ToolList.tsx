@@ -26,21 +26,29 @@ const getBase64 = (file: FileType): Promise<string> =>
         reader.onerror = (error) => reject(error);
     });
 
+const resolveIconTextColorClass = (colorName: string): string => {
+    const colorClass = getColorClass(colorName || 'blue');
+    const textColorClass = colorClass
+        .split(/\s+/)
+        .find((token) => token.startsWith('text-'));
+    return textColorClass || 'text-blue-600';
+};
+
 // Helper to render icon preview
 const IconPreview = ({ iconName, color, image }: { iconName: string, color: string, image?: string }) => {
     if (image) {
         return (
-            <div className="w-12 h-12 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
+            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
                 <img src={image} alt="icon" className="w-full h-full object-cover" />
             </div>
         );
     }
 
-    const colorClass = getColorClass(color);
+    const iconTextColorClass = resolveIconTextColorClass(color);
 
     return (
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-${color}-500/20 ${colorClass} text-white`}>
-            {getIcon(iconName, { size: 24 })}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800 ${iconTextColorClass}`}>
+            {getIcon(iconName, { size: 18 })}
         </div>
     );
 };
@@ -197,48 +205,63 @@ const ToolList: React.FC = () => {
                 confirmLoading={submitLoading}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
-                    {/* Image Upload Area */}
-                    <AppForm.Item label="应用图标 (优先显示自定义图片)">
-                        <AppForm.Item name="image" noStyle>
-                            <Input hidden />
-                        </AppForm.Item>
-                        <Upload
-                            listType="picture-card"
-                            fileList={fileList}
-                            onPreview={handlePreview}
-                            onChange={handleChange}
-                            maxCount={1}
-                            customRequest={async ({ file, onSuccess, onError }) => {
-                                try {
-                                    const url = await ApiClient.uploadImage(file as File);
-                                    form.setFieldsValue({ image: url });
-                                    message.success('图片上传成功');
-                                    onSuccess?.(url);
-                                } catch (err) {
-                                    message.error('图片上传失败');
-                                    onError?.(err as Error);
-                                }
-                            }}
-                        >
-                            {fileList.length >= 1 ? null : (
-                                <button style={{ border: 0, background: 'none' }} type="button">
-                                    <PlusOutlined />
-                                    <div style={{ marginTop: 8 }}>上传图标</div>
-                                </button>
-                            )}
-                        </Upload>
-                        {previewImage && (
-                            <Image
-                                wrapperStyle={{ display: 'none' }}
-                                preview={{
-                                    visible: previewOpen,
-                                    onVisibleChange: (visible) => setPreviewOpen(visible),
-                                    afterOpenChange: (visible) => !visible && setPreviewImage(''),
+                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 items-start">
+                        <AppForm.Item label="应用图标 (优先显示自定义图片)" className="mb-0">
+                            <AppForm.Item name="image" noStyle>
+                                <Input hidden />
+                            </AppForm.Item>
+                            <Upload
+                                listType="picture-card"
+                                fileList={fileList}
+                                onPreview={handlePreview}
+                                onChange={handleChange}
+                                maxCount={1}
+                                customRequest={async ({ file, onSuccess, onError }) => {
+                                    try {
+                                        const url = await ApiClient.uploadImage(file as File);
+                                        form.setFieldsValue({ image: url });
+                                        message.success('图片上传成功');
+                                        onSuccess?.(url);
+                                    } catch (err) {
+                                        message.error('图片上传失败');
+                                        onError?.(err as Error);
+                                    }
                                 }}
-                                src={previewImage}
-                            />
-                        )}
-                    </AppForm.Item>
+                            >
+                                {fileList.length >= 1 ? null : (
+                                    <button style={{ border: 0, background: 'none' }} type="button">
+                                        <PlusOutlined />
+                                        <div style={{ marginTop: 8 }}>上传图标</div>
+                                    </button>
+                                )}
+                            </Upload>
+                            {previewImage && (
+                                <Image
+                                    wrapperStyle={{ display: 'none' }}
+                                    preview={{
+                                        visible: previewOpen,
+                                        onVisibleChange: (visible) => setPreviewOpen(visible),
+                                        afterOpenChange: (visible) => !visible && setPreviewImage(''),
+                                    }}
+                                    src={previewImage}
+                                />
+                            )}
+                        </AppForm.Item>
+                        <div>
+                            <AppForm.Item name="color" label="颜色主题 (无图片时生效)">
+                                <Select placeholder="选择颜色">
+                                    <Option value="blue">蓝色</Option>
+                                    <Option value="purple">紫色</Option>
+                                    <Option value="emerald">翠绿</Option>
+                                    <Option value="rose">玫红</Option>
+                                    <Option value="orange">橙色</Option>
+                                </Select>
+                            </AppForm.Item>
+                            <AppForm.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
+                                <Input placeholder="e.g. Mail, Github, Slack" />
+                            </AppForm.Item>
+                        </div>
+                    </div>
 
                     <AppForm.Item name="name" label="应用名称" rules={[{ required: true, message: '请输入应用名称' }]}>
                         <Input placeholder="请输入应用名称" />
@@ -246,36 +269,22 @@ const ToolList: React.FC = () => {
                     <AppForm.Item name="url" label="链接 URL" rules={[{ required: true, message: '请输入链接' }]}>
                         <Input placeholder="应用跳转链接" />
                     </AppForm.Item>
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item name="category" label="分类">
-                            <Select placeholder="选择分类">
-                                <Option value="行政">行政</Option>
-                                <Option value="IT">IT</Option>
-                                <Option value="财务">财务</Option>
-                                <Option value="人力资源">人力资源</Option>
-                                <Option value="研发">研发</Option>
-                                <Option value="设计">设计</Option>
-                                <Option value="营销">营销</Option>
-                                <Option value="法律">法律</Option>
-                                <Option value="通用">通用</Option>
-                                <Option value="其他">其他</Option>
-                            </Select>
-                        </AppForm.Item>
-                        <AppForm.Item name="color" label="颜色主题 (无图片时生效)">
-                            <Select placeholder="选择颜色">
-                                <Option value="blue">蓝色</Option>
-                                <Option value="purple">紫色</Option>
-                                <Option value="emerald">翠绿</Option>
-                                <Option value="rose">玫红</Option>
-                                <Option value="orange">橙色</Option>
-                            </Select>
-                        </AppForm.Item>
-                    </div>
+                    <AppForm.Item name="category" label="分类">
+                        <Select placeholder="选择分类">
+                            <Option value="行政">行政</Option>
+                            <Option value="IT">IT</Option>
+                            <Option value="财务">财务</Option>
+                            <Option value="人力资源">人力资源</Option>
+                            <Option value="研发">研发</Option>
+                            <Option value="设计">设计</Option>
+                            <Option value="营销">营销</Option>
+                            <Option value="法律">法律</Option>
+                            <Option value="通用">通用</Option>
+                            <Option value="其他">其他</Option>
+                        </Select>
+                    </AppForm.Item>
                     <AppForm.Item name="sort_order" label="显示优先级 (数值越大越靠前)">
                         <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
-                    </AppForm.Item>
-                    <AppForm.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
-                        <Input placeholder="e.g. Mail, Github, Slack" />
                     </AppForm.Item>
                     <AppForm.Item name="description" label="描述">
                         <Input.TextArea rows={3} placeholder="应用描述（可选）" />
