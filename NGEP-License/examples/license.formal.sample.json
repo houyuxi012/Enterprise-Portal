@@ -1,0 +1,27 @@
+{
+  "payload": {
+    "license_id": "HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY",
+    "product_id": "enterprise-portal",
+    "product_model": "NGEPv3.0-HYX-PS",
+    "grant_type": "formal",
+    "customer": "Seecool Inc.",
+    "installation_id": "ca667e39-4d1a-5df1-b9a9-8e72629deb6c",
+    "issued_at": "2026-02-28T03:38:02Z",
+    "not_before": "2026-02-28T03:38:02Z",
+    "expires_at": "2027-02-27T23:59:59Z",
+    "edition": "enterprise",
+    "features": {
+      "ldap": true,
+      "sso": true,
+      "ai.audit": true,
+      "rbac.advanced": true,
+      "log.forwarding": true,
+      "session.security": true
+    },
+    "limits": {
+      "users": 500
+    },
+    "rev": 1
+  },
+  "signature": "2gZpEIPFpMVNHbZiORZncPqmWOipgDEhu7si0YNiOkLjg_gE0WM9-3rF5ojRldb3LG6xEOvgNC1nMw8HbqR9AA"
+}

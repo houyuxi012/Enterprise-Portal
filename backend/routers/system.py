@@ -3,13 +3,12 @@ import logging
 import os
 import time
 import uuid
-import hashlib
 import platform
 from pathlib import Path
 from typing import Dict
 
 import psutil
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +18,8 @@ import schemas
 from dependencies import PermissionChecker
 from services.audit_service import AuditService
 from services.cache_manager import cache
+from services.license_service import LicenseService
+from services.license_settings import settings as license_settings
 from services.loki_config import update_loki_retention
 from services.storage import storage
 
@@ -26,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/system",
+    tags=["system"],
+)
+
+# Alias router for /api/system/license/* (admin audience only, wired in main.py)
+license_alias_router = APIRouter(
+    prefix="/system/license",
     tags=["system"],
 )
 
@@ -144,11 +151,8 @@ def _get_hardware_fingerprint_payload() -> dict:
 
 
 def _build_system_serial_number() -> str:
-    payload = _get_hardware_fingerprint_payload()
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    # Deterministic UUID derived from hardware+system fingerprint.
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, digest))
+    # Keep serial aligned with license installation identifier.
+    return license_settings.INSTALLATION_ID
 
 
 def _load_version_info() -> Dict:
@@ -366,11 +370,202 @@ async def update_system_config(
     return {c.key: c.value for c in configs}
 
 
+async def _install_license(
+    *,
+    request: Request,
+    payload: schemas.LicenseInstallRequest,
+    db: AsyncSession,
+    current_user: models.User,
+) -> dict:
+    await LicenseService.install_license(
+        db=db,
+        payload=payload.payload,
+        signature=payload.signature,
+        request=request,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+    )
+    return await LicenseService.get_license_status(
+        db=db,
+        request=request,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+    )
+
+
+async def _get_license_status(
+    *,
+    request: Request,
+    db: AsyncSession,
+    current_user: models.User,
+) -> dict:
+    return await LicenseService.get_license_status(
+        db=db,
+        request=request,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+    )
+
+
+async def _get_license_claims(
+    *,
+    request: Request,
+    db: AsyncSession,
+    current_user: models.User,
+) -> dict:
+    return await LicenseService.get_license_claims(
+        db=db,
+        request=request,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+    )
+
+
+async def _get_license_events(
+    *,
+    db: AsyncSession,
+    limit: int,
+) -> dict:
+    safe_limit = max(1, min(limit, 200))
+    result = await db.execute(
+        select(models.LicenseEvent)
+        .order_by(models.LicenseEvent.created_at.desc())
+        .limit(safe_limit)
+    )
+    rows = result.scalars().all()
+    items = [
+        {
+            "id": row.id,
+            "event_type": row.event_type,
+            "status": row.status,
+            "reason": row.reason,
+            "product_id": row.product_id,
+            "installation_id": row.installation_id,
+            "grant_type": row.grant_type,
+            "customer": row.customer,
+            "actor_username": row.actor_username,
+            "ip_address": row.ip_address,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
+    return {
+        "total": len(items),
+        "items": items,
+    }
+
+
+@router.post("/license/install/", response_model=schemas.LicenseStatusResponse)
+async def install_license_admin(
+    request: Request,
+    payload: schemas.LicenseInstallRequest,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    return await _install_license(
+        request=request,
+        payload=payload,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@router.get("/license/status/", response_model=schemas.LicenseStatusResponse)
+async def get_license_status_admin(
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_status(
+        request=request,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@router.get("/license/claims/", response_model=schemas.LicenseClaimsResponse)
+async def get_license_claims_admin(
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_claims(
+        request=request,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@router.get("/license/events/", response_model=schemas.LicenseEventListResponse)
+async def get_license_events_admin(
+    limit: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(database.get_db),
+    _: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_events(
+        db=db,
+        limit=limit,
+    )
+
+
+@license_alias_router.post("/install/", response_model=schemas.LicenseStatusResponse)
+async def install_license_alias(
+    request: Request,
+    payload: schemas.LicenseInstallRequest,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    return await _install_license(
+        request=request,
+        payload=payload,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@license_alias_router.get("/status/", response_model=schemas.LicenseStatusResponse)
+async def get_license_status_alias(
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_status(
+        request=request,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@license_alias_router.get("/claims/", response_model=schemas.LicenseClaimsResponse)
+async def get_license_claims_alias(
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_claims(
+        request=request,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@license_alias_router.get("/events/", response_model=schemas.LicenseEventListResponse)
+async def get_license_events_alias(
+    limit: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(database.get_db),
+    _: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    return await _get_license_events(
+        db=db,
+        limit=limit,
+    )
+
+
 @router.get("/info")
 async def get_system_info(
     request: Request,
     db: AsyncSession = Depends(database.get_db),
-    _: models.User = Depends(PermissionChecker("sys:settings:view")),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
 ):
     """Get system version and status information."""
     try:
@@ -391,7 +586,37 @@ async def get_system_info(
             access_address = "未配置"
 
     version_info = _load_version_info()
-    serial_number = _build_system_serial_number()
+
+    # Keep dashboard system-info aligned with the currently installed license state.
+    try:
+        license_status_payload = await LicenseService.get_license_status(
+            db,
+            request=request,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+        )
+    except Exception as exc:
+        logger.warning("Failed to load license status for system info: %s", exc)
+        license_status_payload = {
+            "installed": False,
+            "status": "missing",
+            "reason": "LICENSE_STATUS_UNAVAILABLE",
+            "installation_id": _build_system_serial_number(),
+            "grant_type": None,
+            "customer": None,
+            "expires_at": None,
+        }
+
+    serial_number = str(license_status_payload.get("installation_id") or _build_system_serial_number())
+    license_status = str(license_status_payload.get("status") or "missing")
+    license_reason = str(license_status_payload.get("reason") or "")
+    license_expires_at = license_status_payload.get("expires_at")
+    license_type = license_status_payload.get("grant_type")
+    license_expired = (
+        license_status.lower() == "expired"
+        or license_reason.upper() == "LICENSE_EXPIRED"
+    )
+
     return {
         "software_name": version_info["product"],
         "product_id": version_info.get("product_id", "enterprise-portal"),
@@ -400,7 +625,11 @@ async def get_system_info(
         "database": db_status,
         "serial_number": serial_number,
         "license_id": serial_number,  # Backward compatibility for old frontend field name.
-        "authorized_unit": "ShiKu Inc.",
+        "license_type": license_type,
+        "license_status": license_status,
+        "license_expires_at": license_expires_at,
+        "license_expired": license_expired,
+        "authorized_unit": str(license_status_payload.get("customer") or "-"),
         "access_address": access_address,
         "environment": "生产环境",
         "copyright": "© 2026 ShiKu Inc. All rights reserved.",

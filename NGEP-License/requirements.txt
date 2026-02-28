@@ -1,0 +1,2 @@
+# No Python package dependencies required.
+# Requires OpenSSL 3.x with Ed25519 support.

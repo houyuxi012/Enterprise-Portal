@@ -10,6 +10,9 @@ import {
   AIModelOption,
   SystemInfo,
   SystemVersion,
+  LicenseStatus,
+  LicenseClaimsResponse,
+  LicenseEventListResponse,
   UserOption,
   OnlineUserSession,
   SessionRevokeResult,
@@ -442,6 +445,28 @@ export const ApiClient = {
 
   getSystemVersion: async (): Promise<SystemVersion> => {
     const response = await api.get<SystemVersion>('/admin/system/version');
+    return response.data;
+  },
+
+  installLicense: async (license: { payload: Record<string, any>; signature: string }): Promise<LicenseStatus> => {
+    const response = await api.post<LicenseStatus>('/admin/system/license/install/', license);
+    return response.data;
+  },
+
+  getLicenseStatus: async (): Promise<LicenseStatus> => {
+    const response = await api.get<LicenseStatus>('/admin/system/license/status/');
+    return response.data;
+  },
+
+  getLicenseClaims: async (): Promise<LicenseClaimsResponse> => {
+    const response = await api.get<LicenseClaimsResponse>('/admin/system/license/claims/');
+    return response.data;
+  },
+
+  getLicenseEvents: async (limit = 20): Promise<LicenseEventListResponse> => {
+    const response = await api.get<LicenseEventListResponse>('/admin/system/license/events/', {
+      params: { limit },
+    });
     return response.data;
   },
 

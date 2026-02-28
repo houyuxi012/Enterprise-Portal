@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from enum import Enum
 
@@ -369,6 +369,53 @@ class DashboardStats(BaseModel):
     tool_clicks_trend: str
     new_content_trend: str
     peak_time_data: List[int] # 7 days: Sun, Mon, Tue, Wed, Thu, Fri, Sat
+
+
+class LicenseInstallRequest(BaseModel):
+    payload: Dict[str, Any]
+    signature: str
+
+
+class LicenseStatusResponse(BaseModel):
+    installed: bool
+    status: str
+    reason: Optional[str] = None
+    license_id: Optional[str] = None
+    product_id: Optional[str] = None
+    product_model: Optional[str] = None
+    installation_id: Optional[str] = None
+    grant_type: Optional[str] = None
+    customer: Optional[str] = None
+    installed_at: Optional[datetime] = None
+    not_before: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    features_count: int = 0
+    limits: Dict[str, Any] = {}
+
+
+class LicenseClaimsResponse(BaseModel):
+    installed: bool
+    status: Optional[LicenseStatusResponse] = None
+    claims: Optional[Dict[str, Any]] = None
+
+
+class LicenseEventItem(BaseModel):
+    id: int
+    event_type: str
+    status: str
+    reason: Optional[str] = None
+    product_id: Optional[str] = None
+    installation_id: Optional[str] = None
+    grant_type: Optional[str] = None
+    customer: Optional[str] = None
+    actor_username: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+
+
+class LicenseEventListResponse(BaseModel):
+    total: int
+    items: List[LicenseEventItem]
 
 # AI Management Schemas
 class AIProviderBase(BaseModel):

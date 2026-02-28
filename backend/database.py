@@ -169,6 +169,67 @@ async def apply_startup_migrations():
             "ON notification_receipts (notification_id)"
         ))
 
+        # Enterprise License state (feature gate)
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS license_state ("
+            "id INTEGER PRIMARY KEY, "
+            "product_id VARCHAR(128) NOT NULL, "
+            "installation_id VARCHAR(128) NOT NULL, "
+            "grant_type VARCHAR(20) NOT NULL, "
+            "customer VARCHAR(255), "
+            "features JSONB NOT NULL DEFAULT '{}'::jsonb, "
+            "limits JSONB NOT NULL DEFAULT '{}'::jsonb, "
+            "payload JSONB, "
+            "not_before TIMESTAMPTZ NOT NULL, "
+            "expires_at TIMESTAMPTZ NOT NULL, "
+            "signature TEXT NOT NULL, "
+            "fingerprint VARCHAR(128) NOT NULL, "
+            "status VARCHAR(20) NOT NULL DEFAULT 'active', "
+            "reason VARCHAR(255), "
+            "last_seen_time TIMESTAMPTZ, "
+            "installed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+            "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_license_state_status ON license_state (status)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_license_state_expires_at ON license_state (expires_at)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_license_state_installation_id ON license_state (installation_id)"
+        ))
+
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS license_events ("
+            "id SERIAL PRIMARY KEY, "
+            "event_type VARCHAR(64) NOT NULL, "
+            "status VARCHAR(20) NOT NULL, "
+            "reason VARCHAR(128), "
+            "payload JSONB, "
+            "signature TEXT, "
+            "fingerprint VARCHAR(128), "
+            "product_id VARCHAR(128), "
+            "installation_id VARCHAR(128), "
+            "grant_type VARCHAR(20), "
+            "customer VARCHAR(255), "
+            "actor_id INTEGER REFERENCES users(id), "
+            "actor_username VARCHAR(255), "
+            "ip_address VARCHAR(64), "
+            "trace_id VARCHAR(128), "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_license_events_type_created_at "
+            "ON license_events (event_type, created_at DESC)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_license_events_status_created_at "
+            "ON license_events (status, created_at DESC)"
+        ))
+
         # AI provider model kind (text / multimodal)
         await conn.execute(text(
             "ALTER TABLE ai_providers "

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import database
 import models
+from services.license_service import LicenseService
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -34,4 +35,12 @@ async def get_public_config(
         select(models.SystemConfig).where(models.SystemConfig.key.in_(PUBLIC_CONFIG_KEYS))
     )
     configs = result.scalars().all()
-    return {c.key: c.value for c in configs}
+    payload = {c.key: c.value for c in configs}
+
+    # Expose tenant/customer display name from current license for portal copy.
+    state = await LicenseService.get_current_state(db)
+    customer_name = str((state or {}).get("customer") or "").strip()
+    if customer_name and customer_name != "-":
+        payload["customer_name"] = customer_name
+
+    return payload

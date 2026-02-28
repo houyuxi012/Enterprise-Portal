@@ -184,6 +184,10 @@ app.add_middleware(SystemLoggingMiddleware)
 from middleware.trace_context import TraceContextMiddleware
 app.add_middleware(TraceContextMiddleware)
 
+# Global License Gate Middleware (block/unlock/read-only by license status)
+from middleware.license_gate import LicenseGateMiddleware
+app.add_middleware(LicenseGateMiddleware)
+
 # Access Logging Middleware (HTTP logs to Loki only)
 from middleware.access_logging import AccessLoggingMiddleware
 app.add_middleware(AccessLoggingMiddleware)
@@ -207,6 +211,8 @@ api_router.include_router(iam_router)
 api_router.include_router(public.router)
 api_router.include_router(captcha.router)
 api_router.include_router(session.router)
+# Admin-audience alias route required by license API contract: /api/system/license/*
+api_router.include_router(system.license_alias_router, dependencies=[Depends(verify_admin_aud)])
 
 # 3.2 App Routers (Audience: portal)
 app_router = APIRouter(prefix="/app", dependencies=[Depends(verify_portal_aud)])

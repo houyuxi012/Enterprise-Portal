@@ -17,6 +17,8 @@ def _infer_request_audience(request: Request) -> str | None:
     path = request.url.path or ""
     if path.startswith("/api/admin/"):
         return "admin"
+    if path.startswith("/api/system/"):
+        return "admin"
     if path.startswith("/api/app/"):
         return "portal"
     return None

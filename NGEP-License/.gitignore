@@ -1,0 +1,10 @@
+# Private signing material must never be committed.
+keys/
+*.pem
+!examples/public_key.pem
+
+# Local outputs
+out/
+*.log
+__pycache__/
+*.pyc

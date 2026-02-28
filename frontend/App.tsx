@@ -32,6 +32,7 @@ const AppPermissions = lazy(() => import('./pages/admin/AppPermissions'));
 const CarouselList = lazy(() => import('./pages/admin/CarouselList'));
 const AnnouncementList = lazy(() => import('./pages/admin/AnnouncementList'));
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'));
+const LicenseManagement = lazy(() => import('./pages/admin/LicenseManagement'));
 const SecuritySettings = lazy(() => import('./pages/admin/SecuritySettings'));
 const PasswordPolicy = lazy(() => import('./pages/admin/PasswordPolicy'));
 const SystemUserList = lazy(() => import('./pages/admin/SystemUserList'));
@@ -84,6 +85,50 @@ const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: str
   );
 };
 
+type LicenseGateMode = 'full' | 'blocked' | 'read_only';
+
+const resolveLicenseGateState = (status?: any): { mode: LicenseGateMode; message: string } => {
+  const installed = Boolean(status?.installed);
+  const currentStatus = String(status?.status || '').toLowerCase();
+  const reason = String(status?.reason || '').toUpperCase();
+
+  if (!installed || currentStatus === 'missing' || reason === 'LICENSE_NOT_INSTALLED') {
+    return { mode: 'blocked', message: '系统未安装授权许可，当前仅开放「授权许可」功能。' };
+  }
+  if (currentStatus === 'expired' || reason === 'LICENSE_EXPIRED') {
+    return { mode: 'read_only', message: '授权已到期，系统当前为只读模式。' };
+  }
+  if (
+    currentStatus === 'invalid' ||
+    reason === 'TIME_ROLLBACK' ||
+    reason === 'LICENSE_NOT_YET_VALID' ||
+    reason === 'LICENSE_INACTIVE'
+  ) {
+    return { mode: 'blocked', message: '授权状态异常，当前仅开放「授权许可」功能。' };
+  }
+  return { mode: 'full', message: '' };
+};
+
+const extractLicenseErrorDetail = (error: any): { code?: string; message?: string; mode?: string } => {
+  const detail = error?.response?.data?.detail;
+  if (detail && typeof detail === 'object') {
+    return {
+      code: typeof detail.code === 'string' ? detail.code : undefined,
+      message: typeof detail.message === 'string' ? detail.message : undefined,
+      mode: typeof detail.mode === 'string' ? detail.mode : undefined,
+    };
+  }
+  return {};
+};
+
+const isLicenseGateBlockedError = (error: any): boolean => {
+  const detail = extractLicenseErrorDetail(error);
+  return (
+    detail.code === 'LICENSE_REQUIRED' ||
+    detail.code === 'LICENSE_READ_ONLY'
+  );
+};
+
 const App: React.FC = () => {
   // Use AuthContext instead of local state
   const { user: currentUser, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
@@ -92,7 +137,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isAdminMode, setIsAdminMode] = useState(false);
   // Initialize from localStorage or default to 'dashboard'
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'app_permissions' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'app_permissions' | 'settings' | 'license' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'ai_audit' | 'log_forwarding' | 'log_storage' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'iam_audit_logs' | 'kb_manage' | 'todos'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('activeAdminTab');
       // Validate saved tab exists in valid types/keys mostly implicitly or just trust it defaults if invalid render
@@ -118,6 +163,10 @@ const App: React.FC = () => {
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
+  const [adminLicenseGateMode, setAdminLicenseGateMode] = useState<LicenseGateMode>('full');
+  const [adminLicenseGateMessage, setAdminLicenseGateMessage] = useState('');
+  const [portalLicenseBlocked, setPortalLicenseBlocked] = useState(false);
+  const [portalLicenseBlockedMessage, setPortalLicenseBlockedMessage] = useState('系统当前未授权，暂不可使用前台功能。');
 
   // Team Filter State
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -133,6 +182,11 @@ const App: React.FC = () => {
     []
   );
   const normalizeSearchText = useCallback((value: unknown) => String(value ?? '').toLowerCase(), []);
+  const licenseCustomerName = useMemo(() => {
+    const value = String(systemConfig?.customer_name || '').trim();
+    if (!value || value === '-') return '企业';
+    return value;
+  }, [systemConfig]);
 
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
@@ -178,19 +232,66 @@ const App: React.FC = () => {
     const fetchAppData = async () => {
       const isAdminPath = window.location.pathname.startsWith('/admin');
       const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+      let currentAdminGateMode: LicenseGateMode = 'full';
+      let currentAdminGateMessage = '';
 
       // Check for Admin Mode preference or URL
       if (canUseAdminPlane) {
         setIsAdminMode(true);
+
+        try {
+          const licenseStatus = await ApiClient.getLicenseStatus();
+          const gate = resolveLicenseGateState(licenseStatus);
+          currentAdminGateMode = gate.mode;
+          currentAdminGateMessage = gate.message;
+        } catch (error: any) {
+          const detail = extractLicenseErrorDetail(error);
+          currentAdminGateMode = 'blocked';
+          currentAdminGateMessage = detail.message || '无法读取授权状态，当前仅开放「授权许可」功能。';
+          console.error('Failed to fetch license status', error);
+        }
+
+        setAdminLicenseGateMode(currentAdminGateMode);
+        setAdminLicenseGateMessage(currentAdminGateMessage);
+        if (currentAdminGateMode === 'blocked') {
+          setActiveAdminTab('license');
+        }
+      } else {
+        setAdminLicenseGateMode('full');
+        setAdminLicenseGateMessage('');
       }
 
+      const shouldSkipBusinessFetch = canUseAdminPlane && currentAdminGateMode === 'blocked';
       const [employeesResult, newsResult, toolsResult, configResult, todosResult] = await Promise.allSettled([
-        ApiClient.getEmployees(),
-        ApiClient.getNews(),
-        ApiClient.getTools(),
-        canUseAdminPlane ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
+        shouldSkipBusinessFetch ? Promise.resolve([] as Employee[]) : ApiClient.getEmployees(),
+        shouldSkipBusinessFetch ? Promise.resolve([] as NewsItem[]) : ApiClient.getNews(),
+        shouldSkipBusinessFetch ? Promise.resolve([] as QuickToolDTO[]) : ApiClient.getTools(),
+        canUseAdminPlane && !shouldSkipBusinessFetch ? ApiClient.getSystemConfig() : ApiClient.getPublicSystemConfig(),
         canUseAdminPlane ? Promise.resolve(emptyTodoPage) : TodoService.getMyTasks({ page_size: 100 })
       ]);
+
+      if (!canUseAdminPlane) {
+        const licenseBlocked = [employeesResult, newsResult, toolsResult, todosResult].find((result) => (
+          result.status === 'rejected' && isLicenseGateBlockedError(result.reason)
+        ));
+        if (licenseBlocked && licenseBlocked.status === 'rejected') {
+          const detail = extractLicenseErrorDetail(licenseBlocked.reason);
+          setPortalLicenseBlocked(true);
+          setPortalLicenseBlockedMessage(detail.message || '系统当前未授权，暂不可使用前台功能。');
+          setEmployees([]);
+          setNewsList([]);
+          setTools([]);
+          setTodos([]);
+
+          const configFallback = configResult.status === 'fulfilled' ? configResult.value : {};
+          setSystemConfig(configFallback);
+          applyBrandingConfig(configFallback);
+          return;
+        }
+        setPortalLicenseBlocked(false);
+      } else {
+        setPortalLicenseBlocked(false);
+      }
 
       if (employeesResult.status === 'fulfilled') {
         setEmployees(employeesResult.value);
@@ -237,8 +338,9 @@ const App: React.FC = () => {
     const refreshConfig = async () => {
       const isAdminPath = window.location.pathname.startsWith('/admin');
       const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+      const canReadAdminConfig = canUseAdminPlane && adminLicenseGateMode !== 'blocked';
       try {
-        const latest = canUseAdminPlane
+        const latest = canReadAdminConfig
           ? await ApiClient.getSystemConfig()
           : await ApiClient.getPublicSystemConfig();
         if (canceled) return;
@@ -264,7 +366,7 @@ const App: React.FC = () => {
       window.clearInterval(timer);
       window.removeEventListener('focus', onFocus);
     };
-  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig]);
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig, adminLicenseGateMode]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -507,7 +609,7 @@ const App: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
                 <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">资讯中心</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">了解 ShiKu Home 的最新动态与深度报道</p>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">了解 {licenseCustomerName} 的最新动态与深度报道</p>
               </div>
 
               {/* Tabs */}
@@ -782,6 +884,8 @@ const App: React.FC = () => {
     }
   };
 
+  const effectiveAdminTab = adminLicenseGateMode === 'blocked' ? 'license' : activeAdminTab;
+
   if (isLoading && !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -815,8 +919,14 @@ const App: React.FC = () => {
     return (
       <Suspense fallback={<SuspenseFallback fullScreen />}>
         <AdminLayout
-          activeTab={activeAdminTab as any}
-          onTabChange={(tab: any) => setActiveAdminTab(tab)}
+          activeTab={effectiveAdminTab as any}
+          onTabChange={(tab: any) => {
+            if (adminLicenseGateMode === 'blocked' && tab !== 'license') {
+              setActiveAdminTab('license');
+              return;
+            }
+            setActiveAdminTab(tab);
+          }}
           onExit={() => {
             setIsAdminMode(false);
             window.history.pushState({}, '', '/');
@@ -824,34 +934,37 @@ const App: React.FC = () => {
           footerText={systemConfig.footer_text}
           logoUrl={systemConfig.logo_url}
           appName={systemConfig.app_name}
+          licenseGateMode={adminLicenseGateMode}
+          licenseGateMessage={adminLicenseGateMessage}
         >
-          {activeAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
-          {activeAdminTab === 'news' && <NewsList />}
-          {activeAdminTab === 'carousel' && <CarouselList />}
-          {activeAdminTab === 'announcements' && <AnnouncementList />}
-          {activeAdminTab === 'employees' && <UserList />}
-          {activeAdminTab === 'users' && <SystemUserList />}
-          {activeAdminTab === 'online_users' && <OnlineUsers />}
-          {activeAdminTab === 'roles' && <RoleList />}
-          {activeAdminTab === 'tools' && <ToolList />}
-          {activeAdminTab === 'app_permissions' && <AppPermissions />}
-          {activeAdminTab === 'settings' && <SystemSettings />}
-          {activeAdminTab === 'security' && <SecuritySettings />}
-          {activeAdminTab === 'password_policy' && <PasswordPolicy />}
-          {activeAdminTab === 'org' && <OrganizationList />}
-          {activeAdminTab === 'business_logs' && <BusinessLogs />}
-          {activeAdminTab === 'access_logs' && <AccessLogs />}
-          {activeAdminTab === 'iam_audit_logs' && <IAMAuditLogs />}
-          {activeAdminTab === 'ai_audit' && <AIAudit />}
-          {activeAdminTab === 'log_forwarding' && <LogForwarding />}
-          {activeAdminTab === 'log_storage' && <LogStorage />}
-          {activeAdminTab === 'ai_models' && <ModelConfig />}
-          {activeAdminTab === 'ai_security' && <SecurityPolicy />}
-          {activeAdminTab === 'ai_settings' && <AISettings />}
-          {activeAdminTab === 'ai_usage' && <ModelUsagePage />}
-          {activeAdminTab === 'kb_manage' && <KnowledgeBase />}
-          {activeAdminTab === 'todos' && <AdminTodoList />}
-          {activeAdminTab === 'about_us' && <AboutUs />}
+          {effectiveAdminTab === 'dashboard' && <AdminDashboard employeeCount={employees.length} newsCount={newsList.length} />}
+          {effectiveAdminTab === 'news' && <NewsList />}
+          {effectiveAdminTab === 'carousel' && <CarouselList />}
+          {effectiveAdminTab === 'announcements' && <AnnouncementList />}
+          {effectiveAdminTab === 'employees' && <UserList />}
+          {effectiveAdminTab === 'users' && <SystemUserList />}
+          {effectiveAdminTab === 'online_users' && <OnlineUsers />}
+          {effectiveAdminTab === 'roles' && <RoleList />}
+          {effectiveAdminTab === 'tools' && <ToolList />}
+          {effectiveAdminTab === 'app_permissions' && <AppPermissions />}
+          {effectiveAdminTab === 'settings' && <SystemSettings />}
+          {effectiveAdminTab === 'license' && <LicenseManagement />}
+          {effectiveAdminTab === 'security' && <SecuritySettings />}
+          {effectiveAdminTab === 'password_policy' && <PasswordPolicy />}
+          {effectiveAdminTab === 'org' && <OrganizationList />}
+          {effectiveAdminTab === 'business_logs' && <BusinessLogs />}
+          {effectiveAdminTab === 'access_logs' && <AccessLogs />}
+          {effectiveAdminTab === 'iam_audit_logs' && <IAMAuditLogs />}
+          {effectiveAdminTab === 'ai_audit' && <AIAudit />}
+          {effectiveAdminTab === 'log_forwarding' && <LogForwarding />}
+          {effectiveAdminTab === 'log_storage' && <LogStorage />}
+          {effectiveAdminTab === 'ai_models' && <ModelConfig />}
+          {effectiveAdminTab === 'ai_security' && <SecurityPolicy />}
+          {effectiveAdminTab === 'ai_settings' && <AISettings />}
+          {effectiveAdminTab === 'ai_usage' && <ModelUsagePage />}
+          {effectiveAdminTab === 'kb_manage' && <KnowledgeBase />}
+          {effectiveAdminTab === 'todos' && <AdminTodoList />}
+          {effectiveAdminTab === 'about_us' && <AboutUs />}
         </AdminLayout>
       </Suspense>
     );
@@ -866,6 +979,25 @@ const App: React.FC = () => {
           window.location.reload();
         }} />
       </Suspense>
+    );
+  }
+
+  if (portalLicenseBlocked) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center px-6">
+        <div className="max-w-lg w-full rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-xl p-8 text-center space-y-4">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">系统授权未激活</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-7">
+            {portalLicenseBlockedMessage || '系统当前未授权，暂不可使用前台功能，请联系管理员在后台导入有效授权。'}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition"
+          >
+            刷新状态
+          </button>
+        </div>
+      </div>
     );
   }
 

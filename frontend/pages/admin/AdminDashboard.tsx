@@ -727,7 +727,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">授权客户</span>
+                            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">客户名称</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
                         </div>
                     </div>

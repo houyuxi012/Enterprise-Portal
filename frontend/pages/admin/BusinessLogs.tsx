@@ -85,6 +85,12 @@ const ACTION_MAP: Record<string, string> = {
     'PORTAL_CLIENT_LOCAL_NOTIFICATION_CLICK': '本地通知点击',
     'PORTAL_CLIENT_SEARCH_QUERY': '门户搜索查询',
     'READ_IAM_AUDIT_LOGS': '查看IAM审计日志',
+    'LICENSE_INSTALL': '导入授权许可',
+    'LICENSE_VERIFY_FAILED': '授权校验失败',
+    'LICENSE_EXPIRED': '授权过期',
+    'license.install': '导入授权许可',
+    'license.verify_failed': '授权校验失败',
+    'license.expired': '授权过期',
 };
 
 const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {

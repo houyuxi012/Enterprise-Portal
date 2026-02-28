@@ -96,6 +96,11 @@ services:
       LOKI_PUSH_URL: http://loki:3100
       LOKI_BASE_URL: http://loki:3100
       LOKI_TENANT_ID: enterprise-portal
+      LICENSE_ED25519_PUBLIC_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MCowBQYDK2VwAyEADko/AM8cwzU86O44/rXDqn8ukJpxJGgPEKJskfw7Iwk=
+        -----END PUBLIC KEY-----
+      LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT: "57e66ed76ba225868318c89943a34f92edfb7d542303fa1b0d66c9dc6b644046"
     depends_on:
       - db
       - redis

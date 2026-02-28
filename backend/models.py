@@ -208,6 +208,49 @@ class SystemConfig(Base):
 
     value = Column(String)
 
+
+class LicenseState(Base):
+    __tablename__ = "license_state"
+
+    id = Column(Integer, primary_key=True, index=True, default=1)
+    product_id = Column(String(128), nullable=False, index=True)
+    installation_id = Column(String(128), nullable=False, index=True)
+    grant_type = Column(String(20), nullable=False)  # formal | trial | learning
+    customer = Column(String(255), nullable=True)
+    features = Column(JSON, nullable=False, default=dict)
+    limits = Column(JSON, nullable=False, default=dict)
+    payload = Column(JSON, nullable=True, default=dict)
+    not_before = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    signature = Column(Text, nullable=False)
+    fingerprint = Column(String(128), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="active", index=True)  # active | expired | invalid
+    reason = Column(String(255), nullable=True)
+    last_seen_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    installed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LicenseEvent(Base):
+    __tablename__ = "license_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)  # license.install / license.verify_failed / license.expired
+    status = Column(String(20), nullable=False, index=True)  # success / failed
+    reason = Column(String(128), nullable=True, index=True)
+    payload = Column(JSON, nullable=True)
+    signature = Column(Text, nullable=True)
+    fingerprint = Column(String(128), nullable=True)
+    product_id = Column(String(128), nullable=True, index=True)
+    installation_id = Column(String(128), nullable=True, index=True)
+    grant_type = Column(String(20), nullable=True)
+    customer = Column(String(255), nullable=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    actor_username = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    trace_id = Column(String(128), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
 class Department(Base):
     __tablename__ = "departments"
 

@@ -299,6 +299,48 @@ export interface SystemVersion {
   db_schema_version?: string;
 }
 
+export interface LicenseStatus {
+  installed: boolean;
+  status: string;
+  reason?: string | null;
+  license_id?: string | null;
+  product_id?: string | null;
+  product_model?: string | null;
+  installation_id?: string | null;
+  grant_type?: 'formal' | 'trial' | 'learning' | string | null;
+  customer?: string | null;
+  installed_at?: string | null;
+  not_before?: string | null;
+  expires_at?: string | null;
+  features_count?: number;
+  limits?: Record<string, any>;
+}
+
+export interface LicenseClaimsResponse {
+  installed: boolean;
+  status?: LicenseStatus | null;
+  claims?: Record<string, any> | null;
+}
+
+export interface LicenseEventItem {
+  id: number;
+  event_type: string;
+  status: string;
+  reason?: string | null;
+  product_id?: string | null;
+  installation_id?: string | null;
+  grant_type?: string | null;
+  customer?: string | null;
+  actor_username?: string | null;
+  ip_address?: string | null;
+  created_at: string;
+}
+
+export interface LicenseEventListResponse {
+  total: number;
+  items: LicenseEventItem[];
+}
+
 export interface TodoUserResponse {
   id: number;
   name?: string;

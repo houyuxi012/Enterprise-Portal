@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Button, theme, Avatar, Dropdown } from 'antd';
+import { Alert, Layout, Menu, Button, theme, Avatar, Dropdown } from 'antd';
 import {
     DashboardOutlined,
     UserOutlined,
@@ -32,15 +32,27 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
     appName?: string; // New prop for App Name
+    licenseGateMode?: 'full' | 'blocked' | 'read_only';
+    licenseGateMessage?: string;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange, onExit, footerText, logoUrl, appName }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({
+    children,
+    activeTab,
+    onTabChange,
+    onExit,
+    footerText,
+    logoUrl,
+    appName,
+    licenseGateMode = 'full',
+    licenseGateMessage = '',
+}) => {
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
     const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
@@ -49,6 +61,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
     const { token: { borderRadiusLG } } = theme.useToken();
 
     const handleMenuClick = (e: { key: string }) => {
+        if (licenseGateMode === 'blocked' && e.key !== 'license') {
+            return;
+        }
         onTabChange(e.key as any);
     };
 
@@ -209,12 +224,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     label: '客户化设置',
                 },
                 {
+                    key: 'license',
+                    label: '授权许可',
+                },
+                {
                     key: 'about_us',
                     label: '关于我们',
                 },
             ],
         },
-    ]; const userMenuItems = [
+    ];
+
+    const limitedMenuItems = [
+        {
+            key: 'sub_system',
+            label: '系统管理',
+            icon: <SettingOutlined />,
+            children: [
+                {
+                    key: 'license',
+                    label: '授权许可',
+                },
+            ],
+        },
+    ];
+
+    const effectiveMenuItems = licenseGateMode === 'blocked' ? limitedMenuItems : menuItems;
+
+    const userMenuItems = [
         {
             key: 'about',
             icon: <InfoCircleOutlined />,
@@ -281,7 +318,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     defaultSelectedKeys={[activeTab]}
                     selectedKeys={[activeTab]}
                     mode="inline"
-                    items={menuItems as any}
+                    items={effectiveMenuItems as any}
                     onClick={handleMenuClick}
                     className="border-none px-2 space-y-1 bg-transparent admin-menu"
                     style={{ background: 'transparent' }}
@@ -313,6 +350,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 </Header>
 
                 <Content className="m-6 mt-2 p-6 min-h-[280px] overflow-visible">
+                    {licenseGateMode === 'blocked' && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            className="mb-4"
+                            message={licenseGateMessage || '系统未安装有效授权，当前仅开放「授权许可」功能。'}
+                        />
+                    )}
+                    {licenseGateMode === 'read_only' && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            className="mb-4"
+                            message={licenseGateMessage || '授权已到期，系统当前为只读模式。'}
+                        />
+                    )}
                     {children}
                 </Content>
 

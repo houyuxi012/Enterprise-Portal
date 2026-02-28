@@ -24,6 +24,9 @@ const ACTION_MAP: Record<string, string> = {
     'AUTHZ_DENIED': '权限拒绝',
     'iam.permission.assign': '分配权限',
     'iam.permission.revoke': '撤销权限',
+    'license.install': '导入授权许可',
+    'license.verify_failed': '授权校验失败',
+    'license.expired': '授权过期',
 };
 
 const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {

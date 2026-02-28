@@ -1,0 +1,102 @@
+import hashlib
+import json
+import os
+import platform
+import uuid
+from pathlib import Path
+
+import psutil
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _read_first_line(file_paths: list[str]) -> str:
+    for path in file_paths:
+        try:
+            text = Path(path).read_text(encoding="utf-8").strip()
+            if text:
+                return text.splitlines()[0].strip()
+        except Exception:
+            continue
+    return ""
+
+
+def _read_cpu_model() -> str:
+    candidates = [
+        "/proc/cpuinfo",
+        "/sys/devices/virtual/dmi/id/product_name",
+        "/sys/devices/virtual/dmi/id/product_version",
+    ]
+    for path in candidates:
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="ignore")
+            if "model name" in text:
+                for line in text.splitlines():
+                    if "model name" in line:
+                        return line.split(":", 1)[-1].strip()
+            value = text.strip().splitlines()[0].strip()
+            if value:
+                return value
+        except Exception:
+            continue
+    return platform.processor() or "unknown"
+
+
+def build_default_installation_id() -> str:
+    try:
+        root_partition = psutil.disk_partitions(all=False)[0]
+        root_disk = psutil.disk_usage(root_partition.mountpoint)
+        vm = psutil.virtual_memory()
+        payload = {
+            "os": {
+                "system": platform.system(),
+                "release": platform.release(),
+                "version": platform.version(),
+                "machine": platform.machine(),
+            },
+            "cpu": {
+                "logical_count": psutil.cpu_count(logical=True),
+                "physical_count": psutil.cpu_count(logical=False),
+                "model": _read_cpu_model(),
+            },
+            "memory": {
+                "total_bytes": vm.total,
+            },
+            "disk": {
+                "total_bytes": root_disk.total,
+                "device": getattr(root_partition, "device", "unknown"),
+                "fstype": getattr(root_partition, "fstype", "unknown"),
+            },
+            "host": {
+                "hostname": platform.node(),
+                "machine_id": _read_first_line(["/etc/machine-id", "/var/lib/dbus/machine-id"]),
+                "mac": f"{uuid.getnode():012x}",
+            },
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, digest))
+    except Exception:
+        # Deterministic fallback scoped to host identity.
+        fallback_seed = f"{platform.node()}-{uuid.getnode()}"
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, fallback_seed))
+
+
+class LicenseSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    PRODUCT_ID: str = os.getenv("PRODUCT_ID", "enterprise-portal")
+    PRODUCT_MODEL: str = os.getenv("PRODUCT_MODEL", "NGEPv3.0-HYX-PS")
+    INSTALLATION_ID: str = os.getenv("INSTALLATION_ID", "") or build_default_installation_id()
+    LICENSE_ED25519_PUBLIC_KEY: str = os.getenv("LICENSE_ED25519_PUBLIC_KEY", "")
+    LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT: str = os.getenv(
+        "LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT",
+        "",
+    )
+    LICENSE_CACHE_TTL_SECONDS: int = int(os.getenv("LICENSE_CACHE_TTL_SECONDS", "60"))
+    LICENSE_TIME_ROLLBACK_GRACE_SECONDS: int = int(
+        os.getenv("LICENSE_TIME_ROLLBACK_GRACE_SECONDS", "600")
+    )
+    LICENSE_LAST_SEEN_TOUCH_SECONDS: int = int(os.getenv("LICENSE_LAST_SEEN_TOUCH_SECONDS", "30"))
+
+
+settings = LicenseSettings()
