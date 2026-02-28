@@ -10,7 +10,6 @@ import { AppView, Notification } from '../types';
 import ApiClient from '../services/api';
 import { hasAdminAccess } from '../utils/adminAccess';
 import ChangePasswordModal from './ChangePasswordModal';
-import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
@@ -559,12 +558,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     <Settings size={16} className="text-slate-400" />
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('navbar.profile.settings')}</span>
                   </button>
-                  <div className="px-4 pt-1 pb-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      {t('navbar.profile.language')}
-                    </div>
-                    <LanguageSwitcher className="w-full" />
-                  </div>
                   <button
                     onClick={() => {
                       setChangePasswordModalOpen(true);

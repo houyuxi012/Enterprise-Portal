@@ -28,5 +28,5 @@ Thumbs.db
 *.pfx
 
 *.log
-logs/
+/logs/
 backend/uploads/

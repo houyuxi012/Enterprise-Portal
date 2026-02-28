@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGEP 企业内网统一门户平台 | 零信任SSO单点登录 · 应用聚合 · 合规审计</title>
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
+    <link rel="canonical" href="https://ngep.houyuxi.com/" />
+
+    <!-- SEO 基础 Meta -->
+    <meta name="description"
+        content="NGEP 是新一代企业内网统一门户平台，提供零信任架构下的 SSO 单点登录、多源系统入口聚合、全链路合规审计能力。支持 OIDC/OAuth2 标准协议，适配国产化信创环境，助力企业数字化转型。">
+    <meta name="keywords" content="NGEP,企业门户,统一门户,内网门户,SSO,单点登录,零信任,OIDC,OAuth2,企业数字化,应用聚合,合规审计,信创,国产化,企业安全,IT管理">
+    <meta name="author" content="侯钰熙">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+
+    <!-- 百度 SEO -->
+    <meta name="applicable-device" content="pc,mobile">
+    <meta name="MobileOptimized" content="width">
+    <meta name="HandheldFriendly" content="true">
+    <meta http-equiv="Cache-Control" content="no-transform">
+    <meta name="renderer" content="webkit">
+
+    <!-- 360 搜索 -->
+    <meta name="force-rendering" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <!-- 今日头条 / 抖音（字节系） -->
+    <meta name="bytedance-verification-code" content="">
+    <meta property="og:rich_attachment" content="true">
+
+    <!-- 小红书 -->
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="article:author" content="侯钰熙">
+
+    <!-- Bing -->
+    <meta name="msvalidate.01" content="">
+    <meta name="geo.region" content="CN">
+    <meta name="geo.placename" content="China">
+    <meta name="language" content="zh-CN">
+
+    <!-- Open Graph (Facebook / 微信 / AI 引擎抓取) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="NGEP 企业内网统一门户平台">
+    <meta property="og:description" content="零信任架构驱动的新一代企业统一门户。SSO 单点登录、应用入口聚合、全链路合规审计，一站式重塑企业数字化入口。">
+    <meta property="og:url" content="https://ngep.houyuxi.com/">
+    <meta property="og:site_name" content="NGEP">
+    <meta property="og:image" content="https://ngep.houyuxi.com/logo.png">
+    <meta property="og:locale" content="zh_CN">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NGEP 企业内网统一门户平台">
+    <meta name="twitter:description" content="零信任架构驱动的新一代企业统一门户。SSO 单点登录、应用聚合、合规审计。">
+    <meta name="twitter:image" content="https://ngep.houyuxi.com/logo.png">
+
+    <!-- JSON-LD 结构化数据 (Google / AI 搜索引擎) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "NGEP 企业内网统一门户平台",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Linux, Docker, Kubernetes",
+        "description": "NGEP 是新一代企业内网统一门户平台，提供零信任架构下的 SSO 单点登录、多源系统入口聚合、全链路合规审计能力。支持 OIDC/OAuth2 标准协议，适配国产化信创环境。",
+        "url": "https://ngep.houyuxi.com/",
+        "author": {
+            "@type": "Person",
+            "name": "侯钰熙",
+            "url": "https://houyuxi.com"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "CNY",
+            "description": "提供免费试用与专家咨询"
+        },
+        "featureList": [
+            "SSO 单点登录（OIDC/OAuth2）",
+            "多源系统入口聚合",
+            "全链路合规审计",
+            "双平面网络物理隔离",
+            "国产化信创适配（ARM/X86/达梦/人大金仓）",
+            "Docker/K8s 容器化部署",
+            "Grafana + Loki 可观测性"
+        ]
+    }
+    </script>
+
+    <!-- Organization 结构化数据 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "NGEP",
+        "url": "https://ngep.houyuxi.com/",
+        "logo": "https://ngep.houyuxi.com/logo.png",
+        "description": "企业内网统一门户平台提供商",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "sales",
+            "availableLanguage": ["Chinese", "English"]
+        }
+    }
+    </script>
+
+    <!-- FAQ 结构化数据 (AI 搜索引擎友好) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "NGEP 是什么？",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "NGEP 是新一代企业内网统一门户平台，基于零信任架构，提供 SSO 单点登录、多源系统入口聚合和全链路合规审计功能，帮助企业构建统一的数字化入口。"
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "NGEP 支持哪些认证协议？",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "NGEP 支持 OIDC（OpenID Connect）和 OAuth2 等国际标准认证协议，员工仅需登录一次即可无缝访问所有内部系统。"
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "NGEP 支持国产化信创环境吗？",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "完全支持。NGEP 可运行在 X86 和 ARM 架构（鲲鹏、飞腾服务器），兼容达梦、人大金仓等国产数据库，满足信创合规要求。"
+                }
+            }
+        ]
+    }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { surface: '#F5F5F7', card: '#FFFFFF' },
+                    borderRadius: { '2xl': '1rem', '3xl': '1.5rem', '4xl': '2rem' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F5F5F7;
+        }
+
+        [data-aos] {
+            visibility: hidden;
+        }
+
+        [data-aos].aos-animate {
+            visibility: visible;
+        }
+
+        /* 浮动胶囊导航 */
+        .nav-pill {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        /* 卡片悬停 */
+        .card-hover {
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 扇形工具图标 */
+        .tool-arc {
+            position: relative;
+            width: 480px;
+            height: 280px;
+            margin: 0 auto;
+        }
+
+        .tool-icon {
+            position: absolute;
+            width: 72px;
+            height: 72px;
+            background: white;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease;
+            font-size: 28px;
+        }
+
+        .tool-icon:hover {
+            transform: scale(1.12) rotate(-3deg);
+        }
+
+        /* 评价卡片 */
+        .review-card {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        /* 星星颜色 */
+        .star {
+            color: #F59E0B;
+        }
+
+        /* 动画关键帧：弥散光斑缓慢漂浮 */
+        @keyframes blob {
+            0% {
+                transform: translate(0px, 0px) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+
+            100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+        }
+
+        .animate-blob {
+            animation: blob 15s infinite alternate ease-in-out;
+        }
+
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+
+        /* 动画关键帧：右侧 3D 卡片轻微悬浮 */
+        @keyframes float {
+            0% {
+                transform: translateY(0px) rotate(-6deg);
+            }
+
+            50% {
+                transform: translateY(-10px) rotate(-5deg);
+            }
+
+            100% {
+                transform: translateY(0px) rotate(-6deg);
+            }
+        }
+
+        @keyframes float-delayed {
+            0% {
+                transform: translateY(0px) rotate(4deg);
+            }
+
+            50% {
+                transform: translateY(15px) rotate(5deg);
+            }
+
+            100% {
+                transform: translateY(0px) rotate(4deg);
+            }
+        }
+
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .animate-float-delayed {
+            animation: float-delayed 8s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="font-sans text-gray-900 antialiased overflow-x-hidden">
+
+    <!-- ========== 浮动胶囊导航 ========== -->
+    <nav class="fixed top-4 left-1/2 -translate-x-1/2 z-50 nav-pill rounded-full px-2 py-1.5 flex items-center gap-1"
+        id="navbar">
+        <a href="#" class="flex items-center gap-2 px-4 py-2">
+            <img src="logo.png" alt="NGEP" class="h-7 w-auto">
+            <span class="font-bold text-base tracking-tight">NGEP</span>
+        </a>
+        <div class="hidden md:flex items-center gap-1 text-sm">
+            <a href="#features"
+                class="px-3.5 py-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors">核心价值</a>
+            <a href="#integrations"
+                class="px-3.5 py-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors">应用场景</a>
+            <a href="#architecture"
+                class="px-3.5 py-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors">架构优势</a>
+        </div>
+        <div class="flex items-center gap-2 ml-2">
+            <a href="#contact"
+                class="text-sm bg-black text-white px-5 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors">预约演示</a>
+        </div>
+    </nav>
+
+    <!-- ========== 主内容容器（全幅无边界） ========== -->
+    <main class="bg-white">
+
+        <!-- Hero Section：JDT Web 2.0 极简空间科技风格 -->
+        <section class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden flex items-center min-h-[90vh]">
+            <!-- 弥散光晕背景 (Aurora Effect) -->
+            <div class="absolute inset-0 pointer-events-none z-0">
+                <!-- 左侧浅蓝色光晕 -->
+                <div
+                    class="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] max-w-[800px] max-h-[800px] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob">
+                </div>
+                <!-- 右侧淡紫色光晕 -->
+                <div
+                    class="absolute top-[20%] right-[-10%] w-[50vw] h-[50vw] max-w-[700px] max-h-[700px] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob animation-delay-2000">
+                </div>
+                <!-- 中心亮白光晕提亮主体 -->
+                <div
+                    class="absolute top-[10%] left-[20%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] bg-white rounded-full filter blur-[80px] opacity-60">
+                </div>
+
+                <!-- 极细微的点阵网格背景增强科技感 -->
+                <div class="absolute inset-0"
+                    style="background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 32px 32px; opacity: 0.4;">
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10 w-full">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+
+                    <!-- 左侧文案区 (超大排版 + 极简黑白灰) -->
+                    <div class="lg:col-span-5 flex flex-col items-start text-left" data-aos="fade-right"
+                        data-aos-duration="1000">
+                        <!-- 顶部的微型 Badge -->
+                        <div
+                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 border border-gray-200/60 backdrop-blur-md shadow-sm mb-8">
+                            <span class="flex w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            <span class="text-sm font-medium text-gray-700 tracking-wide">高效、安全、无缝连接</span>
+                        </div>
+
+                        <!-- 极致大标题 (Huge Typography) -->
+                        <h1
+                            class="text-6xl sm:text-7xl lg:text-[72px] leading-[1.25] font-black text-[#1a1b1e] tracking-tight mb-6">
+                            重塑企业<br>
+                            <span
+                                class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">数字化入口</span>
+                        </h1>
+
+                        <!-- 副标题轻灰体现专业感 -->
+                        <p class="text-xl sm:text-2xl text-gray-500 font-light leading-relaxed mb-10 max-w-lg">
+                            从分散到统一。构建基于零信任架构的新一代网关，一站式聚合应用与信息，打破孤岛，赋能全员高效协作。
+                        </p>
+
+                        <!-- 操作区 (极致黑 Pill Button) -->
+                        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                            <a href="javascript:void(0)" onclick="openModal()"
+                                class="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-full text-white bg-[#111111] hover:bg-black shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_12px_24px_rgba(0,0,0,0.18)] hover:-translate-y-0.5">
+                                免费试用
+                                <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </a>
+                            <a href="#features"
+                                class="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-full text-gray-700 bg-white/80 backdrop-blur-md border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all duration-300">
+                                获取资料
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- 右侧视觉区 (玻璃拟态悬浮卡片组合) -->
+                    <div class="lg:col-span-7 relative flex justify-center lg:justify-end items-center"
+                        data-aos="fade-left" data-aos-duration="1200" data-aos-delay="200">
+                        <!-- 右侧容器占据较大面积，预留给复杂的 3D 悬浮玻璃卡片 -->
+                        <div
+                            class="relative w-full max-w-[700px] aspect-square lg:aspect-auto lg:h-[600px] flex items-center justify-center">
+
+                            <!-- 核心层：巨大的半透明磨砂玻璃主面板 -->
+                            <div
+                                class="absolute inset-0 max-w-[600px] max-h-[500px] m-auto bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[2.5rem] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.06)] overflow-hidden transform rotate-[-2deg] transition-transform duration-700 hover:rotate-0 flex flex-col group">
+                                <!-- 玻璃反光特效 -->
+                                <div
+                                    class="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent pointer-events-none">
+                                </div>
+
+                                <!-- 内部模拟 UI 结构 -->
+                                <div class="w-full h-12 border-b border-white/50 flex items-center px-6 gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-red-400/80"></div>
+                                    <div class="w-3 h-3 rounded-full bg-amber-400/80"></div>
+                                    <div class="w-3 h-3 rounded-full bg-green-400/80"></div>
+                                </div>
+                                <div class="flex-1 p-8 flex flex-col gap-6 relative">
+                                    <div class="w-1/3 h-6 bg-gray-200/50 rounded-md"></div>
+                                    <div
+                                        class="w-full h-32 bg-gradient-to-r from-blue-50/50 to-blue-100/50 rounded-2xl border border-white/50 flex items-center p-6 gap-6">
+                                        <div
+                                            class="w-16 h-16 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                            <svg class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                        </div>
+                                        <div class="flex-1 space-y-3">
+                                            <div class="w-full h-4 bg-gray-200/60 rounded"></div>
+                                            <div class="w-2/3 h-4 bg-gray-200/60 rounded"></div>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div
+                                            class="h-24 bg-white/50 rounded-2xl border border-white/60 hidden sm:block">
+                                        </div>
+                                        <div
+                                            class="h-24 bg-white/50 rounded-2xl border border-white/60 hidden sm:block">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 卡片底部版权字样 -->
+                                <div
+                                    class="absolute bottom-5 left-0 w-full text-center text-[10px] text-gray-400/40 font-light tracking-[0.2em] pointer-events-none">
+                                    © WWW.HOUYUXI.COM All rights reserved.
+                                </div>
+                            </div>
+
+                            <!-- 悬浮层 1：左上角突出的数据卡片 -->
+                            <div
+                                class="absolute top-[15%] left-[5%] w-52 h-56 bg-white/70 backdrop-blur-xl border border-white shadow-[0_20px_40px_-10px_rgba(0,0,0,0.08)] rounded-3xl p-6 transform rotate-[-6deg] translate-y-4 animate-float flex flex-col justify-between">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-3xl font-bold text-gray-900">一账通行</div>
+                                    <div class="text-sm font-medium text-gray-500 mt-1">SSO全量应用整合</div>
+                                </div>
+                            </div>
+
+                            <!-- 悬浮层 2：右侧叠加的用户头像组卡片 -->
+                            <div
+                                class="absolute top-[40%] right-[0%] w-64 bg-white/80 backdrop-blur-xl border border-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] rounded-3xl p-5 transform rotate-[4deg] animate-float-delayed">
+                                <div class="flex items-center gap-4 mb-4">
+                                    <div class="flex -space-x-3">
+                                        <img class="w-10 h-10 rounded-full border-2 border-white"
+                                            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
+                                            alt="">
+                                        <img class="w-10 h-10 rounded-full border-2 border-white"
+                                            src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80"
+                                            alt="">
+                                        <div
+                                            class="w-10 h-10 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                                            +12</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-medium text-gray-800">零信任安全驱动</div>
+                                <div class="text-xs text-gray-500 mt-1">双写审计 · 告别越权隐患</div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 底部渐变过渡到大厂底色，平滑衔接下一个区域 -->
+            <div
+                class="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10">
+            </div>
+        </section>
+
+        <!-- ========== 核心价值（大厂高级白/灰极简风格） ========== -->
+        <section id="features" class="py-32 bg-[#f8f9fa] relative overflow-hidden">
+            <!-- 点阵背景装饰 -->
+            <div class="absolute inset-0 z-0 pointer-events-none"
+                style="background-image: radial-gradient(#d1d5db 1px, transparent 1px); background-size: 40px 40px; opacity: 0.3;">
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+                <div class="text-center max-w-5xl mx-auto mb-20" data-aos="fade-up">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-[#1a1b1e] tracking-tight mb-6">统一门户带来的三大核心业务价值
+                    </h2>
+                    <p class="text-xl text-gray-500 font-light leading-relaxed">从繁琐的遗留系统到极简的统一操作体验，NGEP 关注您的核心 IT 关切。
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 卡片 1 -->
+                    <div class="p-10 rounded-[2rem] bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] card-hover relative group overflow-hidden"
+                        data-aos="fade-up">
+                        <div
+                            class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl transition-all group-hover:bg-blue-100">
+                        </div>
+                        <div class="mb-6 relative z-10">
+                            <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4 relative z-10">统一鉴权与单点登录</h3>
+                        <p class="text-gray-500 text-base leading-relaxed font-light relative z-10">
+                            支持 OIDC / OAuth2 等标准协议。员工仅需登录一次，即可无缝串接所有内部系统，杜绝多账号密码遗忘，IT 支持工单大幅下降 60%。
+                        </p>
+                    </div>
+                    <!-- 卡片 2 -->
+                    <div class="p-10 rounded-[2rem] bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] card-hover relative group overflow-hidden"
+                        data-aos="fade-up" data-aos-delay="100">
+                        <div
+                            class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl transition-all group-hover:bg-blue-100">
+                        </div>
+                        <div class="mb-6 relative z-10">
+                            <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4 relative z-10">多源系统入口聚合</h3>
+                        <p class="text-gray-500 text-base leading-relaxed font-light relative z-10">
+                            以高度模块化的卡片网格展现应用目录。系统能够根据组织架构自动化调整应用的可见性与访问控制，让员工寻找入口的时间爆减 40%。
+                        </p>
+                    </div>
+                    <!-- 卡片 3 -->
+                    <div class="p-10 rounded-[2rem] bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] card-hover relative group overflow-hidden"
+                        data-aos="fade-up" data-aos-delay="200">
+                        <div
+                            class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl transition-all group-hover:bg-blue-100">
+                        </div>
+                        <div class="mb-6 relative z-10">
+                            <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4 relative z-10">合规留痕全链路审计</h3>
+                        <p class="text-gray-500 text-base leading-relaxed font-light relative z-10">
+                            细粒度记录用户的每一次登录及后台的敏感操作。采用双写模式将会话日志落库并推入 Loki 流引擎，构建 100% 无死角的审查追溯网络。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== 应用场景（大厂高级白/灰极简风格） ========== -->
+        <section id="integrations" class="py-32 bg-white relative">
+            <div class="max-w-7xl mx-auto px-6 lg:px-8">
+                <div class="text-center max-w-5xl mx-auto mb-20" data-aos="fade-up">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-[#1a1b1e] tracking-tight mb-6">一套门户解决您的内部协同挑战
+                    </h2>
+                    <p class="text-xl text-gray-500 font-light leading-relaxed">全场景覆盖，打破从办公软件到核心生产系统的数据墙垣。</p>
+                </div>
+                <!-- 左右交替1 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-24">
+                    <div class="p-12 bg-[#f8f9fa] border border-gray-100 rounded-[2.5rem] text-center order-2 lg:order-1 relative group overflow-hidden"
+                        data-aos="fade-right">
+                        <!-- 装饰性光晕 -->
+                        <div
+                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-100/50 rounded-full blur-3xl transition-all group-hover:scale-110">
+                        </div>
+                        <div class="flex flex-col space-y-6 relative z-10">
+                            <div
+                                class="h-16 w-full bg-white/90 backdrop-blur border border-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] flex items-center justify-center font-bold text-lg text-blue-700 hover:-translate-y-1 transition-transform">
+                                NGEP Auth Gateway
+                            </div>
+                            <div class="flex space-x-6 justify-between">
+                                <div
+                                    class="h-24 w-1/3 bg-white/60 backdrop-blur border border-white rounded-2xl shadow-sm flex items-center justify-center text-sm font-medium text-gray-700 hover:-translate-y-1 transition-transform">
+                                    OA 系统
+                                </div>
+                                <div
+                                    class="h-24 w-1/3 bg-white/60 backdrop-blur border border-white rounded-2xl shadow-sm flex items-center justify-center text-sm font-medium text-gray-700 hover:-translate-y-1 transition-transform">
+                                    财务 ERP
+                                </div>
+                                <div
+                                    class="h-24 w-1/3 bg-white/60 backdrop-blur border border-white rounded-2xl shadow-sm flex items-center justify-center text-sm font-medium text-gray-700 hover:-translate-y-1 transition-transform">
+                                    自研中台
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="order-1 lg:order-2" data-aos="fade-left">
+                        <h3 class="text-3xl font-bold text-[#1a1b1e] mb-6">敏捷的无侵入式整合模式</h3>
+                        <ul class="space-y-6 mt-8">
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong
+                                        class="font-semibold text-gray-900">无需硬复写到底层：</strong>使用前置网关设计控制会话校验与拦截，原应用逻辑分毫未动。
+                                </p>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong class="font-semibold text-gray-900">快速平滑迁移：</strong>支持标准化的 OIDC
+                                    对接参数表填报，仅需两步配置即可纳管业务应用。
+                                </p>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong
+                                        class="font-semibold text-gray-900">员工离职阻断回收：</strong>只要在门户管理后台冻结人员身份，所有子系统通行立刻失效，防止越权。
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- 左右交替2 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+                    <div data-aos="fade-right">
+                        <h3 class="text-3xl font-bold text-[#1a1b1e] mb-6">企业级数字资讯下发展板</h3>
+                        <ul class="space-y-6 mt-8">
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong
+                                        class="font-semibold text-gray-900">集中资讯区：</strong>内置文章与轮播通知编辑器，实现重要公文的全天候霸屏曝光，避免聊天群刷屏漏阅。
+                                </p>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong
+                                        class="font-semibold text-gray-900">强关注签署：</strong>支持阅后勾选、强弹窗通知等强制手段，保证管理层精神与行政规定百分百触达终端用户。
+                                </p>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-blue-50/80 flex items-center justify-center mr-4 mt-0.5 group-hover:bg-blue-100 transition-colors">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                </div>
+                                <p class="text-base text-gray-500 leading-relaxed font-light flex-1">
+                                    <strong class="font-semibold text-gray-900">沉淀式知识检索：</strong>可打通网盘或企业
+                                    Wiki，充当单一的智能文档索引及入口网关。
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="p-12 bg-[#f8f9fa] border border-gray-100 rounded-[2.5rem] text-center relative group overflow-hidden"
+                        data-aos="fade-left">
+                        <!-- 装饰性光晕 -->
+                        <div
+                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-100/50 rounded-full blur-3xl transition-all group-hover:scale-110">
+                        </div>
+                        <div
+                            class="w-full bg-white/90 backdrop-blur rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.06)] p-6 text-left relative z-10 transition-transform hover:-translate-y-1">
+                            <div class="h-4 w-3/4 bg-gray-200 mb-6 rounded-md"></div>
+                            <div class="space-y-3">
+                                <div class="h-2.5 w-full bg-gray-100 rounded"></div>
+                                <div class="h-2.5 w-full bg-gray-100 rounded"></div>
+                                <div class="h-2.5 w-4/5 bg-gray-100 rounded"></div>
+                            </div>
+                            <div class="mt-8 pt-6 border-t border-gray-100 flex justify-end">
+                                <div
+                                    class="h-10 px-6 bg-[#111111] text-white text-sm flex items-center justify-center font-medium rounded-full cursor-pointer shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5">
+                                    我已阅读知晓
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== 架构优势（大厂高级白/灰极简风格） ========== -->
+        <section id="architecture" class="py-32 bg-[#f8f9fa] relative overflow-hidden">
+            <!-- 极简流光顶部过渡 -->
+            <div
+                class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent">
+            </div>
+
+            <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+                <div class="text-center max-w-5xl mx-auto mb-20" data-aos="fade-up">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-[#1a1b1e] tracking-tight mb-6">零信任架构基石，值得信赖的部署保障
+                    </h2>
+                    <p class="text-xl text-gray-500 font-light leading-relaxed">完善的私有部署策略及国产化安全适配方案。</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="p-10 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[2rem] card-hover flex flex-col items-start"
+                        data-aos="fade-up">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-4">双平面网络物理隔离</h4>
+                        <p class="text-base text-gray-500 font-light leading-relaxed">
+                            针对普通员工前台与管理后台进行了物理层的访问流隔离。"双会话策略"确保终端用户请求凭证无法向系统管理界面进行平行越权跃迁，自底层斩断提权攻击链。</p>
+                    </div>
+                    <div class="p-10 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[2rem] card-hover flex flex-col items-start"
+                        data-aos="fade-up" data-aos-delay="100">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-4">全面适配主流国产化要求</h4>
+                        <p class="text-base text-gray-500 font-light leading-relaxed">底层环境完全跨平台支持。无论是 X86 还是
+                            ARM（鲲鹏、飞腾服务器），或是主流国产系统与信创名录数据库如达梦、人大金仓体系，均能按标准模式一键兼容部署。</p>
+                    </div>
+                    <div class="p-10 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[2rem] card-hover flex flex-col items-start"
+                        data-aos="fade-up">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-4">高可用与可观测性封装</h4>
+                        <p class="text-base text-gray-500 font-light leading-relaxed">在 Docker/K8s 容器化发布的基础之上，内嵌完整的
+                            Grafana 业务看板体系以及
+                            Loki 流媒体追踪体系，确保系统不仅"可用"更能被 IT 人员随时"洞明"。</p>
+                    </div>
+                    <div class="p-10 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[2rem] card-hover flex flex-col items-start"
+                        data-aos="fade-up" data-aos-delay="100">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-4">专家级交付与技术支持服务</h4>
+                        <p class="text-base text-gray-500 font-light leading-relaxed">从评估到实施迁移全生命周期覆盖。提供原厂专家服务（包含 7x24
+                            工单及紧急响应机制），兼顾安全性与企业系统整合带来的技术摩擦成本。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== 他们都在用 (Trust Logos) ========== -->
+        <section class="py-24 bg-white border-t border-gray-100 relative z-20">
+            <div class="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 text-center mt-8">
+                <h3 class="text-[32px] font-bold text-gray-900 mb-20 tracking-wider">他们都在用</h3>
+
+                <div
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-16 items-center justify-items-center opacity-95 transition-opacity duration-300">
+
+                    <!-- Row 1 -->
+                    <!-- BIG HOUSEKEEPER -->
+                    <div class="flex items-center gap-2 group cursor-default">
+                        <img src="images/footerLogo-DJmhLSCs.png" alt="BIG HOUSEKEEPER"
+                            class="w-8 h-8 object-contain" />
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[15px] font-bold text-gray-800 tracking-tight">泰国大管家(BHK)</span>
+                            <span class="text-[8px] text-gray-400 uppercase mt-0.5 scale-90 origin-left">BIG
+                                HOUSEKEEPER</span>
+                        </div>
+                    </div>
+                    <!-- 中国农业发展银行 -->
+                    <div class="flex items-center gap-2 group cursor-default">
+                        <svg class="w-8 h-8 text-[#C38D38]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 3L4 9v12h16V9l-8-6zm0 2.5l6 4.5v9H6v-9l6-4.5zM12 11l-3 4h6l-3-4z" />
+                        </svg>
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[15px] font-bold text-gray-800 tracking-tight">中国农业发展银行</span>
+                            <span class="text-[8px] text-gray-400 uppercase mt-0.5 scale-90 origin-left">ADBC</span>
+                        </div>
+                    </div>
+                    <!-- 招商银行 -->
+                    <div class="flex items-center gap-2 group cursor-default">
+                        <svg class="w-8 h-8 text-[#C30D22]" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm-3-5h6v-2H9v2zm0-4h6V9H9v2z" />
+                        </svg>
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[15px] font-bold text-gray-800 tracking-wider">招商银行</span>
+                            <span class="text-[8px] text-gray-400 uppercase mt-0.5 scale-90 origin-left">CHINA MERCHANTS
+                                BANK</span>
+                        </div>
+                    </div>
+                    <!-- 浦发银行 -->
+                    <div class="flex items-center gap-2 group cursor-default">
+                        <svg class="w-8 h-8 text-[#003B8F]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M4 6h16v12H4V6zm2 2v8h12V8H6zM8 10h8v4H8v-4z" />
+                        </svg>
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[16px] font-bold text-[#003B8F] tracking-widest">浦发银行</span>
+                            <span class="text-[9px] text-[#003B8F] uppercase mt-0.5 scale-90 origin-left">SPD
+                                BANK</span>
+                        </div>
+                    </div>
+                    <!-- 杭州银行 -->
+                    <div class="flex items-center gap-2 group cursor-default">
+                        <svg class="w-8 h-8 text-[#00A1E9]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2L2 22h20L12 2zm0 6l5 10H7l5-10z" />
+                        </svg>
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[15px] font-bold text-gray-800 tracking-widest">杭州银行</span>
+                            <span class="text-[8px] text-gray-400 uppercase mt-0.5 scale-90 origin-left">BANK OF
+                                HANGZHOU</span>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== CTA（JDT 大厂高级留白风格） ========== -->
+        <section id="contact" class="py-32 bg-[#f8f9fa] relative overflow-hidden">
+            <!-- 极简弥散点缀 -->
+            <div
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-gradient-to-r from-blue-50 to-blue-100 rounded-[100%] blur-[100px] opacity-60 pointer-events-none">
+            </div>
+
+            <div class="max-w-4xl mx-auto px-6 lg:px-8 text-center relative z-10" data-aos="zoom-in">
+                <h2
+                    class="text-5xl md:text-6xl lg:text-[72px] font-extrabold tracking-tight text-[#1a1b1e] mb-8 leading-[1.1]">
+                    开始构建您的<br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">统一数字入口</span>
+                </h2>
+                <p class="text-gray-500 text-xl font-light max-w-2xl mx-auto mb-12">
+                    不要让繁琐的系统入口继续阻断员工创造价值的热情。填平内部的数字鸿沟，从拥有一个统一、美观、安全的内网门户开始。
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <button onclick="openModal()"
+                        class="bg-[#111111] text-white px-12 py-5 rounded-full font-medium text-lg hover:bg-black transition-all duration-300 shadow-[0_8px_24px_rgba(0,0,0,0.12)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.2)] hover:-translate-y-0.5">
+                        预约专家咨询
+                    </button>
+                    <button onclick="openModal()"
+                        class="bg-white text-gray-700 px-12 py-5 rounded-full font-medium text-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
+                        获取产品白皮书
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========== 留资收集弹窗 (Lead Generation Modal) ========== -->
+    <div id="contact-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- 背景遮罩 -->
+        <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onclick="closeModal()"></div>
+
+        <!-- 弹窗主体 -->
+        <div class="relative bg-white rounded-3xl w-full max-w-2xl mx-4 shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300"
+            id="modal-content">
+            <div class="px-8 py-8 md:px-12 md:py-10">
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <h3 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-2">获取企业级方案</h3>
+                        <p class="text-gray-500 font-light text-base">请留下您的联系方式，我们的专属顾问将尽快与您取得联系。</p>
+                    </div>
+                    <button onclick="closeModal()"
+                        class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 rounded-full p-2">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="lead-form" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">姓名 <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" name="name" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all placeholder-gray-400 text-gray-900"
+                                placeholder="您的姓名">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">手机号码 <span
+                                    class="text-red-500">*</span></label>
+                            <input type="tel" name="phone" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all placeholder-gray-400 text-gray-900"
+                                placeholder="您的手机号码">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">工作邮箱 <span
+                                    class="text-red-500">*</span></label>
+                            <input type="email" name="email" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all placeholder-gray-400 text-gray-900"
+                                placeholder="work@company.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">公司名称 <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" name="company" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all placeholder-gray-400 text-gray-900"
+                                placeholder="所属企业全称">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">您的职位 <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" name="title" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all placeholder-gray-400 text-gray-900"
+                                placeholder="如：IT 总监">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">咨询事宜 <span
+                                    class="text-red-500">*</span></label>
+                            <select name="requirement" required
+                                class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition-all text-gray-900">
+                                <option value="" disabled selected>请选择您的主要需求</option>
+                                <option value="product_demo">产品演示与试用</option>
+                                <option value="pricing">获取报价方案</option>
+                                <option value="technical">技术架构交流</option>
+                                <option value="other">其他合作意向</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit" id="submit-btn"
+                            class="w-full flex justify-center items-center py-4 px-8 border border-transparent rounded-full shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <span>提交申请</span>
+                            <svg id="loading-spinner" class="animate-spin ml-3 h-5 w-5 text-white hidden"
+                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="form-msg" class="text-center text-sm hidden mt-4"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== Footer（极简浅色底栏） ========== -->
+    <footer class="border-t border-gray-100 bg-white py-12">
+        <div
+            class="max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400">
+            <div class="flex items-center gap-3 mb-6 md:mb-0">
+                <img src="logo.png" alt="Logo" class="w-6 h-6 object-contain opacity-50 grayscale">
+                <span class="font-bold text-gray-400 tracking-wider">NGEP</span>
+                <span class="w-px h-4 bg-gray-200"></span>
+                <span class="font-extralight">新一代企业入口</span>
+            </div>
+            <div class="flex flex-wrap gap-8 items-center justify-center font-light">
+                <a href="https://www.houyuxi.com" target="_blank" class="hover:text-gray-600 transition-colors">© 2026
+                    侯钰熙 All rights reserved.</a>
+
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, offset: 40 });
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 40) {
+                nav.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)';
+            } else {
+                nav.style.boxShadow = 'none';
+            }
+        });
+
+        // 弹窗控制逻辑
+        const modal = document.getElementById('contact-modal');
+        const modalContent = document.getElementById('modal-content');
+        const leadForm = document.getElementById('lead-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const formMsg = document.getElementById('form-msg');
+
+        function openModal() {
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+            // Reset form status on open
+            formMsg.classList.add('hidden');
+            formMsg.className = 'text-center text-sm hidden mt-4';
+        }
+
+        function closeModal() {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => leadForm.reset(), 300); // Wait for transition
+        }
+
+        // 监听 ESC 键关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('opacity-0')) {
+                closeModal();
+            }
+        });
+
+        // 提交表单逻辑 (连接到 Cloudflare Worker)
+        leadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // UI 状态更新为 Loading
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
+            loadingSpinner.classList.remove('hidden');
+            formMsg.classList.add('hidden');
+
+            const formData = new FormData(leadForm);
+            const data = Object.fromEntries(formData.entries());
+
+            // Pages Function API 地址
+            const WORKER_URL = '/api/leads';
+
+            try {
+                // 如果还未部署真实接口，暂时用延时模拟：
+                // await new Promise(resolve => setTimeout(resolve, 1500));
+                // const response = { ok: true }; 
+
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    formMsg.textContent = '提交成功！我们的架构专家会尽快与您联系。';
+                    formMsg.className = 'text-center text-sm mt-4 text-green-600';
+                    formMsg.classList.remove('hidden');
+                    setTimeout(() => closeModal(), 2000);
+                } else {
+                    throw new Error('网络请求异常');
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                formMsg.textContent = '非常抱歉，接口连接失败，请稍后再试。';
+                formMsg.className = 'text-center text-sm mt-4 text-red-500';
+                formMsg.classList.remove('hidden');
+            } finally {
+                // 恢复 UI 状态
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>

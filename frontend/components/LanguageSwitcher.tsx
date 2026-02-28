@@ -1,20 +1,21 @@
 import React from 'react';
 import { Segmented } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { AppLanguage, normalizeLanguage, setLanguagePreference } from '../i18n';
+import { AppLanguage, LanguagePreferenceScope, normalizeLanguage, setLanguagePreference } from '../i18n';
 
 interface LanguageSwitcherProps {
   size?: 'small' | 'middle' | 'large';
   className?: string;
+  storageScope?: LanguagePreferenceScope;
 }
 
-const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ size = 'small', className }) => {
+const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ size = 'small', className, storageScope }) => {
   const { i18n, t } = useTranslation();
   const language = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
 
   const handleChange = (value: string | number) => {
     const nextLanguage = String(value) as AppLanguage;
-    setLanguagePreference(nextLanguage);
+    setLanguagePreference(nextLanguage, storageScope);
     void i18n.changeLanguage(nextLanguage);
   };
 

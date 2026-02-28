@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGEP 官网管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-[#f8f9fa] min-h-screen">
+
+    <!-- 登录层 -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white rounded-3xl shadow-xl p-10 w-full max-w-md text-center">
+            <div
+                class="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">NGEP 官网管理后台</h1>
+            <p class="text-gray-400 text-sm mb-8">请输入管理密码以访问后台数据</p>
+
+            <div class="space-y-4">
+                <input id="admin-key" type="password" placeholder="请输入管理密码"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition text-sm"
+                    onkeydown="if(event.key==='Enter') login()" />
+                <button onclick="login()"
+                    class="w-full py-3 bg-[#111] text-white rounded-xl font-medium hover:bg-black transition">
+                    进入后台
+                </button>
+                <p id="auth-error" class="text-red-500 text-sm hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据面板 -->
+    <div id="dashboard" class="hidden">
+        <!-- 顶栏 -->
+        <div class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-50">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <span class="font-bold text-gray-900">NGEP 官网管理后台</span>
+                <span id="total-badge"
+                    class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium"></span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="loadLeads()"
+                    class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
+                    刷新
+                </button>
+                <button onclick="toggleRateLimits()"
+                    class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
+                    IP 监控
+                </button>
+                <button onclick="exportCSV()"
+                    class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
+                    导出 CSV
+                </button>
+                <button onclick="logout()" class="px-4 py-2 text-sm text-gray-400 hover:text-red-500 transition">
+                    退出
+                </button>
+            </div>
+        </div>
+
+        <!-- 表格区 -->
+        <div class="max-w-7xl mx-auto px-8 py-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-left">
+                            <th class="px-6 py-4 font-medium">#</th>
+                            <th class="px-6 py-4 font-medium">姓名</th>
+                            <th class="px-6 py-4 font-medium">手机号</th>
+                            <th class="px-6 py-4 font-medium">邮箱</th>
+                            <th class="px-6 py-4 font-medium">公司</th>
+                            <th class="px-6 py-4 font-medium">职位</th>
+                            <th class="px-6 py-4 font-medium">咨询事宜</th>
+                            <th class="px-6 py-4 font-medium">提交时间</th>
+                            <th class="px-6 py-4 font-medium">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leads-tbody"></tbody>
+                </table>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden py-20 text-center">
+                    <p class="text-gray-400 text-lg">暂无线索数据</p>
+                    <p class="text-gray-300 text-sm mt-1">当有新客户提交留资表单后，数据将出现在这里</p>
+                </div>
+            </div>
+
+            <!-- 速率限制 IP 面板 -->
+            <div id="rate-limits-panel"
+                class="hidden mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-gray-800">🛡️ IP 速率限制监控</span>
+                        <span id="rate-info" class="text-xs text-gray-400"></span>
+                    </div>
+                    <button onclick="loadRateLimits()" class="text-xs text-blue-500 hover:text-blue-700">刷新</button>
+                </div>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50/50 text-gray-500 text-left">
+                            <th class="px-6 py-3 font-medium">IP 地址</th>
+                            <th class="px-6 py-3 font-medium">请求次数</th>
+                            <th class="px-6 py-3 font-medium">状态</th>
+                            <th class="px-6 py-3 font-medium">时间窗口</th>
+                            <th class="px-6 py-3 font-medium">最后活跃</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rate-tbody"></tbody>
+                </table>
+                <div id="rate-empty" class="hidden py-10 text-center">
+                    <p class="text-gray-400">暂无速率限制记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pages Function 地址 — 与官网同域，直接使用绝对路径
+        const API_URL = 'https://ngep.houyuxi.com';
+        let ADMIN_KEY = '';
+        let leadsData = [];
+
+        function login() {
+            ADMIN_KEY = document.getElementById('admin-key').value;
+
+            if (!ADMIN_KEY) {
+                showAuthError('请填写完整信息');
+                return;
+            }
+
+            loadLeads().then(ok => {
+                if (ok) {
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    // 仅存入 sessionStorage（关闭标签页即失效）
+                    sessionStorage.setItem('ngep_admin_key', ADMIN_KEY);
+                }
+            });
+        }
+
+        function logout() {
+            sessionStorage.removeItem('ngep_admin_key');
+            ADMIN_KEY = '';
+            document.getElementById('admin-key').value = '';
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        function showAuthError(msg) {
+            const el = document.getElementById('auth-error');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        async function loadLeads() {
+            try {
+                const res = await fetch(`${API_URL}/api/leads?key=${encodeURIComponent(ADMIN_KEY)}`);
+                const json = await res.json();
+
+                if (!res.ok || !json.success) {
+                    showAuthError(json.error || '认证失败');
+                    return false;
+                }
+
+                leadsData = json.data || [];
+                renderTable(leadsData);
+                document.getElementById('total-badge').textContent = `共 ${json.total} 条`;
+                return true;
+            } catch (e) {
+                showAuthError('网络错误：' + e.message);
+                return false;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('leads-tbody');
+            const empty = document.getElementById('empty-state');
+
+            if (!data.length) {
+                tbody.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            tbody.innerHTML = data.map((row, i) => `
+                <tr class="border-t border-gray-50 hover:bg-blue-50/30 transition">
+                    <td class="px-6 py-4 text-gray-400">${i + 1}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">${esc(row.name)}</td>
+                    <td class="px-6 py-4 text-gray-600">${esc(row.phone)}</td>
+                    <td class="px-6 py-4 text-gray-600">${esc(row.email)}</td>
+                    <td class="px-6 py-4 text-gray-600">${esc(row.company)}</td>
+                    <td class="px-6 py-4 text-gray-600">${esc(row.title)}</td>
+                    <td class="px-6 py-4 text-gray-600 max-w-[200px] truncate" title="${esc(row.requirement)}">${esc(row.requirement)}</td>
+                    <td class="px-6 py-4 text-gray-400 text-xs whitespace-nowrap">${row.created_at || '-'}</td>
+                    <td class="px-6 py-4">
+                        <button onclick="deleteLead(${row.id})" class="text-xs text-red-400 hover:text-red-600 transition">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteLead(id) {
+            if (!confirm('确认删除这条线索？')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/leads?key=${encodeURIComponent(ADMIN_KEY)}&id=${id}`, {
+                    method: 'DELETE'
+                });
+                const json = await res.json();
+                if (json.success) loadLeads();
+                else alert(json.error);
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        function exportCSV() {
+            if (!leadsData.length) return alert('暂无数据可导出');
+            const headers = ['ID', '姓名', '手机', '邮箱', '公司', '职位', '咨询事宜', '提交时间'];
+            const rows = leadsData.map(r => [r.id, r.name, r.phone, r.email, r.company, r.title, r.requirement, r.created_at]);
+            const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `NGEP线索_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+
+            // 通知企业微信
+            fetch(`${API_URL}/api/notify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: ADMIN_KEY,
+                    title: '数据导出通知',
+                    message: `管理员导出了 **${leadsData.length}** 条线索数据为 CSV 文件`
+                })
+            }).catch(() => { });
+        }
+
+        function esc(str) {
+            const d = document.createElement('div');
+            d.textContent = str || '';
+            return d.innerHTML;
+        }
+
+        // 仅会话级自动登录（sessionStorage，关闭浏览器/标签页后失效）
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = sessionStorage.getItem('ngep_admin_key');
+            if (savedKey) {
+                document.getElementById('admin-key').value = savedKey;
+                login();
+            }
+        });
+
+        // 速率限制 IP 监控
+        function toggleRateLimits() {
+            const panel = document.getElementById('rate-limits-panel');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                loadRateLimits();
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        async function loadRateLimits() {
+            try {
+                const res = await fetch(`${API_URL}/api/rate-limits?key=${encodeURIComponent(ADMIN_KEY)}`);
+                const json = await res.json();
+                if (!json.success) return;
+
+                document.getElementById('rate-info').textContent = `限制：${json.limit}次/${json.window}秒`;
+                const tbody = document.getElementById('rate-tbody');
+                const empty = document.getElementById('rate-empty');
+
+                if (!json.data.length) {
+                    tbody.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+                tbody.innerHTML = json.data.map(r => `
+                    <tr class="border-t border-gray-50 hover:bg-gray-50/50">
+                        <td class="px-6 py-3 font-mono text-gray-800">${esc(r.ip)}</td>
+                        <td class="px-6 py-3 ${r.limited ? 'text-red-600 font-bold' : 'text-gray-600'}">${r.count}</td>
+                        <td class="px-6 py-3">
+                            <span class="text-xs px-2 py-1 rounded-full ${r.limited ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}">
+                                ${r.limited ? '✖ 已限制' : '✔ 正常'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-3 text-gray-400 text-xs">${esc(r.window)}</td>
+                        <td class="px-6 py-3 text-gray-400 text-xs">${esc(r.lastSeen)}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Load rate limits failed:', e);
+            }
+        }
+    </script>
+</body>
+
+</html>

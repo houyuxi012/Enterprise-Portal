@@ -25,7 +25,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getLocalizedRoleMeta } from '../utils/iamRoleI18n';
 import { hasAdminAccess } from '../utils/adminAccess';
 import { useTranslation } from 'react-i18next';
-import { normalizeLanguage } from '../i18n';
+import { buildUserLanguageScope, normalizeLanguage } from '../i18n';
 
 import VersionModal from '../components/VersionModal';
 import AdminChangePasswordModal from '../components/AdminChangePasswordModal';
@@ -288,6 +288,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     ];
 
     const { user } = useAuth();
+    const languageScope = buildUserLanguageScope(user);
     const locale = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
     const fallbackAdminLabel = t('adminLayout.role.admin');
     const primaryRole = user?.roles?.[0];
@@ -406,7 +407,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                         {t('adminLayout.preferences.language')}
                     </div>
-                    <LanguageSwitcher size="middle" className="w-full" />
+                    <LanguageSwitcher size="middle" className="w-full" storageScope={languageScope} />
                 </div>
             </Modal>
 

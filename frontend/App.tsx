@@ -7,9 +7,11 @@ import { getIcon } from './utils/iconMap';
 import { getColorClass } from './utils/colorMap';
 import { hasAdminAccess } from './utils/adminAccess';
 import {
-  Mail, Monitor, Moon, Sun, Laptop, Sparkles
+  Mail, Monitor, Moon, Sun, Laptop, Sparkles, Languages
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { buildUserLanguageScope } from './i18n';
+import LanguageSwitcher from './components/LanguageSwitcher';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -145,6 +147,10 @@ const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   // Use AuthContext instead of local state
   const { user: currentUser, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
+  const userLanguageScope = useMemo(
+    () => buildUserLanguageScope(currentUser),
+    [currentUser?.id, currentUser?.username],
+  );
 
   // View State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
@@ -570,6 +576,17 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mica rounded-[2.5rem] p-8 shadow-xl">
+              <h3 className="text-lg font-bold mb-3 flex items-center">
+                <Languages size={16} className="text-blue-600 mr-3" />
+                {t('appRoot.settings.languageTitle')}
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                {t('appRoot.settings.languageDesc')}
+              </p>
+              <LanguageSwitcher size="middle" className="w-full md:w-56" storageScope={userLanguageScope} />
             </div>
           </div>
         );

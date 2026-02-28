@@ -1,0 +1,66 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /api/
+
+# Google
+User-agent: Googlebot
+Allow: /
+
+# 百度
+User-agent: Baiduspider
+Allow: /
+
+# Bing
+User-agent: Bingbot
+Allow: /
+
+User-agent: msnbot
+Allow: /
+
+# 360搜索
+User-agent: 360Spider
+Allow: /
+
+User-agent: HaoSouSpider
+Allow: /
+
+# 今日头条 / 抖音
+User-agent: Bytespider
+Allow: /
+
+User-agent: Bytedance
+Allow: /
+
+# 小红书
+User-agent: Xiaohongshu
+Allow: /
+
+User-agent: xhslink
+Allow: /
+
+# 搜狗
+User-agent: Sogou
+Allow: /
+
+# 神马搜索（UC）
+User-agent: YisouSpider
+Allow: /
+
+# AI 搜索引擎
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+Sitemap: https://ngep.houyuxi.com/sitemap.xml

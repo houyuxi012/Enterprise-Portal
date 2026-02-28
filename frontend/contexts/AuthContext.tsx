@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { App } from 'antd';
 import AuthService, { User } from '../services/auth';
 import i18n from '../i18n';
+import { buildUserLanguageScope, getLanguagePreference, normalizeLanguage, setLanguagePreference } from '../i18n';
 import {
     AUTH_SESSION_INVALID_EVENT,
     AuthSessionInvalidDetail,
@@ -127,6 +128,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             window.removeEventListener(AUTH_SESSION_INVALID_EVENT, onSessionInvalid);
         };
     }, [message]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const scope = buildUserLanguageScope(user);
+        if (!scope) return;
+
+        const scopedLanguage = getLanguagePreference(scope, false);
+        const currentLanguage = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
+
+        if (scopedLanguage && scopedLanguage !== currentLanguage) {
+            void i18n.changeLanguage(scopedLanguage);
+            return;
+        }
+
+        setLanguagePreference(scopedLanguage || currentLanguage, scope);
+    }, [user?.id, user?.username]);
 
     useEffect(() => {
         if (!isAuthenticated) return;

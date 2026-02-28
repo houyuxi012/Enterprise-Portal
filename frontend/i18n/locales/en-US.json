@@ -533,6 +533,8 @@
       "adminZoneDesc": "You have admin access and can enter the admin console.",
       "enterAdmin": "Enter Admin Console",
       "themeTitle": "Display & Theme",
+      "languageTitle": "Language & Region",
+      "languageDesc": "Saved per account and applied automatically next time you sign in.",
       "theme": {
         "light": "Light",
         "dark": "Dark",

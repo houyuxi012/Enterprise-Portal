@@ -533,6 +533,8 @@
       "adminZoneDesc": "您拥有管理员权限，可以进入后台管理系统。",
       "enterAdmin": "进入后台管理",
       "themeTitle": "显示与主题",
+      "languageTitle": "语言与地区",
+      "languageDesc": "该设置将按当前账户保存，下次登录自动应用。",
       "theme": {
         "light": "清新浅色",
         "dark": "深邃暗色",
