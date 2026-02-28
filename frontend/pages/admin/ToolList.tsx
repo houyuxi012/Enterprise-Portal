@@ -249,10 +249,16 @@ const ToolList: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item name="category" label="分类">
                             <Select placeholder="选择分类">
-                                <Option value="办公">办公</Option>
-                                <Option value="开发">开发</Option>
+                                <Option value="行政">行政</Option>
+                                <Option value="IT">IT</Option>
+                                <Option value="财务">财务</Option>
+                                <Option value="人力资源">人力资源</Option>
+                                <Option value="研发">研发</Option>
                                 <Option value="设计">设计</Option>
-                                <Option value="其它">其它</Option>
+                                <Option value="营销">营销</Option>
+                                <Option value="法律">法律</Option>
+                                <Option value="通用">通用</Option>
+                                <Option value="其他">其他</Option>
                             </Select>
                         </AppForm.Item>
                         <AppForm.Item name="color" label="颜色主题 (无图片时生效)">

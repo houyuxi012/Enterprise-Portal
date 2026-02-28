@@ -15,6 +15,8 @@ from models import (
     Department,
     Employee,
     NewsItem,
+    Notification,
+    NotificationReceipt,
     QuickTool,
     Role,
     SystemConfig,
@@ -59,7 +61,7 @@ NEWS = [
   },
   {
     "title": '季度财务报告：同比增长15%',
-    "summary": 'ShiKu Home 在市场扩张和客户满意度方面达到了新的里程碑。',
+    "summary": '企业门户在市场扩张和客户满意度方面达到了新的里程碑。',
     "category": '公告',
     "date": '2024-05-15',
     "author": '财务部',
@@ -68,18 +70,20 @@ NEWS = [
 ]
 
 TOOLS = [
-  { "name": '人事门户', "icon_name": 'Users', "url": '#', "color": 'bg-blue-100 text-blue-600', "category": '行政管理', "description": '请假、入职及个人档案管理', "visible_to_departments": '["人事部", "行政部"]' },
-  { "name": '报销管理', "icon_name": 'CreditCard', "url": '#', "color": 'bg-emerald-100 text-emerald-600', "category": '财务流程', "description": '提交差旅及日常办公费用报销', "visible_to_departments": '["财务部"]' },
-  { "name": 'IT 支持', "icon_name": 'LifeBuoy', "url": '#', "color": 'bg-orange-100 text-orange-600', "category": '技术服务', "description": '报修、设备申领及密码重置', "visible_to_departments": '["技术部", "运维部"]' },
-  { "name": '文档中心', "icon_name": 'FileText', "url": '#', "color": 'bg-purple-100 text-purple-600', "category": '资源库', "description": '公司模板、手册及共享文档' },
-  { "name": '项目同步', "icon_name": 'Briefcase', "url": '#', "color": 'bg-indigo-100 text-indigo-600', "category": '生产力', "description": '跨部门协作与进度跟踪' },
-  { "name": '活动日历', "icon_name": 'Calendar', "url": '#', "color": 'bg-rose-100 text-rose-600', "category": '企业文化', "description": '近期活动、放假安排及会议室预定' },
-  { "name": '安全中心', "icon_name": 'ShieldCheck', "url": '#', "color": 'bg-cyan-100 text-cyan-600', "category": '技术服务', "description": '安全准则与合规性检查', "visible_to_departments": '["技术部", "运维部", "安全部"]' },
-  { "name": '企业邮箱', "icon_name": 'Mail', "url": '#', "color": 'bg-amber-100 text-amber-600', "category": '通讯工具', "description": '访问您的 Outlook 企业邮箱' },
-  { "name": '官方网站', "icon_name": 'Globe', "url": '#', "color": 'bg-teal-100 text-teal-600', "category": '资讯动态', "description": '外部品牌展示与新闻发布' },
-  { "name": 'ShiKu Chat', "icon_name": 'MessageSquare', "url": '#', "color": 'bg-blue-100 text-blue-500', "category": '通讯工具', "description": '内部即时通讯与讨论组' },
-  { "name": '数据分析', "icon_name": 'PieChart', "url": '#', "color": 'bg-violet-100 text-violet-600', "category": '生产力', "description": '季度 KPI 与业务指标可视化', "visible_to_departments": '["总经办", "财务部", "增长部"]' },
-  { "name": '网盘空间', "icon_name": 'HardDrive', "url": '#', "color": 'bg-slate-100 text-slate-600', "category": '资源库', "description": '个人 100GB 云端存储空间' },
+  { "name": '人事门户', "icon_name": 'Users', "url": '#', "color": 'blue', "category": '人力资源', "description": '请假、入职及个人档案管理', "visible_to_departments": '["人事部", "行政部"]' },
+  { "name": '报销管理', "icon_name": 'CreditCard', "url": '#', "color": 'emerald', "category": '财务', "description": '提交差旅及日常办公费用报销', "visible_to_departments": '["财务部"]' },
+  { "name": 'IT 支持', "icon_name": 'LifeBuoy', "url": '#', "color": 'orange', "category": 'IT', "description": '报修、设备申领及密码重置', "visible_to_departments": '["技术部", "运维部"]' },
+  { "name": '文档中心', "icon_name": 'FileText', "url": '#', "color": 'purple', "category": '通用', "description": '公司模板、手册及共享文档' },
+  { "name": '项目同步', "icon_name": 'Briefcase', "url": '#', "color": 'indigo', "category": '研发', "description": '跨部门协作与进度跟踪' },
+  { "name": '活动日历', "icon_name": 'Calendar', "url": '#', "color": 'rose', "category": '行政', "description": '近期活动、放假安排及会议室预定' },
+  { "name": '安全中心', "icon_name": 'ShieldCheck', "url": '#', "color": 'blue', "category": 'IT', "description": '安全准则与合规性检查', "visible_to_departments": '["技术部", "运维部", "安全部"]' },
+  { "name": '企业邮箱', "icon_name": 'Mail', "url": '#', "color": 'orange', "category": '通用', "description": '访问企业邮箱与通讯录' },
+  { "name": '官方网站', "icon_name": 'Globe', "url": '#', "color": 'emerald', "category": '营销', "description": '外部品牌展示与新闻发布' },
+  { "name": 'ShiKu Chat', "icon_name": 'MessageSquare', "url": '#', "color": 'blue', "category": '通用', "description": '内部即时通讯与讨论组' },
+  { "name": '数据分析', "icon_name": 'PieChart', "url": '#', "color": 'indigo', "category": '营销', "description": '投放数据与增长指标可视化', "visible_to_departments": '["总经办", "财务部", "增长部"]' },
+  { "name": '网盘空间', "icon_name": 'HardDrive', "url": '#', "color": 'purple', "category": '其他', "description": '个人 100GB 云端存储空间' },
+  { "name": '设计协同', "icon_name": 'Figma', "url": '#', "color": 'rose', "category": '设计', "description": '原型评审、设计规范与资产管理', "visible_to_departments": '["设计部", "产品中心"]' },
+  { "name": '合同法务中心', "icon_name": 'Book', "url": '#', "color": 'orange', "category": '法律', "description": '合同审阅、法务咨询与合规资料库', "visible_to_departments": '["法务部", "财务部"]' },
 ]
 
 ANNOUNCEMENTS = [
@@ -88,6 +92,27 @@ ANNOUNCEMENTS = [
   { "tag": '行政', "title": '端午节放假安排通知', "content": '端午节放假时间为 6月8日至6月10日，共3天。请大家妥善安排工作。', "time": '1小时前', "color": 'emerald', "is_urgent": True },
   { "tag": '招聘', "title": '伯乐奖：推荐人才入职立奖', "content": '公司急招高级前端工程师，内部推荐成功入职并过试用期可获得 5000 元奖金。', "time": '3小时前', "color": 'purple', "is_urgent": False },
   { "tag": 'IT', "title": 'VPN 全面升级至 2.0 版本', "content": '为了提供更稳定的远程办公体验，VPN 系统已升级。请及时下载新客户端。', "time": '昨日', "color": 'rose', "is_urgent": False },
+]
+
+NOTIFICATIONS = [
+    {
+        "title": "【紧急】VPN 升级至 3.0 版本",
+        "message": "今日 22:00-23:00 将执行 VPN 网关升级，请提前保存工作并在升级后更新客户端。",
+        "type": "warning",
+        "action_url": "/news",
+    },
+    {
+        "title": "绩效评审开启提醒",
+        "message": "本季度绩效评审已开启，请在本周内完成自评并提交直属主管。",
+        "type": "reminder",
+        "action_url": "/news",
+    },
+    {
+        "title": "财务月结窗口开放",
+        "message": "财务月结窗口已开放，请相关同学在 3 个工作日内完成票据归档。",
+        "type": "info",
+        "action_url": "/tools",
+    },
 ]
 
 AI_PROVIDER_PRESETS = [
@@ -111,7 +136,7 @@ AI_PROVIDER_PRESETS = [
 
 SYSTEM_CONFIG_DEFAULTS = [
     {"key": "app_name", "value": "Next-Gen Enterprise Portal"},
-    {"key": "footer_text", "value": "© 2026 Next-Gen Enterprise Portal. All Rights Reserved."},
+    {"key": "footer_text", "value": "© 侯钰熙 All Rights Reserved."},
     {"key": "browser_title", "value": "Next-Gen Enterprise Portal ｜ Dashboard"},
     {"key": "logo_url", "value": ""},
     {"key": "favicon_url", "value": ""},
@@ -123,9 +148,22 @@ SYSTEM_CONFIG_DEFAULTS = [
     {"key": "ai_icon", "value": ""},
     {"key": "default_ai_model", "value": "gemini-2.0-flash"},
     {"key": "security_password_min_length", "value": "8"},
+    {"key": "security_password_require_uppercase", "value": "true"},
+    {"key": "security_password_require_lowercase", "value": "true"},
+    {"key": "security_password_require_numbers", "value": "true"},
+    {"key": "security_password_require_symbols", "value": "true"},
+    {"key": "security_password_max_age_days", "value": "90"},
+    {"key": "security_password_prevent_history_reuse", "value": "5"},
+    {"key": "security_password_check_user_info", "value": "true"},
     {"key": "security_login_max_retries", "value": "5"},
     {"key": "security_lockout_duration", "value": "15"},
+    {"key": "security_lockout_scope", "value": "account"},
     {"key": "security_mfa_enabled", "value": "false"},
+    {"key": "max_concurrent_sessions", "value": "0"},
+    {"key": "login_session_timeout_minutes", "value": "5"},
+    {"key": "login_session_absolute_timeout_minutes", "value": "480"},
+    {"key": "login_session_refresh_window_minutes", "value": "10"},
+    {"key": "login_captcha_threshold", "value": "3"},
     {"key": "security_ip_allowlist", "value": ""},
     {"key": "log_retention_access_days", "value": "30"},
     {"key": "log_retention_system_days", "value": "7"},
@@ -249,6 +287,7 @@ async def init_db():
 
         # 6. Ensure admin user
         print("Ensuring admin user...")
+        admin_password_hash = await get_password_hash("admin")
         result_user = await db.execute(select(User).where(User.username == "admin"))
         admin_user = result_user.scalars().first()
         if not admin_user:
@@ -256,7 +295,7 @@ async def init_db():
             admin_user = User(
                 username="admin",
                 email="admin@houyuxi.com",
-                hashed_password=get_password_hash("admin"),
+                hashed_password=admin_password_hash,
                 account_type="SYSTEM",
                 is_active=True,
                 name="Administrator",
@@ -282,6 +321,7 @@ async def init_db():
 
         # 6.5 Create User accounts for each Employee (Default Password: 123456)
         print("Creating User accounts for employees...")
+        portal_default_password_hash = await get_password_hash("123456")
         user_role_res = await db.execute(select(Role).where(Role.code == "user"))
         user_role = user_role_res.scalars().first()
 
@@ -296,7 +336,7 @@ async def init_db():
                 emp_user = User(
                     username=emp_username,
                     email=emp_data.get("email", f"{emp_username}@shiku.com"),
-                    hashed_password=get_password_hash("123456"),  # Default password
+                    hashed_password=portal_default_password_hash,  # Default password
                     account_type="PORTAL",
                     is_active=(emp_data.get("status", "Active") == "Active"),
                     name=emp_data.get("name", emp_username),
@@ -320,6 +360,53 @@ async def init_db():
                     emp_user.avatar = emp_data.get("avatar", "")
                 if not emp_user.email:
                     emp_user.email = emp_data.get("email", f"{emp_username}@shiku.com")
+
+        # 6.8 Upsert Notifications + Receipts (persistent, per-user)
+        print("Upserting Notifications...")
+        portal_user_result = await db.execute(
+            select(User.id).where(
+                User.account_type == "PORTAL",
+                User.is_active == True,
+            )
+        )
+        portal_user_ids = [int(uid) for uid in portal_user_result.scalars().all()]
+
+        for item in NOTIFICATIONS:
+            existing_notification_result = await db.execute(
+                select(Notification).where(Notification.title == item["title"])
+            )
+            notification = existing_notification_result.scalars().first()
+            if notification:
+                notification.message = item["message"]
+                notification.type = item["type"]
+                notification.action_url = item.get("action_url")
+                if admin_user:
+                    notification.created_by = admin_user.id
+            else:
+                notification = Notification(
+                    title=item["title"],
+                    message=item["message"],
+                    type=item["type"],
+                    action_url=item.get("action_url"),
+                    created_by=admin_user.id if admin_user else None,
+                )
+                db.add(notification)
+                await db.flush()
+
+            for user_id in portal_user_ids:
+                existing_receipt_result = await db.execute(
+                    select(NotificationReceipt.id).where(
+                        NotificationReceipt.notification_id == notification.id,
+                        NotificationReceipt.user_id == user_id,
+                    )
+                )
+                if existing_receipt_result.scalar_one_or_none() is None:
+                    db.add(
+                        NotificationReceipt(
+                            notification_id=notification.id,
+                            user_id=user_id,
+                        )
+                    )
 
         # 7. Upsert AI Providers
         print("Upserting AI Providers...")
