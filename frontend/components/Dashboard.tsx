@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  TrendingUp, Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
-  X, AlertTriangle, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
+  Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
+  X, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
 } from 'lucide-react';
 import TodoService from '../services/todos';
 import ApiClient, { QuickToolDTO } from '../services/api';
@@ -20,6 +21,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, onNavigateToTodos, employees = [], currentUser }) => {
+  const { t, i18n } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -27,14 +29,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 5) return '夜深了';
-    if (hour < 11) return '早上好';
-    if (hour < 13) return '中午好';
-    if (hour < 18) return '下午好';
-    return '晚上好';
-  }, []);
+    if (hour < 5) return t('dashboardHome.greeting.lateNight');
+    if (hour < 11) return t('dashboardHome.greeting.morning');
+    if (hour < 13) return t('dashboardHome.greeting.noon');
+    if (hour < 18) return t('dashboardHome.greeting.afternoon');
+    return t('dashboardHome.greeting.evening');
+  }, [t]);
 
-  const username = currentUser?.username || '用户';
+  const username = currentUser?.username || t('dashboardHome.userFallback');
   const [todoStats, setTodoStats] = useState({ total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 });
   // Data State
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
@@ -49,12 +51,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     const ts = new Date(createdAt).getTime();
     if (Number.isNaN(ts)) return fallback || '-';
     const diffMin = Math.floor((Date.now() - ts) / 60000);
-    if (diffMin <= 1) return '刚刚';
-    if (diffMin < 60) return `${diffMin}分钟前`;
+    if (diffMin <= 1) return t('dashboardHome.time.justNow');
+    if (diffMin < 60) return t('dashboardHome.time.minutesAgo', { count: diffMin });
     const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour}小时前`;
+    if (diffHour < 24) return t('dashboardHome.time.hoursAgo', { count: diffHour });
     const diffDay = Math.floor(diffHour / 24);
-    return `${diffDay}天前`;
+    return t('dashboardHome.time.daysAgo', { count: diffDay });
   };
 
   useEffect(() => {
@@ -97,16 +99,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
 
   const quote = useMemo(() => {
     const day = new Date().getDate();
-    return DAILY_QUOTES[day % DAILY_QUOTES.length];
-  }, []);
+    const quoteKey = DAILY_QUOTES[day % DAILY_QUOTES.length];
+    return t(quoteKey);
+  }, [t]);
 
   const formattedDate = useMemo(() => {
-    return new Intl.DateTimeFormat('zh-CN', {
+    const locale = i18n.resolvedLanguage?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+    return new Intl.DateTimeFormat(locale, {
       month: 'long',
       day: 'numeric',
       weekday: 'long'
     }).format(new Date());
-  }, []);
+  }, [i18n.resolvedLanguage]);
 
   useEffect(() => {
     if (carouselItems.length === 0) return;
@@ -116,15 +120,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     return () => clearInterval(timer);
   }, [carouselItems]);
 
+  const getAliasList = (key: string): string[] => {
+    const aliases = t(key, { returnObjects: true }) as unknown;
+    if (!Array.isArray(aliases)) return [];
+    return aliases.map((item) => String(item).toLowerCase());
+  };
+
+  const tagConfigList = useMemo(() => [
+    { aliases: getAliasList('dashboardHome.tagAliases.food'), color: 'orange', icon: <Utensils size={14} /> },
+    { aliases: getAliasList('dashboardHome.tagAliases.maintenance'), color: 'blue', icon: <Wrench size={14} /> },
+    { aliases: getAliasList('dashboardHome.tagAliases.administration'), color: 'emerald', icon: <FileText size={14} /> },
+    { aliases: getAliasList('dashboardHome.tagAliases.recruitment'), color: 'purple', icon: <UserPlus size={14} /> },
+    { aliases: getAliasList('dashboardHome.tagAliases.it'), color: 'rose', icon: <Cpu size={14} /> },
+  ], [t]);
+
   const getTagConfig = (tag: string) => {
-    const configs: Record<string, { color: string, icon: React.ReactNode }> = {
-      '美食': { color: 'orange', icon: <Utensils size={14} /> },
-      '维护': { color: 'blue', icon: <Wrench size={14} /> },
-      '行政': { color: 'emerald', icon: <FileText size={14} /> },
-      '招聘': { color: 'purple', icon: <UserPlus size={14} /> },
-      'IT': { color: 'rose', icon: <Cpu size={14} /> },
-    };
-    return configs[tag] || { color: 'blue', icon: <BellRing size={14} /> };
+    const normalized = (tag || '').toLowerCase();
+    return tagConfigList.find((item) => item.aliases.includes(normalized)) || { color: 'blue', icon: <BellRing size={14} /> };
   };
 
   const getTagStyles = (color: string) => {
@@ -146,12 +158,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
   const uniqueTags = useMemo(() => {
     return Array.from(new Set(announcements.map(a => a.tag)));
   }, [announcements]);
-
-  const stats = useMemo(() => ({
-    total: announcements.length,
-    urgent: announcements.filter(a => a.is_urgent).length,
-    today: 2
-  }), [announcements]);
 
   const hasUrgentAnnouncements = useMemo(
     () => announcements.some((a) => a.is_urgent),
@@ -221,15 +227,35 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
         {[
           {
             icon: <ListTodo size={18} />,
-            label: '待办事项',
+            label: t('dashboardHome.cards.todo.label'),
             val: todoStats.total.toString(),
             color: 'orange',
-            desc: `${todoStats.emergency} 紧急 · ${todoStats.high} 高 · ${todoStats.medium} 中 · ${todoStats.low} 低${todoStats.unclassified > 0 ? ` · ${todoStats.unclassified} 未分级` : ''}`,
+            desc: t('dashboardHome.cards.todo.desc', {
+              emergency: todoStats.emergency,
+              high: todoStats.high,
+              medium: todoStats.medium,
+              low: todoStats.low,
+              unclassifiedPart: todoStats.unclassified > 0
+                ? t('dashboardHome.cards.todo.unclassifiedPart', { count: todoStats.unclassified })
+                : ''
+            }),
             onClick: onNavigateToTodos
           },
-          { icon: <Calendar size={18} />, label: '今日会议', val: '04场', color: 'purple', desc: '下一场：14:00 产品周会' },
-          { icon: <Clock size={18} />, label: '工时完成', val: '32h', color: 'rose', desc: '剩余目标 8h' },
-        ].map((stat, i) => (
+          {
+            icon: <Calendar size={18} />,
+            label: t('dashboardHome.cards.meeting.label'),
+            val: t('dashboardHome.cards.meeting.value', { count: 4 }),
+            color: 'purple',
+            desc: t('dashboardHome.cards.meeting.desc')
+          },
+          {
+            icon: <Clock size={18} />,
+            label: t('dashboardHome.cards.workHours.label'),
+            val: t('dashboardHome.cards.workHours.value'),
+            color: 'rose',
+            desc: t('dashboardHome.cards.workHours.desc')
+          },
+        ].map((stat, i: number) => (
           <div
             key={i}
             onClick={stat.onClick}
@@ -251,7 +277,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
         <div className="lg:col-span-8 space-y-10">
           <section>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">常用应用</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{t('dashboardHome.sections.commonApps')}</h2>
               <button onClick={onViewAll} className="p-2 mica rounded-full text-slate-400 hover:text-blue-600 transition-colors">
                 <ChevronRight size={18} />
               </button>
@@ -272,14 +298,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                     )}
                   </div>
                   <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter block">{tool.name}</span>
-                  <p className="text-[9px] text-slate-400 mt-1 font-medium truncate">{tool.description || '点击进入系统'}</p>
+                  <p className="text-[9px] text-slate-400 mt-1 font-medium truncate">{tool.description || t('dashboardHome.sections.clickToEnter')}</p>
                 </a>
               ))}
             </div>
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">资讯动态</h2>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">{t('dashboardHome.sections.news')}</h2>
             <div className="space-y-4">
               {newsList.slice(0, 3).map((news) => (
                 <div
@@ -313,7 +339,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
             <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white/30">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></div>
-                <h3 className="font-black text-[10px] uppercase tracking-widest">实时公告</h3>
+                <h3 className="font-black text-[10px] uppercase tracking-widest">{t('dashboardHome.sections.announcements')}</h3>
               </div>
               <BellRing
                 size={14}
@@ -337,12 +363,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                           </span>
                           {item.is_urgent && (
                             <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40">
-                              紧急
+                              {t('dashboardHome.status.urgent')}
                             </span>
                           )}
                           {isRead && (
                             <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border text-slate-500 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                              已读
+                              {t('dashboardHome.status.read')}
                             </span>
                           )}
                         </div>
@@ -358,7 +384,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
               onClick={() => setIsAnnouncementsModalOpen(true)}
               className="w-full py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors border-t border-slate-100 dark:border-slate-800"
             >
-              展开公告
+              {t('dashboardHome.actions.expandAnnouncements')}
             </button>
           </div>
 
@@ -393,7 +419,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-400 font-bold">暂无轮播图</div>
+              <div className="flex items-center justify-center h-full text-slate-400 font-bold">{t('dashboardHome.states.noCarousel')}</div>
             )}
           </div>
         </div>
@@ -409,7 +435,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
             <div className="mica w-full max-w-lg max-h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-2 duration-500 border border-white/10 ring-1 ring-white/20">
               <div className="relative pt-4 pb-10 px-6 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 shrink-0">
                 <div className="flex items-center justify-between z-10 relative">
-                  <h2 className="text-xl font-black text-white uppercase">企业公告</h2>
+                  <h2 className="text-xl font-black text-white uppercase">{t('dashboardHome.modal.announcementTitle')}</h2>
                   <button onClick={() => setIsAnnouncementsModalOpen(false)}><X className="text-white" size={24} /></button>
                 </div>
                 <div className="absolute bottom-1 left-0 right-0 px-6 flex justify-center z-20">
@@ -418,7 +444,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                       onClick={() => setFilterTag(null)}
                       className={`px-5 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!filterTag ? 'bg-white text-slate-900 shadow-sm' : 'text-white/60 hover:text-white'}`}
                     >
-                      全部
+                      {t('dashboardHome.filters.all')}
                     </button>
                     {uniqueTags.map(tag => (
                       <button
@@ -449,12 +475,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                           <div className="mt-2 flex items-center gap-2">
                             {item.is_urgent && (
                               <span className="text-[7px] font-black text-rose-600 uppercase tracking-widest bg-rose-100/50 px-1.5 py-0.5 rounded-md">
-                                紧急
+                                {t('dashboardHome.status.urgent')}
                               </span>
                             )}
                             {isRead && (
                               <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
-                                已读
+                                {t('dashboardHome.status.read')}
                               </span>
                             )}
                           </div>
@@ -504,7 +530,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
                     {selectedNews.summary}
                   </p>
                   <p className="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
-                    (此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段)
+                    {t('dashboardHome.newsDetail.summaryHint')}
                   </p>
                 </div>
               </div>

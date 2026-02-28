@@ -1,8 +1,12 @@
+import i18n from '../i18n';
+
 export type AppLocale = 'zh-CN' | 'en-US';
 
 type BuiltinRoleLocaleMeta = {
-  name: Record<AppLocale, string>;
-  description: Record<AppLocale, string>;
+  nameKey: string;
+  descriptionKey: string;
+  fallbackName: string;
+  fallbackDescription: string;
 };
 
 const ROLE_ALIAS_MAP: Record<string, string> = {
@@ -11,34 +15,22 @@ const ROLE_ALIAS_MAP: Record<string, string> = {
 
 const BUILTIN_ROLE_META: Record<string, BuiltinRoleLocaleMeta> = {
   user: {
-    name: {
-      'zh-CN': '普通用户',
-      'en-US': 'Regular User',
-    },
-    description: {
-      'zh-CN': '默认门户用户',
-      'en-US': 'Default portal user',
-    },
+    nameKey: 'iamRoleMeta.builtin.user.name',
+    descriptionKey: 'iamRoleMeta.builtin.user.description',
+    fallbackName: 'Regular User',
+    fallbackDescription: 'Default portal user',
   },
   portaladmin: {
-    name: {
-      'zh-CN': '门户管理员',
-      'en-US': 'Portal Administrator',
-    },
-    description: {
-      'zh-CN': '门户后台管理员角色',
-      'en-US': 'Portal admin role for backend console',
-    },
+    nameKey: 'iamRoleMeta.builtin.portaladmin.name',
+    descriptionKey: 'iamRoleMeta.builtin.portaladmin.description',
+    fallbackName: 'Portal Administrator',
+    fallbackDescription: 'Portal admin role for backend console',
   },
   superadmin: {
-    name: {
-      'zh-CN': '系统超级管理员',
-      'en-US': 'System Super Administrator',
-    },
-    description: {
-      'zh-CN': '系统超级管理员角色',
-      'en-US': 'System super administrator role',
-    },
+    nameKey: 'iamRoleMeta.builtin.superadmin.name',
+    descriptionKey: 'iamRoleMeta.builtin.superadmin.description',
+    fallbackName: 'System Super Administrator',
+    fallbackDescription: 'System super administrator role',
   },
 };
 
@@ -53,6 +45,11 @@ const normalizeLocale = (locale?: string): AppLocale => {
     return 'zh-CN';
   }
   return 'en-US';
+};
+
+const translateWithLocale = (key: string, locale: AppLocale, fallback: string): string => {
+  const translated = i18n.t(key, { lng: locale, defaultValue: fallback });
+  return typeof translated === 'string' && translated.trim() ? translated : fallback;
 };
 
 export const getCurrentLocale = (): AppLocale => {
@@ -88,7 +85,7 @@ export const getLocalizedRoleMeta = (
   }
 
   return {
-    name: builtin.name[locale] || role.name || role.code,
-    description: builtin.description[locale] || role.description || '',
+    name: translateWithLocale(builtin.nameKey, locale, builtin.fallbackName) || role.name || role.code,
+    description: translateWithLocale(builtin.descriptionKey, locale, builtin.fallbackDescription) || role.description || '',
   };
 };

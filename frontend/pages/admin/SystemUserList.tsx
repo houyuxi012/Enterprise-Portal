@@ -4,6 +4,7 @@ import { User, Role } from '../../types';
 import ApiClient from '../../services/api';
 import { message, Select, Switch, Input, Popconfirm, Card } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useTranslation } from 'react-i18next';
 import {
     AppButton,
     AppTable,
@@ -17,6 +18,7 @@ import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n'
 import { hasAdminAccess } from '../../utils/adminAccess';
 
 const SystemUserList: React.FC = () => {
+    const { t } = useTranslation();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ const SystemUserList: React.FC = () => {
             setRoles(rolesData);
         } catch (error) {
             console.error(error);
-            message.error('加载数据失败');
+            message.error(t('systemUserList.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -55,9 +57,9 @@ const SystemUserList: React.FC = () => {
         try {
             await ApiClient.deleteUser(id);
             fetchData();
-            message.success('用户已删除');
+            message.success(t('systemUserList.messages.deleteSuccess'));
         } catch (e) {
-            message.error('删除失败');
+            message.error(t('systemUserList.messages.deleteFailed'));
         }
     };
 
@@ -66,12 +68,12 @@ const SystemUserList: React.FC = () => {
             const result = await ApiClient.resetPassword(username);
             const resetPassword = result?.new_password;
             if (resetPassword) {
-                message.success(`${username} 密码已重置为 ${resetPassword}`);
+                message.success(t('systemUserList.messages.resetWithPassword', { username, password: resetPassword }));
             } else {
-                message.success(`${username} 密码重置成功`);
+                message.success(t('systemUserList.messages.resetSuccess', { username }));
             }
         } catch (error: any) {
-            message.error(error?.response?.data?.detail || '密码重置失败');
+            message.error(error?.response?.data?.detail || t('systemUserList.messages.resetFailed'));
         }
     };
 
@@ -100,15 +102,15 @@ const SystemUserList: React.FC = () => {
                     email: values.email,
                     role_ids: values.role_ids
                 });
-                message.success('用户更新成功');
+                message.success(t('systemUserList.messages.updateSuccess'));
             } else {
                 await ApiClient.createUser(values);
-                message.success('用户创建成功');
+                message.success(t('systemUserList.messages.createSuccess'));
             }
             setIsEditorOpen(false);
             fetchData();
         } catch (error: any) {
-            message.error(error.response?.data?.detail || '保存失败');
+            message.error(error.response?.data?.detail || t('systemUserList.messages.saveFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -116,15 +118,15 @@ const SystemUserList: React.FC = () => {
 
     const handleStatusChange = async (user: User, isActive: boolean) => {
         if (isProtectedSystemAdmin(user) && !isActive) {
-            message.warning('系统内置 admin 账户不可禁用');
+            message.warning(t('systemUserList.messages.builtinAdminDisableDenied'));
             return;
         }
         try {
             await ApiClient.updateUser(user.id, { is_active: isActive });
-            message.success(`用户已${isActive ? '启用' : '禁用'}`);
+            message.success(t('systemUserList.messages.statusChanged', { status: isActive ? t('systemUserList.status.active') : t('systemUserList.status.inactive') }));
             fetchData();
         } catch (error) {
-            message.error('状态更新失败');
+            message.error(t('systemUserList.messages.statusUpdateFailed'));
         }
     };
 
@@ -139,7 +141,7 @@ const SystemUserList: React.FC = () => {
 
     const columns: ColumnsType<User> = [
         {
-            title: '用户名',
+            title: t('systemUserList.table.username'),
             dataIndex: 'username',
             key: 'username',
             width: 200,
@@ -161,7 +163,7 @@ const SystemUserList: React.FC = () => {
             ),
         },
         {
-            title: '角色',
+            title: t('systemUserList.table.roles'),
             dataIndex: 'roles',
             key: 'roles',
             width: 200,
@@ -175,13 +177,13 @@ const SystemUserList: React.FC = () => {
                             {getLocalizedRoleMeta(role, currentLocale).name}
                         </AppTag>
                     )) : (
-                        <span className="text-slate-400 text-sm">暂无角色</span>
+                        <span className="text-slate-400 text-sm">{t('systemUserList.table.noRoles')}</span>
                     )}
                 </div>
             ),
         },
         {
-            title: '状态',
+            title: t('systemUserList.table.status'),
             dataIndex: 'is_active',
             key: 'is_active',
             width: 120,
@@ -194,13 +196,13 @@ const SystemUserList: React.FC = () => {
                         disabled={isProtectedSystemAdmin(record) && isActive}
                     />
                     <AppTag status={isActive ? 'success' : 'default'}>
-                        {isActive ? '启用' : '禁用'}
+                        {isActive ? t('systemUserList.status.active') : t('systemUserList.status.inactive')}
                     </AppTag>
                 </div>
             ),
         },
         {
-            title: '邮箱',
+            title: t('systemUserList.table.email'),
             dataIndex: 'email',
             key: 'email',
             render: (text: string) => (
@@ -208,7 +210,7 @@ const SystemUserList: React.FC = () => {
             ),
         },
         {
-            title: '操作',
+            title: t('systemUserList.table.actions'),
             key: 'action',
             width: 140,
             align: 'right',
@@ -220,21 +222,21 @@ const SystemUserList: React.FC = () => {
                         size="sm"
                         icon={<Edit size={15} />}
                         onClick={() => handleEdit(record)}
-                        title="编辑"
+                        title={t('common.buttons.edit')}
                     />
                     <Popconfirm
-                        title="重置密码"
-                        description={`确定重置 ${record.username} 的密码吗？将按当前密码策略生成默认密码。`}
+                        title={t('systemUserList.popconfirm.resetTitle')}
+                        description={t('systemUserList.popconfirm.resetDesc', { username: record.username })}
                         onConfirm={() => handleResetPassword(record.username)}
-                        okText="确定"
-                        cancelText="取消"
+                        okText={t('common.buttons.confirm')}
+                        cancelText={t('common.buttons.cancel')}
                     >
                         <AppButton
                             intent="tertiary"
                             iconOnly
                             size="sm"
                             icon={<Key size={15} />}
-                            title="重置密码"
+                            title={t('systemUserList.actions.resetPassword')}
                         />
                     </Popconfirm>
                     {isProtectedSystemAdmin(record) ? (
@@ -243,16 +245,16 @@ const SystemUserList: React.FC = () => {
                             iconOnly
                             size="sm"
                             icon={<Trash2 size={15} />}
-                            title="系统内置 admin 账户不可删除"
+                            title={t('systemUserList.actions.builtinAdminDeleteDenied')}
                             disabled
                         />
                     ) : (
                         <Popconfirm
-                            title="删除用户"
-                            description="确定要删除该用户吗？此操作不可恢复。"
+                            title={t('systemUserList.popconfirm.deleteTitle')}
+                            description={t('systemUserList.popconfirm.deleteDesc')}
                             onConfirm={() => handleDelete(record.id)}
-                            okText="删除"
-                            cancelText="取消"
+                            okText={t('common.buttons.delete')}
+                            cancelText={t('common.buttons.cancel')}
                             okButtonProps={{ danger: true }}
                         >
                             <AppButton
@@ -260,7 +262,7 @@ const SystemUserList: React.FC = () => {
                                 iconOnly
                                 size="sm"
                                 icon={<Trash2 size={15} />}
-                                title="删除"
+                                title={t('common.buttons.delete')}
                             />
                         </Popconfirm>
                     )}
@@ -273,11 +275,11 @@ const SystemUserList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="系统账户"
-                subtitle="管理系统登录账户及权限分配"
+                title={t('systemUserList.page.title')}
+                subtitle={t('systemUserList.page.subtitle')}
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
-                        新增账户
+                        {t('systemUserList.page.create')}
                     </AppButton>
                 }
             />
@@ -285,7 +287,7 @@ const SystemUserList: React.FC = () => {
             {/* Filter Bar */}
             <AppFilterBar>
                 <AppFilterBar.Search
-                    placeholder="搜索用户名或邮箱..."
+                    placeholder={t('systemUserList.filters.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     onSearch={setSearch}
@@ -299,18 +301,18 @@ const SystemUserList: React.FC = () => {
                     dataSource={filteredUsers}
                     rowKey="id"
                     loading={loading}
-                    emptyText="暂无用户数据"
+                    emptyText={t('systemUserList.table.empty')}
                 />
             </Card>
 
             {/* Edit/Create Modal */}
             <AppModal
-                title={editingUser ? '编辑用户' : '新增账户'}
+                title={editingUser ? t('systemUserList.modal.editTitle') : t('systemUserList.modal.createTitle')}
                 open={isEditorOpen}
                 onCancel={() => setIsEditorOpen(false)}
                 onOk={() => form.submit()}
                 confirmLoading={submitting}
-                okText={editingUser ? '保存修改' : '创建账户'}
+                okText={editingUser ? t('systemUserList.modal.saveEdit') : t('systemUserList.modal.create')}
                 width={480}
             >
                 <AppForm
@@ -319,44 +321,44 @@ const SystemUserList: React.FC = () => {
                     initialValues={{ role_ids: [] }}
                 >
                     <AppForm.Item
-                        label="用户名"
+                        label={t('systemUserList.form.username')}
                         name="username"
-                        rules={[{ required: true, message: '请输入用户名' }]}
+                        rules={[{ required: true, message: t('systemUserList.form.usernameRequired') }]}
                     >
                         <Input
-                            placeholder="请输入用户名"
+                            placeholder={t('systemUserList.form.usernamePlaceholder')}
                             disabled={!!editingUser}
                         />
                     </AppForm.Item>
 
                     {!editingUser && (
                         <AppForm.Item
-                            label="初始密码"
+                            label={t('systemUserList.form.password')}
                             name="password"
-                            rules={[{ required: true, message: '请输入初始密码' }]}
+                            rules={[{ required: true, message: t('systemUserList.form.passwordRequired') }]}
                         >
-                            <Input.Password placeholder="请输入初始密码" />
+                            <Input.Password placeholder={t('systemUserList.form.passwordPlaceholder')} />
                         </AppForm.Item>
                     )}
 
                     <AppForm.Item
-                        label="邮箱"
+                        label={t('systemUserList.form.email')}
                         name="email"
                         rules={[
-                            { required: true, message: '请输入邮箱' },
-                            { type: 'email', message: '请输入有效的邮箱地址' }
+                            { required: true, message: t('systemUserList.form.emailRequired') },
+                            { type: 'email', message: t('systemUserList.form.emailInvalid') }
                         ]}
                     >
-                        <Input placeholder="请输入邮箱" />
+                        <Input placeholder={t('systemUserList.form.emailPlaceholder')} />
                     </AppForm.Item>
 
                     <AppForm.Item
-                        label="分配角色"
+                        label={t('systemUserList.form.roles')}
                         name="role_ids"
                     >
                         <Select
                             mode="multiple"
-                            placeholder="选择角色"
+                            placeholder={t('systemUserList.form.rolesPlaceholder')}
                             optionLabelProp="label"
                             options={roles.map(role => ({
                                 value: role.id,

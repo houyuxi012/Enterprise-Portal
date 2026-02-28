@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Descriptions, Tag, Button, message } from 'antd';
+import { Modal, Tag, Button, message } from 'antd';
 import { Copy, Check, Server, GitBranch, Clock, Package } from 'lucide-react';
 import { SystemVersion } from '../types';
 import ApiClient from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 interface VersionModalProps {
     open: boolean;
@@ -10,6 +11,7 @@ interface VersionModalProps {
 }
 
 const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
+    const { t, i18n } = useTranslation();
     const [versionInfo, setVersionInfo] = useState<SystemVersion | null>(null);
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -26,7 +28,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
             const data = await ApiClient.getSystemVersion();
             setVersionInfo(data);
         } catch (error) {
-            message.error('获取版本信息失败');
+            message.error(t('versionModal.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -34,11 +36,11 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
 
     const handleCopy = () => {
         if (!versionInfo) return;
-        const text = `Product: ${versionInfo.product}\nVersion: ${versionInfo.version}\nGit SHA: ${versionInfo.git_sha}\nBuild Time: ${versionInfo.build_time}`;
+        const text = `${t('versionModal.copy.product')}: ${versionInfo.product}\n${t('versionModal.copy.version')}: ${versionInfo.version}\n${t('versionModal.copy.gitSha')}: ${versionInfo.git_sha}\n${t('versionModal.copy.buildTime')}: ${versionInfo.build_time}`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        message.success('版本信息已复制');
+        message.success(t('versionModal.messages.copySuccess'));
     };
 
     return (
@@ -46,17 +48,17 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
             title={
                 <div className="flex items-center gap-2">
                     <Server size={18} className="text-blue-500" />
-                    <span>系统版本信息</span>
+                    <span>{t('versionModal.title')}</span>
                 </div>
             }
             open={open}
             onCancel={onClose}
             footer={[
                 <Button key="copy" onClick={handleCopy} icon={copied ? <Check size={14} /> : <Copy size={14} />}>
-                    {copied ? '已复制' : '复制信息'}
+                    {copied ? t('versionModal.actions.copied') : t('versionModal.actions.copy')}
                 </Button>,
                 <Button key="ok" type="primary" onClick={onClose}>
-                    确定
+                    {t('common.buttons.confirm')}
                 </Button>
             ]}
             width={500}
@@ -65,7 +67,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
-                        <p className="text-slate-400">正在获取系统版本信息...</p>
+                        <p className="text-slate-400">{t('versionModal.states.loading')}</p>
                     </div>
                 ) : versionInfo ? (
                     <div className="space-y-6">
@@ -83,7 +85,9 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                                 </Tag>
                             </div>
                             <div className="text-xs text-slate-400 mt-2 font-mono">
-                                {versionInfo.release_id || `Build ${versionInfo.build_id || versionInfo.build_number || 'N/A'}`}
+                                {versionInfo.release_id || t('versionModal.fields.buildFallback', {
+                                    value: versionInfo.build_id || versionInfo.build_number || 'N/A'
+                                })}
                             </div>
                         </div>
 
@@ -92,9 +96,9 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                                 <GitBranch size={16} className="text-slate-400 mt-1 shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <div className="text-xs text-slate-500 mb-0.5">Git Commit</div>
+                                        <div className="text-xs text-slate-500 mb-0.5">{t('versionModal.fields.gitCommit')}</div>
                                         {versionInfo.dirty && (
-                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded border border-amber-200">DIRTY</span>
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded border border-amber-200">{t('versionModal.fields.dirty')}</span>
                                         )}
                                     </div>
                                     <div className="font-mono text-slate-800 dark:text-slate-200 text-sm truncate select-all">
@@ -106,9 +110,9 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                             <div className="col-span-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg flex items-start gap-3">
                                 <Clock size={16} className="text-slate-400 mt-1 shrink-0" />
                                 <div>
-                                    <div className="text-xs text-slate-500 mb-0.5">构建时间</div>
+                                    <div className="text-xs text-slate-500 mb-0.5">{t('versionModal.fields.buildTime')}</div>
                                     <div className="text-sm text-slate-800 dark:text-slate-200">
-                                        {new Date(versionInfo.build_time).toLocaleString('zh-CN')}
+                                        {new Date(versionInfo.build_time).toLocaleString(i18n.resolvedLanguage?.startsWith('zh') ? 'zh-CN' : 'en-US')}
                                     </div>
                                 </div>
                             </div>
@@ -116,7 +120,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg flex items-center gap-2">
                                 <Server size={14} className="text-slate-400" />
                                 <div>
-                                    <div className="text-[10px] text-slate-500">API Version</div>
+                                    <div className="text-[10px] text-slate-500">{t('versionModal.fields.apiVersion')}</div>
                                     <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
                                         {versionInfo.api_version || 'v1'}
                                     </div>
@@ -126,7 +130,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg flex items-center gap-2">
                                 <Package size={14} className="text-slate-400" />
                                 <div>
-                                    <div className="text-[10px] text-slate-500">Schema</div>
+                                    <div className="text-[10px] text-slate-500">{t('versionModal.fields.schema')}</div>
                                     <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
                                         {versionInfo.db_schema_version || '1.0.0'}
                                     </div>
@@ -142,14 +146,14 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                                 rel="noreferrer"
                                 className="text-slate-500 hover:text-blue-600 no-underline"
                             >
-                                侯钰熙
+                                {t('versionModal.footer.author')}
                             </a>{' '}
-                            All Rights Reserved.
+                            {t('versionModal.footer.rights')}
                         </div>
                     </div>
                 ) : (
                     <div className="text-center py-6 text-red-500">
-                        版本信息加载失败，请检查网络连接
+                        {t('versionModal.states.loadError')}
                     </div>
                 )}
             </div>

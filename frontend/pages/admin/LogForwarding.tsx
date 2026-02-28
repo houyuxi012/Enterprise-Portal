@@ -2,20 +2,21 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
 import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, ApiOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient from '../../services/api';
 import { LogForwardingConfig } from '../../types';
 import AppButton from '../../components/AppButton';
 
-// 可选的日志类型 - 与后端 log_type 保持一致
 const LOG_TYPE_OPTIONS = [
-    { value: 'BUSINESS', label: '业务审计', color: 'blue' },
-    { value: 'SYSTEM', label: '系统日志', color: 'default' },
-    { value: 'ACCESS', label: '访问日志', color: 'green' },
-    { value: 'AI', label: 'AI 审计', color: 'purple' },
-    { value: 'IAM', label: 'IAM 审计', color: 'orange' },
+    { value: 'BUSINESS', labelKey: 'business', color: 'blue' },
+    { value: 'SYSTEM', labelKey: 'system', color: 'default' },
+    { value: 'ACCESS', labelKey: 'access', color: 'green' },
+    { value: 'AI', labelKey: 'ai', color: 'purple' },
+    { value: 'IAM', labelKey: 'iam', color: 'orange' },
 ];
 
 const LogForwarding: React.FC = () => {
+    const { t } = useTranslation();
     const [configs, setConfigs] = useState<LogForwardingConfig[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,22 +50,22 @@ const LogForwarding: React.FC = () => {
                 log_types: values.log_types || ['BUSINESS', 'SYSTEM', 'ACCESS']
             };
             await ApiClient.saveLogForwardingConfig(payload);
-            message.success('配置已保存');
+            message.success(t('logForwarding.messages.saveSuccess'));
             setIsModalOpen(false);
             form.resetFields();
             fetchConfigs();
         } catch (error) {
-            message.error('保存失败');
+            message.error(t('logForwarding.messages.saveFailed'));
         }
     };
 
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteLogForwardingConfig(id);
-            message.success('配置已删除');
+            message.success(t('logForwarding.messages.deleteSuccess'));
             fetchConfigs();
         } catch (error) {
-            message.error('删除失败');
+            message.error(t('logForwarding.messages.deleteFailed'));
         }
     };
 
@@ -73,59 +74,63 @@ const LogForwarding: React.FC = () => {
     const enabledCount = configs.filter(c => c.enabled).length;
     const syslogCount = configs.filter(c => c.type === 'SYSLOG').length;
     const webhookCount = configs.filter(c => c.type === 'WEBHOOK').length;
+    const logTypeSelectOptions = LOG_TYPE_OPTIONS.map((item) => ({
+        value: item.value,
+        label: t(`logForwarding.logTypes.${item.labelKey}`),
+    }));
 
     const columns = [
         {
-            title: '协议类型',
+            title: t('logForwarding.table.protocolType'),
             dataIndex: 'type',
             key: 'type',
             width: 120,
             render: (text: string) => <Tag color="geekblue">{text}</Tag>
         },
         {
-            title: '外发日志类型',
+            title: t('logForwarding.table.logTypes'),
             dataIndex: 'log_types',
             key: 'log_types',
             render: (types: string[]) => (
                 <div className="flex flex-wrap gap-1">
-                    {(types || []).map((t: string) => {
-                        const opt = LOG_TYPE_OPTIONS.find(o => o.value === t);
-                        return <Tag key={t} color={opt?.color || 'default'}>{opt?.label || t}</Tag>;
+                    {(types || []).map((typeCode: string) => {
+                        const opt = LOG_TYPE_OPTIONS.find(o => o.value === typeCode);
+                        return <Tag key={typeCode} color={opt?.color || 'default'}>{opt ? t(`logForwarding.logTypes.${opt.labelKey}`) : typeCode}</Tag>;
                     })}
                 </div>
             )
         },
         {
-            title: '目标地址',
+            title: t('logForwarding.table.endpoint'),
             dataIndex: 'endpoint',
             key: 'endpoint',
             render: (text: string) => <span className="font-mono text-slate-600 dark:text-slate-300 font-medium text-sm">{text}</span>
         },
         {
-            title: '端口',
+            title: t('logForwarding.table.port'),
             dataIndex: 'port',
             key: 'port',
             width: 80,
             render: (port: number) => <span className="font-mono text-slate-500">{port || '-'}</span>
         },
         {
-            title: '状态',
+            title: t('logForwarding.table.status'),
             dataIndex: 'enabled',
             key: 'enabled',
             width: 100,
             render: (enabled: boolean) => (
                 <span className={`flex items-center text-xs font-bold ${enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <span className={`w-2 h-2 rounded-full mr-2 ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                    {enabled ? '已启用' : '已禁用'}
+                    {enabled ? t('logForwarding.status.enabled') : t('logForwarding.status.disabled')}
                 </span>
             )
         },
         {
-            title: '操作',
+            title: t('logForwarding.table.actions'),
             key: 'action',
             width: 80,
             render: (_: any, record: LogForwardingConfig) => (
-                <AppButton intent="danger" size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</AppButton>
+                <AppButton intent="danger" size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>{t('common.buttons.delete')}</AppButton>
             )
         }
     ];
@@ -135,10 +140,10 @@ const LogForwarding: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">日志外发</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">配置日志转发至第三方 SIEM / 日志平台</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('logForwarding.page.title')}</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">{t('logForwarding.page.subtitle')}</p>
                 </div>
-                <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>新增外发配置</AppButton>
+                <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>{t('logForwarding.page.createButton')}</AppButton>
             </div>
 
             {/* Stats Cards */}
@@ -146,7 +151,7 @@ const LogForwarding: React.FC = () => {
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="配置总数"
+                            title={t('logForwarding.stats.totalConfigs')}
                             value={totalConfigs}
                             prefix={<SettingOutlined />}
                             valueStyle={{ color: '#1890ff' }}
@@ -156,7 +161,7 @@ const LogForwarding: React.FC = () => {
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="已启用"
+                            title={t('logForwarding.stats.enabled')}
                             value={enabledCount}
                             prefix={<CheckCircleOutlined />}
                             valueStyle={{ color: '#52c41a' }}
@@ -166,7 +171,7 @@ const LogForwarding: React.FC = () => {
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="Syslog"
+                            title={t('logForwarding.stats.syslog')}
                             value={syslogCount}
                             prefix={<SendOutlined />}
                             valueStyle={{ color: '#13c2c2' }}
@@ -176,7 +181,7 @@ const LogForwarding: React.FC = () => {
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
                         <Statistic
-                            title="Webhook"
+                            title={t('logForwarding.stats.webhook')}
                             value={webhookCount}
                             prefix={<ApiOutlined />}
                             valueStyle={{ color: '#722ed1' }}
@@ -191,7 +196,7 @@ const LogForwarding: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center">
                     <span className="w-1 h-6 bg-emerald-500 rounded-full mr-3"></span>
-                    外发规则列表
+                    {t('logForwarding.table.title')}
                 </h3>
                 <Table
                     dataSource={configs}
@@ -199,13 +204,13 @@ const LogForwarding: React.FC = () => {
                     rowKey="id"
                     loading={loading}
                     pagination={false}
-                    locale={{ emptyText: '暂无外发配置' }}
+                    locale={{ emptyText: t('logForwarding.table.empty') }}
                     className="ant-table-custom"
                 />
             </div>
 
             <Modal
-                title="新增日志外发配置"
+                title={t('logForwarding.modal.title')}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 footer={null}
@@ -219,19 +224,19 @@ const LogForwarding: React.FC = () => {
                 >
                     <Form.Item
                         name="log_types"
-                        label="外发日志类型"
-                        rules={[{ required: true, message: '请选择至少一种日志类型' }]}
-                        extra="选择要转发到该目标的日志类型"
+                        label={t('logForwarding.modal.logTypes')}
+                        rules={[{ required: true, message: t('logForwarding.validation.logTypesRequired') }]}
+                        extra={t('logForwarding.modal.logTypesExtra')}
                     >
                         <Select
                             mode="multiple"
-                            placeholder="选择日志类型"
-                            options={LOG_TYPE_OPTIONS}
+                            placeholder={t('logForwarding.placeholders.logTypes')}
+                            options={logTypeSelectOptions}
                             className="w-full"
                         />
                     </Form.Item>
 
-                    <Form.Item name="type" label="协议类型" rules={[{ required: true }]}>
+                    <Form.Item name="type" label={t('logForwarding.modal.protocolType')} rules={[{ required: true }]}>
                         <Select>
                             <Select.Option value="SYSLOG">Syslog (UDP/TCP)</Select.Option>
                             <Select.Option value="WEBHOOK">Webhook (HTTP POST)</Select.Option>
@@ -242,32 +247,32 @@ const LogForwarding: React.FC = () => {
                         name="endpoint"
                         label={
                             <span>
-                                服务器地址 / URL&nbsp;
-                                <Tooltip title="对于 Syslog 填写 IP，对于 Webhook 填写完整 URL">
+                                {t('logForwarding.modal.endpointLabel')}&nbsp;
+                                <Tooltip title={t('logForwarding.modal.endpointTooltip')}>
                                     <QuestionCircleOutlined />
                                 </Tooltip>
                             </span>
                         }
-                        rules={[{ required: true, message: '请输入地址' }]}
+                        rules={[{ required: true, message: t('logForwarding.validation.endpointRequired') }]}
                     >
-                        <Input placeholder="例如: 192.168.1.100 或 https://api.log-server.com" />
+                        <Input placeholder={t('logForwarding.placeholders.endpoint')} />
                     </Form.Item>
 
-                    <Form.Item name="port" label="端口 (仅 Syslog)">
-                        <Input type="number" placeholder="例如: 514" />
+                    <Form.Item name="port" label={t('logForwarding.modal.port')}>
+                        <Input type="number" placeholder={t('logForwarding.placeholders.port')} />
                     </Form.Item>
 
-                    <Form.Item name="secret_token" label="Secret Token (仅 Webhook)">
-                        <Input.Password placeholder="可选认证 Token" />
+                    <Form.Item name="secret_token" label={t('logForwarding.modal.secretToken')}>
+                        <Input.Password placeholder={t('logForwarding.placeholders.secretToken')} />
                     </Form.Item>
 
-                    <Form.Item name="enabled" label="立即启用" valuePropName="checked">
+                    <Form.Item name="enabled" label={t('logForwarding.modal.enableNow')} valuePropName="checked">
                         <Switch />
                     </Form.Item>
 
                     <div className="flex justify-end space-x-2">
-                        <AppButton intent="secondary" onClick={() => setIsModalOpen(false)}>取消</AppButton>
-                        <AppButton intent="primary" htmlType="submit">保存</AppButton>
+                        <AppButton intent="secondary" onClick={() => setIsModalOpen(false)}>{t('common.buttons.cancel')}</AppButton>
+                        <AppButton intent="primary" htmlType="submit">{t('common.buttons.save')}</AppButton>
                     </div>
                 </Form>
             </Modal>

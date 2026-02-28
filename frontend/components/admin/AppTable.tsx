@@ -2,29 +2,21 @@ import React from 'react';
 import { Table, Empty } from 'antd';
 import type { TablePaginationConfig, TableProps } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
+import i18n from '../../i18n';
 
 export interface AppTableProps<T = any> extends TableProps<T> {
-    /** 是否显示分页，默认 true */
+    /** Show pagination, default true */
     showPagination?: boolean;
-    /** 每页条数，默认 20 */
+    /** Page size, default 20 */
     pageSize?: number;
-    /** 空状态提示文字 */
+    /** Empty state text */
     emptyText?: string;
 }
 
-/**
- * AppTable - 统一表格组件
- * 
- * 特性：
- * - 统一分页配置（pageSize: 20, showSizeChanger, showTotal）
- * - 统一 hover 效果
- * - 统一空状态显示
- * - 统一圆角和边框样式
- */
 function AppTable<T extends object = any>({
     showPagination = true,
     pageSize = 20,
-    emptyText = '暂无数据',
+    emptyText = i18n.t('common.empty.none', { defaultValue: 'No data' }),
     className = '',
     rowClassName,
     locale,
@@ -34,7 +26,10 @@ function AppTable<T extends object = any>({
     const defaultPagination: TablePaginationConfig = {
         pageSize,
         showSizeChanger: true,
-        showTotal: (total: number) => `共 ${total} 条`,
+        showTotal: (total: number) => i18n.t('common.pagination.total', {
+            count: total,
+            defaultValue: `Total ${total}`,
+        }),
     };
 
     const paginationConfig = showPagination

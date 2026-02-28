@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
+import { useTranslation } from 'react-i18next';
 import { Employee, Department } from '../../types';
 import ApiClient from '../../services/api';
 import {
@@ -16,8 +17,11 @@ import {
 } from '../../components/admin';
 
 const { Option } = Select;
+const GENDER_CODES = ['male', 'female'] as const;
+type GenderCode = (typeof GENDER_CODES)[number];
 
 const UserList: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const { message, modal } = App.useApp();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -36,6 +40,31 @@ const UserList: React.FC = () => {
     const [form] = AppForm.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const genderAliases = useMemo(() => {
+        const aliases: Record<string, GenderCode> = {
+            male: 'male',
+            female: 'female',
+        };
+        GENDER_CODES.forEach((code) => {
+            const key = code === 'male' ? 'userList.form.genderMale' : 'userList.form.genderFemale';
+            const zhLabel = String(i18n.t(key, { lng: 'zh-CN' })).trim().toLowerCase();
+            const enLabel = String(i18n.t(key, { lng: 'en-US' })).trim().toLowerCase();
+            if (zhLabel) aliases[zhLabel] = code;
+            if (enLabel) aliases[enLabel] = code;
+        });
+        return aliases;
+    }, [i18n.resolvedLanguage, i18n]);
+
+    const normalizeGenderInput = useCallback((value?: string): GenderCode => {
+        const raw = String(value || '').trim().toLowerCase();
+        return genderAliases[raw] || 'male';
+    }, [genderAliases]);
+
+    const encodeGenderForApi = useCallback((value?: string): string => {
+        const normalized = normalizeGenderInput(value);
+        const key = normalized === 'male' ? 'userList.form.genderMale' : 'userList.form.genderFemale';
+        return String(i18n.t(key, { lng: 'zh-CN' }));
+    }, [normalizeGenderInput, i18n]);
 
     useEffect(() => {
         fetchData();
@@ -63,7 +92,7 @@ const UserList: React.FC = () => {
             setDeptTreeData(buildTreeData(deptData));
         } catch (error) {
             console.error(error);
-            message.error('加载数据失败');
+            message.error(t('userList.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -133,10 +162,10 @@ const UserList: React.FC = () => {
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteEmployee(id);
-            message.success('用户已删除');
+            message.success(t('userList.messages.deleteSuccess'));
             fetchData();
         } catch (error) {
-            message.error('删除失败');
+            message.error(t('userList.messages.deleteFailed'));
         }
     };
 
@@ -144,22 +173,22 @@ const UserList: React.FC = () => {
         if (selectedRowKeys.length === 0) return;
 
         modal.confirm({
-            title: `确定删除选中的 ${selectedRowKeys.length} 位用户吗？`,
-            content: '此操作不可恢复。',
-            okText: '确认删除',
+            title: t('userList.batch.deleteTitle', { count: selectedRowKeys.length }),
+            content: t('userList.batch.deleteContent'),
+            okText: t('userList.batch.confirmDelete'),
             okButtonProps: { danger: true },
-            cancelText: '取消',
+            cancelText: t('common.buttons.cancel'),
             onOk: async () => {
-                const hide = message.loading('正在删除...', 0);
+                const hide = message.loading(t('userList.batch.deleting'), 0);
                 try {
                     await Promise.all(selectedRowKeys.map(id => ApiClient.deleteEmployee(id as number)));
                     hide();
-                    message.success('批量删除成功');
+                    message.success(t('userList.batch.deleteSuccess'));
                     setSelectedRowKeys([]);
                     fetchData();
                 } catch (e) {
                     hide();
-                    message.error('部分删除失败，请重试');
+                    message.error(t('userList.batch.deletePartialFailed'));
                 }
             }
         });
@@ -169,12 +198,12 @@ const UserList: React.FC = () => {
         if (selectedRowKeys.length === 0) return;
 
         modal.confirm({
-            title: `确定重置选中的 ${selectedRowKeys.length} 位用户的密码吗？`,
-            content: '密码将按当前密码策略重置为系统默认密码。',
-            okText: '确认重置',
-            cancelText: '取消',
+            title: t('userList.batch.resetPwdTitle', { count: selectedRowKeys.length }),
+            content: t('userList.batch.resetPwdContent'),
+            okText: t('userList.batch.confirmResetPwd'),
+            cancelText: t('common.buttons.cancel'),
             onOk: async () => {
-                const hide = message.loading('正在重置...', 0);
+                const hide = message.loading(t('userList.batch.resetting'), 0);
                 try {
                     const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
                     const resettable = selectedEmps.filter(e => userAccounts.has(String(e.account || '').toLowerCase()));
@@ -182,7 +211,7 @@ const UserList: React.FC = () => {
 
                     if (resettable.length === 0) {
                         hide();
-                        message.warning('所选用户未开通系统账户，无法重置密码');
+                        message.warning(t('userList.batch.noSystemAccountForReset'));
                         return;
                     }
 
@@ -194,16 +223,16 @@ const UserList: React.FC = () => {
                     hide();
                     const generated = success.map((r) => r?.new_password).filter(Boolean);
                     if (failedCount === 0 && skipped === 0 && generated.length === 1) {
-                        message.success(`批量重置成功，默认密码：${generated[0]}`);
+                        message.success(t('userList.batch.resetSingleSuccess', { password: generated[0] }));
                     } else if (failedCount === 0) {
-                        message.success(`批量重置完成：成功 ${success.length}，跳过 ${skipped}`);
+                        message.success(t('userList.batch.resetDone', { success: success.length, skipped }));
                     } else {
-                        message.warning(`批量重置完成：成功 ${success.length}，失败 ${failedCount}，跳过 ${skipped}`);
+                        message.warning(t('userList.batch.resetDoneWithFail', { success: success.length, failed: failedCount, skipped }));
                     }
                     setSelectedRowKeys([]);
                 } catch (e) {
                     hide();
-                    message.error('批量重置失败');
+                    message.error(t('userList.batch.resetFailed'));
                 }
             }
         });
@@ -213,12 +242,12 @@ const UserList: React.FC = () => {
         if (selectedRowKeys.length === 0) return;
 
         modal.confirm({
-            title: `确定将选中的 ${selectedRowKeys.length} 位用户退出全部设备吗？`,
-            content: '该操作会立即使所选用户在线会话失效。',
-            okText: '确认踢下线',
-            cancelText: '取消',
+            title: t('userList.batch.kickTitle', { count: selectedRowKeys.length }),
+            content: t('userList.batch.kickContent'),
+            okText: t('userList.batch.confirmKick'),
+            cancelText: t('common.buttons.cancel'),
             onOk: async () => {
-                const hide = message.loading('正在执行踢下线...', 0);
+                const hide = message.loading(t('userList.batch.kicking'), 0);
                 try {
                     const selectedEmps = employees.filter((e) => selectedRowKeys.includes(e.id));
                     const kickTargets = selectedEmps
@@ -231,7 +260,7 @@ const UserList: React.FC = () => {
 
                     if (kickTargets.length === 0) {
                         hide();
-                        message.warning('所选用户未开通系统账户，无法执行踢下线');
+                        message.warning(t('userList.batch.noSystemAccountForKick'));
                         return;
                     }
 
@@ -247,14 +276,14 @@ const UserList: React.FC = () => {
                     hide();
 
                     if (failedCount === 0) {
-                        message.success(`批量踢下线完成：成功 ${success.length}，失效会话 ${revokedTotal}，跳过 ${skipped}`);
+                        message.success(t('userList.batch.kickDone', { success: success.length, revoked: revokedTotal, skipped }));
                     } else {
-                        message.warning(`批量踢下线完成：成功 ${success.length}，失败 ${failedCount}，跳过 ${skipped}`);
+                        message.warning(t('userList.batch.kickDoneWithFail', { success: success.length, failed: failedCount, skipped }));
                     }
                     setSelectedRowKeys([]);
                 } catch (e) {
                     hide();
-                    message.error('批量踢下线失败');
+                    message.error(t('userList.batch.kickFailed'));
                 }
             }
         });
@@ -268,18 +297,18 @@ const UserList: React.FC = () => {
 
     const handleBatchMoveDepartment = async () => {
         if (!targetDepartment) {
-            message.warning('请选择目标组织');
+            message.warning(t('userList.batch.selectTargetDept'));
             return;
         }
 
         const selectedEmployees = employees.filter((e) => selectedRowKeys.includes(e.id));
         if (selectedEmployees.length === 0) {
-            message.warning('未找到可移动的用户');
+            message.warning(t('userList.batch.noMovableUsers'));
             return;
         }
 
         setMoving(true);
-        const hide = message.loading('正在移动用户...', 0);
+        const hide = message.loading(t('userList.batch.movingUsers'), 0);
         try {
             const settled = await Promise.allSettled(
                 selectedEmployees.map((emp) =>
@@ -294,17 +323,17 @@ const UserList: React.FC = () => {
             const failedCount = settled.length - successCount;
 
             if (failedCount === 0) {
-                message.success(`已将 ${successCount} 位用户移动到“${targetDepartment}”`);
+                message.success(t('userList.batch.moveDone', { success: successCount, department: targetDepartment }));
                 setIsMoveModalOpen(false);
                 setSelectedRowKeys([]);
                 setSelectedDeptName(targetDepartment);
             } else {
-                message.warning(`移动完成：成功 ${successCount}，失败 ${failedCount}`);
+                message.warning(t('userList.batch.moveDoneWithFail', { success: successCount, failed: failedCount }));
             }
 
             await fetchData();
         } catch (error) {
-            message.error('批量移动失败');
+            message.error(t('userList.batch.moveFailed'));
         } finally {
             hide();
             setMoving(false);
@@ -313,19 +342,19 @@ const UserList: React.FC = () => {
 
     const handleResetPassword = async (account: string) => {
         if (!userAccounts.has(String(account || '').toLowerCase())) {
-            message.warning(`用户 ${account} 未开通系统账户，无法重置密码`);
+            message.warning(t('userList.messages.resetNoSystemAccount', { account }));
             return;
         }
         try {
             const result = await ApiClient.resetPassword(account);
             const resetPassword = result?.new_password;
             if (resetPassword) {
-                message.success(`用户 ${account} 密码已重置为 ${resetPassword}`);
+                message.success(t('userList.messages.resetWithPassword', { account, password: resetPassword }));
             } else {
-                message.success(`用户 ${account} 密码重置成功`);
+                message.success(t('userList.messages.resetSuccess', { account }));
             }
         } catch (error: any) {
-            message.error(error?.response?.data?.detail || '重置密码失败');
+            message.error(error?.response?.data?.detail || t('userList.messages.resetFailed'));
         }
     };
 
@@ -337,17 +366,20 @@ const UserList: React.FC = () => {
             setEmployees(prev => prev.map(e => e.id === emp.id ? updatedEmp : e));
 
             await ApiClient.updateEmployee(Number(emp.id), buildEmployeeUpdatePayload(emp, { status: newStatus }));
-            message.success(`用户 ${emp.name} 已${checked ? '启用' : '禁用'}`);
+            message.success(t('userList.messages.statusChanged', { name: emp.name, status: checked ? t('userList.status.active') : t('userList.status.inactive') }));
             fetchData(); // Refresh to ensure sync
         } catch (error) {
-            message.error('状态更新失败');
+            message.error(t('userList.messages.statusUpdateFailed'));
             fetchData(); // Revert on error
         }
     };
 
     const handleEdit = (emp: Employee) => {
         setEditingEmployee(emp);
-        form.setFieldsValue(emp);
+        form.setFieldsValue({
+            ...emp,
+            gender: normalizeGenderInput(emp.gender),
+        });
         setIsModalOpen(true);
     };
 
@@ -355,7 +387,7 @@ const UserList: React.FC = () => {
         setEditingEmployee(null);
         form.resetFields();
         form.setFieldsValue({
-            gender: '男',
+            gender: 'male',
             department: selectedDeptName || '' // Pre-fill department if selected
         });
         setIsModalOpen(true);
@@ -364,30 +396,34 @@ const UserList: React.FC = () => {
     const handleSubmit = async (values: any) => {
         setSubmitting(true);
         try {
+            const payload = {
+                ...values,
+                gender: encodeGenderForApi(values.gender),
+            };
             if (editingEmployee) {
-                await ApiClient.updateEmployee(Number(editingEmployee.id), values);
-                message.success('用户信息更新成功');
+                await ApiClient.updateEmployee(Number(editingEmployee.id), payload);
+                message.success(t('userList.messages.updateSuccess'));
             } else {
-                const createdEmployee = await ApiClient.createEmployee(values);
-                message.success('用户创建成功');
+                const createdEmployee = await ApiClient.createEmployee(payload);
+                message.success(t('userList.messages.createSuccess'));
                 if (createdEmployee.portal_initial_password) {
                     modal.success({
-                        title: 'Portal 账户已开通',
+                        title: t('userList.createResult.title'),
                         content: (
                             <div className="space-y-2">
-                                <div>账号：<span className="font-mono">{createdEmployee.account}</span></div>
-                                <div>初始密码：<span className="font-mono font-semibold">{createdEmployee.portal_initial_password}</span></div>
-                                <div className="text-xs text-slate-500">请引导用户首次登录后立即修改密码。</div>
+                                <div>{t('userList.createResult.account')}：<span className="font-mono">{createdEmployee.account}</span></div>
+                                <div>{t('userList.createResult.initialPassword')}：<span className="font-mono font-semibold">{createdEmployee.portal_initial_password}</span></div>
+                                <div className="text-xs text-slate-500">{t('userList.createResult.hint')}</div>
                             </div>
                         ),
-                        okText: '我知道了',
+                        okText: t('userList.createResult.okText'),
                     });
                 }
             }
             setIsModalOpen(false);
             fetchData();
         } catch (error) {
-            message.error('保存失败');
+            message.error(t('userList.messages.saveFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -395,7 +431,7 @@ const UserList: React.FC = () => {
 
     const columns: ColumnsType<Employee> = [
         {
-            title: '头像',
+            title: t('userList.table.avatar'),
             dataIndex: 'avatar',
             key: 'avatar',
             width: 90,
@@ -411,7 +447,7 @@ const UserList: React.FC = () => {
             ),
         },
         {
-            title: '姓名',
+            title: t('userList.table.name'),
             dataIndex: 'name',
             key: 'name',
             render: (text: string) => (
@@ -419,7 +455,7 @@ const UserList: React.FC = () => {
             ),
         },
         {
-            title: '账户',
+            title: t('userList.table.account'),
             dataIndex: 'account',
             key: 'account',
             render: (text: string) => (
@@ -427,7 +463,7 @@ const UserList: React.FC = () => {
             ),
         },
         {
-            title: '邮箱',
+            title: t('userList.table.email'),
             dataIndex: 'email',
             key: 'email',
             render: (text: string) => (
@@ -435,7 +471,7 @@ const UserList: React.FC = () => {
             ),
         },
         {
-            title: '状态',
+            title: t('userList.table.status'),
             dataIndex: 'status',
             key: 'status',
             width: 100,
@@ -447,13 +483,13 @@ const UserList: React.FC = () => {
                         size="small"
                     />
                     <AppTag status={status === 'Active' ? 'success' : 'default'}>
-                        {status === 'Active' ? '启用' : '禁用'}
+                        {status === 'Active' ? t('userList.status.active') : t('userList.status.inactive')}
                     </AppTag>
                 </div>
             ),
         },
         {
-            title: '操作',
+            title: t('userList.table.actions'),
             key: 'action',
             width: 140,
             align: 'right',
@@ -465,7 +501,7 @@ const UserList: React.FC = () => {
                         size="sm"
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
-                        title="编辑"
+                        title={t('common.buttons.edit')}
                     />
                 </div>
             ),
@@ -498,11 +534,11 @@ const UserList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="用户管理"
-                subtitle="管理企业用户信息"
+                title={t('userList.page.title')}
+                subtitle={t('userList.page.subtitle')}
                 action={
                     <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
-                        新增用户
+                        {t('userList.page.create')}
                     </AppButton>
                 }
             />
@@ -514,7 +550,7 @@ const UserList: React.FC = () => {
                         title={
                             <div className="flex items-center gap-2">
                                 <TeamOutlined className="text-blue-500" />
-                                <span>部门结构</span>
+                                <span>{t('userList.deptTree.title')}</span>
                             </div>
                         }
                         className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full mb-6 lg:mb-0"
@@ -539,7 +575,7 @@ const UserList: React.FC = () => {
                                     defaultExpandAll
                                 />
                             ) : (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无部门" />
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('userList.deptTree.empty')} />
                             )}
                         </div>
                     </Card>
@@ -551,7 +587,7 @@ const UserList: React.FC = () => {
                     <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4 p-1" styles={{ body: { padding: '12px 16px' } }}>
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <Input.Search
-                                placeholder="搜索姓名、部门或账户..."
+                                placeholder={t('userList.filters.searchPlaceholder')}
                                 allowClear
                                 style={{ maxWidth: 320 }}
                                 value={searchText}
@@ -562,7 +598,7 @@ const UserList: React.FC = () => {
                             {selectedRowKeys.length > 0 && (
                                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
                                     <span className="text-sm text-slate-500 font-medium mr-2">
-                                        已选 {selectedRowKeys.length} 项
+                                        {t('userList.batch.selected', { count: selectedRowKeys.length })}
                                     </span>
                                     <AppButton
                                         intent="secondary"
@@ -570,7 +606,7 @@ const UserList: React.FC = () => {
                                         icon={<FolderOutlined />}
                                         onClick={handleOpenBatchMoveModal}
                                     >
-                                        移动组织
+                                        {t('userList.batch.moveOrg')}
                                     </AppButton>
                                     <AppButton
                                         intent="secondary"
@@ -578,7 +614,7 @@ const UserList: React.FC = () => {
                                         icon={<DisconnectOutlined />}
                                         onClick={handleBatchKickOffline}
                                     >
-                                        退出全部设备/踢下线
+                                        {t('userList.batch.kickButton')}
                                     </AppButton>
                                     <AppButton
                                         intent="secondary"
@@ -586,7 +622,7 @@ const UserList: React.FC = () => {
                                         icon={<KeyOutlined />}
                                         onClick={handleBatchResetPassword}
                                     >
-                                        重置密码
+                                        {t('userList.batch.resetPwdButton')}
                                     </AppButton>
                                     <AppButton
                                         intent="danger"
@@ -594,7 +630,7 @@ const UserList: React.FC = () => {
                                         icon={<DeleteOutlined />}
                                         onClick={handleBatchDelete}
                                     >
-                                        删除
+                                        {t('common.buttons.delete')}
                                     </AppButton>
                                 </div>
                             )}
@@ -609,7 +645,7 @@ const UserList: React.FC = () => {
                             dataSource={filteredData}
                             rowKey="id" // Employee ID is string in types, but number in backend? Need to be careful. Types say string.
                             loading={loading}
-                            emptyText="暂无用户数据"
+                            emptyText={t('userList.table.empty')}
                             pageSize={10}
                         />
                     </Card>
@@ -618,17 +654,17 @@ const UserList: React.FC = () => {
 
             {/* Edit/Create Modal */}
             <AppModal
-                title={editingEmployee ? '编辑用户' : '新增用户'}
+                title={editingEmployee ? t('userList.modal.editTitle') : t('userList.modal.createTitle')}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 onOk={() => form.submit()}
                 confirmLoading={submitting}
-                okText={editingEmployee ? '保存修改' : '创建用户'}
+                okText={editingEmployee ? t('userList.modal.saveEdit') : t('userList.modal.create')}
                 width={700}
             >
-                <AppForm form={form} onFinish={handleSubmit} initialValues={{ gender: '男' }}>
+                <AppForm form={form} onFinish={handleSubmit} initialValues={{ gender: 'male' }}>
                     {/* Avatar Upload */}
-                    <AppForm.Item label="头像">
+                    <AppForm.Item label={t('userList.form.avatar')}>
                         <div className="flex items-center gap-4">
                             <AppForm.Item name="avatar" noStyle>
                                 <Input hidden />
@@ -648,16 +684,16 @@ const UserList: React.FC = () => {
                                     try {
                                         const url = await ApiClient.uploadImage(file as File);
                                         form.setFieldsValue({ avatar: url });
-                                        message.success('头像上传成功');
+                                        message.success(t('userList.messages.avatarUploadSuccess'));
                                         onSuccess?.(url);
                                     } catch (err) {
-                                        message.error('头像上传失败');
+                                        message.error(t('userList.messages.avatarUploadFailed'));
                                         onError?.(err as Error);
                                     }
                                 }}
                                 showUploadList={false}
                             >
-                                <AppButton intent="secondary" icon={<UploadOutlined />}>更换头像</AppButton>
+                                <AppButton intent="secondary" icon={<UploadOutlined />}>{t('userList.form.changeAvatar')}</AppButton>
                             </Upload>
                         </div>
                     </AppForm.Item>
@@ -665,35 +701,35 @@ const UserList: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item
                             name="job_number"
-                            label="工号"
+                            label={t('userList.form.jobNumber')}
                         >
-                            <Input placeholder="输入工号 (选填，例如: 100001)" />
+                            <Input placeholder={t('userList.form.jobNumberPlaceholder')} />
                         </AppForm.Item>
                         <AppForm.Item
                             name="account"
-                            label="账户"
-                            rules={[{ required: true, message: '请输入账户用户名' }]}
+                            label={t('userList.form.account')}
+                            rules={[{ required: true, message: t('userList.form.accountRequired') }]}
                         >
-                            <Input placeholder="输入账户 (例如: houyuxi)" />
+                            <Input placeholder={t('userList.form.accountPlaceholder')} />
                         </AppForm.Item>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item
                             name="name"
-                            label="姓名"
-                            rules={[{ required: true, message: '请输入姓名 （例如：侯钰熙）' }]}
+                            label={t('userList.form.name')}
+                            rules={[{ required: true, message: t('userList.form.nameRequired') }]}
                         >
                             <Input />
                         </AppForm.Item>
                         <AppForm.Item
                             name="gender"
-                            label="性别"
+                            label={t('userList.form.gender')}
                             rules={[{ required: true }]}
                         >
                             <Select>
-                                <Option value="男">男</Option>
-                                <Option value="女">女</Option>
+                                <Option value="male">{t('userList.form.genderMale')}</Option>
+                                <Option value="female">{t('userList.form.genderFemale')}</Option>
                             </Select>
                         </AppForm.Item>
                     </div>
@@ -701,12 +737,12 @@ const UserList: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item
                             name="department"
-                            label="部门"
-                            rules={[{ required: true, message: '请输入部门' }]}
+                            label={t('userList.form.department')}
+                            rules={[{ required: true, message: t('userList.form.departmentRequired') }]}
                         >
                             <Select
                                 showSearch
-                                placeholder="选择或输入部门"
+                                placeholder={t('userList.form.departmentPlaceholder')}
                                 optionFilterProp="children"
                             >
                                 {/* Flatten departments to options or just use TreeSelect? Simple Select for now, mapping keys */}
@@ -720,52 +756,52 @@ const UserList: React.FC = () => {
                         </AppForm.Item>
                         <AppForm.Item
                             name="role"
-                            label="职位"
+                            label={t('userList.form.role')}
                         >
-                            <Input placeholder="输入职位 (选填)" />
+                            <Input placeholder={t('userList.form.rolePlaceholder')} />
                         </AppForm.Item>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item
                             name="email"
-                            label="邮箱"
-                            rules={[{ required: true, type: 'email', message: '请输入有效邮箱' }]}
+                            label={t('userList.form.email')}
+                            rules={[{ required: true, type: 'email', message: t('userList.form.emailRequired') }]}
                         >
                             <Input />
                         </AppForm.Item>
                         <AppForm.Item
                             name="phone"
-                            label="手机号码"
-                            rules={[{ required: true, message: '请输入手机号码' }]}
+                            label={t('userList.form.phone')}
+                            rules={[{ required: true, message: t('userList.form.phoneRequired') }]}
                         >
                             <Input />
                         </AppForm.Item>
                     </div>
 
-                    <AppForm.Item name="location" label="办公地点">
-                        <Input placeholder="例如: 北京总部 安全中心 302" />
+                    <AppForm.Item name="location" label={t('userList.form.location')}>
+                        <Input placeholder={t('userList.form.locationPlaceholder')} />
                     </AppForm.Item>
                 </AppForm>
             </AppModal>
 
             <AppModal
-                title="移动用户到组织"
+                title={t('userList.moveModal.title')}
                 open={isMoveModalOpen}
                 onCancel={() => setIsMoveModalOpen(false)}
                 onOk={handleBatchMoveDepartment}
                 confirmLoading={moving}
-                okText="确认移动"
+                okText={t('userList.moveModal.confirm')}
                 width={560}
             >
                 <div className="space-y-4">
                     <div className="text-sm text-slate-500">
-                        将已选 <span className="font-semibold text-slate-700">{selectedRowKeys.length}</span> 位用户移动到以下组织：
+                        {t('userList.moveModal.descPrefix')} <span className="font-semibold text-slate-700">{selectedRowKeys.length}</span> {t('userList.moveModal.descSuffix')}
                     </div>
                     <Select
                         showSearch
                         allowClear
-                        placeholder="请选择目标组织"
+                        placeholder={t('userList.moveModal.placeholder')}
                         value={targetDepartment}
                         onChange={(value) => setTargetDepartment(value)}
                         optionFilterProp="label"

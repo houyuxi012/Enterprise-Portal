@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, message, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
 
@@ -14,6 +15,7 @@ const SYSTEM_BRANDING_KEYS = [
 ] as const;
 
 const SystemSettings: React.FC = () => {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
@@ -23,11 +25,11 @@ const SystemSettings: React.FC = () => {
                 const config = await ApiClient.getSystemConfig();
                 form.setFieldsValue(config);
             } catch (error) {
-                message.error('Failed to load system settings');
+                message.error(t('systemSettingsPage.messages.loadFailed'));
             }
         };
         fetchConfig();
-    }, [form]);
+    }, [form, t]);
 
     const handleSave = async (values: any) => {
         setLoading(true);
@@ -39,13 +41,13 @@ const SystemSettings: React.FC = () => {
                 return acc;
             }, {} as Record<string, any>);
             await ApiClient.updateSystemConfig(payload);
-            message.success('设置更新成功，请刷新页面查看更改。');
+            message.success(t('systemSettingsPage.messages.saveSuccess'));
             // Update document title immediately for feedback
             if (values.browser_title) {
                 document.title = values.browser_title;
             }
         } catch (error) {
-            message.error('Failed to update settings');
+            message.error(t('systemSettingsPage.messages.saveFailed'));
         } finally {
             setLoading(false);
         }
@@ -56,8 +58,8 @@ const SystemSettings: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">客户化管理</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">配置全局站点参数与品牌显示</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('systemSettingsPage.page.title')}</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">{t('systemSettingsPage.page.subtitle')}</p>
                 </div>
                 <AppButton
                     intent="primary"
@@ -65,7 +67,7 @@ const SystemSettings: React.FC = () => {
                     onClick={() => form.submit()}
                     loading={loading}
                 >
-                    保存更改
+                    {t('systemSettingsPage.page.saveButton')}
                 </AppButton>
             </div>
 
@@ -79,35 +81,35 @@ const SystemSettings: React.FC = () => {
                     <div>
                         <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
 
-                            品牌与显示
+                            {t('systemSettingsPage.sections.branding')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Form.Item
                                 name="app_name"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">站点名称</span>}
-                                help="显示在导航栏左侧的名称"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.appName')}</span>}
+                                help={t('systemSettingsPage.form.appNameHelp')}
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="Next-Gen Enterprise Portal" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.appName')} />
                             </Form.Item>
 
                             <Form.Item
                                 name="browser_title"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">浏览器标题</span>}
-                                help="浏览器标签页上显示的完整标题"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.browserTitle')}</span>}
+                                help={t('systemSettingsPage.form.browserTitleHelp')}
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="Next-Gen Enterprise Portal ｜ By HouYuXi" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.browserTitle')} />
                             </Form.Item>
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 mt-4">
                             <Form.Item
                                 name="logo_url"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">Logo 图片地址</span>}
-                                help="输入图片URL或直接上传。留空则使用默认Logo。"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.logoUrl')}</span>}
+                                help={t('systemSettingsPage.form.logoUrlHelp')}
                                 className="flex-1"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="https://example.com/logo.png" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.logoUrl')} />
                             </Form.Item>
 
                             <div className="md:mt-8">
@@ -118,16 +120,16 @@ const SystemSettings: React.FC = () => {
                                             setLoading(true);
                                             const url = await ApiClient.uploadImage(file);
                                             form.setFieldValue('logo_url', url);
-                                            message.success('上传成功');
+                                            message.success(t('systemSettingsPage.messages.uploadSuccess'));
                                         } catch (error) {
-                                            message.error('上传失败');
+                                            message.error(t('systemSettingsPage.messages.uploadFailed'));
                                         } finally {
                                             setLoading(false);
                                         }
                                         return false;
                                     }}
                                 >
-                                    <AppButton intent="secondary" icon={<UploadOutlined />}>本地上传</AppButton>
+                                    <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
                                 </Upload>
                             </div>
                         </div>
@@ -135,11 +137,11 @@ const SystemSettings: React.FC = () => {
                         <div className="flex flex-col md:flex-row gap-6 mt-4">
                             <Form.Item
                                 name="favicon_url"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">Favicon 图标地址</span>}
-                                help="输入.ico/.png图片URL或直接上传(建议32x32)。"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.faviconUrl')}</span>}
+                                help={t('systemSettingsPage.form.faviconUrlHelp')}
                                 className="flex-1"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="https://example.com/favicon.ico" />
+                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.faviconUrl')} />
                             </Form.Item>
 
                             <div className="md:mt-8">
@@ -150,42 +152,42 @@ const SystemSettings: React.FC = () => {
                                             setLoading(true);
                                             const url = await ApiClient.uploadImage(file);
                                             form.setFieldValue('favicon_url', url);
-                                            message.success('上传成功');
+                                            message.success(t('systemSettingsPage.messages.uploadSuccess'));
                                         } catch (error) {
-                                            message.error('上传失败');
+                                            message.error(t('systemSettingsPage.messages.uploadFailed'));
                                         } finally {
                                             setLoading(false);
                                         }
                                         return false;
                                     }}
                                 >
-                                    <AppButton intent="secondary" icon={<UploadOutlined />}>本地上传</AppButton>
+                                    <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
                                 </Upload>
                             </div>
                         </div>
 
                         <Form.Item
                             name="footer_text"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300">底部版权文字</span>}
+                            label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.footerText')}</span>}
                             className="mt-4"
                         >
-                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder="© 2025 侯钰熙. All Rights Reserved." />
+                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.footerText')} />
                         </Form.Item>
                     </div>
 
                     <div>
                         <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
-                            隐私与条款
+                            {t('systemSettingsPage.sections.privacy')}
                         </h3>
                         <Form.Item
                             name="privacy_policy"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300">隐私协议内容</span>}
-                            help="支持纯文本或Simple HTML。将显示在登录页的“隐私权政策”弹窗中。"
+                            label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.privacyPolicy')}</span>}
+                            help={t('systemSettingsPage.form.privacyPolicyHelp')}
                         >
                             <Input.TextArea
                                 rows={10}
                                 className="rounded-xl bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20 font-mono text-sm leading-relaxed"
-                                placeholder="在此输入隐私政策内容..."
+                                placeholder={t('systemSettingsPage.form.placeholders.privacyPolicy')}
                             />
                         </Form.Item>
                     </div>

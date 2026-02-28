@@ -1,4 +1,5 @@
 import type { AxiosError } from 'axios';
+import i18n from '../i18n';
 
 export const AUTH_SESSION_INVALID_EVENT = 'auth:session-invalid';
 
@@ -50,10 +51,16 @@ const inferRedirectTarget = (requestUrl?: string): '/admin/login' | '/login' => 
 };
 
 const defaultMessageByCode = (code: AuthSessionCode): string => {
-  if (code === 'TOKEN_REVOKED') return '当前会话已失效，请重新登录。';
-  if (code === 'AUDIENCE_MISMATCH') return '当前会话身份不匹配，请重新登录。';
-  if (code === 'UNAUTHORIZED') return '未授权访问，请重新登录。';
-  return '登录会话已过期，请重新登录。';
+  if (code === 'TOKEN_REVOKED') {
+    return i18n.t('sessionGuard.messages.tokenRevoked', { defaultValue: 'Token has been revoked. Please log in again.' });
+  }
+  if (code === 'AUDIENCE_MISMATCH') {
+    return i18n.t('sessionGuard.messages.audienceMismatch', { defaultValue: 'Session audience mismatch. Please log in again.' });
+  }
+  if (code === 'UNAUTHORIZED') {
+    return i18n.t('sessionGuard.messages.unauthorized', { defaultValue: 'Unauthorized access. Please log in again.' });
+  }
+  return i18n.t('sessionGuard.messages.sessionExpired', { defaultValue: 'Session has expired. Please log in again.' });
 };
 
 export const clearAuthClientCache = () => {

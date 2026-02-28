@@ -3,6 +3,7 @@ import { Input, Select, Popconfirm, message, Card, Upload, Image, List, InputNum
 import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { QuickToolDTO } from '../../services/api';
 import ApiClient from '../../services/api';
 import { getIcon } from '../../utils/iconMap';
@@ -34,6 +35,19 @@ const resolveIconTextColorClass = (colorName: string): string => {
     return textColorClass || 'text-blue-600';
 };
 
+const CATEGORY_CODES = [
+    'administration',
+    'it',
+    'finance',
+    'hr',
+    'engineering',
+    'design',
+    'marketing',
+    'legal',
+    'general',
+    'other',
+] as const;
+
 // Helper to render icon preview
 const IconPreview = ({ iconName, color, image }: { iconName: string, color: string, image?: string }) => {
     if (image) {
@@ -54,12 +68,30 @@ const IconPreview = ({ iconName, color, image }: { iconName: string, color: stri
 };
 
 const ToolList: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const [tools, setTools] = useState<QuickToolDTO[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTool, setEditingTool] = useState<QuickToolDTO | null>(null);
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = AppForm.useForm();
+    const categoryAliases = React.useMemo(() => {
+        const aliases: Record<string, string> = {};
+        CATEGORY_CODES.forEach((code) => {
+            aliases[code] = code;
+            aliases[code.toUpperCase()] = code;
+            const zhLabel = String(i18n.t(`toolList.categories.${code}`, { lng: 'zh-CN' })).trim();
+            const enLabel = String(i18n.t(`toolList.categories.${code}`, { lng: 'en-US' })).trim();
+            if (zhLabel) aliases[zhLabel] = code;
+            if (enLabel) aliases[enLabel] = code;
+        });
+        return aliases;
+    }, [i18n.resolvedLanguage]);
+
+    const normalizeCategory = (value?: string): string => {
+        const raw = String(value || '').trim();
+        return categoryAliases[raw] || raw || 'general';
+    };
 
     // Upload state
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -76,7 +108,7 @@ const ToolList: React.FC = () => {
             const data = await ApiClient.getTools();
             setTools(data);
         } catch (error) {
-            message.error('加载应用失败');
+            message.error(t('toolList.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -85,16 +117,19 @@ const ToolList: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteTool(id);
-            message.success('应用已删除');
+            message.success(t('toolList.messages.deleteSuccess'));
             fetchTools();
         } catch (error) {
-            message.error('删除失败');
+            message.error(t('toolList.messages.deleteFailed'));
         }
     };
 
     const handleEdit = (tool: QuickToolDTO) => {
         setEditingTool(tool);
-        form.setFieldsValue(tool);
+        form.setFieldsValue({
+            ...tool,
+            category: normalizeCategory(tool.category),
+        });
         // Init fileList for existing image
         if (tool.image) {
             setFileList([
@@ -117,6 +152,7 @@ const ToolList: React.FC = () => {
         form.setFieldsValue({
             color: 'blue',
             icon_name: 'Link',
+            category: 'general',
             image: ''
         });
         setFileList([]);
@@ -140,15 +176,15 @@ const ToolList: React.FC = () => {
             setSubmitLoading(true);
             if (editingTool) {
                 await ApiClient.updateTool(editingTool.id, values);
-                message.success('应用已更新');
+                message.success(t('toolList.messages.updateSuccess'));
             } else {
                 await ApiClient.createTool(values);
-                message.success('应用已创建');
+                message.success(t('toolList.messages.createSuccess'));
             }
             setIsModalOpen(false);
             fetchTools();
         } catch (error) {
-            message.error('操作失败，请检查网络或联系管理员');
+            message.error(t('toolList.messages.actionFailed'));
         } finally {
             setSubmitLoading(false);
         }
@@ -157,11 +193,11 @@ const ToolList: React.FC = () => {
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             <AppPageHeader
-                title="应用中心管理"
-                subtitle="管理首页快捷方式与工具卡片"
+                title={t('toolList.page.title')}
+                subtitle={t('toolList.page.subtitle')}
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
-                        新增应用
+                        {t('toolList.page.createButton')}
                     </AppButton>
                 }
             />
@@ -179,7 +215,7 @@ const ToolList: React.FC = () => {
                             bodyStyle={{ padding: 24 }}
                             actions={[
                                 <AppButton key="edit" intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(item)} />,
-                                <Popconfirm key="delete" title="确定删除?" onConfirm={() => handleDelete(item.id)}>
+                                <Popconfirm key="delete" title={t('toolList.popconfirm.deleteTitle')} onConfirm={() => handleDelete(item.id)}>
                                     <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} />
                                 </Popconfirm>,
                             ]}
@@ -189,7 +225,9 @@ const ToolList: React.FC = () => {
                                     <IconPreview iconName={item.icon_name} color={item.color} image={item.image} />
                                 </div>
                                 <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg mb-1">{item.name}</h3>
-                                <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 px-2 py-0.5 rounded-lg">{item.category}</span>
+                                <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 px-2 py-0.5 rounded-lg">
+                                    {t(`toolList.categories.${normalizeCategory(item.category)}`, { defaultValue: item.category })}
+                                </span>
                                 <p className="text-xs text-slate-400 mt-3 truncate w-full px-2">{item.url}</p>
                             </div>
                         </Card>
@@ -198,7 +236,7 @@ const ToolList: React.FC = () => {
             />
 
             <AppModal
-                title={editingTool ? '编辑应用' : '新增应用'}
+                title={editingTool ? t('toolList.modal.editTitle') : t('toolList.modal.createTitle')}
                 open={isModalOpen}
                 onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
@@ -206,7 +244,7 @@ const ToolList: React.FC = () => {
             >
                 <AppForm form={form} onFinish={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 items-start">
-                        <AppForm.Item label="应用图标 (优先显示自定义图片)" className="mb-0">
+                        <AppForm.Item label={t('toolList.form.icon')} className="mb-0">
                             <AppForm.Item name="image" noStyle>
                                 <Input hidden />
                             </AppForm.Item>
@@ -220,10 +258,10 @@ const ToolList: React.FC = () => {
                                     try {
                                         const url = await ApiClient.uploadImage(file as File);
                                         form.setFieldsValue({ image: url });
-                                        message.success('图片上传成功');
+                                        message.success(t('toolList.messages.uploadSuccess'));
                                         onSuccess?.(url);
                                     } catch (err) {
-                                        message.error('图片上传失败');
+                                        message.error(t('toolList.messages.uploadFailed'));
                                         onError?.(err as Error);
                                     }
                                 }}
@@ -231,7 +269,7 @@ const ToolList: React.FC = () => {
                                 {fileList.length >= 1 ? null : (
                                     <button style={{ border: 0, background: 'none' }} type="button">
                                         <PlusOutlined />
-                                        <div style={{ marginTop: 8 }}>上传图标</div>
+                                        <div style={{ marginTop: 8 }}>{t('toolList.form.uploadIcon')}</div>
                                     </button>
                                 )}
                             </Upload>
@@ -248,46 +286,46 @@ const ToolList: React.FC = () => {
                             )}
                         </AppForm.Item>
                         <div>
-                            <AppForm.Item name="color" label="颜色主题 (无图片时生效)">
-                                <Select placeholder="选择颜色">
-                                    <Option value="blue">蓝色</Option>
-                                    <Option value="purple">紫色</Option>
-                                    <Option value="emerald">翠绿</Option>
-                                    <Option value="rose">玫红</Option>
-                                    <Option value="orange">橙色</Option>
+                            <AppForm.Item name="color" label={t('toolList.form.color')}>
+                                <Select placeholder={t('toolList.form.placeholders.color')}>
+                                    <Option value="blue">{t('toolList.colors.blue')}</Option>
+                                    <Option value="purple">{t('toolList.colors.purple')}</Option>
+                                    <Option value="emerald">{t('toolList.colors.emerald')}</Option>
+                                    <Option value="rose">{t('toolList.colors.rose')}</Option>
+                                    <Option value="orange">{t('toolList.colors.orange')}</Option>
                                 </Select>
                             </AppForm.Item>
-                            <AppForm.Item name="icon_name" label="图标名称 (Lucide Icon, 无图片时生效)">
-                                <Input placeholder="e.g. Mail, Github, Slack" />
+                            <AppForm.Item name="icon_name" label={t('toolList.form.iconName')}>
+                                <Input placeholder={t('toolList.form.placeholders.iconName')} />
                             </AppForm.Item>
                         </div>
                     </div>
 
-                    <AppForm.Item name="name" label="应用名称" rules={[{ required: true, message: '请输入应用名称' }]}>
-                        <Input placeholder="请输入应用名称" />
+                    <AppForm.Item name="name" label={t('toolList.form.name')} rules={[{ required: true, message: t('toolList.form.validation.nameRequired') }]}>
+                        <Input placeholder={t('toolList.form.placeholders.name')} />
                     </AppForm.Item>
-                    <AppForm.Item name="url" label="链接 URL" rules={[{ required: true, message: '请输入链接' }]}>
-                        <Input placeholder="应用跳转链接" />
+                    <AppForm.Item name="url" label={t('toolList.form.url')} rules={[{ required: true, message: t('toolList.form.validation.urlRequired') }]}>
+                        <Input placeholder={t('toolList.form.placeholders.url')} />
                     </AppForm.Item>
-                    <AppForm.Item name="category" label="分类">
-                        <Select placeholder="选择分类">
-                            <Option value="行政">行政</Option>
-                            <Option value="IT">IT</Option>
-                            <Option value="财务">财务</Option>
-                            <Option value="人力资源">人力资源</Option>
-                            <Option value="研发">研发</Option>
-                            <Option value="设计">设计</Option>
-                            <Option value="营销">营销</Option>
-                            <Option value="法律">法律</Option>
-                            <Option value="通用">通用</Option>
-                            <Option value="其他">其他</Option>
+                    <AppForm.Item name="category" label={t('toolList.form.category')}>
+                        <Select placeholder={t('toolList.form.placeholders.category')}>
+                            <Option value="administration">{t('toolList.categories.administration')}</Option>
+                            <Option value="it">{t('toolList.categories.it')}</Option>
+                            <Option value="finance">{t('toolList.categories.finance')}</Option>
+                            <Option value="hr">{t('toolList.categories.hr')}</Option>
+                            <Option value="engineering">{t('toolList.categories.engineering')}</Option>
+                            <Option value="design">{t('toolList.categories.design')}</Option>
+                            <Option value="marketing">{t('toolList.categories.marketing')}</Option>
+                            <Option value="legal">{t('toolList.categories.legal')}</Option>
+                            <Option value="general">{t('toolList.categories.general')}</Option>
+                            <Option value="other">{t('toolList.categories.other')}</Option>
                         </Select>
                     </AppForm.Item>
-                    <AppForm.Item name="sort_order" label="显示优先级 (数值越大越靠前)">
-                        <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+                    <AppForm.Item name="sort_order" label={t('toolList.form.sortOrder')}>
+                        <InputNumber style={{ width: '100%' }} min={0} placeholder={t('toolList.form.placeholders.sortOrder')} />
                     </AppForm.Item>
-                    <AppForm.Item name="description" label="描述">
-                        <Input.TextArea rows={3} placeholder="应用描述（可选）" />
+                    <AppForm.Item name="description" label={t('toolList.form.description')}>
+                        <Input.TextArea rows={3} placeholder={t('toolList.form.placeholders.description')} />
                     </AppForm.Item>
                 </AppForm>
             </AppModal>

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, message, Switch, InputNumber, Divider, Select } from 'antd';
 import { SaveOutlined, SafetyCertificateOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
 
 const SecuritySettings: React.FC = () => {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
@@ -31,11 +33,11 @@ const SecuritySettings: React.FC = () => {
 
                 form.setFieldsValue(formattedConfig);
             } catch (error) {
-                message.error('安全设置加载失败');
+                message.error(t('securitySettingsPage.messages.loadFailed'));
             }
         };
         fetchConfig();
-    }, [form]);
+    }, [form, t]);
 
     const handleSave = async (values: any) => {
         setLoading(true);
@@ -54,9 +56,9 @@ const SecuritySettings: React.FC = () => {
             };
 
             await ApiClient.updateSystemConfig(payload);
-            message.success('安全设置保存成功');
+            message.success(t('securitySettingsPage.messages.saveSuccess'));
         } catch (error) {
-            message.error('安全设置保存失败');
+            message.error(t('securitySettingsPage.messages.saveFailed'));
         } finally {
             setLoading(false);
         }
@@ -67,8 +69,8 @@ const SecuritySettings: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
                 <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">基础设置</h2>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">Security Basic Configuration</p>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('securitySettingsPage.page.title')}</h2>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{t('securitySettingsPage.page.subtitle')}</p>
                 </div>
                 <AppButton
                     intent="primary"
@@ -76,7 +78,7 @@ const SecuritySettings: React.FC = () => {
                     onClick={() => form.submit()}
                     loading={loading}
                 >
-                    保存策略
+                    {t('securitySettingsPage.page.saveButton')}
                 </AppButton>
             </div>
 
@@ -100,13 +102,13 @@ const SecuritySettings: React.FC = () => {
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
 
-                            <LockOutlined className="mr-2" /> 多因素认证
+                            <LockOutlined className="mr-2" /> {t('securitySettingsPage.sections.mfa')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <Form.Item
                                 name="security_mfa_enabled"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">强制 MFA 认证</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.forceMfa')}</span>}
                                 valuePropName="checked"
                             >
                                 <Switch size="small" />
@@ -119,33 +121,33 @@ const SecuritySettings: React.FC = () => {
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
 
-                            <SafetyCertificateOutlined className="mr-2" /> 登录防护
+                            <SafetyCertificateOutlined className="mr-2" /> {t('securitySettingsPage.sections.loginProtection')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <Form.Item
                                 name="security_login_max_retries"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">最大重试次数</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.maxRetries')}</span>}
                             >
                                 <InputNumber min={3} max={10} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
                             <Form.Item
                                 name="security_lockout_duration"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">锁定时间 (分钟)</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.lockoutDuration')}</span>}
                             >
                                 <InputNumber min={5} max={1440} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
                             <Form.Item
                                 name="security_lockout_scope"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">锁定方式</span>}
-                                help={<span className="text-[10px] text-slate-400">账户锁定：仅锁定当前账户；IP锁定：锁定当前来源 IP。</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.lockoutScope')}</span>}
+                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.lockoutScopeHelp')}</span>}
                             >
                                 <Select
                                     options={[
-                                        { value: 'account', label: '按账户锁定' },
-                                        { value: 'ip', label: '按 IP 锁定' },
+                                        { value: 'account', label: t('securitySettingsPage.form.options.lockByAccount') },
+                                        { value: 'ip', label: t('securitySettingsPage.form.options.lockByIp') },
                                     ]}
                                     className="w-full"
                                 />
@@ -157,35 +159,35 @@ const SecuritySettings: React.FC = () => {
 
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
-                            <SafetyCertificateOutlined className="mr-2" /> 会话与验证码策略
+                            <SafetyCertificateOutlined className="mr-2" /> {t('securitySettingsPage.sections.sessionCaptcha')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                             <Form.Item
                                 name="max_concurrent_sessions"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">最大并发会话数</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.maxConcurrentSessions')}</span>}
                             >
                                 <InputNumber min={0} max={100} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
                             <Form.Item
                                 name="login_session_timeout_minutes"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">登录会话超时 (分钟)</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.sessionTimeoutMinutes')}</span>}
                             >
                                 <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
                             <Form.Item
                                 name="login_session_absolute_timeout_minutes"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">会话绝对超时 (分钟)</span>}
-                                help={<span className="text-[10px] text-slate-400">默认 480 分钟（8小时）</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.absoluteTimeoutMinutes')}</span>}
+                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.absoluteTimeoutHelp')}</span>}
                             >
                                 <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
                             <Form.Item
                                 name="login_captcha_threshold"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">验证码阈值 (次)</span>}
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.captchaThreshold')}</span>}
                             >
                                 <InputNumber min={1} max={20} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
@@ -197,18 +199,18 @@ const SecuritySettings: React.FC = () => {
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
 
-                            <GlobalOutlined className="mr-2" /> 网络访问控制
+                            <GlobalOutlined className="mr-2" /> {t('securitySettingsPage.sections.networkAccess')}
                         </h3>
 
                         <Form.Item
                             name="security_ip_allowlist"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">IP 白名单 (CIDR)</span>}
-                            help={<span className="text-[10px] text-slate-400">留空代表允许所有 IP</span>}
+                            label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.ipAllowlist')}</span>}
+                            help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.ipAllowlistHelp')}</span>}
                         >
                             <Input.TextArea
                                 rows={2}
                                 className="rounded-lg bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20 text-xs"
-                                placeholder="192.168.1.0/24"
+                                placeholder={t('securitySettingsPage.form.placeholders.ipAllowlist')}
                             />
                         </Form.Item>
                     </div>

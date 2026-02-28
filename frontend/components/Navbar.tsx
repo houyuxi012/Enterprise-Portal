@@ -10,6 +10,8 @@ import { AppView, Notification } from '../types';
 import ApiClient from '../services/api';
 import { hasAdminAccess } from '../utils/adminAccess';
 import ChangePasswordModal from './ChangePasswordModal';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
   currentView: AppView;
@@ -32,18 +34,20 @@ const Navbar: React.FC<NavbarProps> = ({
   currentView, setView, globalSearch, setGlobalSearch, onAskAI, onLogout,
   tools, news, employees, currentUser, systemConfig
 }) => {
+  const { t } = useTranslation();
+
   const formatRelativeTime = (value?: string): string => {
-    if (!value) return '刚刚';
+    if (!value) return t('navbar.time.justNow');
     const ts = new Date(value).getTime();
     if (Number.isNaN(ts)) return value;
     const diffMs = Date.now() - ts;
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin <= 1) return '刚刚';
-    if (diffMin < 60) return `${diffMin} 分钟前`;
+    if (diffMin <= 1) return t('navbar.time.justNow');
+    if (diffMin < 60) return t('navbar.time.minutesAgo', { count: diffMin });
     const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour} 小时前`;
+    if (diffHour < 24) return t('navbar.time.hoursAgo', { count: diffHour });
     const diffDay = Math.floor(diffHour / 24);
-    return `${diffDay} 天前`;
+    return t('navbar.time.daysAgo', { count: diffDay });
   };
 
   const parseBackendNotificationId = (id: string): number | null => {
@@ -110,9 +114,9 @@ const Navbar: React.FC<NavbarProps> = ({
         nextNotifications = [
           {
             id: 'weak-password-warning',
-            title: '安全提醒',
-            message: '您的密码不符合当前安全策略规定，请尽快修改。',
-            time: '刚刚',
+            title: t('navbar.weakPassword.title'),
+            message: t('navbar.weakPassword.message'),
+            time: t('navbar.time.justNow'),
             type: 'warning',
             isRead: localReadIds.has('weak-password-warning'),
           },
@@ -129,7 +133,7 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, currentUser?.password_violates_policy]);
+  }, [currentUser?.id, currentUser?.password_violates_policy, t]);
 
   const [aiPreviewAnswer, setAiPreviewAnswer] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -181,11 +185,11 @@ const Navbar: React.FC<NavbarProps> = ({
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
   const menuItems = useMemo(() => [
-    { id: AppView.DASHBOARD, label: '概览', icon: <LayoutDashboard size={18} /> },
-    { id: AppView.NEWS, label: '资讯', icon: <Newspaper size={18} /> },
-    { id: AppView.DIRECTORY, label: '团队', icon: <Users size={18} /> },
-    { id: AppView.TOOLS, label: '应用', icon: <Grid size={18} /> },
-  ], []);
+    { id: AppView.DASHBOARD, label: t('navbar.menu.overview'), icon: <LayoutDashboard size={18} /> },
+    { id: AppView.NEWS, label: t('navbar.menu.news'), icon: <Newspaper size={18} /> },
+    { id: AppView.DIRECTORY, label: t('navbar.menu.team'), icon: <Users size={18} /> },
+    { id: AppView.TOOLS, label: t('navbar.menu.apps'), icon: <Grid size={18} /> },
+  ], [t]);
 
   useEffect(() => {
     if (aiSearchTimeoutRef.current) clearTimeout(aiSearchTimeoutRef.current);
@@ -198,7 +202,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
     setIsAiLoading(true);
     aiSearchTimeoutRef.current = setTimeout(async () => {
-      const prompt = `作为一个内网助手，请针对以下搜索词提供非常简短（50字以内）的预览回答：${globalSearch}`;
+      const prompt = t('navbar.search.aiPrompt', { query: globalSearch });
       try {
         const response = await ApiClient.chatAI(prompt);
         setAiPreviewAnswer(response);
@@ -210,7 +214,7 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => {
       if (aiSearchTimeoutRef.current) clearTimeout(aiSearchTimeoutRef.current);
     };
-  }, [globalSearch, systemConfig]);
+  }, [globalSearch, systemConfig, t]);
 
   const previewResults = useMemo(() => {
     if (!globalSearch.trim()) return null;
@@ -306,9 +310,9 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   // Default values if currentUser is unknown
-  const username = currentUser?.username || '用户';
+  const username = currentUser?.username || t('navbar.defaults.username');
   const hasAdminIdentity = hasAdminAccess(currentUser);
-  const userRole = hasAdminIdentity ? '管理员' : '普通用户';
+  const userRole = hasAdminIdentity ? t('navbar.defaults.adminRole') : t('navbar.defaults.userRole');
 
   let userAvatar = currentUser?.avatar;
   if (!userAvatar) {
@@ -334,7 +338,7 @@ const Navbar: React.FC<NavbarProps> = ({
           >
             <img src={logoUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover group-hover:rotate-12 transition-transform duration-500" alt="Logo" />
             <span className="hidden xl:block font-black text-base text-slate-900 dark:text-white tracking-tighter whitespace-nowrap">
-              {systemConfig?.app_name || 'Next-Gen Enterprise Portal'}
+              {systemConfig?.app_name || t('navbar.defaults.appName')}
             </span>
           </div>
 
@@ -368,7 +372,7 @@ const Navbar: React.FC<NavbarProps> = ({
             <input
               ref={searchInputRef}
               className={`bg-transparent outline-none text-xs font-bold text-slate-700 dark:text-slate-200 ml-2 w-full ${isSearchVisible ? 'block' : 'hidden'}`}
-              placeholder="搜索人、事、物..."
+              placeholder={t('navbar.search.placeholder')}
               value={globalSearch}
               onChange={(e) => {
                 setGlobalSearch(e.target.value);
@@ -387,13 +391,13 @@ const Navbar: React.FC<NavbarProps> = ({
                 {isAiLoading ? (
                   <div className="flex items-center space-x-2 text-slate-400 text-xs mb-3 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">
                     <Loader2 size={12} className="animate-spin" />
-                    <span>AI 正在思考...</span>
+                    <span>{t('navbar.search.aiThinking')}</span>
                   </div>
                 ) : aiPreviewAnswer && (
                   <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
                     <div className="flex items-center space-x-2 mb-1 text-blue-600 dark:text-blue-400">
                       <Sparkles size={12} />
-                      <span className="text-[10px] font-black uppercase tracking-wider">AI 助手</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider">{t('navbar.search.aiAssistant')}</span>
                     </div>
                     <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{aiPreviewAnswer}</p>
                   </div>
@@ -404,7 +408,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   <div className="space-y-3 mb-3">
                     {previewResults.tools.length > 0 && (
                       <div>
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">应用</h4>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">{t('navbar.search.appsSection')}</h4>
                         {previewResults.tools.map((t: any) => (
                           <div key={t.id} className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
                             <div className="w-5 h-5 rounded bg-white shadow-sm flex items-center justify-center text-xs">{t.icon_name ? <span>{t.icon_name[0]}</span> : <Grid size={10} />}</div>
@@ -417,7 +421,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 )}
                 {/* External Engines */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">全网搜索</h4>
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">{t('navbar.search.webSearch')}</h4>
                   <div className="space-y-1">
                     <button onClick={() => openExternalSearch('google')} className="w-full text-left px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-xs font-bold text-slate-600 dark:text-slate-300">
                       Google
@@ -426,7 +430,7 @@ const Navbar: React.FC<NavbarProps> = ({
                       Bing
                     </button>
                     <button onClick={() => openExternalSearch('baidu')} className="w-full text-left px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-xs font-bold text-slate-600 dark:text-slate-300">
-                      百度
+                      {t('navbar.search.baidu')}
                     </button>
                   </div>
                 </div>
@@ -449,10 +453,10 @@ const Navbar: React.FC<NavbarProps> = ({
             {isNotificationsOpen && (
               <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default">
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">通知消息</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('navbar.notifications.title')}</h3>
                   {unreadCount > 0 && (
                     <button onClick={markAllAsRead} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
-                      全部已读
+                      {t('navbar.notifications.markAllRead')}
                     </button>
                   )}
                 </div>
@@ -479,7 +483,7 @@ const Navbar: React.FC<NavbarProps> = ({
                               </p>
                               {notification.isRead && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                  已读
+                                  {t('navbar.notifications.read')}
                                 </span>
                               )}
                             </div>
@@ -496,7 +500,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   ) : (
                     <div className="py-12 flex flex-col items-center justify-center text-slate-400">
                       <Bell size={32} className="mb-3 text-slate-300 dark:text-slate-600" />
-                      <p className="text-sm">暂无新通知</p>
+                      <p className="text-sm">{t('navbar.notifications.empty')}</p>
                     </div>
                   )}
                 </div>
@@ -509,7 +513,7 @@ const Navbar: React.FC<NavbarProps> = ({
                       }}
                       className="w-full py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
                     >
-                      查看全部通知
+                      {t('navbar.notifications.viewAll')}
                     </button>
                   </div>
                 )}
@@ -553,8 +557,14 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
                   >
                     <Settings size={16} className="text-slate-400" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">偏好设置</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('navbar.profile.settings')}</span>
                   </button>
+                  <div className="px-4 pt-1 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      {t('navbar.profile.language')}
+                    </div>
+                    <LanguageSwitcher className="w-full" />
+                  </div>
                   <button
                     onClick={() => {
                       setChangePasswordModalOpen(true);
@@ -563,7 +573,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
                   >
                     <KeyOutlined size={16} className="text-slate-400" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">修改密码</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('navbar.profile.changePassword')}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -573,7 +583,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors text-left group"
                   >
                     <LogOut size={16} className="text-slate-400 group-hover:text-rose-500" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-rose-600">退出登录</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-rose-600">{t('navbar.profile.logout')}</span>
                   </button>
                 </div>
               </div>

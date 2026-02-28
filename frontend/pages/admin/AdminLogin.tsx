@@ -4,6 +4,8 @@ import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles } 
 import { useAuth } from '../../contexts/AuthContext';
 import ApiClient from '../../services/api';
 import { hasAdminAccess } from '../../utils/adminAccess';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 import { AppModal, AppButton } from '../../components/admin';
 
@@ -12,6 +14,7 @@ interface AdminLoginProps {
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
+    const { t } = useTranslation();
     const { login, logout } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
@@ -33,7 +36,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             setCaptchaId(data.captcha_id);
             setCaptchaImage(data.captcha_image);
         } catch (e) {
-            message.error('获取验证码失败');
+            message.error(t('loginAdmin.messages.captchaFetchFailed'));
         }
     };
 
@@ -60,10 +63,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 const normalizedCaptcha = captchaCode.trim();
                 if (!captchaId) {
                     await fetchCaptcha();
-                    throw new Error('验证码加载中，请稍后重试');
+                    throw new Error(t('loginAdmin.messages.captchaLoading'));
                 }
                 if (normalizedCaptcha.length !== 4) {
-                    throw new Error('请输入4位验证码');
+                    throw new Error(t('loginAdmin.messages.captchaLength'));
                 }
                 headers['X-Captcha-ID'] = captchaId;
                 headers['X-Captcha-Code'] = normalizedCaptcha;
@@ -71,13 +74,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             const user = await login(username, password, 'admin', headers);
 
             if (!hasAdminAccess(user)) {
-                const msg = '权限不足：需要管理员权限';
+                const msg = t('loginAdmin.messages.noAdminAccess');
                 setError(msg);
                 message.error(msg);
                 logout(); // Clear invalid session
                 return;
             }
-            message.success('管理员登录成功');
+            message.success(t('loginAdmin.messages.loginSuccess'));
             onLoginSuccess();
         } catch (err: any) {
             // Parse backend error response
@@ -88,7 +91,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             const detailCode = typeof detailPayload === 'object' && detailPayload?.code
                 ? String(detailPayload.code)
                 : '';
-            let msg = err?.message || '登录失败，请检查网络连接';
+            let msg = err?.message || t('loginAdmin.messages.loginFailedNetwork');
             const shouldShowCaptcha =
                 err?.response?.status === 428 ||
                 err?.response?.headers?.['x-requires-captcha'] === 'true' ||
@@ -99,20 +102,20 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 fetchCaptcha();
                 setCaptchaCode('');
                 if (/invalid|expired/i.test(String(detail))) {
-                    msg = '验证码错误或已过期，请重试';
+                    msg = t('loginAdmin.messages.captchaInvalid');
                 } else if (/verification required/i.test(String(detail))) {
-                    msg = '需要验证码，请输入后重试';
+                    msg = t('loginAdmin.messages.captchaRequired');
                 } else {
-                    msg = detail || '请输入验证码';
+                    msg = detail || t('loginAdmin.messages.captchaPleaseInput');
                 }
             } else if (detail.includes('locked')) {
-                msg = '账户已被锁定，请稍后再试';
+                msg = t('loginAdmin.messages.accountLocked');
             } else if (detail.includes('IP')) {
-                msg = '当前 IP 地址无访问权限';
-            } else if (err?.response?.status === 403 && (/并发|concurrent/i.test(String(detail)))) {
-                msg = '该用户超过并发设定，请退出其他设备后再次尝试登陆';
+                msg = t('loginAdmin.messages.ipForbidden');
+            } else if (err?.response?.status === 403 && (/concurrent|session limit/i.test(String(detail)))) {
+                msg = t('loginAdmin.messages.concurrentExceeded');
             } else if (err?.response?.status === 401) {
-                msg = '用户名或密码错误';
+                msg = t('loginAdmin.messages.invalidCredentials');
             }
 
             setError(msg);
@@ -137,7 +140,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-blue-500/50"
                             alt="Logo"
                         />
-                        <span className="text-white font-bold text-xl tracking-wide">{systemConfig.app_name || 'Next-Gen Enterprise Portal'}</span>
+                        <span className="text-white font-bold text-xl tracking-wide">{systemConfig.app_name || t('loginAdmin.fallbackAppName')}</span>
                     </div>
 
                     <h1 className="text-5xl font-black text-white leading-tight tracking-tight mb-8">
@@ -157,24 +160,27 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             <Lock size={16} />
                         </div>
                         <div>
-                            <p className="text-white text-xs font-bold uppercase tracking-wider">企业级身份与访问治理</p>
-                            <p className="text-slate-500 text-[10px]">零信任架构 · 身份驱动安全 · 全链路审计</p>
+                            <p className="text-white text-xs font-bold uppercase tracking-wider">{t('loginAdmin.identityGovernanceTitle')}</p>
+                            <p className="text-slate-500 text-[10px]">{t('loginAdmin.identityGovernanceSubtitle')}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Right Panel - Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+                <div className="absolute top-6 right-6">
+                    <LanguageSwitcher />
+                </div>
                 <div className="max-w-md w-full">
                     <div className="mb-10">
-                        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">欢迎回来</h2>
-                        <p className="text-slate-500 text-sm">请使用您的企业账户登录系统</p>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{t('loginAdmin.welcomeTitle')}</h2>
+                        <p className="text-slate-500 text-sm">{t('loginAdmin.welcomeSubtitle')}</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">企业邮箱 / 企业账号</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{t('loginAdmin.accountLabel')}</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                                     <MailIcon size={18} />
@@ -184,7 +190,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="block w-full pl-11 pr-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
-                                    placeholder="name@shiku.com"
+                                    placeholder={t('loginPortal.usernamePlaceholder')}
                                     required
                                 />
                             </div>
@@ -192,8 +198,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
                         <div className="space-y-2">
                             <div className="flex justify-between ml-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">登录密码</label>
-                                <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700">忘记密码?</a>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('loginAdmin.passwordLabel')}</label>
+                                <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700">{t('loginAdmin.forgotPassword')}</a>
                             </div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
@@ -204,7 +210,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="block w-full pl-11 pr-12 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
-                                    placeholder="••••••••"
+                                    placeholder={t('loginAdmin.passwordPlaceholder')}
                                     required
                                 />
                                 <button
@@ -225,7 +231,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                                         value={captchaCode}
                                         onChange={(e) => setCaptchaCode(e.target.value)}
                                         className="block w-full px-4 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
-                                        placeholder="验证码"
+                                        placeholder={t('loginAdmin.captchaPlaceholder')}
                                         required
                                         maxLength={4}
                                     />
@@ -233,7 +239,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                                 <div
                                     className="h-[52px] min-w-[120px] bg-slate-100 rounded-2xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-slate-200 dark:border-slate-700"
                                     onClick={fetchCaptcha}
-                                    title="点击刷新验证码"
+                                    title={t('loginAdmin.captchaRefreshTitle')}
                                 >
                                     {captchaImage ? (
                                         <img src={captchaImage} alt="captcha" className="w-full h-full object-contain" />
@@ -259,7 +265,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         >
                             {isLoading ? <Loader2 size={20} className="animate-spin" /> : (
                                 <>
-                                    <span className="mr-2">立即登录</span>
+                                    <span className="mr-2">{t('loginAdmin.submit')}</span>
                                 </>
                             )}
                         </button>
@@ -267,14 +273,14 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
                     <div className="mt-12 flex justify-between items-center text-[10px] text-slate-300 font-medium uppercase tracking-widest">
                         <div className="flex items-center space-x-1">
-                            <span>© 2025 侯钰熙. All Rights Reserved.</span>
+                            <span>{t('loginAdmin.footer')}</span>
                         </div>
                         <a
                             href="#"
                             onClick={(e) => { e.preventDefault(); setIsPrivacyOpen(true); }}
                             className="hover:text-slate-500 transition-colors"
                         >
-                            隐私权政策
+                            {t('loginAdmin.privacyPolicy')}
                         </a>
                     </div>
 
@@ -282,19 +288,19 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             </div>
 
             <AppModal
-                title="隐私权政策"
+                title={t('loginAdmin.privacyPolicyTitle')}
                 open={isPrivacyOpen}
                 onCancel={() => setIsPrivacyOpen(false)}
                 footer={[
                     <AppButton key="close" onClick={() => setIsPrivacyOpen(false)}>
-                        已阅读并关闭
+                        {t('loginAdmin.privacyPolicyClose')}
                     </AppButton>
                 ]}
                 width={700}
                 styles={{ body: { maxHeight: '60vh', overflowY: 'auto' } }}
             >
                 <div className="prose prose-slate dark:prose-invert max-w-none p-4 whitespace-pre-wrap text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {systemConfig.privacy_policy || '暂无隐私政策内容。请在系统设置中配置。'}
+                    {systemConfig.privacy_policy || t('loginAdmin.privacyPolicyEmpty')}
                 </div>
             </AppModal>
         </div>

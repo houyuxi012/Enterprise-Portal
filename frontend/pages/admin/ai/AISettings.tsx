@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Switch, message, Upload, Avatar, Select } from 'antd';
-import { SaveOutlined, UploadOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Switch, message, Upload, Select } from 'antd';
+import { SaveOutlined, UploadOutlined, RobotOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient from '../../../services/api';
 import AppButton from '../../../components/AppButton';
 
 const AISettings: React.FC = () => {
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
     const [imageUrl, setImageUrl] = useState<string>('');
@@ -21,7 +23,7 @@ const AISettings: React.FC = () => {
             setModels(modelList);
 
             form.setFieldsValue({
-                ai_name: config.ai_name || 'AI Assistant',
+                ai_name: config.ai_name || t('aiSettingsPage.preview.defaultName'),
                 ai_icon: config.ai_icon || '',
                 ai_enabled: config.ai_enabled !== 'false', // Default true implies enabled unless explicitly false
                 search_ai_enabled: config.search_ai_enabled !== 'false',
@@ -30,7 +32,7 @@ const AISettings: React.FC = () => {
             });
             setImageUrl(config.ai_icon || '');
         } catch (error) {
-            message.error('Failed to load settings');
+            message.error(t('aiSettingsPage.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -54,36 +56,29 @@ const AISettings: React.FC = () => {
                 default_ai_model: values.default_ai_model ? String(values.default_ai_model) : '',
             };
             await ApiClient.updateSystemConfig(configToSave);
-            message.success('Settings saved successfully');
+            message.success(t('aiSettingsPage.messages.saveSuccess'));
             // Trigger a re-fetch or context update if needed
             window.location.reload(); // Simple reload to apply global changes for now
         } catch (error) {
-            message.error('Failed to save settings');
+            message.error(t('aiSettingsPage.messages.saveFailed'));
         } finally {
             setLoading(false);
         }
-    };
-
-    const normFile = (e: any) => {
-        if (Array.isArray(e)) {
-            return e;
-        }
-        return e?.fileList;
     };
 
     return (
         <div className="animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">基础设置</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">配置 AI 助手的基本信息与功能开关</p>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('aiSettingsPage.page.title')}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('aiSettingsPage.page.subtitle')}</p>
                 </div>
                 <AppButton
                     intent="primary"
                     icon={<SaveOutlined />}
                     onClick={() => form.submit()}
                     loading={loading}
-                >保存设置</AppButton>
+                >{t('aiSettingsPage.page.saveButton')}</AppButton>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -97,37 +92,37 @@ const AISettings: React.FC = () => {
                         >
                             <Form.Item
                                 name="ai_enabled"
-                                label="启用 AI 助手"
+                                label={t('aiSettingsPage.form.aiEnabled')}
                                 valuePropName="checked"
-                                help="关闭后，全站将隐藏 AI 助手入口"
+                                help={t('aiSettingsPage.form.aiEnabledHelp')}
                             >
                                 <Switch />
                             </Form.Item>
 
                             <Form.Item
                                 name="search_ai_enabled"
-                                label="启用搜索栏 AI 增强"
+                                label={t('aiSettingsPage.form.searchAiEnabled')}
                                 valuePropName="checked"
-                                help="在搜索栏提供 AI 智能预览结果以及搜索建议"
+                                help={t('aiSettingsPage.form.searchAiEnabledHelp')}
                             >
                                 <Switch />
                             </Form.Item>
 
                             <Form.Item
                                 name="kb_enabled"
-                                label="启用本地知识库"
+                                label={t('aiSettingsPage.form.kbEnabled')}
                                 valuePropName="checked"
-                                help="开启后，AI 助手将优先从本地知识库检索信息以回答问题"
+                                help={t('aiSettingsPage.form.kbEnabledHelp')}
                             >
                                 <Switch />
                             </Form.Item>
 
                             <Form.Item
                                 name="default_ai_model"
-                                label="默认 AI 模型"
-                                help="AI 助手启动时默认选中的模型"
+                                label={t('aiSettingsPage.form.defaultModel')}
+                                help={t('aiSettingsPage.form.defaultModelHelp')}
                             >
-                                <Select placeholder="选择默认模型">
+                                <Select placeholder={t('aiSettingsPage.form.placeholders.defaultModel')}>
                                     {models.map(m => (
                                         <Select.Option key={m.id} value={m.id}>{m.name} ({m.model})</Select.Option>
                                     ))}
@@ -136,16 +131,16 @@ const AISettings: React.FC = () => {
 
                             <Form.Item
                                 name="ai_name"
-                                label="助手名称"
-                                rules={[{ required: true, message: '请输入助手名称' }]}
+                                label={t('aiSettingsPage.form.name')}
+                                rules={[{ required: true, message: t('aiSettingsPage.form.validation.nameRequired') }]}
                             >
-                                <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder="例如: 企业智能助手" className="h-10 rounded-lg" />
+                                <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder={t('aiSettingsPage.form.placeholders.name')} className="h-10 rounded-lg" />
                             </Form.Item>
 
                             <Form.Item
                                 name="ai_icon"
-                                label="助手图标"
-                                help="支持 PNG 格式图片上传，也可直接输入 URL"
+                                label={t('aiSettingsPage.form.icon')}
+                                help={t('aiSettingsPage.form.iconHelp')}
                             >
                                 <div className="flex gap-3">
                                     <Input
@@ -154,7 +149,7 @@ const AISettings: React.FC = () => {
                                             setImageUrl(e.target.value);
                                             form.setFieldValue('ai_icon', e.target.value);
                                         }}
-                                        placeholder="https://example.com/icon.png"
+                                        placeholder={t('aiSettingsPage.form.placeholders.iconUrl')}
                                         className="h-10 rounded-lg flex-1"
                                         prefix={<UploadOutlined className="text-slate-400" />}
                                     />
@@ -163,7 +158,7 @@ const AISettings: React.FC = () => {
                                         showUploadList={false}
                                         beforeUpload={(file) => {
                                             if (file.type !== 'image/png') {
-                                                message.error('只支持 PNG 格式的图片!');
+                                                message.error(t('aiSettingsPage.messages.onlyPng'));
                                                 return Upload.LIST_IGNORE;
                                             }
                                             return true;
@@ -173,15 +168,15 @@ const AISettings: React.FC = () => {
                                                 const url = await ApiClient.uploadImage(file as File);
                                                 setImageUrl(url);
                                                 form.setFieldValue('ai_icon', url);
-                                                message.success('图标上传成功');
+                                                message.success(t('aiSettingsPage.messages.uploadSuccess'));
                                                 onSuccess?.(url);
                                             } catch (err) {
-                                                message.error('上传失败');
+                                                message.error(t('aiSettingsPage.messages.uploadFailed'));
                                                 onError?.(err as Error);
                                             }
                                         }}
                                     >
-                                        <AppButton intent="secondary" icon={<UploadOutlined />}>上传 PNG</AppButton>
+                                        <AppButton intent="secondary" icon={<UploadOutlined />}>{t('aiSettingsPage.form.uploadPng')}</AppButton>
                                     </Upload>
                                 </div>
                             </Form.Item>
@@ -192,7 +187,7 @@ const AISettings: React.FC = () => {
                 <div className="lg:col-span-1">
                     <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full">
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-6">预览效果</h3>
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-6">{t('aiSettingsPage.preview.title')}</h3>
 
                             <div className="relative group cursor-pointer">
                                 <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 overflow-hidden transition-transform duration-300 group-hover:scale-110">
@@ -205,16 +200,16 @@ const AISettings: React.FC = () => {
                             </div>
 
                             <h4 className="mt-4 font-bold text-slate-800 dark:text-white">
-                                {form.getFieldValue('ai_name') || 'AI Assistant'}
+                                {form.getFieldValue('ai_name') || t('aiSettingsPage.preview.defaultName')}
                             </h4>
-                            <p className="text-xs text-slate-400 mt-1">点击右下角浮窗即可唤起</p>
+                            <p className="text-xs text-slate-400 mt-1">{t('aiSettingsPage.preview.tip')}</p>
 
                             <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-left w-full">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">配置说明</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">{t('aiSettingsPage.preview.notesTitle')}</span>
                                 <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-2 list-disc list-inside">
-                                    <li>支持 JPG, PNG, SVG 格式图标</li>
-                                    <li>建议尺寸 128x128 像素</li>
-                                    <li>关闭开关后即时生效</li>
+                                    <li>{t('aiSettingsPage.preview.notes.iconFormats')}</li>
+                                    <li>{t('aiSettingsPage.preview.notes.recommendedSize')}</li>
+                                    <li>{t('aiSettingsPage.preview.notes.toggleEffective')}</li>
                                 </ul>
                             </div>
                         </div>

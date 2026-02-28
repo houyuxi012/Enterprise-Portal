@@ -1,31 +1,33 @@
 import React from 'react';
 import { ShieldCheck, BrainCircuit, Database, Fingerprint } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const AboutUs: React.FC = () => {
+    const { t } = useTranslation();
     const stats = [
         {
             icon: <ShieldCheck className="w-6 h-6 text-indigo-500" />,
-            value: '零信任架构',
-            label: '双重认证与 RBAC 权限',
-            color: 'indigo'
+            valueKey: 'aboutUsPage.stats.zeroTrust.value',
+            labelKey: 'aboutUsPage.stats.zeroTrust.label',
+            colorClass: 'bg-indigo-50 dark:bg-indigo-900/10'
         },
         {
             icon: <BrainCircuit className="w-6 h-6 text-blue-500" />,
-            value: '大模型聚合',
-            label: '多厂商 AI 引擎接入',
-            color: 'blue'
+            valueKey: 'aboutUsPage.stats.multiModel.value',
+            labelKey: 'aboutUsPage.stats.multiModel.label',
+            colorClass: 'bg-blue-50 dark:bg-blue-900/10'
         },
         {
             icon: <Database className="w-6 h-6 text-violet-500" />,
-            value: '智能知识库',
-            label: '基于 RAG 的向量检索',
-            color: 'violet'
+            valueKey: 'aboutUsPage.stats.knowledgeBase.value',
+            labelKey: 'aboutUsPage.stats.knowledgeBase.label',
+            colorClass: 'bg-violet-50 dark:bg-violet-900/10'
         },
         {
             icon: <Fingerprint className="w-6 h-6 text-rose-500" />,
-            value: '全链路审计',
-            label: '细粒度行为与 AI 追责',
-            color: 'rose'
+            valueKey: 'aboutUsPage.stats.audit.value',
+            labelKey: 'aboutUsPage.stats.audit.label',
+            colorClass: 'bg-rose-50 dark:bg-rose-900/10'
         }
     ];
 
@@ -39,21 +41,21 @@ const AboutUs: React.FC = () => {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
                 <span className="text-[10px] font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-300 uppercase">
-                    零信任架构 · 身份驱动安全 · 全链路审计
+                    {t('aboutUsPage.badge')}
                 </span>
             </div>
 
             {/* Title */}
             <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight mb-2 text-center">
-                关于
+                {t('aboutUsPage.titlePrefix')}
             </h1>
             <h1 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-8 text-center drop-shadow-sm">
-                Next-Gen Enterprise Portal
+                {t('aboutUsPage.titleMain')}
             </h1>
 
             {/* Description */}
             <p className="max-w-2xl text-center text-slate-500 dark:text-slate-400 text-sm md:text-base font-medium leading-relaxed mb-16">
-                我们致力于构建下一代企业级智慧协作生态，通过 AI 驱动的技术方案，让每一位员工都能在数字空间中释放无限潜能。
+                {t('aboutUsPage.description')}
             </p>
 
             {/* Cards Grid */}
@@ -63,14 +65,14 @@ const AboutUs: React.FC = () => {
                         key={index}
                         className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-50 dark:border-slate-700/50 flex flex-col items-center justify-center group hover:-translate-y-2 transition-transform duration-500"
                     >
-                        <div className={`mb-4 p-4 bg-${stat.color}-50 dark:bg-${stat.color}-900/10 rounded-2xl group-hover:scale-110 transition-transform duration-500`}>
+                        <div className={`mb-4 p-4 rounded-2xl group-hover:scale-110 transition-transform duration-500 ${stat.colorClass}`}>
                             {stat.icon}
                         </div>
                         <div className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
-                            {stat.value}
+                            {t(stat.valueKey)}
                         </div>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {stat.label}
+                            {t(stat.labelKey)}
                         </div>
                     </div>
                 ))}

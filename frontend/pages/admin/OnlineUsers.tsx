@@ -1,20 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { App, Avatar, Card, Input, Select, Space } from 'antd';
 import { DisconnectOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { OnlineUserSession } from '../../types';
 import ApiClient from '../../services/api';
 import { AppButton, AppPageHeader, AppTable, AppTag } from '../../components/admin';
 
-const formatDateTime = (value?: string | null): string => {
+const formatDateTime = (value?: string | null, locale: string = 'en-US'): string => {
   if (!value) return '-';
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return '-';
-  return dt.toLocaleString('zh-CN', { hour12: false });
+  return dt.toLocaleString(locale, { hour12: false });
 };
 
 const OnlineUsers: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { message, modal } = App.useApp();
+  const dateLocale = i18n.resolvedLanguage === 'zh-CN' ? 'zh-CN' : 'en-US';
   const [loading, setLoading] = useState(false);
   const [audienceScope, setAudienceScope] = useState<'admin' | 'portal' | 'all'>('all');
   const [searchText, setSearchText] = useState('');
@@ -32,7 +35,7 @@ const OnlineUsers: React.FC = () => {
       setRows(data);
     } catch (error) {
       console.error(error);
-      message.error('加载在线用户失败');
+      message.error(t('onlineUsers.messages.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -54,17 +57,17 @@ const OnlineUsers: React.FC = () => {
 
   const handleKickOne = (record: OnlineUserSession) => {
     modal.confirm({
-      title: `确定将用户 ${record.username} 退出全部设备吗？`,
-      content: '该操作会立即使该用户所有在线会话失效。',
-      okText: '确认踢下线',
-      cancelText: '取消',
+      title: t('onlineUsers.confirm.singleTitle', { username: record.username }),
+      content: t('onlineUsers.confirm.singleContent'),
+      okText: t('onlineUsers.confirm.ok'),
+      cancelText: t('onlineUsers.confirm.cancel'),
       onOk: async () => {
         try {
           const result = await ApiClient.kickUserSessions(record.user_id, 'all');
-          message.success(`已踢下线，失效会话 ${result.revoked_sessions} 个`);
+          message.success(t('onlineUsers.messages.singleKickSuccess', { count: result.revoked_sessions }));
           await fetchData();
         } catch (error: any) {
-          message.error(error?.response?.data?.detail || '踢下线失败');
+          message.error(error?.response?.data?.detail || t('onlineUsers.messages.singleKickFailed'));
         }
       },
     });
@@ -73,13 +76,13 @@ const OnlineUsers: React.FC = () => {
   const handleBatchKick = () => {
     if (selectedRowKeys.length === 0) return;
     modal.confirm({
-      title: `确定将选中的 ${selectedRowKeys.length} 位用户退出全部设备吗？`,
-      content: '该操作会立即使所选用户全部在线会话失效。',
-      okText: '确认踢下线',
-      cancelText: '取消',
+      title: t('onlineUsers.confirm.batchTitle', { count: selectedRowKeys.length }),
+      content: t('onlineUsers.confirm.batchContent'),
+      okText: t('onlineUsers.confirm.ok'),
+      cancelText: t('onlineUsers.confirm.cancel'),
       onOk: async () => {
         setKicking(true);
-        const hide = message.loading('正在执行踢下线...', 0);
+        const hide = message.loading(t('onlineUsers.messages.batchKicking'), 0);
         try {
           const targetRows = filteredRows.filter((row) => selectedRowKeys.includes(row.user_id));
           const settled = await Promise.allSettled(
@@ -93,14 +96,14 @@ const OnlineUsers: React.FC = () => {
           );
 
           if (failed === 0) {
-            message.success(`批量踢下线成功，累计失效会话 ${revokedTotal} 个`);
+            message.success(t('onlineUsers.messages.batchKickSuccess', { count: revokedTotal }));
           } else {
-            message.warning(`批量踢下线完成：成功 ${success.length}，失败 ${failed}`);
+            message.warning(t('onlineUsers.messages.batchKickPartial', { success: success.length, failed }));
           }
           setSelectedRowKeys([]);
           await fetchData();
         } catch (error) {
-          message.error('批量踢下线失败');
+          message.error(t('onlineUsers.messages.batchKickFailed'));
         } finally {
           hide();
           setKicking(false);
@@ -111,7 +114,7 @@ const OnlineUsers: React.FC = () => {
 
   const columns: ColumnsType<OnlineUserSession> = [
     {
-      title: '用户',
+      title: t('onlineUsers.table.user'),
       dataIndex: 'username',
       key: 'username',
       render: (_value: string, record: OnlineUserSession) => (
@@ -130,48 +133,48 @@ const OnlineUsers: React.FC = () => {
       ),
     },
     {
-      title: '邮箱',
+      title: t('onlineUsers.table.email'),
       dataIndex: 'email',
       key: 'email',
       render: (value: string | null | undefined) => value || '-',
     },
     {
-      title: 'Portal 会话',
+      title: t('onlineUsers.table.portalSessions'),
       dataIndex: 'portal_sessions',
       key: 'portal_sessions',
       width: 120,
     },
     {
-      title: 'Admin 会话',
+      title: t('onlineUsers.table.adminSessions'),
       dataIndex: 'admin_sessions',
       key: 'admin_sessions',
       width: 120,
     },
     {
-      title: '总会话数',
+      title: t('onlineUsers.table.totalSessions'),
       dataIndex: 'total_sessions',
       key: 'total_sessions',
       width: 100,
       render: (value: number) => <span className="font-semibold text-slate-700">{value}</span>,
     },
     {
-      title: '状态',
+      title: t('onlineUsers.table.status'),
       dataIndex: 'is_active',
       key: 'is_active',
       width: 100,
       render: (value: boolean) => (
-        <AppTag status={value ? 'success' : 'default'}>{value ? '启用' : '禁用'}</AppTag>
+        <AppTag status={value ? 'success' : 'default'}>{value ? t('onlineUsers.status.enabled') : t('onlineUsers.status.disabled')}</AppTag>
       ),
     },
     {
-      title: '最晚过期',
+      title: t('onlineUsers.table.latestExpire'),
       dataIndex: 'latest_exp_at',
       key: 'latest_exp_at',
       width: 190,
-      render: (value: string | null | undefined) => formatDateTime(value),
+      render: (value: string | null | undefined) => formatDateTime(value, dateLocale),
     },
     {
-      title: '操作',
+      title: t('onlineUsers.table.actions'),
       key: 'action',
       align: 'right',
       width: 180,
@@ -182,7 +185,7 @@ const OnlineUsers: React.FC = () => {
           icon={<DisconnectOutlined />}
           onClick={() => handleKickOne(record)}
         >
-          退出全部设备
+          {t('onlineUsers.table.kickAll')}
         </AppButton>
       ),
     },
@@ -191,12 +194,12 @@ const OnlineUsers: React.FC = () => {
   return (
     <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
       <AppPageHeader
-        title="在线用户"
-        subtitle="查看当前在线会话并支持强制下线"
+        title={t('onlineUsers.page.title')}
+        subtitle={t('onlineUsers.page.subtitle')}
         action={
           <Space>
             <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchData}>
-              刷新
+              {t('common.buttons.refresh')}
             </AppButton>
           </Space>
         }
@@ -207,7 +210,7 @@ const OnlineUsers: React.FC = () => {
           <Space wrap>
             <Input.Search
               allowClear
-              placeholder="搜索姓名、账号或邮箱"
+              placeholder={t('onlineUsers.filters.searchPlaceholder')}
               style={{ width: 320 }}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -218,9 +221,9 @@ const OnlineUsers: React.FC = () => {
               style={{ width: 180 }}
               onChange={(value) => setAudienceScope(value)}
               options={[
-                { label: '全部会话', value: 'all' },
-                { label: 'Portal 会话', value: 'portal' },
-                { label: 'Admin 会话', value: 'admin' },
+                { label: t('onlineUsers.filters.allSessions'), value: 'all' },
+                { label: t('onlineUsers.filters.portalSessions'), value: 'portal' },
+                { label: t('onlineUsers.filters.adminSessions'), value: 'admin' },
               ]}
             />
           </Space>
@@ -228,7 +231,7 @@ const OnlineUsers: React.FC = () => {
           {selectedRowKeys.length > 0 && (
             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
               <span className="text-sm text-slate-500 font-medium mr-2">
-                已选 {selectedRowKeys.length} 项
+                {t('onlineUsers.batch.selected', { count: selectedRowKeys.length })}
               </span>
               <AppButton
                 intent="danger"
@@ -237,7 +240,7 @@ const OnlineUsers: React.FC = () => {
                 loading={kicking}
                 onClick={handleBatchKick}
               >
-                退出全部设备/踢下线
+                {t('onlineUsers.batch.kickButton')}
               </AppButton>
             </div>
           )}
@@ -251,7 +254,7 @@ const OnlineUsers: React.FC = () => {
           columns={columns}
           dataSource={filteredRows}
           pageSize={10}
-          emptyText="当前没有在线用户"
+          emptyText={t('onlineUsers.table.empty')}
           rowSelection={{
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys),

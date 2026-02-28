@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, ChevronRight, Folder, FolderOpen, Building2, Users 
 import { Department, UserOption } from '../../types';
 import ApiClient from '../../services/api';
 import { message, Tree, Empty, Input, Select, Popconfirm, Card, Descriptions, Tag, Statistic, Row, Col } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import {
@@ -15,6 +16,7 @@ import {
 const { TextArea } = Input;
 
 const OrganizationList: React.FC = () => {
+    const { t } = useTranslation();
     const [departments, setDepartments] = useState<Department[]>([]);
     const [treeData, setTreeData] = useState<DataNode[]>([]);
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
@@ -25,7 +27,6 @@ const OrganizationList: React.FC = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [userOptions, setUserOptions] = useState<UserOption[]>([]);
 
-    // 计算部门总数
     const countDepts = (list: Department[]): number =>
         list.reduce((acc, d) => acc + 1 + (d.children ? countDepts(d.children) : 0), 0);
 
@@ -44,7 +45,7 @@ const OrganizationList: React.FC = () => {
             setExpandedKeys(data.map(d => d.id));
             setUserOptions(Array.isArray(users) ? users : []);
         } catch (error) {
-            message.error("加载部门数据失败");
+            message.error(t('organizationList.messages.loadFailed'));
         }
     };
 
@@ -95,11 +96,11 @@ const OrganizationList: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteDepartment(id);
-            message.success('部门已删除');
+            message.success(t('organizationList.messages.deleteSuccess'));
             fetchData();
             setSelectedDept(null);
         } catch (e: any) {
-            message.error(e.response?.data?.detail || '删除失败');
+            message.error(e.response?.data?.detail || t('organizationList.messages.deleteFailed'));
         }
     };
 
@@ -125,10 +126,10 @@ const OrganizationList: React.FC = () => {
             setLoading(true);
             if (editingId) {
                 await ApiClient.updateDepartment(editingId, values);
-                message.success('更新成功');
+                message.success(t('organizationList.messages.updateSuccess'));
             } else {
                 await ApiClient.createDepartment(values);
-                message.success('创建成功');
+                message.success(t('organizationList.messages.createSuccess'));
             }
             setIsEditorOpen(false);
             fetchData();
@@ -156,12 +157,12 @@ const OrganizationList: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
                         <ApartmentOutlined className="text-blue-600" />
-                        组织架构管理
+                        {t('organizationList.page.title')}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">管理企业部门层级与结构</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('organizationList.page.subtitle')}</p>
                 </div>
                 <AppButton intent="primary" icon={<Plus size={16} />} onClick={() => openCreateModal(null)}>
-                    新增根部门
+                    {t('organizationList.page.createRoot')}
                 </AppButton>
             </div>
 
@@ -172,10 +173,10 @@ const OrganizationList: React.FC = () => {
                         title={
                             <div className="flex items-center gap-2">
                                 <FolderOutlined className="text-blue-500" />
-                                <span>部门树</span>
+                                <span>{t('organizationList.tree.title')}</span>
                             </div>
                         }
-                        extra={<Tag color="blue">{countDepts(departments)} 个部门</Tag>}
+                        extra={<Tag color="blue">{t('organizationList.tree.count', { count: countDepts(departments) })}</Tag>}
                         className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4"
                         styles={{ body: { padding: 12, minHeight: 500 } }}
                     >
@@ -190,7 +191,7 @@ const OrganizationList: React.FC = () => {
                                 selectedKeys={selectedDept ? [selectedDept.id] : []}
                             />
                         ) : (
-                            <Empty description="暂无组织架构" className="mt-16" />
+                            <Empty description={t('organizationList.tree.empty')} className="mt-16" />
                         )}
                     </Card>
                 </Col>
@@ -219,10 +220,10 @@ const OrganizationList: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2">
                                         <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => openEditModal(selectedDept)}>
-                                            编辑
+                                            {t('common.buttons.edit')}
                                         </AppButton>
-                                        <Popconfirm title="确认删除" description="删除后无法恢复" onConfirm={() => handleDelete(selectedDept.id)} okText="确定" cancelText="取消">
-                                            <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>删除</AppButton>
+                                        <Popconfirm title={t('organizationList.confirm.deleteTitle')} description={t('organizationList.confirm.deleteDescription')} onConfirm={() => handleDelete(selectedDept.id)} okText={t('common.buttons.confirm')} cancelText={t('common.buttons.cancel')}>
+                                            <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>{t('common.buttons.delete')}</AppButton>
                                         </Popconfirm>
                                     </div>
                                 </div>
@@ -235,15 +236,15 @@ const OrganizationList: React.FC = () => {
                                     className="rounded-xl overflow-hidden"
                                     labelStyle={{ width: 120, fontWeight: 600 }}
                                 >
-                                    <Descriptions.Item label="部门名称">{selectedDept.name}</Descriptions.Item>
-                                    <Descriptions.Item label="负责人">{selectedDept.manager ? getManagerDisplay(selectedDept.manager) : <span className="text-slate-400">未设置</span>}</Descriptions.Item>
-                                    <Descriptions.Item label="上级部门">
+                                    <Descriptions.Item label={t('organizationList.detail.name')}>{selectedDept.name}</Descriptions.Item>
+                                    <Descriptions.Item label={t('organizationList.detail.manager')}>{selectedDept.manager ? getManagerDisplay(selectedDept.manager) : <span className="text-slate-400">{t('organizationList.detail.unset')}</span>}</Descriptions.Item>
+                                    <Descriptions.Item label={t('organizationList.detail.parent')}>
                                         {selectedDept.parent_id
-                                            ? allDepts.find(d => d.id === selectedDept.parent_id)?.name || '未知'
-                                            : <Tag color="gold">根部门</Tag>
+                                            ? allDepts.find(d => d.id === selectedDept.parent_id)?.name || t('organizationList.detail.unknown')
+                                            : <Tag color="gold">{t('organizationList.detail.root')}</Tag>
                                         }
                                     </Descriptions.Item>
-                                    <Descriptions.Item label="描述">{selectedDept.description || <span className="text-slate-400 italic">暂无描述</span>}</Descriptions.Item>
+                                    <Descriptions.Item label={t('organizationList.detail.description')}>{selectedDept.description || <span className="text-slate-400 italic">{t('organizationList.detail.noDescription')}</span>}</Descriptions.Item>
                                 </Descriptions>
 
                                 {/* Sub-departments */}
@@ -251,13 +252,13 @@ const OrganizationList: React.FC = () => {
                                     title={
                                         <div className="flex items-center gap-2">
                                             <TeamOutlined className="text-blue-500" />
-                                            <span>下级部门</span>
+                                            <span>{t('organizationList.children.title')}</span>
                                             <Tag color="blue">{selectedDept.children?.length || 0}</Tag>
                                         </div>
                                     }
                                     extra={
                                         <AppButton intent="tertiary" size="sm" icon={<Plus size={12} />} onClick={() => openCreateModal(selectedDept.id)}>
-                                            添加子部门
+                                            {t('organizationList.children.add')}
                                         </AppButton>
                                     }
                                     className="rounded-2xl"
@@ -284,16 +285,16 @@ const OrganizationList: React.FC = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <Empty description="暂无下级部门" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                        <Empty description={t('organizationList.children.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                                     )}
                                 </Card>
                             </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-400 py-20">
                                 <ApartmentOutlined style={{ fontSize: 48 }} className="text-slate-200 mb-4" />
-                                <p className="text-base mb-6">选择左侧部门查看详情</p>
+                                <p className="text-base mb-6">{t('organizationList.empty.selectHint')}</p>
                                 <AppButton intent="secondary" onClick={() => openCreateModal(null)} icon={<Plus size={16} />}>
-                                    创建根部门
+                                    {t('organizationList.page.createRoot')}
                                 </AppButton>
                             </div>
                         )}
@@ -307,26 +308,26 @@ const OrganizationList: React.FC = () => {
                 onCancel={() => setIsEditorOpen(false)}
                 onOk={() => form.submit()}
                 confirmLoading={loading}
-                title={editingId ? '编辑部门' : '新增部门'}
+                title={editingId ? t('organizationList.modal.editTitle') : t('organizationList.modal.createTitle')}
                 width={480}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
-                    <AppForm.Item name="name" label="部门名称" rules={[{ required: true, message: '请输入部门名称' }]}>
-                        <Input placeholder="请输入部门名称" />
+                    <AppForm.Item name="name" label={t('organizationList.form.name')} rules={[{ required: true, message: t('organizationList.form.validation.nameRequired') }]}>
+                        <Input placeholder={t('organizationList.form.placeholders.name')} />
                     </AppForm.Item>
-                    <AppForm.Item name="parent_id" label="上级部门">
+                    <AppForm.Item name="parent_id" label={t('organizationList.form.parent')}>
                         <Select
-                            placeholder="(根部门)"
+                            placeholder={t('organizationList.form.placeholders.root')}
                             allowClear
                             options={[
-                                { value: null, label: '(根部门)' },
+                                { value: null, label: t('organizationList.form.placeholders.root') },
                                 ...allDepts.filter(d => d.id !== editingId).map(d => ({ value: d.id, label: d.name }))
                             ]}
                         />
                     </AppForm.Item>
-                    <AppForm.Item name="manager" label="负责人">
+                    <AppForm.Item name="manager" label={t('organizationList.form.manager')}>
                         <Select
-                            placeholder="请选择负责人"
+                            placeholder={t('organizationList.form.placeholders.manager')}
                             allowClear
                             showSearch
                             optionFilterProp="label"
@@ -339,8 +340,8 @@ const OrganizationList: React.FC = () => {
                             }
                         />
                     </AppForm.Item>
-                    <AppForm.Item name="description" label="描述">
-                        <TextArea placeholder="请输入部门描述" rows={3} />
+                    <AppForm.Item name="description" label={t('organizationList.form.description')}>
+                        <TextArea placeholder={t('organizationList.form.placeholders.description')} rows={3} />
                     </AppForm.Item>
                 </AppForm>
             </AppModal>

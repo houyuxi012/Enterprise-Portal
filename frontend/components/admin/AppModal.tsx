@@ -2,31 +2,24 @@ import React from 'react';
 import { Modal } from 'antd';
 import type { ModalProps } from 'antd';
 import AppButton from './AppButton';
+import i18n from '../../i18n';
 
 export interface AppModalProps extends Omit<ModalProps, 'okText' | 'cancelText'> {
-    /** 确认按钮文字，默认 "确定" */
+    /** Confirm button text */
     okText?: string;
-    /** 取消按钮文字，默认 "取消" */
+    /** Cancel button text */
     cancelText?: string;
-    /** 确认按钮 loading */
+    /** Confirm button loading state */
     confirmLoading?: boolean;
-    /** 是否隐藏底部按钮 */
+    /** Hide footer actions */
     hideFooter?: boolean;
-    /** 是否为危险操作（确认按钮变红） */
+    /** Danger mode (confirm button is red) */
     danger?: boolean;
 }
 
-/**
- * AppModal - 统一弹窗组件
- * 
- * 特性：
- * - 统一 footer 按钮样式（取消用 secondary，确认用 primary）
- * - 统一圆角和标题样式
- * - 支持危险操作模式
- */
 const AppModal: React.FC<AppModalProps> = ({
-    okText = '确定',
-    cancelText = '取消',
+    okText = i18n.t('common.buttons.confirm', { defaultValue: 'Confirm' }),
+    cancelText = i18n.t('common.buttons.cancel', { defaultValue: 'Cancel' }),
     confirmLoading = false,
     hideFooter = false,
     danger = false,

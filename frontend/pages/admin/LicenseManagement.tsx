@@ -5,76 +5,11 @@ import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
 import AuthService from '../../services/auth';
 import { LicenseClaimsResponse, LicenseEventItem, LicenseStatus } from '../../types';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 const PRODUCT_MODEL = 'NGEPv3.0-HYX-PS';
 const LICENSE_ID_PATTERN = /^HYX(?:-[A-Z0-9]{5}){5}$/;
-
-const grantTypeLabel = (grantType?: string | null) => {
-    const value = (grantType || '').toLowerCase();
-    if (value === 'formal') return '正式授权';
-    if (value === 'trial') return '测试授权';
-    if (value === 'learning') return '学习授权';
-    return grantType || '未设置';
-};
-
-const grantTypeColor = (grantType?: string | null) => {
-    const value = (grantType || '').toLowerCase();
-    if (value === 'formal') return 'green';
-    if (value === 'trial') return 'gold';
-    if (value === 'learning') return 'blue';
-    return 'default';
-};
-
-const statusLabel = (status?: string | null) => {
-    const value = (status || '').toLowerCase();
-    if (value === 'active') return '生效中';
-    if (value === 'expired') return '已过期';
-    if (value === 'invalid') return '无效';
-    if (value === 'missing') return '未安装';
-    return status || '未知';
-};
-
-const statusColor = (status?: string | null) => {
-    const value = (status || '').toLowerCase();
-    if (value === 'active') return 'green';
-    if (value === 'expired') return 'red';
-    if (value === 'invalid') return 'red';
-    if (value === 'missing') return 'default';
-    return 'default';
-};
-
-const eventStatusLabel = (status?: string | null) => {
-    const value = String(status || '').toLowerCase();
-    if (value === 'success') return '成功';
-    if (value === 'failed') return '失败';
-    return status || '未知';
-};
-
-const eventStatusColor = (status?: string | null) => {
-    const value = String(status || '').toLowerCase();
-    if (value === 'success') return 'green';
-    if (value === 'failed') return 'red';
-    return 'default';
-};
-
-const formatDateTime = (value?: string | null) => {
-    if (!value) return '-';
-    const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return value;
-    return dt.toLocaleString('zh-CN', { hour12: false });
-};
-
-const LICENSE_ERROR_MAP: Record<string, string> = {
-    LICENSE_SIGNATURE_INVALID: 'License 签名校验失败',
-    LICENSE_INVALID_PAYLOAD: '授权文件格式无效',
-    LICENSE_PRODUCT_MISMATCH: '授权产品标识不匹配',
-    LICENSE_PRODUCT_MODEL_MISMATCH: '授权产品型号不匹配',
-    LICENSE_INSTALLATION_MISMATCH: '授权序列号不匹配',
-    LICENSE_NOT_YET_VALID: '授权尚未生效',
-    LICENSE_EXPIRED: '授权已过期',
-    TIME_ROLLBACK: '检测到系统时间回拨，授权校验失败',
-};
 
 const formatLicenseId = (value?: string | null) => {
     if (!value) return '-';
@@ -92,29 +27,28 @@ const formatLicenseId = (value?: string | null) => {
     return upper;
 };
 
-const parseLicenseDocument = (raw: string) => {
+const parseLicenseDocument = (raw: string, t: (key: string) => string) => {
     const text = (raw || '').trim();
     if (!text) {
-        throw new Error('授权内容不能为空');
+        throw new Error(t('license.upload.emptyContent'));
     }
 
     let parsed: any;
     try {
         parsed = JSON.parse(text);
     } catch {
-        // Fallback: some tools may provide base64 text payload.
         try {
             const decoded = atob(text);
             parsed = JSON.parse(decoded);
         } catch {
-            throw new Error('授权文件不是有效 JSON/.bin 内容');
+            throw new Error(t('license.upload.invalidJson'));
         }
     }
 
     const payload = parsed?.payload;
     const signature = parsed?.signature;
     if (!payload || typeof payload !== 'object' || typeof signature !== 'string' || !signature.trim()) {
-        throw new Error('授权格式错误，必须包含 payload 与 signature');
+        throw new Error(t('license.upload.invalidFormat'));
     }
 
     return {
@@ -124,11 +58,67 @@ const parseLicenseDocument = (raw: string) => {
 };
 
 const LicenseManagement: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [statusData, setStatusData] = useState<LicenseStatus | null>(null);
     const [claimsData, setClaimsData] = useState<LicenseClaimsResponse | null>(null);
     const [licenseEvents, setLicenseEvents] = useState<LicenseEventItem[]>([]);
     const displayLicenseId = formatLicenseId(statusData?.license_id);
+
+    const grantTypeLabel = (grantType?: string | null) => {
+        const value = (grantType || '').toLowerCase();
+        if (value === 'formal') return t('license.grantType.formal');
+        if (value === 'trial') return t('license.grantType.trial');
+        if (value === 'learning') return t('license.grantType.learning');
+        return grantType || t('license.grantType.unset');
+    };
+
+    const grantTypeColor = (grantType?: string | null) => {
+        const value = (grantType || '').toLowerCase();
+        if (value === 'formal') return 'green';
+        if (value === 'trial') return 'gold';
+        if (value === 'learning') return 'blue';
+        return 'default';
+    };
+
+    const statusLabel = (status?: string | null) => {
+        const value = (status || '').toLowerCase();
+        if (value === 'active') return t('license.status.active');
+        if (value === 'expired') return t('license.status.expired');
+        if (value === 'invalid') return t('license.status.invalid');
+        if (value === 'missing') return t('license.status.missing');
+        return status || t('license.status.unknown');
+    };
+
+    const statusColor = (status?: string | null) => {
+        const value = (status || '').toLowerCase();
+        if (value === 'active') return 'green';
+        if (value === 'expired') return 'red';
+        if (value === 'invalid') return 'red';
+        if (value === 'missing') return 'default';
+        return 'default';
+    };
+
+    const eventStatusLabel = (status?: string | null) => {
+        const value = String(status || '').toLowerCase();
+        if (value === 'success') return t('license.eventStatus.success');
+        if (value === 'failed') return t('license.eventStatus.failed');
+        return status || t('license.eventStatus.unknown');
+    };
+
+    const eventStatusColor = (status?: string | null) => {
+        const value = String(status || '').toLowerCase();
+        if (value === 'success') return 'green';
+        if (value === 'failed') return 'red';
+        return 'default';
+    };
+
+    const formatDateTime = (value?: string | null) => {
+        if (!value) return '-';
+        const dt = new Date(value);
+        if (Number.isNaN(dt.getTime())) return value;
+        return dt.toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US', { hour12: false });
+    };
 
     const featuresView = useMemo(() => {
         const features = claimsData?.claims?.features;
@@ -150,7 +140,7 @@ const LicenseManagement: React.FC = () => {
         [licenseEvents],
     );
 
-    const fetchLicenseData = async (silent = false) => {
+    const fetchLicenseData = async () => {
         try {
             const [status, claims, events] = await Promise.all([
                 ApiClient.getLicenseStatus(),
@@ -162,7 +152,7 @@ const LicenseManagement: React.FC = () => {
             setLicenseEvents(events.items || []);
         } catch (error: any) {
             console.error('Failed to load license info', error);
-            message.error(error?.response?.data?.detail?.message || '加载授权信息失败');
+            message.error(error?.response?.data?.detail?.message || t('license.errors.loadFailed'));
         }
     };
 
@@ -170,34 +160,30 @@ const LicenseManagement: React.FC = () => {
         fetchLicenseData();
     }, []);
 
-    const importLicenseDocument = async (
-        payload: Record<string, any>,
-        signature: string,
-        fileName?: string,
-    ) => {
+    const importLicenseDocument = async (payload: Record<string, any>, signature: string, fileName?: string) => {
         setLoading(true);
         try {
             await ApiClient.installLicense({
                 payload,
                 signature,
             });
-            message.success(`授权导入成功${fileName ? `：${fileName}` : ''}`);
-            await fetchLicenseData(true);
+            message.success(fileName ? t('license.upload.successWithFile', { fileName }) : t('license.upload.success'));
+            await fetchLicenseData();
             Modal.confirm({
-                title: '授权已生效',
-                content: '为确保新授权策略完整生效，请重新登录系统。',
-                okText: '立即重新登录',
-                cancelText: '稍后',
+                title: t('license.effectiveModal.title'),
+                content: t('license.effectiveModal.content'),
+                okText: t('license.effectiveModal.okText'),
+                cancelText: t('license.effectiveModal.cancelText'),
                 onOk: () => {
                     AuthService.logout('/admin/login');
                 },
             });
         } catch (error: any) {
             const detail = error?.response?.data?.detail;
-            const code = detail?.code;
+            const code = String(detail?.code || '');
             const backendMessage = detail?.message || (typeof detail === 'string' ? detail : '') || error?.message;
-            const localized = (code && LICENSE_ERROR_MAP[String(code)]) || backendMessage;
-            message.error(`授权导入失败：${localized || '未知错误'}`);
+            const localized = code ? t(`license.errors.${code}`, { defaultValue: backendMessage }) : backendMessage;
+            message.error(t('license.upload.failedPrefix', { reason: localized || t('license.upload.unknownError') }));
         } finally {
             setLoading(false);
         }
@@ -207,8 +193,8 @@ const LicenseManagement: React.FC = () => {
         <div className="space-y-4 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
             <div className="flex justify-between items-center mb-2 max-w-[1440px] mx-auto w-full">
                 <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">授权许可</h2>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">License Management</p>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('license.title')}</h2>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{t('license.subtitle')}</p>
                 </div>
                 <Upload
                     showUploadList={false}
@@ -218,79 +204,71 @@ const LicenseManagement: React.FC = () => {
                         try {
                             const buffer = await file.arrayBuffer();
                             const text = new TextDecoder('utf-8').decode(buffer);
-                            const parsed = parseLicenseDocument(text);
+                            const parsed = parseLicenseDocument(text, t);
                             await importLicenseDocument(parsed.payload, parsed.signature, file.name);
                         } catch {
-                            message.error('授权文件解析失败，请确认是生成器导出的 .bin');
+                            message.error(t('license.upload.parseFailed'));
                         }
                         return false;
                     }}
                 >
                     <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                        导入授权
+                        {t('license.upload.button')}
                     </AppButton>
                 </Upload>
             </div>
 
             <div className="max-w-[1440px] mx-auto">
                 <Card
-                    title={<span className="font-bold"><SafetyCertificateOutlined className="mr-2" />当前授权信息</span>}
+                    title={<span className="font-bold"><SafetyCertificateOutlined className="mr-2" />{t('license.statusCard.title')}</span>}
                     className="rounded-2xl border border-slate-100 shadow-sm"
                 >
-                    <Descriptions
-                        column={3}
-                        size="small"
-                    >
-                        <Descriptions.Item label="安装状态">
+                    <Descriptions column={3} size="small">
+                        <Descriptions.Item label={t('license.statusCard.installStatus')}>
                             <Tag color={statusColor(statusData?.status)}>{statusLabel(statusData?.status)}</Tag>
                         </Descriptions.Item>
-                        <Descriptions.Item label="授权类型">
+                        <Descriptions.Item label={t('license.statusCard.grantType')}>
                             <Tag color={grantTypeColor(statusData?.grant_type)}>{grantTypeLabel(statusData?.grant_type)}</Tag>
                         </Descriptions.Item>
-                        <Descriptions.Item label="产品型号">{statusData?.product_model || PRODUCT_MODEL}</Descriptions.Item>
-                        <Descriptions.Item label="License ID">
+                        <Descriptions.Item label={t('license.statusCard.productModel')}>{statusData?.product_model || PRODUCT_MODEL}</Descriptions.Item>
+                        <Descriptions.Item label={t('license.statusCard.licenseId')}>
                             {displayLicenseId !== '-' ? (
                                 <Text copyable={{ text: displayLicenseId }} className="font-mono whitespace-nowrap inline-block">
                                     {displayLicenseId}
                                 </Text>
-                            ) : (
-                                '-'
-                            )}
+                            ) : '-'}
                         </Descriptions.Item>
-                        <Descriptions.Item label="序列号">
+                        <Descriptions.Item label={t('license.statusCard.serialNumber')}>
                             <Text copyable={{ text: statusData?.installation_id || '' }} className="font-mono whitespace-nowrap inline-block">
                                 {statusData?.installation_id || '-'}
                             </Text>
                         </Descriptions.Item>
-                        <Descriptions.Item label="客户名称">{statusData?.customer || '-'}</Descriptions.Item>
-                        <Descriptions.Item label="导入时间">{formatDateTime(statusData?.installed_at)}</Descriptions.Item>
-                        <Descriptions.Item label="过期时间">{formatDateTime(statusData?.expires_at)}</Descriptions.Item>
-                        <Descriptions.Item label="授权人数">{statusData?.limits?.users ?? '-'}</Descriptions.Item>
+                        <Descriptions.Item label={t('license.statusCard.customerName')}>{statusData?.customer || '-'}</Descriptions.Item>
+                        <Descriptions.Item label={t('license.statusCard.installedAt')}>{formatDateTime(statusData?.installed_at)}</Descriptions.Item>
+                        <Descriptions.Item label={t('license.statusCard.expiresAt')}>{formatDateTime(statusData?.expires_at)}</Descriptions.Item>
+                        <Descriptions.Item label={t('license.statusCard.limitUsers')}>{statusData?.limits?.users ?? '-'}</Descriptions.Item>
                     </Descriptions>
                 </Card>
             </div>
 
             <div className="max-w-[1440px] mx-auto">
-                <Card
-                    title="授权详情（Claims）"
-                    className="rounded-2xl border border-slate-100 shadow-sm"
-                >
+                <Card title={t('license.claimsCard.title')} className="rounded-2xl border border-slate-100 shadow-sm">
                     <Row gutter={[16, 16]}>
                         <Col span={24}>
-                            <div className="text-xs text-slate-500">功能数量</div>
+                            <div className="text-xs text-slate-500">{t('license.claimsCard.featureCount')}</div>
                             <div className="text-base font-semibold text-slate-800 dark:text-white">
                                 {statusData?.features_count ?? featuresView.length}
                             </div>
                         </Col>
                         <Col span={24}>
-                            <div className="mb-2 text-xs text-slate-500">已启用功能</div>
+                            <div className="mb-2 text-xs text-slate-500">{t('license.claimsCard.enabledFeatures')}</div>
                             <div className="flex flex-wrap gap-2">
                                 {featuresView.length > 0 ? (
                                     featuresView.map((feature) => (
                                         <Tag key={feature} color="blue">{feature}</Tag>
                                     ))
                                 ) : (
-                                    <Text type="secondary">暂无已启用功能</Text>
+                                    <Text type="secondary">{t('license.claimsCard.noEnabledFeatures')}</Text>
                                 )}
                             </div>
                         </Col>
@@ -299,10 +277,7 @@ const LicenseManagement: React.FC = () => {
             </div>
 
             <div className="max-w-[1440px] mx-auto">
-                <Card
-                    title="授权导入记录"
-                    className="rounded-2xl border border-slate-100 shadow-sm"
-                >
+                <Card title={t('license.eventsCard.title')} className="rounded-2xl border border-slate-100 shadow-sm">
                     <Table<LicenseEventItem>
                         rowKey="id"
                         size="middle"
@@ -312,17 +287,17 @@ const LicenseManagement: React.FC = () => {
                             hideOnSinglePage: true,
                         }}
                         dataSource={importEvents}
-                        locale={{ emptyText: '暂无授权导入记录' }}
+                        locale={{ emptyText: t('license.eventsCard.empty') }}
                         columns={[
                             {
-                                title: '时间',
+                                title: t('license.eventsCard.columns.time'),
                                 dataIndex: 'created_at',
                                 key: 'created_at',
                                 width: 220,
                                 render: (value: string) => <span className="text-xs text-slate-500">{formatDateTime(value)}</span>,
                             },
                             {
-                                title: '授权类型',
+                                title: t('license.eventsCard.columns.grantType'),
                                 dataIndex: 'grant_type',
                                 key: 'grant_type',
                                 width: 150,
@@ -331,14 +306,14 @@ const LicenseManagement: React.FC = () => {
                                 ),
                             },
                             {
-                                title: '客户名称',
+                                title: t('license.eventsCard.columns.customerName'),
                                 dataIndex: 'customer',
                                 key: 'customer',
                                 width: 220,
                                 render: (value: string | null | undefined) => value || '-',
                             },
                             {
-                                title: '导入状态',
+                                title: t('license.eventsCard.columns.importStatus'),
                                 dataIndex: 'status',
                                 key: 'status',
                                 width: 140,
@@ -347,7 +322,7 @@ const LicenseManagement: React.FC = () => {
                                 ),
                             },
                             {
-                                title: '原因',
+                                title: t('license.eventsCard.columns.reason'),
                                 dataIndex: 'reason',
                                 key: 'reason',
                                 render: (value: string | null | undefined) => (

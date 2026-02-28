@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import ApiClient from '../services/api';
 import { Key, Lock, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ChangePasswordModalProps {
     open: boolean;
@@ -10,12 +11,13 @@ interface ChangePasswordModalProps {
 }
 
 const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose, onSuccess }) => {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (values: any) => {
         if (values.newPassword !== values.confirmPassword) {
-            message.error("两次输入的新密码不一致");
+            message.error(t('changePasswordModal.messages.passwordMismatch'));
             return;
         }
 
@@ -25,11 +27,11 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
                 old_password: values.oldPassword,
                 new_password: values.newPassword
             });
-            message.success('密码修改成功，请使用新密码重新登录');
+            message.success(t('changePasswordModal.messages.changeSuccess'));
             form.resetFields();
             onSuccess();
         } catch (error: any) {
-            const detail = error.response?.data?.detail || '修改密码失败';
+            const detail = error.response?.data?.detail || t('changePasswordModal.messages.changeFailed');
             message.error(detail);
         } finally {
             setLoading(false);
@@ -41,7 +43,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
             title={
                 <div className="flex items-center gap-2">
                     <Key size={18} className="text-blue-500" />
-                    <span>修改密码</span>
+                    <span>{t('changePasswordModal.title')}</span>
                 </div>
             }
             open={open}
@@ -54,10 +56,10 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
                     form.resetFields();
                     onClose();
                 }} disabled={loading}>
-                    取消
+                    {t('common.buttons.cancel')}
                 </Button>,
                 <Button key="submit" type="primary" loading={loading} onClick={() => form.submit()}>
-                    确定
+                    {t('common.buttons.confirm')}
                 </Button>
             ]}
             destroyOnClose
@@ -72,43 +74,43 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
                     requiredMark={false}
                 >
                     <Form.Item
-                        label={<span className="font-medium text-slate-700 dark:text-slate-300">原密码</span>}
+                        label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.oldPassword')}</span>}
                         name="oldPassword"
-                        rules={[{ required: true, message: '请输入原密码' }]}
+                        rules={[{ required: true, message: t('changePasswordModal.validation.oldPasswordRequired') }]}
                     >
                         <Input.Password
                             prefix={<Lock size={16} className="text-slate-400 mr-1" />}
-                            placeholder="请输入当前使用的密码"
+                            placeholder={t('changePasswordModal.form.placeholders.oldPassword')}
                             size="large"
                             className="rounded-lg"
                         />
                     </Form.Item>
 
                     <Form.Item
-                        label={<span className="font-medium text-slate-700 dark:text-slate-300">新密码</span>}
+                        label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.newPassword')}</span>}
                         name="newPassword"
                         rules={[
-                            { required: true, message: '请输入新密码' },
-                            { min: 6, message: '新密码不能少于 6 位' }
+                            { required: true, message: t('changePasswordModal.validation.newPasswordRequired') },
+                            { min: 6, message: t('changePasswordModal.validation.newPasswordMin') }
                         ]}
-                        help={<span className="text-xs text-slate-500">新密码必须符合后台配置的密码安全策略要求。</span>}
+                        help={<span className="text-xs text-slate-500">{t('changePasswordModal.form.newPasswordHelp')}</span>}
                     >
                         <Input.Password
                             prefix={<CheckCircle size={16} className="text-slate-400 mr-1" />}
-                            placeholder="请输入新密码"
+                            placeholder={t('changePasswordModal.form.placeholders.newPassword')}
                             size="large"
                             className="rounded-lg"
                         />
                     </Form.Item>
 
                     <Form.Item
-                        label={<span className="font-medium text-slate-700 dark:text-slate-300">确认新密码</span>}
+                        label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.confirmPassword')}</span>}
                         name="confirmPassword"
-                        rules={[{ required: true, message: '请再次输入新密码以确认' }]}
+                        rules={[{ required: true, message: t('changePasswordModal.validation.confirmPasswordRequired') }]}
                     >
                         <Input.Password
                             prefix={<CheckCircle size={16} className="text-slate-400 mr-1" />}
-                            placeholder="请再次输入新密码"
+                            placeholder={t('changePasswordModal.form.placeholders.confirmPassword')}
                             size="large"
                             className="rounded-lg"
                         />

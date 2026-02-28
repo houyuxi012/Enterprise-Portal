@@ -2,34 +2,27 @@ import React from 'react';
 import { Drawer } from 'antd';
 import type { DrawerProps } from 'antd';
 import AppButton from './AppButton';
+import i18n from '../../i18n';
 
 export interface AppDrawerProps extends Omit<DrawerProps, 'width'> {
-    /** 抽屉宽度，默认 520 */
+    /** Drawer width, default 520 */
     width?: number | string;
-    /** 确认按钮文字 */
+    /** Confirm button text */
     okText?: string;
-    /** 取消按钮文字 */
+    /** Cancel button text */
     cancelText?: string;
-    /** 确认按钮 loading */
+    /** Confirm button loading state */
     confirmLoading?: boolean;
-    /** 是否隐藏底部按钮 */
+    /** Hide footer actions */
     hideFooter?: boolean;
-    /** 确认回调 */
+    /** Confirm callback */
     onOk?: () => void;
 }
 
-/**
- * AppDrawer - 统一抽屉组件
- * 
- * 特性：
- * - 统一宽度 (default: 520px)
- * - 统一 footer 样式
- * - 统一圆角
- */
 const AppDrawer: React.FC<AppDrawerProps> = ({
     width = 520,
-    okText = '确定',
-    cancelText = '取消',
+    okText = i18n.t('common.buttons.confirm', { defaultValue: 'Confirm' }),
+    cancelText = i18n.t('common.buttons.cancel', { defaultValue: 'Cancel' }),
     confirmLoading = false,
     hideFooter = false,
     footer,

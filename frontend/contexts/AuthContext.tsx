@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { App } from 'antd';
 import AuthService, { User } from '../services/auth';
+import i18n from '../i18n';
 import {
     AUTH_SESSION_INVALID_EVENT,
     AuthSessionInvalidDetail,
@@ -109,7 +110,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setIsInitialized(true);
             initPromiseRef.current = null;
 
-            const msg = detail?.message || '登录状态已失效，请重新登录。';
+            const msg = detail?.message || i18n.t('authContext.messages.sessionInvalidFallback', {
+                defaultValue: 'Session is no longer valid. Please log in again.',
+            });
             message.warning(msg);
 
             const redirectTo = detail?.redirectTo

@@ -3,53 +3,7 @@ import { Table, Tag, Select, Button, Drawer, Descriptions, Statistic, Card, Row,
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, SafetyCertificateOutlined, KeyOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import dayjs from 'dayjs';
-
-const ACTION_MAP: Record<string, string> = {
-    'iam.login.success': '登录成功',
-    'iam.login.fail': '登录失败',
-    'iam.logout': '用户登出',
-    'iam.logout.all': '全部设备登出',
-    'iam.session.kick': '踢下线会话',
-    'iam.role.create': '创建角色',
-    'iam.role.update': '更新角色',
-    'iam.role.delete': '删除角色',
-    'iam.role.assign': '分配角色',
-    'iam.role.revoke': '撤销角色',
-    'iam.user.update': '更新用户',
-    'iam.user.create': '创建用户',
-    'iam.user.delete': '删除用户',
-    'iam.user.password_change': '修改本人密码',
-    'iam.user.password_reset': '重置用户密码',
-    'iam.audit.read': '查看IAM审计日志',
-    'AUTHZ_DENIED': '权限拒绝',
-    'iam.permission.assign': '分配权限',
-    'iam.permission.revoke': '撤销权限',
-    'license.install': '导入授权许可',
-    'license.verify_failed': '授权校验失败',
-    'license.expired': '授权过期',
-};
-
-const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {
-    'login': { label: '登录', color: 'cyan' },
-    'logout': { label: '登出', color: 'orange' },
-    'create': { label: '创建', color: 'green' },
-    'update': { label: '更新', color: 'blue' },
-    'delete': { label: '删除', color: 'red' },
-    'assign': { label: '分配', color: 'purple' },
-    'revoke': { label: '撤销', color: 'magenta' },
-    'other': { label: '其他', color: 'default' }
-};
-
-const getActionCategory = (action: string): { label: string; color: string } => {
-    if (action.includes('login')) return ACTION_CATEGORIES['login'];
-    if (action.includes('logout')) return ACTION_CATEGORIES['logout'];
-    if (action.includes('create')) return ACTION_CATEGORIES['create'];
-    if (action.includes('update')) return ACTION_CATEGORIES['update'];
-    if (action.includes('delete')) return ACTION_CATEGORIES['delete'];
-    if (action.includes('assign')) return ACTION_CATEGORIES['assign'];
-    if (action.includes('revoke')) return ACTION_CATEGORIES['revoke'];
-    return ACTION_CATEGORIES['other'];
-};
+import { useTranslation } from 'react-i18next';
 
 interface AuditLog {
     id: number;
@@ -66,16 +20,42 @@ interface AuditLog {
     result?: string;
     reason?: string;
     trace_id?: string;
+    source?: string;
 }
 
 interface LogStats {
-    loginCount: number;      // 登录次数
-    todayLogins: number;     // 今日登录
-    failedAttempts: number;  // 失败尝试
-    activeUsers: number;     // 活跃用户数
+    loginCount: number;
+    todayLogins: number;
+    failedAttempts: number;
+    activeUsers: number;
 }
 
+const ACTION_CATEGORY_COLORS: Record<string, string> = {
+    login: 'cyan',
+    logout: 'orange',
+    create: 'green',
+    update: 'blue',
+    delete: 'red',
+    assign: 'purple',
+    revoke: 'magenta',
+    other: 'default',
+};
+
+const normalizeActionKey = (action: string) => String(action || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+const getActionCategoryKey = (action: string): string => {
+    if (action.includes('login')) return 'login';
+    if (action.includes('logout')) return 'logout';
+    if (action.includes('create')) return 'create';
+    if (action.includes('update')) return 'update';
+    if (action.includes('delete')) return 'delete';
+    if (action.includes('assign')) return 'assign';
+    if (action.includes('revoke')) return 'revoke';
+    return 'other';
+};
+
 const AuditLogs: React.FC = () => {
+    const { t } = useTranslation();
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState<LogStats>({ loginCount: 0, todayLogins: 0, failedAttempts: 0, activeUsers: 0 });
@@ -84,13 +64,13 @@ const AuditLogs: React.FC = () => {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-
-    // Filters
     const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
     const [actionFilter, setActionFilter] = useState<string | undefined>();
     const [resultFilter, setResultFilter] = useState<string | undefined>();
     const [usernameFilter, setUsernameFilter] = useState<string>('');
     const [sourceFilter, setSourceFilter] = useState<string>('all');
+
+    const getActionLabel = (action: string) => t(`iamAudit.actions.${normalizeActionKey(action)}`, { defaultValue: action });
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -113,26 +93,21 @@ const AuditLogs: React.FC = () => {
             setLogs(data);
             setTotal(res.total || 0);
 
-            // Calculate IAM-specific stats
             const today = dayjs().format('YYYY-MM-DD');
             const allLogs = data as AuditLog[];
-
-            // Login count (all login attempts)
-            const loginLogs = allLogs.filter(log => log.action?.includes('login'));
-            const todayLoginLogs = loginLogs.filter(log => log.timestamp?.startsWith(today));
-            const failedLogs = allLogs.filter(log => log.result === 'fail' || log.result === 'failure');
-
-            // Unique active users
-            const uniqueUsers = new Set(allLogs.map(log => log.username).filter(Boolean));
+            const loginLogs = allLogs.filter((log) => log.action?.includes('login'));
+            const todayLoginLogs = loginLogs.filter((log) => log.timestamp?.startsWith(today));
+            const failedLogs = allLogs.filter((log) => log.result === 'fail' || log.result === 'failure');
+            const uniqueUsers = new Set(allLogs.map((log) => log.username).filter(Boolean));
 
             setStats({
                 loginCount: loginLogs.length,
                 todayLogins: todayLoginLogs.length,
                 failedAttempts: failedLogs.length,
-                activeUsers: uniqueUsers.size
+                activeUsers: uniqueUsers.size,
             });
         } catch (error) {
-            console.error("Failed to fetch audit logs", error);
+            console.error('Failed to fetch audit logs', error);
         } finally {
             setLoading(false);
         }
@@ -152,9 +127,7 @@ const AuditLogs: React.FC = () => {
         const detail = log.detail;
         if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
             const d = detail as Record<string, any>;
-            const client = d.client_context && typeof d.client_context === 'object'
-                ? d.client_context
-                : d;
+            const client = d.client_context && typeof d.client_context === 'object' ? d.client_context : d;
             return {
                 deviceType: client.device_type || client.deviceType,
                 os: client.os || client.os_name,
@@ -166,18 +139,16 @@ const AuditLogs: React.FC = () => {
 
     const columns = [
         {
-            title: '时间',
+            title: t('iamAudit.table.time'),
             dataIndex: 'timestamp',
             key: 'timestamp',
             width: 180,
             render: (text: string) => (
-                <span className="text-xs text-slate-500">
-                    {text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                </span>
-            )
+                <span className="text-xs text-slate-500">{text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}</span>
+            ),
         },
         {
-            title: '操作人',
+            title: t('iamAudit.table.operator'),
             dataIndex: 'username',
             key: 'username',
             width: 120,
@@ -186,188 +157,146 @@ const AuditLogs: React.FC = () => {
                     <UserOutlined className="text-indigo-500" />
                     <span className="font-medium text-slate-700">{text || '-'}</span>
                 </div>
-            )
+            ),
         },
         {
-            title: '动作',
+            title: t('iamAudit.table.action'),
             dataIndex: 'action',
             key: 'action',
-            width: 160,
+            width: 180,
             render: (text: string) => {
-                const category = getActionCategory(text);
+                const categoryKey = getActionCategoryKey(text);
+                const color = ACTION_CATEGORY_COLORS[categoryKey] || ACTION_CATEGORY_COLORS.other;
                 return (
                     <Tooltip title={text}>
-                        <Tag color={category.color} icon={<SafetyCertificateOutlined />}>
-                            {ACTION_MAP[text] || text}
+                        <Tag color={color} icon={<SafetyCertificateOutlined />}>
+                            {getActionLabel(text)}
                         </Tag>
                     </Tooltip>
                 );
-            }
+            },
         },
         {
-            title: '资源类型',
+            title: t('iamAudit.table.resourceType'),
             dataIndex: 'target_type',
             key: 'target_type',
-            width: 100,
+            width: 120,
             render: (text: string) => (
-                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">
-                    {text || '-'}
-                </span>
-            )
+                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">{text || '-'}</span>
+            ),
         },
         {
-            title: '目标',
+            title: t('iamAudit.table.target'),
             dataIndex: 'target_name',
             key: 'target_name',
             width: 120,
-            render: (text: string) => (
-                <span className="font-mono text-xs text-slate-600">{text || '-'}</span>
-            )
+            render: (text: string) => <span className="font-mono text-xs text-slate-600">{text || '-'}</span>,
         },
         {
-            title: 'IP 地址',
+            title: t('iamAudit.table.ip'),
             dataIndex: 'ip_address',
             key: 'ip_address',
-            width: 120,
-            render: (text: string) => (
-                <span className="font-mono text-xs text-slate-400">{text || '-'}</span>
-            )
+            width: 140,
+            render: (text: string) => <span className="font-mono text-xs text-slate-400">{text || '-'}</span>,
         },
         {
-            title: '结果',
+            title: t('iamAudit.table.result'),
             dataIndex: 'result',
             key: 'result',
-            width: 90,
+            width: 100,
             render: (result: string) => (
-                <Tag
-                    color={result === 'success' ? 'green' : 'red'}
-                    icon={result === 'success' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                >
-                    {result === 'success' ? '成功' : '失败'}
+                <Tag color={result === 'success' ? 'green' : 'red'} icon={result === 'success' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
+                    {result === 'success' ? t('common.status.success') : t('common.status.fail')}
                 </Tag>
-            )
+            ),
         },
         {
-            title: '来源',
+            title: t('iamAudit.table.source'),
             dataIndex: 'source',
             key: 'source',
-            width: 70,
-            render: (source: string) => (
-                <Tag color={source === 'DB' ? 'blue' : 'purple'}>
-                    {source || 'DB'}
-                </Tag>
-            )
+            width: 100,
+            render: (source: string) => <Tag color={source === 'DB' ? 'blue' : 'purple'}>{source || t('iamAudit.source.db')}</Tag>,
         },
         {
-            title: '操作',
+            title: t('iamAudit.table.operation'),
             key: 'actions',
             width: 80,
             render: (_: any, record: AuditLog) => (
                 <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
-                    详情
+                    {t('common.buttons.detail')}
                 </Button>
-            )
-        }
+            ),
+        },
     ];
 
-    // Get unique actions for filter
-    const actionOptions = [...new Set(logs.map(log => log.action))].map(action => ({
+    const actionOptions = [...new Set(logs.map((log) => log.action))].map((action) => ({
         value: action,
-        label: ACTION_MAP[action] || action
+        label: getActionLabel(action),
     }));
+
     const selectedClientContext = extractClientContext(selectedLog);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
             <div className="flex justify-between items-center mb-2">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">IAM 审计</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">审计身份认证与访问控制操作</p>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('iamAudit.title')}</h2>
+                    <p className="text-xs text-slate-400 font-bold mt-1">{t('iamAudit.subtitle')}</p>
                 </div>
                 <Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    刷新
+                    {t('common.buttons.refresh')}
                 </Button>
             </div>
 
-            {/* Stats Cards - IAM Specific */}
             <Row gutter={16} className="mb-4">
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="登录次数"
-                            value={stats.loginCount}
-                            prefix={<KeyOutlined />}
-                            valueStyle={{ color: '#1890ff' }}
-                        />
+                        <Statistic title={t('iamAudit.stats.loginCount')} value={stats.loginCount} prefix={<KeyOutlined />} valueStyle={{ color: '#1890ff' }} />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="今日登录"
-                            value={stats.todayLogins}
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#52c41a' }}
-                        />
+                        <Statistic title={t('iamAudit.stats.todayLogins')} value={stats.todayLogins} prefix={<CheckCircleOutlined />} valueStyle={{ color: '#52c41a' }} />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="失败尝试"
-                            value={stats.failedAttempts}
-                            prefix={<CloseCircleOutlined />}
-                            valueStyle={{ color: stats.failedAttempts > 0 ? '#ff4d4f' : '#52c41a' }}
-                        />
+                        <Statistic title={t('iamAudit.stats.failedAttempts')} value={stats.failedAttempts} prefix={<CloseCircleOutlined />} valueStyle={{ color: stats.failedAttempts > 0 ? '#ff4d4f' : '#52c41a' }} />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="活跃用户"
-                            value={stats.activeUsers}
-                            prefix={<UserOutlined />}
-                            valueStyle={{ color: '#722ed1' }}
-                        />
+                        <Statistic title={t('iamAudit.stats.activeUsers')} value={stats.activeUsers} prefix={<UserOutlined />} valueStyle={{ color: '#722ed1' }} />
                     </Card>
                 </Col>
             </Row>
 
-            {/* Filters */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
                 <DatePicker.RangePicker
                     value={dateRange}
                     onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
                     className="rounded-xl"
-                    placeholder={['开始时间', '结束时间']}
+                    placeholder={[t('iamAudit.filters.startTime'), t('iamAudit.filters.endTime')]}
                     showTime
                 />
                 <Input
-                    placeholder="用户名"
+                    placeholder={t('common.placeholders.username')}
                     value={usernameFilter}
-                    onChange={e => setUsernameFilter(e.target.value)}
+                    onChange={(e) => setUsernameFilter(e.target.value)}
                     onPressEnter={() => fetchLogs()}
                     className="w-32 rounded-xl"
                     allowClear
                 />
+                <Select placeholder={t('iamAudit.filters.actionType')} allowClear value={actionFilter} onChange={setActionFilter} className="w-40" options={actionOptions} />
                 <Select
-                    placeholder="动作类型"
-                    allowClear
-                    value={actionFilter}
-                    onChange={setActionFilter}
-                    className="w-40"
-                    options={actionOptions}
-                />
-                <Select
-                    placeholder="结果"
+                    placeholder={t('iamAudit.filters.result')}
                     allowClear
                     value={resultFilter}
                     onChange={setResultFilter}
                     className="w-28"
                     options={[
-                        { value: 'success', label: '成功' },
-                        { value: 'fail', label: '失败' },
+                        { value: 'success', label: t('common.status.success') },
+                        { value: 'fail', label: t('common.status.fail') },
                     ]}
                 />
                 <Select
@@ -375,17 +304,16 @@ const AuditLogs: React.FC = () => {
                     onChange={setSourceFilter}
                     className="w-28"
                     options={[
-                        { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />DB</span> },
-                        { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span> },
-                        { value: 'all', label: '全部' },
+                        { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />{t('iamAudit.source.db')}</span> },
+                        { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />{t('iamAudit.source.loki')}</span> },
+                        { value: 'all', label: t('iamAudit.source.all') },
                     ]}
                 />
                 <Button type="primary" onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    查询
+                    {t('common.buttons.query')}
                 </Button>
             </div>
 
-            {/* Table */}
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
                 <Table
                     dataSource={logs}
@@ -400,62 +328,48 @@ const AuditLogs: React.FC = () => {
                             setPage(p);
                             setPageSize(ps);
                         },
-                        showSizeChanger: true
+                        showSizeChanger: true,
                     }}
                     scroll={{ x: 1100 }}
-                    locale={{ emptyText: '暂无 IAM 审计日志' }}
+                    locale={{ emptyText: t('iamAudit.table.empty') }}
                     className="ant-table-custom"
                 />
             </div>
 
-            {/* Detail Drawer */}
-            <Drawer
-                title="IAM 审计详情"
-                width={560}
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-            >
+            <Drawer title={t('iamAudit.drawer.title')} width={560} open={drawerOpen} onClose={() => setDrawerOpen(false)}>
                 {selectedLog && (
                     <div className="space-y-6">
                         <Descriptions bordered column={1} size="small">
-                            <Descriptions.Item label="日志 ID">
+                            <Descriptions.Item label={t('iamAudit.drawer.logId')}>
                                 <code className="text-xs">{selectedLog.id}</code>
                             </Descriptions.Item>
-                            <Descriptions.Item label="Trace ID">
+                            <Descriptions.Item label={t('iamAudit.drawer.traceId')}>
                                 <code className="text-xs">{selectedLog.trace_id || '-'}</code>
                             </Descriptions.Item>
-                            <Descriptions.Item label="时间">
+                            <Descriptions.Item label={t('iamAudit.drawer.time')}>
                                 {selectedLog.timestamp ? dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}
                             </Descriptions.Item>
-                            <Descriptions.Item label="操作人">
+                            <Descriptions.Item label={t('iamAudit.drawer.operator')}>
                                 {selectedLog.username || '-'} {selectedLog.user_id ? `(ID: ${selectedLog.user_id})` : ''}
                             </Descriptions.Item>
-                            <Descriptions.Item label="动作">
-                                <Tag color="blue">{ACTION_MAP[selectedLog.action] || selectedLog.action}</Tag>
+                            <Descriptions.Item label={t('iamAudit.drawer.action')}>
+                                <Tag color="blue">{getActionLabel(selectedLog.action)}</Tag>
                             </Descriptions.Item>
-                            <Descriptions.Item label="资源">
+                            <Descriptions.Item label={t('iamAudit.drawer.resource')}>
                                 <code className="text-xs">{selectedLog.target_type}</code>
                                 {selectedLog.target_id && ` : ${selectedLog.target_id}`}
                                 {selectedLog.target_name && ` (${selectedLog.target_name})`}
                             </Descriptions.Item>
-                            <Descriptions.Item label="IP 地址">
-                                {selectedLog.ip_address || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="设备类型">
-                                {selectedClientContext.deviceType || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="操作系统">
-                                {selectedClientContext.os || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="浏览器">
-                                {selectedClientContext.browser || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="User-Agent">
+                            <Descriptions.Item label={t('iamAudit.drawer.ip')}>{selectedLog.ip_address || '-'}</Descriptions.Item>
+                            <Descriptions.Item label={t('iamAudit.drawer.deviceType')}>{selectedClientContext.deviceType || '-'}</Descriptions.Item>
+                            <Descriptions.Item label={t('iamAudit.drawer.os')}>{selectedClientContext.os || '-'}</Descriptions.Item>
+                            <Descriptions.Item label={t('iamAudit.drawer.browser')}>{selectedClientContext.browser || '-'}</Descriptions.Item>
+                            <Descriptions.Item label={t('iamAudit.drawer.userAgent')}>
                                 <span className="text-xs break-all">{selectedLog.user_agent || '-'}</span>
                             </Descriptions.Item>
-                            <Descriptions.Item label="结果">
+                            <Descriptions.Item label={t('iamAudit.drawer.result')}>
                                 <Tag color={selectedLog.result === 'success' ? 'green' : 'red'}>
-                                    {selectedLog.result === 'success' ? '成功' : '失败'}
+                                    {selectedLog.result === 'success' ? t('common.status.success') : t('common.status.fail')}
                                 </Tag>
                                 {selectedLog.reason && <span className="text-red-500 ml-2">{selectedLog.reason}</span>}
                             </Descriptions.Item>

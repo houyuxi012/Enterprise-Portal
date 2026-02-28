@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Layout, Menu, Button, theme, Avatar, Dropdown } from 'antd';
+import { Alert, Layout, Menu, theme, Avatar, Dropdown, Modal } from 'antd';
 import {
     DashboardOutlined,
     UserOutlined,
@@ -22,11 +22,14 @@ import {
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
-import { getCurrentLocale, getLocalizedRoleMeta } from '../utils/iamRoleI18n';
+import { getLocalizedRoleMeta } from '../utils/iamRoleI18n';
 import { hasAdminAccess } from '../utils/adminAccess';
+import { useTranslation } from 'react-i18next';
+import { normalizeLanguage } from '../i18n';
 
 import VersionModal from '../components/VersionModal';
 import AdminChangePasswordModal from '../components/AdminChangePasswordModal';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -56,6 +59,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
     const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
+    const { i18n, t } = useTranslation();
 
     // We are overriding Antd token themes with CSS classes, but keeping this for safety
     const { token: { borderRadiusLG } } = theme.useToken();
@@ -84,152 +89,156 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             setChangePasswordModalOpen(true);
             return;
         }
+        if (e.key === 'preferences') {
+            setPreferencesModalOpen(true);
+            return;
+        }
     };
 
     const menuItems = [
         {
             key: 'dashboard',
             icon: <DashboardOutlined />,
-            label: '概览面板',
+            label: t('adminLayout.menu.dashboard'),
         },
         {
             key: 'sub_ai',
-            label: 'AI 管理',
+            label: t('adminLayout.menu.ai'),
             icon: <RobotOutlined />,
             children: [
                 {
                     key: 'ai_settings',
-                    label: '基础设置',
+                    label: t('adminLayout.menu.aiSettings'),
                 },
                 {
                     key: 'ai_models',
-                    label: '模型配置',
+                    label: t('adminLayout.menu.aiModels'),
                 },
                 {
                     key: 'ai_usage',
-                    label: '模型用量',
+                    label: t('adminLayout.menu.aiUsage'),
                 },
                 {
                     key: 'ai_security',
-                    label: '安全策略',
+                    label: t('adminLayout.menu.aiSecurity'),
                 },
                 {
                     key: 'kb_manage',
-                    label: '知识库',
+                    label: t('adminLayout.menu.kbManage'),
                 },
             ],
         },
         {
             key: 'sub_content',
-            label: '内容管理',
+            label: t('adminLayout.menu.content'),
             icon: <FileTextOutlined />,
             children: [
                 {
                     key: 'todos',
-                    label: '待办管理',
+                    label: t('adminLayout.menu.todos'),
                 },
                 {
                     key: 'news',
-                    label: '新闻资讯',
+                    label: t('adminLayout.menu.news'),
                 },
                 {
                     key: 'announcements',
-                    label: '实时公告',
+                    label: t('adminLayout.menu.announcements'),
                 },
                 {
                     key: 'carousel',
-                    label: '轮播管理',
+                    label: t('adminLayout.menu.carousel'),
                 },
 
             ],
         },
         {
             key: 'sub_apps',
-            label: '应用中心',
+            label: t('adminLayout.menu.apps'),
             icon: <AppstoreOutlined />,
             children: [
                 {
                     key: 'tools',
-                    label: '应用管理',
+                    label: t('adminLayout.menu.tools'),
                 },
                 {
                     key: 'app_permissions',
-                    label: '应用权限',
+                    label: t('adminLayout.menu.appPermissions'),
                 },
             ],
         },
         {
             key: 'sub_users',
-            label: '用户中心',
+            label: t('adminLayout.menu.users'),
             icon: <TeamOutlined />,
             children: [
                 {
                     key: 'employees',
-                    label: '用户管理',
+                    label: t('adminLayout.menu.employees'),
                 },
                 {
                     key: 'org',
-                    label: '组织机构',
+                    label: t('adminLayout.menu.org'),
                 },
                 {
                     key: 'users',
-                    label: '系统账户',
+                    label: t('adminLayout.menu.systemUsers'),
                 },
                 {
                     key: 'online_users',
-                    label: '在线用户',
+                    label: t('adminLayout.menu.onlineUsers'),
                 },
                 {
                     key: 'roles',
-                    label: '角色管理',
+                    label: t('adminLayout.menu.roles'),
                 },
             ],
         },
 
         {
             key: 'sub_logs',
-            label: '日志管理',
+            label: t('adminLayout.menu.logs'),
             icon: <FileTextOutlined />,
             children: [
-                { key: 'iam_audit_logs', label: 'IAM 审计' },
-                { key: 'business_logs', label: '业务日志' },
-                { key: 'access_logs', label: '访问日志' },
-                { key: 'ai_audit', label: 'AI 审计' },
-                { key: 'log_forwarding', label: '日志外发' },
-                { key: 'log_storage', label: '存储设置' },
+                { key: 'iam_audit_logs', label: t('adminLayout.menu.iamAudit') },
+                { key: 'business_logs', label: t('adminLayout.menu.businessLogs') },
+                { key: 'access_logs', label: t('adminLayout.menu.accessLogs') },
+                { key: 'ai_audit', label: t('adminLayout.menu.aiAudit') },
+                { key: 'log_forwarding', label: t('adminLayout.menu.logForwarding') },
+                { key: 'log_storage', label: t('adminLayout.menu.logStorage') },
             ]
         },
         {
             key: 'sub_security',
-            label: '安全设置',
+            label: t('adminLayout.menu.security'),
             icon: <SafetyCertificateOutlined />,
             children: [
                 {
                     key: 'security',
-                    label: '基础设置',
+                    label: t('adminLayout.menu.securityBasic'),
                 },
                 {
                     key: 'password_policy',
-                    label: '密码策略',
+                    label: t('adminLayout.menu.passwordPolicy'),
                 },
             ]
         },
         {
             key: 'sub_system',
-            label: '系统管理',
+            label: t('adminLayout.menu.system'),
             icon: <SettingOutlined />,
             children: [
                 {
                     key: 'settings',
-                    label: '客户化设置',
+                    label: t('adminLayout.menu.customization'),
                 },
                 {
                     key: 'license',
-                    label: '授权许可',
+                    label: t('adminLayout.menu.license'),
                 },
                 {
                     key: 'about_us',
-                    label: '关于我们',
+                    label: t('adminLayout.menu.aboutUs'),
                 },
             ],
         },
@@ -238,12 +247,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     const limitedMenuItems = [
         {
             key: 'sub_system',
-            label: '系统管理',
+            label: t('adminLayout.menu.system'),
             icon: <SettingOutlined />,
             children: [
                 {
                     key: 'license',
-                    label: '授权许可',
+                    label: t('adminLayout.menu.license'),
                 },
             ],
         },
@@ -255,12 +264,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         {
             key: 'about',
             icon: <InfoCircleOutlined />,
-            label: '系统版本',
+            label: t('adminLayout.userMenu.version'),
+        },
+        {
+            key: 'preferences',
+            icon: <SettingOutlined />,
+            label: t('adminLayout.userMenu.preferences'),
         },
         {
             key: 'change_password',
             icon: <KeyOutlined />,
-            label: '修改密码',
+            label: t('adminLayout.userMenu.changePassword'),
         },
         {
             type: 'divider',
@@ -268,19 +282,19 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         {
             key: 'logout',
             icon: <LogoutOutlined />,
-            label: '退出登录',
+            label: t('adminLayout.userMenu.logout'),
             danger: true,
         },
     ];
 
     const { user } = useAuth();
-    const locale = getCurrentLocale();
-    const fallbackAdminLabel = locale === 'zh-CN' ? '管理员' : 'Administrator';
+    const locale = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
+    const fallbackAdminLabel = t('adminLayout.role.admin');
     const primaryRole = user?.roles?.[0];
     const localizedPrimaryRole = primaryRole
         ? getLocalizedRoleMeta({ code: primaryRole.code, name: primaryRole.name }, locale).name
         : undefined;
-    const displayRole = localizedPrimaryRole || (hasAdminAccess(user) ? fallbackAdminLabel : (locale === 'zh-CN' ? '普通用户' : 'User'));
+    const displayRole = localizedPrimaryRole || (hasAdminAccess(user) ? fallbackAdminLabel : t('adminLayout.role.user'));
 
     return (
         <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
@@ -306,8 +320,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                         )}
                         {!collapsed && (
                             <div className="flex flex-col overflow-hidden whitespace-nowrap min-w-0 flex-1">
-                                <span className="font-black text-lg text-slate-900 dark:text-white leading-tight truncate w-full block">{appName || 'Admin Portal'}</span>
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest truncate w-full block">下一代企业门户系统</span>
+                                <span className="font-black text-lg text-slate-900 dark:text-white leading-tight truncate w-full block">{appName || t('adminLayout.branding.fallbackAppName')}</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest truncate w-full block">{t('adminLayout.branding.tagline')}</span>
                             </div>
                         )}
                     </div>
@@ -330,7 +344,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <Header className="px-8 h-20 bg-transparent flex justify-end items-center z-10 backdrop-blur-sm sticky top-0">
                     <div className="flex items-center space-x-6">
                         <div className="text-right hidden sm:block">
-                            <div className="text-sm font-bold text-slate-800 dark:text-white">{user?.name || user?.username || 'Admin User'}</div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-white">{user?.name || user?.username || t('adminLayout.branding.fallbackAdminUser')}</div>
                             <div className="text-xs text-slate-500 font-medium">{displayRole}</div>
                         </div>
                         <Dropdown menu={{ items: userMenuItems as any, onClick: handleUserMenuClick }} placement="bottomRight" trigger={['click']}>
@@ -355,7 +369,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                             type="warning"
                             showIcon
                             className="mb-4"
-                            message={licenseGateMessage || '系统未安装有效授权，当前仅开放「授权许可」功能。'}
+                            message={licenseGateMessage || t('adminLayout.alerts.licenseBlocked')}
                         />
                     )}
                     {licenseGateMode === 'read_only' && (
@@ -363,14 +377,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                             type="info"
                             showIcon
                             className="mb-4"
-                            message={licenseGateMessage || '授权已到期，系统当前为只读模式。'}
+                            message={licenseGateMessage || t('adminLayout.alerts.licenseReadOnly')}
                         />
                     )}
                     {children}
                 </Content>
 
                 <Footer className="text-center text-slate-400 dark:text-slate-600 bg-transparent py-6 font-medium text-xs tracking-wide">
-                    {footerText || '© 2025 侯钰熙. All Rights Reserved.'}
+                    {footerText || t('adminLayout.footerDefault')}
                 </Footer>
             </Layout>
 
@@ -381,6 +395,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                 onClose={() => setChangePasswordModalOpen(false)}
                 onSuccess={() => setChangePasswordModalOpen(false)}
             />
+            <Modal
+                title={t('adminLayout.preferences.title')}
+                open={preferencesModalOpen}
+                onCancel={() => setPreferencesModalOpen(false)}
+                footer={null}
+                width={420}
+            >
+                <div className="space-y-2">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {t('adminLayout.preferences.language')}
+                    </div>
+                    <LanguageSwitcher size="middle" className="w-full" />
+                </div>
+            </Modal>
 
             {/* Global Styles specific to Admin to override Antd defaults directly */}
             <style>{`

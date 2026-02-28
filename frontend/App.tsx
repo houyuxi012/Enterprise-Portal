@@ -9,6 +9,7 @@ import { hasAdminAccess } from './utils/adminAccess';
 import {
   Mail, Monitor, Moon, Sun, Laptop, Sparkles
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -17,6 +18,16 @@ interface FilterState {
 }
 
 import { useAuth } from './contexts/AuthContext';
+
+const NEWS_CATEGORY_CODES = ['announcement', 'activity', 'policy', 'culture'] as const;
+type NewsCategoryCode = (typeof NEWS_CATEGORY_CODES)[number];
+
+const NEWS_CATEGORY_LABEL_KEYS: Record<NewsCategoryCode, string> = {
+  announcement: 'appRoot.news.tabAnnouncement',
+  activity: 'appRoot.news.tabActivity',
+  policy: 'appRoot.news.tabPolicy',
+  culture: 'appRoot.news.tabCulture',
+};
 
 const Navbar = lazy(() => import('./components/Navbar'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -86,17 +97,18 @@ const AvatarWithFallback: React.FC<{ src?: string; name: string; className?: str
 };
 
 type LicenseGateMode = 'full' | 'blocked' | 'read_only';
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
-const resolveLicenseGateState = (status?: any): { mode: LicenseGateMode; message: string } => {
+const resolveLicenseGateState = (status: any, t: TranslateFn): { mode: LicenseGateMode; message: string } => {
   const installed = Boolean(status?.installed);
   const currentStatus = String(status?.status || '').toLowerCase();
   const reason = String(status?.reason || '').toUpperCase();
 
   if (!installed || currentStatus === 'missing' || reason === 'LICENSE_NOT_INSTALLED') {
-    return { mode: 'blocked', message: '系统未安装授权许可，当前仅开放「授权许可」功能。' };
+    return { mode: 'blocked', message: t('appRoot.license.noLicense') };
   }
   if (currentStatus === 'expired' || reason === 'LICENSE_EXPIRED') {
-    return { mode: 'read_only', message: '授权已到期，系统当前为只读模式。' };
+    return { mode: 'read_only', message: t('appRoot.license.readOnly') };
   }
   if (
     currentStatus === 'invalid' ||
@@ -104,7 +116,7 @@ const resolveLicenseGateState = (status?: any): { mode: LicenseGateMode; message
     reason === 'LICENSE_NOT_YET_VALID' ||
     reason === 'LICENSE_INACTIVE'
   ) {
-    return { mode: 'blocked', message: '授权状态异常，当前仅开放「授权许可」功能。' };
+    return { mode: 'blocked', message: t('appRoot.license.invalid') };
   }
   return { mode: 'full', message: '' };
 };
@@ -130,6 +142,7 @@ const isLicenseGateBlockedError = (error: any): boolean => {
 };
 
 const App: React.FC = () => {
+  const { t, i18n } = useTranslation();
   // Use AuthContext instead of local state
   const { user: currentUser, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
 
@@ -150,8 +163,8 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('activeAdminTab', activeAdminTab);
   }, [activeAdminTab]);
-  const [activeNewsTab, setActiveNewsTab] = useState('全部');
-  const [activeAppCategory, setActiveAppCategory] = useState('全部');
+  const [activeNewsTab, setActiveNewsTab] = useState('all');
+  const [activeAppCategory, setActiveAppCategory] = useState('all');
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -166,7 +179,7 @@ const App: React.FC = () => {
   const [adminLicenseGateMode, setAdminLicenseGateMode] = useState<LicenseGateMode>('full');
   const [adminLicenseGateMessage, setAdminLicenseGateMessage] = useState('');
   const [portalLicenseBlocked, setPortalLicenseBlocked] = useState(false);
-  const [portalLicenseBlockedMessage, setPortalLicenseBlockedMessage] = useState('系统当前未授权，暂不可使用前台功能。');
+  const [portalLicenseBlockedMessage, setPortalLicenseBlockedMessage] = useState(t('appRoot.license.portalBlocked'));
 
   // Team Filter State
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -184,9 +197,9 @@ const App: React.FC = () => {
   const normalizeSearchText = useCallback((value: unknown) => String(value ?? '').toLowerCase(), []);
   const licenseCustomerName = useMemo(() => {
     const value = String(systemConfig?.customer_name || '').trim();
-    if (!value || value === '-') return '企业';
+    if (!value || value === '-') return t('appRoot.news.customerFallback');
     return value;
-  }, [systemConfig]);
+  }, [systemConfig, t]);
 
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
@@ -241,13 +254,13 @@ const App: React.FC = () => {
 
         try {
           const licenseStatus = await ApiClient.getLicenseStatus();
-          const gate = resolveLicenseGateState(licenseStatus);
+          const gate = resolveLicenseGateState(licenseStatus, t);
           currentAdminGateMode = gate.mode;
           currentAdminGateMessage = gate.message;
         } catch (error: any) {
           const detail = extractLicenseErrorDetail(error);
           currentAdminGateMode = 'blocked';
-          currentAdminGateMessage = detail.message || '无法读取授权状态，当前仅开放「授权许可」功能。';
+          currentAdminGateMessage = detail.message || t('appRoot.license.readFailed');
           console.error('Failed to fetch license status', error);
         }
 
@@ -277,7 +290,7 @@ const App: React.FC = () => {
         if (licenseBlocked && licenseBlocked.status === 'rejected') {
           const detail = extractLicenseErrorDetail(licenseBlocked.reason);
           setPortalLicenseBlocked(true);
-          setPortalLicenseBlockedMessage(detail.message || '系统当前未授权，暂不可使用前台功能。');
+          setPortalLicenseBlockedMessage(detail.message || t('appRoot.license.portalBlocked'));
           setEmployees([]);
           setNewsList([]);
           setTools([]);
@@ -328,7 +341,7 @@ const App: React.FC = () => {
     };
 
     fetchAppData();
-  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig, emptyTodoPage]);
+  }, [isAuthenticated, currentUser?.account_type, currentUser?.roles, currentUser?.permissions, applyBrandingConfig, emptyTodoPage, t]);
 
   // Keep branding synced when backend config changes during active sessions.
   useEffect(() => {
@@ -409,12 +422,12 @@ const App: React.FC = () => {
           detail: `User searched for: ${globalSearch}`
         });
 
-        const prompt = `作为一个企业内网助手，请针对搜索词“${globalSearch}”提供一个专业的概览。如果是寻找流程，请简述步骤；如果是寻找人或部门，请说明可能的对接方式。请保持简练。`;
+        const prompt = t('appRoot.search.aiPrompt', { query: globalSearch });
         try {
           const response = await ApiClient.chatAI(prompt);
           setSearchAiInsight(response);
         } catch (e) {
-          setSearchAiInsight("无法获取AI搜索洞察。");
+          setSearchAiInsight(t('appRoot.search.aiFailed'));
         }
         setIsSearchAiLoading(false);
       };
@@ -422,7 +435,7 @@ const App: React.FC = () => {
     } else if (currentView !== AppView.SEARCH_RESULTS) {
       setSearchAiInsight(null);
     }
-  }, [currentView, globalSearch, systemConfig]);
+  }, [currentView, globalSearch, systemConfig, t]);
 
   const filteredTools = useMemo(() => {
     const keyword = normalizeSearchText(globalSearch);
@@ -464,6 +477,31 @@ const App: React.FC = () => {
     });
   }, [globalSearch, activeFilters, employees, normalizeSearchText]);
 
+  const newsCategoryAliases = useMemo(() => {
+    const aliases: Record<string, NewsCategoryCode> = {} as Record<string, NewsCategoryCode>;
+    NEWS_CATEGORY_CODES.forEach((code) => {
+      aliases[code] = code;
+      const key = NEWS_CATEGORY_LABEL_KEYS[code];
+      const zhLabel = String(i18n.t(key, { lng: 'zh-CN' })).trim();
+      const enLabel = String(i18n.t(key, { lng: 'en-US' })).trim();
+      if (zhLabel) aliases[zhLabel] = code;
+      if (enLabel) aliases[enLabel] = code;
+    });
+    return aliases;
+  }, [i18n.resolvedLanguage, i18n]);
+
+  const normalizeNewsCategory = useCallback((value?: string): NewsCategoryCode => {
+    const raw = String(value || '').trim();
+    if (raw in newsCategoryAliases) {
+      return newsCategoryAliases[raw];
+    }
+    const lowerRaw = raw.toLowerCase();
+    if (lowerRaw in newsCategoryAliases) {
+      return newsCategoryAliases[lowerRaw];
+    }
+    return 'announcement';
+  }, [newsCategoryAliases]);
+
   const handleOpenAssistantWithPrompt = (prompt: string) => {
     setAssistantInitialPrompt(prompt);
     setIsAssistantOpen(true);
@@ -487,15 +525,15 @@ const App: React.FC = () => {
         return (
           <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">偏好设置</h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">定制您的 ShiKu Home 沉浸式体验</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.settings.title')}</h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">{t('appRoot.settings.subtitle')}</p>
             </div>
 
             {/* Admin Entry Point */}
             {hasAdminAccess(currentUser) && (
               <div className="mica rounded-[2.5rem] p-8 shadow-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/10">
-                <h3 className="text-lg font-bold mb-4 text-blue-800 dark:text-blue-300">管理员专区</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">您拥有管理员权限，可以进入后台管理系统。</p>
+                <h3 className="text-lg font-bold mb-4 text-blue-800 dark:text-blue-300">{t('appRoot.settings.adminZoneTitle')}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t('appRoot.settings.adminZoneDesc')}</p>
                 <button
                   onClick={() => {
                     setIsAdminMode(true);
@@ -503,7 +541,7 @@ const App: React.FC = () => {
                   }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
                 >
-                  进入后台管理
+                  {t('appRoot.settings.enterAdmin')}
                 </button>
               </div>
             )}
@@ -512,13 +550,13 @@ const App: React.FC = () => {
             <div className="mica rounded-[2.5rem] p-8 shadow-xl">
               <h3 className="text-lg font-bold mb-6 flex items-center">
                 <Monitor size={16} className="text-blue-600 mr-3" />
-                显示与主题
+                {t('appRoot.settings.themeTitle')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {[
-                  { id: 'light', icon: <Sun size={18} />, label: '清新浅色' },
-                  { id: 'dark', icon: <Moon size={18} />, label: '深邃暗色' },
-                  { id: 'system', icon: <Laptop size={18} />, label: '智能跟随' }
+                  { id: 'light', icon: <Sun size={18} />, label: t('appRoot.settings.theme.light') },
+                  { id: 'dark', icon: <Moon size={18} />, label: t('appRoot.settings.theme.dark') },
+                  { id: 'system', icon: <Laptop size={18} />, label: t('appRoot.settings.theme.system') }
                 ].map((mode) => (
                   <button
                     key={mode.id}
@@ -536,9 +574,9 @@ const App: React.FC = () => {
           </div>
         );
       case AppView.TOOLS:
-        const appCategories = ['全部', ...Array.from(new Set(tools.map(t => t.category).filter(Boolean)))];
+        const appCategories = ['all', ...Array.from(new Set(tools.map(t => t.category).filter(Boolean)))];
         const tabFilteredTools = filteredTools.filter(t => {
-          if (activeAppCategory === '全部') return true;
+          if (activeAppCategory === 'all') return true;
           return t.category === activeAppCategory;
         });
 
@@ -546,12 +584,12 @@ const App: React.FC = () => {
           <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
               <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">应用中心</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">点击启动您的工作流</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.tools.title')}</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">{t('appRoot.tools.subtitle')}</p>
               </div>
 
               <div className="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto no-scrollbar max-w-full">
-                {appCategories.map(category => (
+                {appCategories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setActiveAppCategory(category)}
@@ -560,7 +598,7 @@ const App: React.FC = () => {
                       : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                   >
-                    {category}
+                    {category === 'all' ? t('common.status.all') : category}
                   </button>
                 ))}
               </div>
@@ -596,9 +634,16 @@ const App: React.FC = () => {
         );
       case AppView.NEWS:
         const newsKeyword = normalizeSearchText(globalSearch);
+        const newsTabs = [
+          { value: 'all', label: t('common.status.all') },
+          ...NEWS_CATEGORY_CODES.map((code) => ({
+            value: code,
+            label: t(NEWS_CATEGORY_LABEL_KEYS[code]),
+          })),
+        ];
         const tabFilteredNews = newsList.filter(n => {
-          if (activeNewsTab === '全部') return true;
-          return n.category === activeNewsTab;
+          if (activeNewsTab === 'all') return true;
+          return normalizeNewsCategory(n.category) === activeNewsTab;
         }).filter(news =>
           normalizeSearchText(news?.title).includes(newsKeyword) ||
           normalizeSearchText(news?.summary).includes(newsKeyword)
@@ -608,41 +653,43 @@ const App: React.FC = () => {
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">资讯中心</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">了解 {licenseCustomerName} 的最新动态与深度报道</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.news.title')}</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">{t('appRoot.news.subtitle', { customer: licenseCustomerName })}</p>
               </div>
 
               {/* Tabs */}
               <div className="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                {['全部', '公告', '活动', '政策', '文化'].map(tab => (
+                {newsTabs.map((tab) => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveNewsTab(tab)}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${activeNewsTab === tab
+                    key={tab.value}
+                    onClick={() => setActiveNewsTab(tab.value)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${activeNewsTab === tab.value
                       ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
                       : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                   >
-                    {tab}
+                    {tab.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tabFilteredNews.map(news => (
-                <div key={news.id} className="group bg-white dark:bg-slate-800 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 flex flex-col h-full border border-slate-100 dark:border-slate-700/50">
+              {tabFilteredNews.map(news => {
+                const categoryCode = normalizeNewsCategory(news.category);
+                return (
+                  <div key={news.id} className="group bg-white dark:bg-slate-800 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 flex flex-col h-full border border-slate-100 dark:border-slate-700/50">
                   {/* Image Container */}
                   <div className="relative h-40 overflow-hidden">
                     <img src={news.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" loading="lazy" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                     {/* Badge */}
-                    <span className={`absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-black text-white shadow-lg backdrop-blur-md ${news.category === '公告' ? 'bg-indigo-500/90' :
-                      news.category === '活动' ? 'bg-blue-500/90' :
-                        news.category === '政策' ? 'bg-rose-500/90' : 'bg-emerald-500/90'
+                    <span className={`absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-black text-white shadow-lg backdrop-blur-md ${categoryCode === 'announcement' ? 'bg-indigo-500/90' :
+                      categoryCode === 'activity' ? 'bg-blue-500/90' :
+                        categoryCode === 'policy' ? 'bg-rose-500/90' : 'bg-emerald-500/90'
                       }`}>
-                      {news.category}
+                      {t(NEWS_CATEGORY_LABEL_KEYS[categoryCode])}
                     </span>
                   </div>
 
@@ -667,33 +714,34 @@ const App: React.FC = () => {
 
                     {/* Footer / Action */}
                     <div className="flex items-center text-blue-600 dark:text-blue-400 text-xs font-bold group/btn">
-                      <span>阅读全文</span>
+                      <span>{t('appRoot.news.readMore')}</span>
                       <svg className="w-3.5 h-3.5 ml-1 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {tabFilteredNews.length === 0 && (
-              <div className="text-center py-20 text-slate-400 font-bold">暂无此类资讯</div>
+              <div className="text-center py-20 text-slate-400 font-bold">{t('appRoot.news.empty')}</div>
             )}
           </div>
         );
       case AppView.DIRECTORY:
         return (
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">团队通讯录</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.directory.title')}</h1>
             <div className="mica rounded-organic overflow-hidden">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                   <tr>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">成员</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">部门</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">职位</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">操作</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.member')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.department')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.role')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -721,22 +769,22 @@ const App: React.FC = () => {
         return (
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">搜索结果</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.search.title')}</h1>
               <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">
-                关键词 "{globalSearch}" 的相关内容
+                {t('appRoot.search.keywordSummary', { query: globalSearch })}
               </p>
             </div>
 
             {isSearchAiLoading ? (
               <div className="mica p-6 rounded-[2rem] flex items-center space-x-4 animate-pulse">
                 <Sparkles size={24} className="text-blue-500" />
-                <span className="text-slate-500 font-bold">正在生成 AI 洞察...</span>
+                <span className="text-slate-500 font-bold">{t('appRoot.search.aiLoading')}</span>
               </div>
             ) : searchAiInsight && (
               <div className="mica p-6 rounded-[2rem] border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/10">
                 <div className="flex items-center space-x-2 mb-2 text-blue-600 dark:text-blue-400">
                   <Sparkles size={18} />
-                  <span className="font-black uppercase tracking-widest text-xs">AI 智能洞察</span>
+                  <span className="font-black uppercase tracking-widest text-xs">{t('appRoot.search.aiInsight')}</span>
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed font-medium">
                   {searchAiInsight}
@@ -746,7 +794,7 @@ const App: React.FC = () => {
 
             {filteredTools.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关应用</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">{t('appRoot.search.relatedApps')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                   {filteredTools.map(tool => (
                     <a
@@ -770,7 +818,7 @@ const App: React.FC = () => {
 
             {filteredNews.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关资讯</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">{t('appRoot.search.relatedNews')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredNews.map(news => (
                     <div key={news.id} className="group mica rounded-[2rem] overflow-hidden shadow-lg p-4 flex items-center space-x-4 hover:bg-white dark:hover:bg-slate-800 transition text-left cursor-pointer">
@@ -787,7 +835,7 @@ const App: React.FC = () => {
 
             {filteredEmployees.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关人员</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">{t('appRoot.search.relatedPeople')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {filteredEmployees.map(emp => (
                     <div key={emp.id} className="mica rounded-3xl p-4 flex items-center space-x-4">
@@ -804,7 +852,7 @@ const App: React.FC = () => {
 
             {filteredTodos.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">相关待办</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">{t('appRoot.search.relatedTodos')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredTodos.map(todo => (
                     <div key={todo.id} className="group mica rounded-[2rem] overflow-hidden shadow-lg p-5 flex flex-col hover:bg-white dark:hover:bg-slate-800 transition text-left cursor-pointer border border-slate-100 dark:border-slate-700/50" onClick={() => setCurrentView(AppView.TODOS)}>
@@ -812,10 +860,16 @@ const App: React.FC = () => {
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 group-hover:text-blue-600 transition-colors flex-1 pr-4">{todo.title}</h4>
                         <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black uppercase shadow-sm ${todo.priority === 3 ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' :
                           todo.priority === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
-                            todo.priority === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
+                          todo.priority === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
                               'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                           }`}>
-                          {todo.priority === 3 ? '紧急' : todo.priority === 2 ? '高' : todo.priority === 1 ? '中' : '低'}
+                          {todo.priority === 3
+                            ? t('appRoot.search.todoPriority.emergency')
+                            : todo.priority === 2
+                              ? t('appRoot.search.todoPriority.high')
+                              : todo.priority === 1
+                                ? t('appRoot.search.todoPriority.medium')
+                                : t('appRoot.search.todoPriority.low')}
                         </span>
                       </div>
                       {todo.description && <p className="text-xs text-slate-500 line-clamp-2 mb-4 flex-1">{todo.description}</p>}
@@ -826,7 +880,13 @@ const App: React.FC = () => {
                             todo.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
                               'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                           }`}>
-                          {todo.status === 'pending' ? '未开始' : todo.status === 'in_progress' ? '进行中' : todo.status === 'completed' ? '已完成' : '已取消'}
+                          {todo.status === 'pending'
+                            ? t('appRoot.search.todoStatus.pending')
+                            : todo.status === 'in_progress'
+                              ? t('appRoot.search.todoStatus.inProgress')
+                              : todo.status === 'completed'
+                                ? t('appRoot.search.todoStatus.completed')
+                                : t('appRoot.search.todoStatus.canceled')}
                         </span>
                       </div>
                     </div>
@@ -837,7 +897,7 @@ const App: React.FC = () => {
 
             {filteredTools.length === 0 && filteredNews.length === 0 && filteredEmployees.length === 0 && filteredTodos.length === 0 && (
               <div className="text-center py-20">
-                <p className="text-slate-400 font-bold">没有找到相关内容</p>
+                <p className="text-slate-400 font-bold">{t('appRoot.search.empty')}</p>
               </div>
             )}
           </div>
@@ -847,15 +907,15 @@ const App: React.FC = () => {
       case AppView.DIRECTORY:
         return (
           <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">团队通讯录</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.directory.title')}</h1>
             <div className="mica rounded-organic overflow-hidden">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                   <tr>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">成员</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">部门</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">职位</th>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">操作</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.member')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.department')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.role')}</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('appRoot.directory.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -880,7 +940,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">即将上线</div>;
+        return <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">{t('appRoot.comingSoon')}</div>;
     }
   };
 
@@ -986,15 +1046,15 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center px-6">
         <div className="max-w-lg w-full rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-xl p-8 text-center space-y-4">
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white">系统授权未激活</h1>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">{t('appRoot.license.notActivatedTitle')}</h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-7">
-            {portalLicenseBlockedMessage || '系统当前未授权，暂不可使用前台功能，请联系管理员在后台导入有效授权。'}
+            {portalLicenseBlockedMessage || t('appRoot.license.portalBlockedLong')}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition"
           >
-            刷新状态
+            {t('common.buttons.refresh')}
           </button>
         </div>
       </div>
@@ -1033,7 +1093,7 @@ const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="py-6 text-center text-xs text-slate-400 dark:text-slate-600 font-medium tracking-wide">
-        {systemConfig.footer_text || '© 2025 侯钰熙. All Rights Reserved.'}
+        {systemConfig.footer_text || t('appRoot.footerDefault')}
       </footer>
 
       <Suspense fallback={null}>

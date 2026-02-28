@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient from '../../../services/api';
 import { AISecurityPolicy } from '../../../types';
 import AppButton from '../../../components/AppButton';
 
 const SecurityPolicy: React.FC = () => {
+    const { t } = useTranslation();
     const [policies, setPolicies] = useState<AISecurityPolicy[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -18,7 +20,7 @@ const SecurityPolicy: React.FC = () => {
             const data = await ApiClient.getAIPolicies();
             setPolicies(data);
         } catch (error) {
-            message.error('获取策略列表失败');
+            message.error(t('securityPolicy.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -45,10 +47,10 @@ const SecurityPolicy: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteAIPolicy(id);
-            message.success('策略已删除');
+            message.success(t('securityPolicy.messages.deleteSuccess'));
             fetchPolicies();
         } catch (error) {
-            message.error('删除策略失败');
+            message.error(t('securityPolicy.messages.deleteFailed'));
         }
     };
 
@@ -65,58 +67,58 @@ const SecurityPolicy: React.FC = () => {
                         const list = values.content.split(/,|，/).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
                         values.content = JSON.stringify(list);
                     } catch (err) {
-                        message.error('规则格式无效，必须是 JSON 数组或逗号分隔列表');
+                        message.error(t('securityPolicy.messages.invalidRuleFormat'));
                         return;
                     }
                 } else {
-                    message.error('JSON 格式无效，示例: ["规则1", "规则2"]');
+                    message.error(t('securityPolicy.messages.invalidJson'));
                     return;
                 }
             }
 
             if (editingPolicy) {
                 await ApiClient.updateAIPolicy(editingPolicy.id, values);
-                message.success('策略已更新');
+                message.success(t('securityPolicy.messages.updateSuccess'));
             } else {
                 await ApiClient.createAIPolicy(values);
-                message.success('策略已创建');
+                message.success(t('securityPolicy.messages.createSuccess'));
             }
             setIsModalVisible(false);
             fetchPolicies();
         } catch (error) {
-            message.error('操作失败');
+            message.error(t('securityPolicy.messages.actionFailed'));
         }
     };
 
     const columns = [
         {
-            title: '策略名称',
+            title: t('securityPolicy.table.name'),
             dataIndex: 'name',
             key: 'name',
             render: (text: string) => <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
         },
         {
-            title: '规则类型',
+            title: t('securityPolicy.table.ruleType'),
             dataIndex: 'type',
             key: 'type',
             render: (text: string) => (
                 <Tag color={text === 'keyword' ? 'blue' : text === 'regex' ? 'purple' : 'orange'}>
-                    {text.toUpperCase()}
+                    {t(`securityPolicy.ruleType.${text}`, { defaultValue: text.toUpperCase() })}
                 </Tag>
             )
         },
         {
-            title: '执行动作',
+            title: t('securityPolicy.table.action'),
             dataIndex: 'action',
             key: 'action',
             render: (text: string) => (
                 <Tag color={text === 'block' ? 'error' : text === 'mask' ? 'warning' : 'default'}>
-                    {text.toUpperCase()}
+                    {t(`securityPolicy.action.${text}`, { defaultValue: text.toUpperCase() })}
                 </Tag>
             )
         },
         {
-            title: '规则内容',
+            title: t('securityPolicy.table.content'),
             dataIndex: 'content',
             key: 'content',
             render: (text: string) => (
@@ -126,7 +128,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: '状态',
+            title: t('securityPolicy.table.status'),
             dataIndex: 'is_enabled',
             key: 'is_enabled',
             render: (enabled: boolean) => (
@@ -134,7 +136,7 @@ const SecurityPolicy: React.FC = () => {
             )
         },
         {
-            title: '操作',
+            title: t('securityPolicy.table.actions'),
             key: 'actions',
             render: (_: any, record: AISecurityPolicy) => (
                 <div className="flex gap-1">
@@ -149,10 +151,10 @@ const SecurityPolicy: React.FC = () => {
         <div className="animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">安全策略</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">配置内容拦截、关键词过滤与敏感信息脱敏规则</p>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('securityPolicy.page.title')}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('securityPolicy.page.subtitle')}</p>
                 </div>
-                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>添加策略</AppButton>
+                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('securityPolicy.page.addButton')}</AppButton>
             </div>
 
             <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -162,53 +164,66 @@ const SecurityPolicy: React.FC = () => {
                     rowKey="id"
                     loading={loading}
                     pagination={false}
+                    locale={{ emptyText: t('securityPolicy.table.empty') }}
                     className="align-middle"
                 />
             </Card>
 
             <Modal
-                title={editingPolicy ? "编辑策略" : "添加策略"}
+                title={editingPolicy ? t('securityPolicy.modal.editTitle') : t('securityPolicy.modal.createTitle')}
                 open={isModalVisible}
                 onOk={handleOk}
                 onCancel={() => setIsModalVisible(false)}
-                okText="保存"
-                cancelText="取消"
+                okText={t('common.buttons.save')}
+                cancelText={t('common.buttons.cancel')}
                 className="rounded-2xl overflow-hidden"
                 okButtonProps={{ className: "bg-indigo-600" }}
             >
                 <Form form={form} layout="vertical" className="mt-4">
-                    <Form.Item name="name" label="策略名称" rules={[{ required: true }]}>
-                        <Input placeholder="例如: 财务敏感词拦截" className="h-10 rounded-lg" />
+                    <Form.Item
+                        name="name"
+                        label={t('securityPolicy.form.name')}
+                        rules={[{ required: true, message: t('securityPolicy.form.validation.nameRequired') }]}
+                    >
+                        <Input placeholder={t('securityPolicy.form.placeholders.name')} className="h-10 rounded-lg" />
                     </Form.Item>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Form.Item name="type" label="规则类型" rules={[{ required: true }]}>
-                            <Select placeholder="选择类型" className="h-10" popupClassName="rounded-xl">
-                                <Select.Option value="keyword">关键词匹配</Select.Option>
-                                <Select.Option value="regex">正则表达式</Select.Option>
-                                <Select.Option value="length">长度限制</Select.Option>
+                        <Form.Item
+                            name="type"
+                            label={t('securityPolicy.form.ruleType')}
+                            rules={[{ required: true, message: t('securityPolicy.form.validation.ruleTypeRequired') }]}
+                        >
+                            <Select placeholder={t('securityPolicy.form.placeholders.ruleType')} className="h-10" popupClassName="rounded-xl">
+                                <Select.Option value="keyword">{t('securityPolicy.ruleType.keyword')}</Select.Option>
+                                <Select.Option value="regex">{t('securityPolicy.ruleType.regex')}</Select.Option>
+                                <Select.Option value="length">{t('securityPolicy.ruleType.length')}</Select.Option>
                             </Select>
                         </Form.Item>
 
-                        <Form.Item name="action" label="执行动作" rules={[{ required: true }]}>
-                            <Select placeholder="选择动作" className="h-10" popupClassName="rounded-xl">
-                                <Select.Option value="block">拦截请求 (Block)</Select.Option>
-                                <Select.Option value="mask">掩码脱敏 (Mask)</Select.Option>
-                                <Select.Option value="warn">仅记录警告 (Warn)</Select.Option>
+                        <Form.Item
+                            name="action"
+                            label={t('securityPolicy.form.action')}
+                            rules={[{ required: true, message: t('securityPolicy.form.validation.actionRequired') }]}
+                        >
+                            <Select placeholder={t('securityPolicy.form.placeholders.action')} className="h-10" popupClassName="rounded-xl">
+                                <Select.Option value="block">{t('securityPolicy.action.block')}</Select.Option>
+                                <Select.Option value="mask">{t('securityPolicy.action.mask')}</Select.Option>
+                                <Select.Option value="warn">{t('securityPolicy.action.warn')}</Select.Option>
                             </Select>
                         </Form.Item>
                     </div>
 
                     <Form.Item
                         name="content"
-                        label="规则内容 (JSON List)"
-                        tooltip="请输入字符串数组格式，例如 ['敏感词1', '敏感词2']"
-                        rules={[{ required: true }]}
+                        label={t('securityPolicy.form.content')}
+                        tooltip={t('securityPolicy.form.contentTooltip')}
+                        rules={[{ required: true, message: t('securityPolicy.form.validation.contentRequired') }]}
                     >
-                        <Input.TextArea rows={4} placeholder='["password", "secret", "机密"]' className="rounded-xl font-mono text-sm" />
+                        <Input.TextArea rows={4} placeholder={t('securityPolicy.form.placeholders.content')} className="rounded-xl font-mono text-sm" />
                     </Form.Item>
 
-                    <Form.Item name="is_enabled" label="启用策略" valuePropName="checked">
+                    <Form.Item name="is_enabled" label={t('securityPolicy.form.enabled')} valuePropName="checked">
                         <Switch />
                     </Form.Item>
                 </Form>

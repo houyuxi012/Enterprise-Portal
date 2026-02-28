@@ -1,450 +1,384 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Table, Tag, Select, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DatabaseOutlined, CloudOutlined, UserOutlined, AuditOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
 import ApiClient from '../../services/api';
 import { BusinessLog } from '../../types';
-import dayjs from 'dayjs';
 import AppButton from '../../components/AppButton';
 
-const ACTION_MAP: Record<string, string> = {
-    'LOGIN': '用户登录',
-    'CREATE_USER': '创建用户',
-    'DELETE_USER': '删除用户',
-    'UPDATE_USER': '更新用户',
-    'RESET_PASSWORD': '重置密码',
-    'RESET_USER_PASSWORD': '重置用户密码',
-    'APP_LAUNCH': '启动应用',
-    'SEARCH_QUERY': '搜索查询',
-    'CREATE_NEWS': '新增新闻',
-    'UPDATE_NEWS': '更新新闻',
-    'DELETE_NEWS': '删除新闻',
-    'CREATE_ANNOUNCEMENT': '新增公告',
-    'UPDATE_ANNOUNCEMENT': '更新公告',
-    'DELETE_ANNOUNCEMENT': '删除公告',
-    'CREATE_CAROUSEL_ITEM': '新增轮播图',
-    'UPDATE_CAROUSEL_ITEM': '更新轮播图',
-    'DELETE_CAROUSEL_ITEM': '删除轮播图',
-    'CREATE_APP': '新增应用',
-    'UPDATE_APP': '更新应用',
-    'UPDATE_APP_PERMISSION': '更新应用权限',
-    'DELETE_APP': '删除应用',
-    'CREATE_AI_PROVIDER': '新增AI供应商',
-    'UPDATE_AI_PROVIDER': '更新AI供应商',
-    'DELETE_AI_PROVIDER': '删除AI供应商',
-    'CREATE_AI_POLICY': '新增AI安全策略',
-    'UPDATE_AI_POLICY': '更新AI安全策略',
-    'DELETE_AI_POLICY': '删除AI安全策略',
-    'UPDATE_SYSTEM_CONFIG': '更新系统配置',
-    'CREATE_EMPLOYEE': '新增用户',
-    'UPDATE_EMPLOYEE': '更新用户',
-    'DELETE_EMPLOYEE': '删除用户',
-    'CREATE_ROLE': '新增角色',
-    'UPDATE_ROLE': '更新角色',
-    'DELETE_ROLE': '删除角色',
-    'CREATE_DEPARTMENT': '新增部门',
-    'UPDATE_DEPARTMENT': '更新部门',
-    'DELETE_DEPARTMENT': '删除部门',
-    'CREATE_KB_DOC': '新增知识库文档',
-    'UPDATE_KB_DOC': '更新知识库文档',
-    'DELETE_KB_DOC': '删除知识库文档',
-    'REINDEX_KB_DOC': '重建知识库索引',
-    'CREATE_TASK': '创建任务',
-    'UPDATE_TASK': '更新任务',
-    'CHANGE_TASK_STATUS': '变更任务状态',
-    'ADMIN_CREATE_TASK': '后台创建任务',
-    'ADMIN_UPDATE_TASK': '后台更新任务',
-    'ADMIN_DELETE_TASK': '后台删除任务',
-    'UPLOAD_IMAGE': '上传图片',
-    'VIEW_FILE': '查看文件',
-    'CHAT': 'AI 对话',
-    'READ_ANNOUNCEMENTS': '查看公告列表',
-    'READ_BUSINESS_LOGS': '查看业务日志',
-    'READ_SYSTEM_LOGS': '查看系统日志',
-    'READ_ACCESS_LOGS': '查看访问日志',
-    'READ_LOG_FORWARDING_CONFIG': '查看日志转发配置',
-    'CREATE_LOG_FORWARDING_CONFIG': '创建日志转发配置',
-    'DELETE_LOG_FORWARDING_CONFIG': '删除日志转发配置',
-    'READ_AI_AUDIT_LOGS': '查看 AI 审计日志',
-    'READ_AI_AUDIT_DETAIL': '查看 AI 审计详情',
-    'READ_AI_AUDIT_STATS': '查看 AI 审计统计',
-    'READ_SYSTEM_CONFIG': '查看系统配置',
-    'OPTIMIZE_STORAGE': '执行存储优化',
-    'SYSTEM_UPGRADE': '系统版本升级',
-    'AUTO_LOG_CLEANUP': '自动日志清理',
-    'AUTO_IAM_ARCHIVE': '自动 IAM 归档',
-    'CREATE_PERMISSION': '新增权限',
-    'UPDATE_AI_QUOTA': '更新 AI 配额',
-    'TEST_AI_PROVIDER': '测试 AI 供应商',
-    'ADMIN_TEST_AI_PROVIDER': '后台测试 AI 供应商',
-    'AUTHZ_DENIED': '权限拒绝',
-    'HTTP_REQUEST': 'HTTP 请求',
-    'MARK_NOTIFICATIONS_READ': '通知已读',
-    'MARK_ALL_NOTIFICATIONS_READ': '全部通知已读',
-    'MARK_ANNOUNCEMENTS_READ': '公告已读',
-    'PUSH_NOTIFICATION': '推送通知',
-    'PORTAL_CLIENT_LOCAL_NOTIFICATION_CLICK': '本地通知点击',
-    'PORTAL_CLIENT_SEARCH_QUERY': '门户搜索查询',
-    'READ_IAM_AUDIT_LOGS': '查看IAM审计日志',
-    'LICENSE_INSTALL': '导入授权许可',
-    'LICENSE_VERIFY_FAILED': '授权校验失败',
-    'LICENSE_EXPIRED': '授权过期',
-    'license.install': '导入授权许可',
-    'license.verify_failed': '授权校验失败',
-    'license.expired': '授权过期',
-};
-
-const ACTION_CATEGORIES: Record<string, { label: string; color: string }> = {
-    'LOGIN': { label: '登录', color: 'cyan' },
-    'CREATE': { label: '创建', color: 'green' },
-    'UPDATE': { label: '更新', color: 'blue' },
-    'DELETE': { label: '删除', color: 'red' },
-    'REINDEX': { label: '索引', color: 'purple' },
-    'OTHER': { label: '其他', color: 'default' }
-};
-
-const getActionCategory = (action: string): { label: string; color: string } => {
-    const normalized = (action || '').toUpperCase();
-    if (normalized === 'LOGIN') return ACTION_CATEGORIES['LOGIN'];
-    if (normalized.includes('CREATE')) return ACTION_CATEGORIES['CREATE'];
-    if (normalized.includes('UPDATE')) return ACTION_CATEGORIES['UPDATE'];
-    if (normalized.includes('DELETE')) return ACTION_CATEGORIES['DELETE'];
-    if (normalized.includes('REINDEX')) return ACTION_CATEGORIES['REINDEX'];
-    return ACTION_CATEGORIES['OTHER'];
-};
-
 interface LogStats {
-    total: number;           // 操作总数
-    todayCount: number;      // 今日操作
-    createCount: number;     // 创建操作
-    modifyCount: number;     // 变更操作 (UPDATE + DELETE)
+  total: number;
+  todayCount: number;
+  createCount: number;
+  modifyCount: number;
 }
 
+const ACTION_CATEGORIES: Record<string, { key: string; color: string }> = {
+  LOGIN: { key: 'login', color: 'cyan' },
+  CREATE: { key: 'create', color: 'green' },
+  UPDATE: { key: 'update', color: 'blue' },
+  DELETE: { key: 'delete', color: 'red' },
+  REINDEX: { key: 'reindex', color: 'purple' },
+  OTHER: { key: 'other', color: 'default' },
+};
+
+const getActionCategory = (action: string): { key: string; color: string } => {
+  const normalized = (action || '').toUpperCase();
+  if (normalized === 'LOGIN') return ACTION_CATEGORIES.LOGIN;
+  if (normalized.includes('CREATE')) return ACTION_CATEGORIES.CREATE;
+  if (normalized.includes('UPDATE')) return ACTION_CATEGORIES.UPDATE;
+  if (normalized.includes('DELETE')) return ACTION_CATEGORIES.DELETE;
+  if (normalized.includes('REINDEX')) return ACTION_CATEGORIES.REINDEX;
+  return ACTION_CATEGORIES.OTHER;
+};
+
+const toActionKey = (action?: string): string => {
+  return String(action || '')
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+};
+
 const BusinessLogs: React.FC = () => {
-    const [logs, setLogs] = useState<BusinessLog[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [stats, setStats] = useState<LogStats>({ total: 0, todayCount: 0, createCount: 0, modifyCount: 0 });
-    const [selectedLog, setSelectedLog] = useState<BusinessLog | null>(null);
-    const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useTranslation();
+  const [logs, setLogs] = useState<BusinessLog[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<LogStats>({ total: 0, todayCount: 0, createCount: 0, modifyCount: 0 });
+  const [selectedLog, setSelectedLog] = useState<BusinessLog | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-    // Filters
-    const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
-    const [actionFilter, setActionFilter] = useState<string | undefined>();
-    const [statusFilter, setStatusFilter] = useState<string | undefined>();
-    const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+  const [actionFilter, setActionFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
 
-    const fetchLogs = async () => {
-        setLoading(true);
-        try {
-            const data = await ApiClient.getBusinessLogs({
-                action: actionFilter,
-                source: sourceFilter
-            });
-            setLogs(data);
+  const getActionLabel = (action?: string) => {
+    const key = toActionKey(action);
+    return t(`businessLogs.actions.${key}`, { defaultValue: action || '-' });
+  };
 
-            // Calculate business-specific stats
-            const today = dayjs().format('YYYY-MM-DD');
-            const todayLogs = data.filter((log: BusinessLog) => log.timestamp?.startsWith(today));
-            const createLogs = data.filter((log: BusinessLog) => (log.action || '').toUpperCase().includes('CREATE'));
-            const modifyLogs = data.filter((log: BusinessLog) =>
-                (log.action || '').toUpperCase().includes('UPDATE') ||
-                (log.action || '').toUpperCase().includes('DELETE')
-            );
-            setStats({
-                total: data.length,
-                todayCount: todayLogs.length,
-                createCount: createLogs.length,
-                modifyCount: modifyLogs.length
-            });
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const getStatusLabel = (status?: string) => {
+    if (status === 'SUCCESS') return t('common.status.success');
+    if (status === 'FAIL') return t('common.status.fail');
+    return t('common.status.unknown');
+  };
 
-    useEffect(() => {
-        fetchLogs();
-    }, [sourceFilter]);
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const data = await ApiClient.getBusinessLogs({
+        action: actionFilter,
+        source: sourceFilter,
+      });
+      setLogs(data);
 
-    const handleViewDetail = (record: BusinessLog) => {
-        setSelectedLog(record);
-        setDrawerOpen(true);
-    };
+      const today = dayjs().format('YYYY-MM-DD');
+      const todayLogs = data.filter((log: BusinessLog) => log.timestamp?.startsWith(today));
+      const createLogs = data.filter((log: BusinessLog) => (log.action || '').toUpperCase().includes('CREATE'));
+      const modifyLogs = data.filter((log: BusinessLog) =>
+        (log.action || '').toUpperCase().includes('UPDATE') ||
+        (log.action || '').toUpperCase().includes('DELETE')
+      );
+      setStats({
+        total: data.length,
+        todayCount: todayLogs.length,
+        createCount: createLogs.length,
+        modifyCount: modifyLogs.length,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const columns = [
-        {
-            title: '时间',
-            dataIndex: 'timestamp',
-            key: 'timestamp',
-            width: 180,
-            render: (text: string) => (
-                <span className="text-xs text-slate-500">
-                    {text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                </span>
-            )
-        },
-        {
-            title: '操作人',
-            dataIndex: 'operator',
-            key: 'operator',
-            width: 120,
-            render: (text: string) => (
-                <div className="flex items-center gap-2">
-                    <UserOutlined className="text-indigo-500" />
-                    <span className="font-medium text-slate-700">{text || '-'}</span>
-                </div>
-            )
-        },
-        {
-            title: '动作',
-            dataIndex: 'action',
-            key: 'action',
-            width: 160,
-            render: (text: string) => {
-                const category = getActionCategory(text);
-                return (
-                    <Tooltip title={text}>
-                        <Tag color={category.color} icon={<AuditOutlined />}>
-                            {ACTION_MAP[text] || text}
-                        </Tag>
-                    </Tooltip>
-                );
-            }
-        },
-        {
-            title: '目标对象',
-            dataIndex: 'target',
-            key: 'target',
-            width: 150,
-            render: (text: string) => (
-                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">
-                    {text || '-'}
-                </span>
-            )
-        },
-        {
-            title: 'IP 地址',
-            dataIndex: 'ip_address',
-            key: 'ip_address',
-            width: 120,
-            render: (text: string) => (
-                <span className="font-mono text-xs text-slate-400">{text || '-'}</span>
-            )
-        },
-        {
-            title: '状态',
-            dataIndex: 'status',
-            key: 'status',
-            width: 90,
-            render: (status: string) => (
-                <Tag
-                    color={status === 'SUCCESS' ? 'green' : 'red'}
-                    icon={status === 'SUCCESS' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                >
-                    {status === 'SUCCESS' ? '成功' : '失败'}
-                </Tag>
-            )
-        },
-        {
-            title: '来源',
-            dataIndex: 'source',
-            key: 'source',
-            width: 100,
-            render: (source: string) => {
-                // Handle combined source like 'DB,LOKI'
-                if (source?.includes(',')) {
-                    const sources = source.split(',');
-                    return (
-                        <span className="flex gap-1">
-                            {sources.map((s, i) => (
-                                <Tag key={i} color={s.trim() === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-                                    {s.trim()}
-                                </Tag>
-                            ))}
-                        </span>
-                    );
-                }
-                return (
-                    <Tag color={source === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-                        {source || 'DB'}
-                    </Tag>
-                );
-            }
-        },
-        {
-            title: '操作',
-            key: 'actions',
-            width: 80,
-            render: (_: any, record: BusinessLog) => (
-                <AppButton intent="tertiary" size="sm" onClick={() => handleViewDetail(record)}>详情</AppButton>
-            )
-        }
-    ];
+  useEffect(() => {
+    void fetchLogs();
+  }, [sourceFilter]);
 
-    // Get unique actions for filter
-    const actionOptions = [...new Set(logs.map(log => log.action))].map(action => ({
-        value: action,
-        label: ACTION_MAP[action] || action
-    }));
+  const handleViewDetail = (record: BusinessLog) => {
+    setSelectedLog(record);
+    setDrawerOpen(true);
+  };
 
-    return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">业务日志</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">审计关键业务操作与安全记录</p>
-                </div>
-                <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>刷新</AppButton>
-            </div>
-
-            {/* Stats Cards - Business Specific */}
-            <Row gutter={16} className="mb-4">
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="操作总数"
-                            value={stats.total}
-                            prefix={<AuditOutlined />}
-                            valueStyle={{ color: '#1890ff' }}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="今日操作"
-                            value={stats.todayCount}
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#52c41a' }}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="创建操作"
-                            value={stats.createCount}
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#13c2c2' }}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title="变更操作"
-                            value={stats.modifyCount}
-                            prefix={<AuditOutlined />}
-                            valueStyle={{ color: '#722ed1' }}
-                        />
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Filters */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
-                <DatePicker.RangePicker
-                    value={dateRange}
-                    onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-                    className="rounded-xl"
-                    placeholder={['开始时间', '结束时间']}
-                />
-                <Select
-                    placeholder="动作类型"
-                    allowClear
-                    value={actionFilter}
-                    onChange={setActionFilter}
-                    className="w-40"
-                    options={actionOptions}
-                />
-                <Select
-                    placeholder="状态筛选"
-                    allowClear
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    className="w-28"
-                    options={[
-                        { value: 'SUCCESS', label: '成功' },
-                        { value: 'FAIL', label: '失败' },
-                    ]}
-                />
-                <Select
-                    value={sourceFilter}
-                    onChange={setSourceFilter}
-                    className="w-28"
-                    options={[
-                        { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />DB</span> },
-                        { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span> },
-                        { value: 'all', label: '全部' },
-                    ]}
-                />
-                <AppButton intent="primary" onClick={fetchLogs} loading={loading}>查询</AppButton>
-            </div>
-
-            {/* Table */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <Table
-                    dataSource={logs}
-                    columns={columns}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{ pageSize: 20, showSizeChanger: true }}
-                    scroll={{ x: 1100 }}
-                    locale={{ emptyText: '暂无业务日志' }}
-                    className="ant-table-custom"
-                />
-            </div>
-
-            {/* Detail Drawer */}
-            <Drawer
-                title="业务日志详情"
-                width={560}
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-            >
-                {selectedLog && (
-                    <div className="space-y-6">
-                        <Descriptions bordered column={1} size="small">
-                            <Descriptions.Item label="日志 ID">
-                                <code className="text-xs">{selectedLog.id}</code>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="时间">
-                                {selectedLog.timestamp ? dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="操作人">
-                                {selectedLog.operator || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="动作">
-                                <Tag color="blue">{ACTION_MAP[selectedLog.action] || selectedLog.action}</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="目标对象">
-                                <code className="text-xs">{selectedLog.target || '-'}</code>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="IP 地址">
-                                {selectedLog.ip_address || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="状态">
-                                <Tag color={selectedLog.status === 'SUCCESS' ? 'green' : 'red'}>
-                                    {selectedLog.status === 'SUCCESS' ? '成功' : '失败'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="来源">
-                                <Tag color="purple">{selectedLog.source || 'DB'}</Tag>
-                            </Descriptions.Item>
-                            {selectedLog.detail && (
-                                <Descriptions.Item label="详细信息">
-                                    <pre className="text-xs bg-slate-50 p-3 rounded-lg whitespace-pre-wrap max-h-48 overflow-auto">
-                                        {selectedLog.detail}
-                                    </pre>
-                                </Descriptions.Item>
-                            )}
-                        </Descriptions>
-                    </div>
-                )}
-            </Drawer>
+  const columns = useMemo(() => ([
+    {
+      title: t('businessLogs.table.time'),
+      dataIndex: 'timestamp',
+      key: 'timestamp',
+      width: 180,
+      render: (text: string) => (
+        <span className="text-xs text-slate-500">
+          {text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}
+        </span>
+      ),
+    },
+    {
+      title: t('businessLogs.table.operator'),
+      dataIndex: 'operator',
+      key: 'operator',
+      width: 120,
+      render: (text: string) => (
+        <div className="flex items-center gap-2">
+          <UserOutlined className="text-indigo-500" />
+          <span className="font-medium text-slate-700">{text || '-'}</span>
         </div>
-    );
+      ),
+    },
+    {
+      title: t('businessLogs.table.action'),
+      dataIndex: 'action',
+      key: 'action',
+      width: 180,
+      render: (text: string) => {
+        const category = getActionCategory(text);
+        return (
+          <Tooltip title={text}>
+            <Tag color={category.color} icon={<AuditOutlined />}>
+              {getActionLabel(text)}
+            </Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: t('businessLogs.table.target'),
+      dataIndex: 'target',
+      key: 'target',
+      width: 150,
+      render: (text: string) => (
+        <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">
+          {text || '-'}
+        </span>
+      ),
+    },
+    {
+      title: t('businessLogs.table.ip'),
+      dataIndex: 'ip_address',
+      key: 'ip_address',
+      width: 120,
+      render: (text: string) => (
+        <span className="font-mono text-xs text-slate-400">{text || '-'}</span>
+      ),
+    },
+    {
+      title: t('businessLogs.table.status'),
+      dataIndex: 'status',
+      key: 'status',
+      width: 90,
+      render: (status: string) => (
+        <Tag
+          color={status === 'SUCCESS' ? 'green' : 'red'}
+          icon={status === 'SUCCESS' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        >
+          {getStatusLabel(status)}
+        </Tag>
+      ),
+    },
+    {
+      title: t('businessLogs.table.source'),
+      dataIndex: 'source',
+      key: 'source',
+      width: 120,
+      render: (source: string) => {
+        if (source?.includes(',')) {
+          const sources = source.split(',');
+          return (
+            <span className="flex gap-1">
+              {sources.map((s, i) => (
+                <Tag key={`${s}-${i}`} color={s.trim() === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
+                  {s.trim()}
+                </Tag>
+              ))}
+            </span>
+          );
+        }
+        return (
+          <Tag color={source === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
+            {source || 'DB'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: t('businessLogs.table.actions'),
+      key: 'actions',
+      width: 80,
+      render: (_: unknown, record: BusinessLog) => (
+        <AppButton intent="tertiary" size="sm" onClick={() => handleViewDetail(record)}>
+          {t('common.buttons.detail')}
+        </AppButton>
+      ),
+    },
+  ]), [t]);
+
+  const actionOptions = useMemo(
+    () => [...new Set(logs.map((log) => log.action))].map((action) => ({
+      value: action,
+      label: getActionLabel(action),
+    })),
+    [logs, t]
+  );
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
+      <div className="flex justify-between items-center mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('businessLogs.title')}</h2>
+          <p className="text-xs text-slate-400 font-bold mt-1">{t('businessLogs.subtitle')}</p>
+        </div>
+        <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>
+          {t('common.buttons.refresh')}
+        </AppButton>
+      </div>
+
+      <Row gutter={16} className="mb-4">
+        <Col span={6}>
+          <Card className="rounded-2xl shadow-sm">
+            <Statistic
+              title={t('businessLogs.stats.total')}
+              value={stats.total}
+              prefix={<AuditOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card className="rounded-2xl shadow-sm">
+            <Statistic
+              title={t('businessLogs.stats.today')}
+              value={stats.todayCount}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card className="rounded-2xl shadow-sm">
+            <Statistic
+              title={t('businessLogs.stats.create')}
+              value={stats.createCount}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#13c2c2' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card className="rounded-2xl shadow-sm">
+            <Statistic
+              title={t('businessLogs.stats.modify')}
+              value={stats.modifyCount}
+              prefix={<AuditOutlined />}
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
+        <DatePicker.RangePicker
+          value={dateRange}
+          onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+          className="rounded-xl"
+          placeholder={[t('businessLogs.filters.startTime'), t('businessLogs.filters.endTime')]}
+        />
+        <Select
+          placeholder={t('businessLogs.filters.action')}
+          allowClear
+          value={actionFilter}
+          onChange={setActionFilter}
+          className="w-40"
+          options={actionOptions}
+        />
+        <Select
+          placeholder={t('businessLogs.filters.status')}
+          allowClear
+          value={statusFilter}
+          onChange={setStatusFilter}
+          className="w-28"
+          options={[
+            { value: 'SUCCESS', label: t('common.status.success') },
+            { value: 'FAIL', label: t('common.status.fail') },
+          ]}
+        />
+        <Select
+          value={sourceFilter}
+          onChange={setSourceFilter}
+          className="w-28"
+          options={[
+            { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />DB</span> },
+            { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span> },
+            { value: 'all', label: t('common.status.all') },
+          ]}
+        />
+        <AppButton intent="primary" onClick={fetchLogs} loading={loading}>
+          {t('common.buttons.query')}
+        </AppButton>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
+        <Table
+          dataSource={logs}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
+          scroll={{ x: 1100 }}
+          locale={{ emptyText: t('businessLogs.empty') }}
+          className="ant-table-custom"
+        />
+      </div>
+
+      <Drawer
+        title={t('businessLogs.drawer.title')}
+        width={560}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        {selectedLog && (
+          <div className="space-y-6">
+            <Descriptions bordered column={1} size="small">
+              <Descriptions.Item label={t('businessLogs.drawer.logId')}>
+                <code className="text-xs">{selectedLog.id}</code>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.time')}>
+                {selectedLog.timestamp ? dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.operator')}>
+                {selectedLog.operator || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.action')}>
+                <Tag color="blue">{getActionLabel(selectedLog.action)}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.target')}>
+                <code className="text-xs">{selectedLog.target || '-'}</code>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.ip')}>
+                {selectedLog.ip_address || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.status')}>
+                <Tag color={selectedLog.status === 'SUCCESS' ? 'green' : 'red'}>
+                  {getStatusLabel(selectedLog.status)}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('businessLogs.drawer.source')}>
+                <Tag color="purple">{selectedLog.source || 'DB'}</Tag>
+              </Descriptions.Item>
+              {selectedLog.detail && (
+                <Descriptions.Item label={t('businessLogs.drawer.detail')}>
+                  <pre className="text-xs bg-slate-50 p-3 rounded-lg whitespace-pre-wrap max-h-48 overflow-auto">
+                    {selectedLog.detail}
+                  </pre>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
+    </div>
+  );
 };
 
 export default BusinessLogs;

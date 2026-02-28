@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { App as AntApp, Input, Select, Popconfirm, Card, Row, Col, Statistic, Space, Tooltip } from 'antd';
+import { useTranslation } from 'react-i18next';
 import {
     Plus,
     Edit,
@@ -50,14 +51,15 @@ interface KBStats {
     misses: number;
 }
 
-const sourceTypeLabel: Record<string, string> = {
-    text: '纯文本',
-    md: 'Markdown',
-    pdf: 'PDF',
+const sourceTypeMap: Record<string, string> = {
+    text: 'text',
+    md: 'markdown',
+    pdf: 'pdfText',
 };
 
 const KnowledgeBase: React.FC = () => {
     const { message } = AntApp.useApp();
+    const { t, i18n } = useTranslation();
     const [documents, setDocuments] = useState<KBDocument[]>([]);
     const [stats, setStats] = useState<KBStats | null>(null);
     const [loading, setLoading] = useState(false);
@@ -75,7 +77,7 @@ const KnowledgeBase: React.FC = () => {
             const data = await ApiClient.getKBDocuments();
             setDocuments(data);
         } catch {
-            message.error('获取文档列表失败');
+            message.error(t('knowledgeBase.messages.loadDocumentsFailed'));
         }
         setLoading(false);
     };
@@ -118,14 +120,14 @@ const KnowledgeBase: React.FC = () => {
             source_type: record.source_type,
             tags: record.tags.join(','),
             acl: record.acl.join(','),
-            content: '（加载中...）',
+            content: t('knowledgeBase.modal.placeholders.loading'),
         });
         setModalOpen(true);
 
         ApiClient.getKBDocumentDetail(record.id).then(doc => {
             form.setFieldsValue({ content: doc.content || '' });
         }).catch(() => {
-            message.error('获取文档详情失败，请手动填入内容');
+            message.error(t('knowledgeBase.messages.loadDocumentDetailFailed'));
             form.setFieldsValue({ content: '' });
         });
     };
@@ -146,16 +148,19 @@ const KnowledgeBase: React.FC = () => {
 
             if (editingId) {
                 await ApiClient.updateKBDocument(editingId, payload);
-                message.success('文档更新成功');
+                message.success(t('knowledgeBase.messages.updateSuccess'));
             } else {
                 await ApiClient.createKBDocument(payload);
-                message.success('文档入库成功');
+                message.success(t('knowledgeBase.messages.createSuccess'));
             }
             resetAndCloseModal();
             fetchDocuments();
             fetchStats();
         } catch (e: any) {
-            message.error(e?.response?.data?.detail || (editingId ? '更新失败' : '入库失败'));
+            message.error(
+                e?.response?.data?.detail ||
+                (editingId ? t('knowledgeBase.messages.updateFailed') : t('knowledgeBase.messages.createFailed'))
+            );
         }
         setSubmitting(false);
     };
@@ -163,21 +168,21 @@ const KnowledgeBase: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await ApiClient.deleteKBDocument(id);
-            message.success('文档已删除');
+            message.success(t('knowledgeBase.messages.deleteSuccess'));
             fetchDocuments();
             fetchStats();
         } catch {
-            message.error('删除失败');
+            message.error(t('knowledgeBase.messages.deleteFailed'));
         }
     };
 
     const handleReindex = async (id: number) => {
         try {
             await ApiClient.reindexKBDocument(id);
-            message.success('重建索引成功');
+            message.success(t('knowledgeBase.messages.reindexSuccess'));
             fetchDocuments();
         } catch {
-            message.error('重建索引失败');
+            message.error(t('knowledgeBase.messages.reindexFailed'));
         }
     };
 
@@ -185,21 +190,22 @@ const KnowledgeBase: React.FC = () => {
     const filteredDocuments = documents.filter(d =>
         d.title.toLowerCase().includes(textSearch.toLowerCase())
     );
+    const dateLocale = i18n.resolvedLanguage === 'zh-CN' ? 'zh-CN' : 'en-US';
 
     // ── Status helpers ──────────────────────────────────────
     const statusConfig: Record<string, { label: string; status: 'success' | 'processing' | 'warning' | 'error' | 'default' }> = {
-        ready: { label: '已索引', status: 'success' },
-        indexed: { label: '已索引', status: 'success' },
-        processing: { label: '处理中', status: 'processing' },
-        pending: { label: '待处理', status: 'warning' },
-        error: { label: '失败', status: 'error' },
-        failed: { label: '失败', status: 'error' },
+        ready: { label: t('knowledgeBase.status.indexed'), status: 'success' },
+        indexed: { label: t('knowledgeBase.status.indexed'), status: 'success' },
+        processing: { label: t('knowledgeBase.status.processing'), status: 'processing' },
+        pending: { label: t('knowledgeBase.status.pending'), status: 'warning' },
+        error: { label: t('knowledgeBase.status.failed'), status: 'error' },
+        failed: { label: t('knowledgeBase.status.failed'), status: 'error' },
     };
 
     // ── Columns ─────────────────────────────────────────────
     const columns: ColumnsType<KBDocument> = [
         {
-            title: '文档',
+            title: t('knowledgeBase.table.document'),
             dataIndex: 'title',
             key: 'title',
             render: (text: string, record: KBDocument) => (
@@ -208,7 +214,9 @@ const KnowledgeBase: React.FC = () => {
                         <BookOpen size={14} className="text-indigo-400 flex-shrink-0" />
                         <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
                         <span className="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-semibold px-1.5 py-0.5 rounded">
-                            {sourceTypeLabel[record.source_type] || record.source_type}
+                            {t(`knowledgeBase.sourceTypes.${sourceTypeMap[record.source_type] || record.source_type}`, {
+                                defaultValue: record.source_type,
+                            })}
                         </span>
                     </div>
                     {record.tags.length > 0 && (
@@ -227,7 +235,7 @@ const KnowledgeBase: React.FC = () => {
             ),
         },
         {
-            title: '状态',
+            title: t('knowledgeBase.table.status'),
             dataIndex: 'status',
             key: 'status',
             width: 100,
@@ -237,7 +245,7 @@ const KnowledgeBase: React.FC = () => {
             },
         },
         {
-            title: '分段',
+            title: t('knowledgeBase.table.chunks'),
             dataIndex: 'chunk_count',
             key: 'chunk_count',
             width: 80,
@@ -249,13 +257,13 @@ const KnowledgeBase: React.FC = () => {
             ),
         },
         {
-            title: '权限',
+            title: t('knowledgeBase.table.accessControl'),
             dataIndex: 'acl',
             key: 'acl',
             width: 120,
             render: (acl: string[]) => (
                 acl.includes('*')
-                    ? <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">🌐 公开</span>
+                    ? <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">{t('knowledgeBase.table.publicAcl')}</span>
                     : <div className="flex flex-col gap-0.5">
                         {acl.map(r => (
                             <span key={r} className="text-slate-500 text-xs flex items-center gap-1">
@@ -266,23 +274,23 @@ const KnowledgeBase: React.FC = () => {
             ),
         },
         {
-            title: '创建时间',
+            title: t('knowledgeBase.table.createdAt'),
             dataIndex: 'created_at',
             key: 'created_at',
             width: 140,
             render: (date: string | null) => (
                 <span className="text-slate-500 font-medium text-xs">
-                    {date ? new Date(date).toLocaleDateString('zh-CN') : '-'}
+                    {date ? new Date(date).toLocaleDateString(dateLocale) : '-'}
                 </span>
             ),
         },
         {
-            title: '操作',
+            title: t('knowledgeBase.table.actions'),
             key: 'action',
             width: 160,
             render: (_: any, record: KBDocument) => (
                 <div className="flex gap-1">
-                    <Tooltip title="编辑">
+                    <Tooltip title={t('knowledgeBase.table.edit')}>
                         <AppButton
                             intent="tertiary"
                             size="sm"
@@ -290,7 +298,7 @@ const KnowledgeBase: React.FC = () => {
                             onClick={() => openEditModal(record)}
                         />
                     </Tooltip>
-                    <Tooltip title="重建索引">
+                    <Tooltip title={t('knowledgeBase.table.reindex')}>
                         <AppButton
                             intent="tertiary"
                             size="sm"
@@ -299,11 +307,11 @@ const KnowledgeBase: React.FC = () => {
                         />
                     </Tooltip>
                     <Popconfirm
-                        title="确定删除该文档？"
-                        description="删除后不可恢复，文档内容和向量索引将一并移除。"
+                        title={t('knowledgeBase.confirm.deleteTitle')}
+                        description={t('knowledgeBase.confirm.deleteDescription')}
                         onConfirm={() => handleDelete(record.id)}
-                        okText="确认删除"
-                        cancelText="取消"
+                        okText={t('knowledgeBase.confirm.deleteConfirm')}
+                        cancelText={t('knowledgeBase.confirm.deleteCancel')}
                     >
                         <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />} />
                     </Popconfirm>
@@ -315,42 +323,42 @@ const KnowledgeBase: React.FC = () => {
     // ── Stat Cards ──────────────────────────────────────────
     const statCards = [
         {
-            title: '文档总数',
+            title: t('knowledgeBase.stats.totalDocuments'),
             value: stats?.total_documents || 0,
             icon: <FileText size={20} />,
             color: 'text-indigo-500',
             bg: 'bg-indigo-50 dark:bg-indigo-900/30',
         },
         {
-            title: '索引分段',
+            title: t('knowledgeBase.stats.indexedChunks'),
             value: stats?.total_chunks || 0,
             icon: <Database size={20} />,
             color: 'text-emerald-500',
             bg: 'bg-emerald-50 dark:bg-emerald-900/30',
         },
         {
-            title: '总检索次数',
+            title: t('knowledgeBase.stats.totalQueries'),
             value: stats?.total_queries || 0,
             icon: <Search size={20} />,
             color: 'text-amber-500',
             bg: 'bg-amber-50 dark:bg-amber-900/30',
         },
         {
-            title: '强命中',
+            title: t('knowledgeBase.stats.strongHits'),
             value: stats?.strong_hits || 0,
             icon: <Zap size={20} />,
             color: 'text-green-500',
             bg: 'bg-green-50 dark:bg-green-900/30',
         },
         {
-            title: '弱命中',
+            title: t('knowledgeBase.stats.weakHits'),
             value: stats?.weak_hits || 0,
             icon: <BarChart3 size={20} />,
             color: 'text-orange-500',
             bg: 'bg-orange-50 dark:bg-orange-900/30',
         },
         {
-            title: '未命中',
+            title: t('knowledgeBase.stats.misses'),
             value: stats?.misses || 0,
             icon: <AlertTriangle size={20} />,
             color: 'text-red-400',
@@ -361,8 +369,8 @@ const KnowledgeBase: React.FC = () => {
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             <AppPageHeader
-                title="AI 知识库"
-                subtitle="管理文档入库、向量索引与检索命中统计"
+                title={t('knowledgeBase.page.title')}
+                subtitle={t('knowledgeBase.page.subtitle')}
                 action={
                     <div className="flex gap-2">
                         <AppButton
@@ -370,14 +378,14 @@ const KnowledgeBase: React.FC = () => {
                             icon={<RefreshCw size={16} />}
                             onClick={() => { fetchDocuments(); fetchStats(); }}
                         >
-                            刷新
+                            {t('common.buttons.refresh')}
                         </AppButton>
                         <AppButton
                             intent="primary"
                             icon={<Plus size={16} />}
                             onClick={openCreateModal}
                         >
-                            入库文档
+                            {t('knowledgeBase.buttons.addDocument')}
                         </AppButton>
                     </div>
                 }
@@ -408,14 +416,14 @@ const KnowledgeBase: React.FC = () => {
             {/* Filter Bar */}
             <AppFilterBar>
                 <AppFilterBar.Search
-                    placeholder="搜索文档标题..."
+                    placeholder={t('knowledgeBase.filters.searchPlaceholder')}
                     value={textSearch}
                     onChange={e => setTextSearch(e.target.value)}
                     onSearch={setTextSearch}
                 />
                 <AppFilterBar.Action>
                     <span className="text-xs text-slate-400">
-                        共 {filteredDocuments.length} 篇文档
+                        {t('knowledgeBase.filters.documentCount', { count: filteredDocuments.length })}
                     </span>
                 </AppFilterBar.Action>
             </AppFilterBar>
@@ -427,40 +435,40 @@ const KnowledgeBase: React.FC = () => {
                     dataSource={filteredDocuments}
                     rowKey="id"
                     loading={loading}
-                    emptyText="暂无知识库文档"
+                    emptyText={t('knowledgeBase.table.empty')}
                 />
             </Card>
 
             {/* Create / Edit Modal */}
             <AppModal
-                title={editingId ? '编辑文档' : '入库新文档'}
+                title={editingId ? t('knowledgeBase.modal.editTitle') : t('knowledgeBase.modal.createTitle')}
                 open={modalOpen}
                 onOk={() => form.submit()}
                 onCancel={resetAndCloseModal}
                 confirmLoading={submitting}
-                okText={editingId ? '保存修改' : '确认入库'}
+                okText={editingId ? t('knowledgeBase.modal.saveEdit') : t('knowledgeBase.modal.confirmCreate')}
                 width={800}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
                         <AppForm.Item
                             name="title"
-                            label="文档标题"
-                            rules={[{ required: true, message: '请输入文档标题' }]}
+                            label={t('knowledgeBase.modal.fields.title')}
+                            rules={[{ required: true, message: t('knowledgeBase.modal.validation.titleRequired') }]}
                         >
-                            <Input placeholder="请输入文档标题" />
+                            <Input placeholder={t('knowledgeBase.modal.placeholders.title')} />
                         </AppForm.Item>
 
                         <AppForm.Item
                             name="source_type"
-                            label="文档类型"
-                            rules={[{ required: true, message: '请选择文档类型' }]}
+                            label={t('knowledgeBase.modal.fields.sourceType')}
+                            rules={[{ required: true, message: t('knowledgeBase.modal.validation.sourceTypeRequired') }]}
                         >
                             <Select
                                 options={[
-                                    { value: 'text', label: '纯文本' },
-                                    { value: 'md', label: 'Markdown' },
-                                    { value: 'pdf', label: 'PDF（文本内容）' },
+                                    { value: 'text', label: t('knowledgeBase.sourceTypes.text') },
+                                    { value: 'md', label: t('knowledgeBase.sourceTypes.markdown') },
+                                    { value: 'pdf', label: t('knowledgeBase.sourceTypes.pdfText') },
                                 ]}
                             />
                         </AppForm.Item>
@@ -468,12 +476,12 @@ const KnowledgeBase: React.FC = () => {
 
                     <AppForm.Item
                         name="content"
-                        label="文档内容"
-                        rules={[{ required: true, message: '请输入文档内容' }]}
+                        label={t('knowledgeBase.modal.fields.content')}
+                        rules={[{ required: true, message: t('knowledgeBase.modal.validation.contentRequired') }]}
                     >
                         <TextArea
                             rows={12}
-                            placeholder="粘贴或输入文档内容..."
+                            placeholder={t('knowledgeBase.modal.placeholders.content')}
                             showCount
                         />
                     </AppForm.Item>
@@ -481,25 +489,25 @@ const KnowledgeBase: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
                         <AppForm.Item
                             name="tags"
-                            label="标签"
-                            tooltip="多个标签用逗号分隔"
+                            label={t('knowledgeBase.modal.fields.tags')}
+                            tooltip={t('knowledgeBase.modal.tooltips.tags')}
                         >
-                            <Input placeholder="如：制度,规范,技术" />
+                            <Input placeholder={t('knowledgeBase.modal.placeholders.tags')} />
                         </AppForm.Item>
 
                         <AppForm.Item
                             name="acl"
-                            label="访问控制 (ACL)"
-                            tooltip="* 表示公开；也可指定 role:admin 或 user:1"
+                            label={t('knowledgeBase.modal.fields.acl')}
+                            tooltip={t('knowledgeBase.modal.tooltips.acl')}
                         >
-                            <Input placeholder="* 表示公开" />
+                            <Input placeholder={t('knowledgeBase.modal.placeholders.acl')} />
                         </AppForm.Item>
                     </div>
 
                     {editingId && (
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mt-2">
                             <p className="text-xs text-amber-700 dark:text-amber-300 m-0">
-                                ⚠️ 保存修改后，系统将自动重新分段并重建向量索引，旧索引数据将被替换。
+                                {t('knowledgeBase.modal.reindexHint')}
                             </p>
                         </div>
                     )}

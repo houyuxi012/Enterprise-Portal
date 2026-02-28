@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Input, Select, DatePicker, message, Row, Col, Popconfirm, Card, Tooltip, TreeSelect } from 'antd';
 import { Plus, Trash2, Edit } from 'lucide-react';
 import dayjs from 'dayjs';
-import { Todo, User, UserOption } from '../../../types';
+import { Todo, UserOption } from '../../../types';
 import TodoService, { CreateTodoDTO, UpdateTodoDTO } from '../../../services/todos';
 import ApiClient from '../../../services/api';
 import type { ColumnsType } from 'antd/es/table';
@@ -14,12 +14,12 @@ import {
     AppTag,
     AppPageHeader,
 } from '../../../components/admin';
+import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
 const { TextArea } = Input;
 
-// Helper to fetch users for assignment
-const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
+const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: 'multiple'; placeholder: string }> = ({ value, onChange, mode, placeholder }) => {
     const [users, setUsers] = useState<UserOption[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -43,7 +43,7 @@ const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) =>
             mode={mode}
             showSearch
             allowClear
-            placeholder="选择指派用户"
+            placeholder={placeholder}
             optionFilterProp="label"
             loading={loading}
             value={value}
@@ -51,7 +51,7 @@ const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) =>
             className="w-full"
             style={{ borderRadius: '8px' }}
         >
-            {users.map(u => (
+            {users.map((u) => (
                 <Option key={u.id} value={u.id} label={`${u.name || ''} ${u.username}`}>
                     <div className="flex items-center gap-2">
                         {u.name || u.username}
@@ -63,8 +63,7 @@ const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) =>
     );
 };
 
-// Helper to fetch departments for assignment
-const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: "multiple" }> = ({ value, onChange, mode }) => {
+const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: 'multiple'; placeholder: string }> = ({ value, onChange, mode, placeholder }) => {
     const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -84,21 +83,21 @@ const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: a
     }, []);
 
     const mapTreeData = (depts: any[]): any[] => {
-        return depts.map(d => ({
+        return depts.map((d) => ({
             title: d.name,
             value: d.id,
             key: d.id,
-            children: d.children ? mapTreeData(d.children) : []
+            children: d.children ? mapTreeData(d.children) : [],
         }));
     };
 
     return (
         <TreeSelect
-            multiple={mode === "multiple"}
-            treeCheckable={mode === "multiple"}
+            multiple={mode === 'multiple'}
+            treeCheckable={mode === 'multiple'}
             showSearch
             allowClear
-            placeholder="选择指派部门"
+            placeholder={placeholder}
             treeNodeFilterProp="title"
             loading={loading}
             value={value}
@@ -111,6 +110,7 @@ const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: a
 };
 
 const AdminTodoList: React.FC = () => {
+    const { t } = useTranslation();
     const [todos, setTodos] = useState<Todo[]>([]);
     const [total, setTotal] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -120,8 +120,6 @@ const AdminTodoList: React.FC = () => {
     const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = AppForm.useForm();
-
-    // Filters
     const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
     const [assigneeUserFilter, setAssigneeUserFilter] = useState<number | undefined>(undefined);
     const [assigneeDeptFilter, setAssigneeDeptFilter] = useState<number | undefined>(undefined);
@@ -134,14 +132,14 @@ const AdminTodoList: React.FC = () => {
                 page_size: size,
                 status: statusFilter,
                 assignee_user_id: assigneeUserFilter,
-                assignee_dept_id: assigneeDeptFilter
+                assignee_dept_id: assigneeDeptFilter,
             });
             setTodos(data.items);
             setTotal(data.total);
             setCurrentPage(data.page);
             setPageSize(data.page_size);
         } catch (error) {
-            message.error('加载任务失败');
+            message.error(t('adminTodos.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -154,10 +152,9 @@ const AdminTodoList: React.FC = () => {
     const handleCreate = () => {
         setEditingTodo(null);
         form.resetFields();
-        // Set default values
         form.setFieldsValue({
             priority: 2,
-            status: 'pending'
+            status: 'pending',
         });
         setIsModalOpen(true);
     };
@@ -168,8 +165,8 @@ const AdminTodoList: React.FC = () => {
             ...record,
             due_at: record.due_at ? dayjs(record.due_at) : undefined,
             priority: record.priority,
-            assignee_user_ids: record.assigned_users?.map(u => u.id) || [],
-            assignee_dept_ids: record.assigned_departments?.map(d => d.id) || []
+            assignee_user_ids: record.assigned_users?.map((u) => u.id) || [],
+            assignee_dept_ids: record.assigned_departments?.map((d) => d.id) || [],
         });
         setIsModalOpen(true);
     };
@@ -177,10 +174,10 @@ const AdminTodoList: React.FC = () => {
     const handleDelete = async (id: number) => {
         try {
             await TodoService.adminDeleteTask(id);
-            message.success('任务已删除');
+            message.success(t('adminTodos.messages.deleteSuccess'));
             fetchTodos(currentPage, pageSize);
         } catch (error) {
-            message.error('删除失败');
+            message.error(t('adminTodos.messages.deleteFailed'));
         }
     };
 
@@ -199,16 +196,16 @@ const AdminTodoList: React.FC = () => {
 
             if (editingTodo) {
                 await TodoService.adminUpdateTask(editingTodo.id, payload as UpdateTodoDTO);
-                message.success('任务更新成功');
+                message.success(t('adminTodos.messages.updateSuccess'));
             } else {
                 await TodoService.adminCreateTask(payload as CreateTodoDTO);
-                message.success('任务创建成功');
+                message.success(t('adminTodos.messages.createSuccess'));
             }
             setIsModalOpen(false);
             fetchTodos(currentPage, pageSize);
         } catch (error) {
             console.error(error);
-            message.error('操作失败');
+            message.error(t('adminTodos.messages.operationFailed'));
         } finally {
             setSubmitLoading(false);
         }
@@ -216,13 +213,13 @@ const AdminTodoList: React.FC = () => {
 
     const columns: ColumnsType<Todo> = [
         {
-            title: 'ID',
+            title: t('adminTodos.table.id'),
             dataIndex: 'id',
             width: 60,
-            render: (text: number) => <span className="text-slate-400 font-mono">#{text}</span>
+            render: (text: number) => <span className="text-slate-400 font-mono">#{text}</span>,
         },
         {
-            title: '标题',
+            title: t('adminTodos.table.title'),
             dataIndex: 'title',
             key: 'title',
             render: (text: string, record: Todo) => (
@@ -237,144 +234,146 @@ const AdminTodoList: React.FC = () => {
             ),
         },
         {
-            title: '指派给',
+            title: t('adminTodos.table.assignees'),
             key: 'assignees',
-            // @ts-ignore
             render: (_: any, record: Todo) => (
                 <div className="flex flex-wrap gap-1 w-48">
-                    {record.assigned_users && record.assigned_users.length > 0 ? (
-                        record.assigned_users.map(u => (
-                            <AppTag key={`u-${u.id}`} status="processing">{u.name || u.username}</AppTag>
-                        ))
-                    ) : null}
-                    {record.assigned_departments && record.assigned_departments.length > 0 ? (
-                        record.assigned_departments.map(d => (
-                            <AppTag key={`d-${d.id}`} status="warning">{d.name}</AppTag>
-                        ))
-                    ) : null}
+                    {record.assigned_users?.map((u) => (
+                        <AppTag key={`u-${u.id}`} status="processing">{u.name || u.username}</AppTag>
+                    ))}
+                    {record.assigned_departments?.map((d) => (
+                        <AppTag key={`d-${d.id}`} status="warning">{d.name}</AppTag>
+                    ))}
                     {(!record.assigned_users?.length && !record.assigned_departments?.length) && (
-                        <span className="text-slate-400 text-xs mt-1">未指派</span>
+                        <span className="text-slate-400 text-xs mt-1">{t('adminTodos.table.unassigned')}</span>
                     )}
                 </div>
-            )
+            ),
         },
         {
-            title: '创建者',
+            title: t('adminTodos.table.creator'),
             dataIndex: 'creator_name',
             key: 'creator_name',
-            render: (text: string) => <span className="text-xs text-slate-500">{text || 'System'}</span>
+            render: (text: string) => <span className="text-xs text-slate-500">{text || t('adminTodos.table.system')}</span>,
         },
         {
-            title: '优先级',
+            title: t('adminTodos.table.priority'),
             dataIndex: 'priority',
             key: 'priority',
-            width: 80,
+            width: 90,
             render: (priority: number) => {
                 switch (priority) {
-                    case 0: return <AppTag status="error" className="animate-pulse font-bold">紧急</AppTag>;
-                    case 1: return <AppTag status="error">高</AppTag>;
-                    case 2: return <AppTag status="warning">中</AppTag>;
-                    case 3: return <AppTag status="success">低</AppTag>;
-                    default: return <AppTag status="default">未知</AppTag>;
+                    case 0:
+                        return <AppTag status="error" className="animate-pulse font-bold">{t('adminTodos.table.priorityValues.emergency')}</AppTag>;
+                    case 1:
+                        return <AppTag status="error">{t('adminTodos.table.priorityValues.high')}</AppTag>;
+                    case 2:
+                        return <AppTag status="warning">{t('adminTodos.table.priorityValues.medium')}</AppTag>;
+                    case 3:
+                        return <AppTag status="success">{t('adminTodos.table.priorityValues.low')}</AppTag>;
+                    default:
+                        return <AppTag status="default">{t('adminTodos.table.priorityValues.unknown')}</AppTag>;
                 }
             },
         },
         {
-            title: '截止时间',
+            title: t('adminTodos.table.dueAt'),
             dataIndex: 'due_at',
             key: 'due_at',
-            width: 150,
+            width: 170,
             render: (date: string) => date ? <span className="text-xs font-bold text-slate-500">{dayjs(date).format('YYYY-MM-DD HH:mm')}</span> : '-',
         },
         {
-            title: '状态',
+            title: t('adminTodos.table.status'),
             dataIndex: 'status',
             key: 'status',
-            width: 100,
+            width: 110,
             render: (status: string) => {
                 switch (status) {
-                    case 'completed': return <AppTag status="success">已完成</AppTag>;
-                    case 'in_progress': return <AppTag status="processing">进行中</AppTag>;
-                    case 'canceled': return <AppTag status="default">已取消</AppTag>;
-                    default: return <AppTag status="warning">待处理</AppTag>;
+                    case 'completed':
+                        return <AppTag status="success">{t('adminTodos.filters.completed')}</AppTag>;
+                    case 'in_progress':
+                        return <AppTag status="processing">{t('adminTodos.filters.inProgress')}</AppTag>;
+                    case 'canceled':
+                        return <AppTag status="default">{t('adminTodos.filters.canceled')}</AppTag>;
+                    default:
+                        return <AppTag status="warning">{t('adminTodos.filters.pending')}</AppTag>;
                 }
             },
         },
         {
-            title: '操作',
+            title: t('adminTodos.table.actions'),
             key: 'action',
-            width: 140,
+            width: 160,
             render: (_: any, record: Todo) => (
                 <div className="flex gap-2">
                     <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)}>
-                        编辑
+                        {t('adminTodos.buttons.edit')}
                     </AppButton>
-                    <Popconfirm title="确定删除此任务?" onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>删除</AppButton>
+                    <Popconfirm title={t('adminTodos.confirmDelete')} onConfirm={() => handleDelete(record.id)}>
+                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>{t('adminTodos.buttons.delete')}</AppButton>
                     </Popconfirm>
                 </div>
             ),
         },
     ];
 
+    const statusOptions = [
+        { value: 'pending', label: t('adminTodos.filters.pending') },
+        { value: 'in_progress', label: t('adminTodos.filters.inProgress') },
+        { value: 'completed', label: t('adminTodos.filters.completed') },
+        { value: 'canceled', label: t('adminTodos.filters.canceled') },
+    ];
+
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6 animate-fade-in">
             <AppPageHeader
-                title="待办管理"
-                subtitle="全员待办任务监控与调度"
+                title={t('adminTodos.title')}
+                subtitle={t('adminTodos.subtitle')}
                 action={
                     <div className="flex gap-3">
                         <div className="w-40 hidden sm:block">
-                            <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} />
+                            <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} placeholder={t('adminTodos.filters.userPlaceholder')} />
                         </div>
                         <div className="w-40 hidden sm:block">
-                            <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} />
+                            <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} placeholder={t('adminTodos.filters.deptPlaceholder')} />
                         </div>
                         <div className="w-32 hidden sm:block">
                             <Select
-                                placeholder="状态筛选"
+                                placeholder={t('adminTodos.filters.statusPlaceholder')}
                                 allowClear
                                 className="w-full"
                                 value={statusFilter}
                                 onChange={setStatusFilter}
                                 style={{ borderRadius: '8px' }}
-                            >
-                                <Option value="pending">待处理</Option>
-                                <Option value="in_progress">进行中</Option>
-                                <Option value="completed">已完成</Option>
-                                <Option value="canceled">已取消</Option>
-                            </Select>
+                                options={statusOptions}
+                            />
                         </div>
                         <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleCreate}>
-                            创建任务
+                            {t('adminTodos.buttons.createTask')}
                         </AppButton>
                     </div>
                 }
             />
 
-            {/* Mobile Filters (visible only on small screens) */}
             <div className="sm:hidden mb-4 flex flex-col gap-2">
                 <div className="flex gap-2 w-full">
                     <div className="w-1/2">
-                        <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} />
+                        <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} placeholder={t('adminTodos.filters.userPlaceholder')} />
                     </div>
                     <div className="w-1/2">
-                        <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} />
+                        <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} placeholder={t('adminTodos.filters.deptPlaceholder')} />
                     </div>
                 </div>
                 <Select
-                    placeholder="状态筛选"
+                    placeholder={t('adminTodos.filters.statusPlaceholder')}
                     allowClear
                     className="w-full"
                     value={statusFilter}
                     onChange={setStatusFilter}
                     style={{ borderRadius: '8px' }}
-                >
-                    <Option value="pending">待处理</Option>
-                    <Option value="in_progress">进行中</Option>
-                    <Option value="completed">已完成</Option>
-                    <Option value="canceled">已取消</Option>
-                </Select>
+                    options={statusOptions}
+                />
             </div>
 
             <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -390,84 +389,79 @@ const AdminTodoList: React.FC = () => {
                         onChange: (page, size) => fetchTodos(page, size),
                         showSizeChanger: true,
                     }}
-                    emptyText="暂无任务数据"
+                    emptyText={t('adminTodos.table.empty')}
                 />
             </Card>
 
             <AppModal
-                title={editingTodo ? "编辑任务" : "创建任务"}
+                title={editingTodo ? t('adminTodos.modal.editTitle') : t('adminTodos.modal.createTitle')}
                 open={isModalOpen}
                 onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
                 confirmLoading={submitLoading}
             >
                 <AppForm form={form} onFinish={handleSubmit} layout="vertical">
-                    <AppForm.Item name="title" label="任务标题" rules={[{ required: true, message: '请输入标题' }]}>
-                        <Input placeholder="任务名称" />
+                    <AppForm.Item name="title" label={t('adminTodos.modal.fields.title')} rules={[{ required: true, message: t('adminTodos.modal.validation.titleRequired') }]}>
+                        <Input placeholder={t('adminTodos.modal.placeholders.title')} />
                     </AppForm.Item>
 
                     <Row gutter={16}>
                         <Col span={12}>
-                            <AppForm.Item name="assignee_user_ids" label="指派用户">
-                                <UserSelect mode="multiple" />
+                            <AppForm.Item name="assignee_user_ids" label={t('adminTodos.modal.fields.assigneeUsers')}>
+                                <UserSelect mode="multiple" placeholder={t('adminTodos.filters.userPlaceholder')} />
                             </AppForm.Item>
                         </Col>
                         <Col span={12}>
-                            <AppForm.Item name="assignee_dept_ids" label="指派部门">
-                                <DepartmentSelect mode="multiple" />
+                            <AppForm.Item name="assignee_dept_ids" label={t('adminTodos.modal.fields.assigneeDepartments')}>
+                                <DepartmentSelect mode="multiple" placeholder={t('adminTodos.filters.deptPlaceholder')} />
                             </AppForm.Item>
                         </Col>
                     </Row>
 
-                    <AppForm.Item name="description" label="描述">
-                        <TextArea rows={3} placeholder="任务详情..." />
+                    <AppForm.Item name="description" label={t('adminTodos.modal.fields.description')}>
+                        <TextArea rows={3} placeholder={t('adminTodos.modal.placeholders.description')} />
                     </AppForm.Item>
 
                     <Row gutter={16}>
                         <Col span={12}>
-                            <AppForm.Item name="priority" label="优先级" initialValue={2}>
+                            <AppForm.Item name="priority" label={t('adminTodos.modal.fields.priority')} initialValue={2}>
                                 <Select>
                                     <Option value={0}>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></div>
-                                            <span className="font-bold text-rose-600">紧急</span>
+                                            <span className="font-bold text-rose-600">{t('adminTodos.table.priorityValues.emergency')}</span>
                                         </div>
                                     </Option>
                                     <Option value={1}>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                            高
+                                            {t('adminTodos.table.priorityValues.high')}
                                         </div>
                                     </Option>
                                     <Option value={2}>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                                            中
+                                            {t('adminTodos.table.priorityValues.medium')}
                                         </div>
                                     </Option>
                                     <Option value={3}>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                            低
+                                            {t('adminTodos.table.priorityValues.low')}
                                         </div>
                                     </Option>
                                 </Select>
                             </AppForm.Item>
                         </Col>
                         <Col span={12}>
-                            <AppForm.Item name="due_at" label="截止日期">
+                            <AppForm.Item name="due_at" label={t('adminTodos.modal.fields.dueAt')}>
                                 <DatePicker showTime className="w-full" />
                             </AppForm.Item>
                         </Col>
                     </Row>
 
-                    <AppForm.Item name="status" label="状态" initialValue="pending">
-                        <Select>
-                            <Option value="pending">待处理</Option>
-                            <Option value="in_progress">进行中</Option>
-                            <Option value="completed">已完成</Option>
-                            <Option value="canceled">已取消</Option>
-                        </Select>
+                    <AppForm.Item name="status" label={t('adminTodos.modal.fields.status')} initialValue="pending">
+                        <Select options={statusOptions} />
                     </AppForm.Item>
                 </AppForm>
             </AppModal>

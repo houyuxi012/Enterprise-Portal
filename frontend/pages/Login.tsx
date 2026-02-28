@@ -3,6 +3,8 @@ import { App } from 'antd';
 import { Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ApiClient from '../services/api';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 interface LoginProps {
     onLoginSuccess: () => void;
@@ -11,6 +13,7 @@ interface LoginProps {
 const REMEMBERED_PORTAL_USERNAME_KEY = 'portal_remembered_username';
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+    const { t } = useTranslation();
     const { login } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
@@ -24,9 +27,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [captchaImage, setCaptchaImage] = useState('');
     const [captchaCode, setCaptchaCode] = useState('');
 
-    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || 'Next-Gen Enterprise Portal');
+    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || t('loginPortal.fallbackAppName'));
     const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
-    const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || '© 2025 侯钰熙. All Rights Reserved.');
+    const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || t('loginPortal.fallbackFooter'));
 
     const fetchCaptcha = async () => {
         try {
@@ -34,7 +37,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             setCaptchaId(data.captcha_id);
             setCaptchaImage(data.captcha_image);
         } catch (e) {
-            message.error('获取验证码失败');
+            message.error(t('loginPortal.messages.captchaFetchFailed'));
         }
     };
 
@@ -90,10 +93,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 const normalizedCaptcha = captchaCode.trim();
                 if (!captchaId) {
                     await fetchCaptcha();
-                    throw new Error('验证码加载中，请稍后重试');
+                    throw new Error(t('loginPortal.messages.captchaLoading'));
                 }
                 if (normalizedCaptcha.length !== 4) {
-                    throw new Error('请输入4位验证码');
+                    throw new Error(t('loginPortal.messages.captchaLength'));
                 }
                 headers['X-Captcha-ID'] = captchaId;
                 headers['X-Captcha-Code'] = normalizedCaptcha;
@@ -104,7 +107,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             } else {
                 localStorage.removeItem(REMEMBERED_PORTAL_USERNAME_KEY);
             }
-            message.success('登录成功');
+            message.success(t('loginPortal.messages.loginSuccess'));
             onLoginSuccess();
         } catch (err: any) {
             // Parse backend error response
@@ -115,7 +118,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             const detailCode = typeof detailPayload === 'object' && detailPayload?.code
                 ? String(detailPayload.code)
                 : '';
-            let msg = err?.message || '登录失败，请检查网络连接';
+            let msg = err?.message || t('loginPortal.messages.loginFailedNetwork');
             const shouldShowCaptcha =
                 err?.response?.status === 428 ||
                 err?.response?.headers?.['x-requires-captcha'] === 'true' ||
@@ -126,20 +129,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 fetchCaptcha();
                 setCaptchaCode('');
                 if (/invalid|expired/i.test(String(detail))) {
-                    msg = '验证码错误或已过期，请重试';
+                    msg = t('loginPortal.messages.captchaInvalid');
                 } else if (/verification required/i.test(String(detail))) {
-                    msg = '需要验证码，请输入后重试';
+                    msg = t('loginPortal.messages.captchaRequired');
                 } else {
-                    msg = detail || '请输入验证码';
+                    msg = detail || t('loginPortal.messages.captchaPleaseInput');
                 }
             } else if (detail.includes('locked')) {
-                msg = '账户已被锁定，请稍后再试';
+                msg = t('loginPortal.messages.accountLocked');
             } else if (detail.includes('IP')) {
-                msg = '当前 IP 地址无访问权限';
-            } else if (err?.response?.status === 403 && (/并发|concurrent/i.test(String(detail)))) {
-                msg = '该用户超过并发设定，请退出其他设备后再次尝试登陆';
+                msg = t('loginPortal.messages.ipForbidden');
+            } else if (err?.response?.status === 403 && (/concurrent|session limit/i.test(String(detail)))) {
+                msg = t('loginPortal.messages.concurrentExceeded');
             } else if (err?.response?.status === 401) {
-                msg = '用户名或密码错误';
+                msg = t('loginPortal.messages.invalidCredentials');
             }
 
             setError(msg);
@@ -157,6 +160,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain" />
                     <span className="text-2xl font-bold text-slate-800 tracking-tight">{appName}</span>
                 </div>
+                <LanguageSwitcher />
             </header>
 
             {/* Main Content */}
@@ -164,8 +168,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 <div className="max-w-sm w-full space-y-8">
                     {/* Headers */}
                     <div className="text-center space-y-2">
-                        <h1 className="text-3xl font-bold text-slate-900">欢迎登录</h1>
-                        <p className="text-slate-500 font-medium tracking-wide">请使用您的企业账户登录系统</p>
+                        <h1 className="text-3xl font-bold text-slate-900">{t('loginPortal.title')}</h1>
+                        <p className="text-slate-500 font-medium tracking-wide">{t('loginPortal.subtitle')}</p>
                     </div>
 
                     {/* Login Form */}
@@ -177,7 +181,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="block w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-                                    placeholder="请输入用户名"
+                                    placeholder={t('loginPortal.usernamePlaceholder')}
                                     required
                                 />
                             </div>
@@ -187,7 +191,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="block w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-                                    placeholder="请输入密码"
+                                    placeholder={t('loginPortal.passwordPlaceholder')}
                                     required
                                 />
                             </div>
@@ -200,14 +204,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     value={captchaCode}
                                     onChange={(e) => setCaptchaCode(e.target.value)}
                                     className="block w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-                                    placeholder="验证码"
+                                    placeholder={t('loginPortal.captchaPlaceholder')}
                                     required
                                     maxLength={4}
                                 />
                                 <div
                                     className="h-[52px] min-w-[120px] bg-slate-100 rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-slate-200"
                                     onClick={fetchCaptcha}
-                                    title="点击刷新验证码"
+                                    title={t('loginPortal.captchaRefreshTitle')}
                                 >
                                     {captchaImage ? (
                                         <img src={captchaImage} alt="captcha" className="w-full h-full object-contain" />
@@ -242,10 +246,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     }}
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
                                 />
-                                <label htmlFor="remember-account" className="ml-2 block text-sm text-slate-500 font-medium">记住账户</label>
+                                <label htmlFor="remember-account" className="ml-2 block text-sm text-slate-500 font-medium">{t('loginPortal.rememberAccount')}</label>
                             </div>
                             <div className="text-sm">
-                                <a href="#" className="font-bold text-blue-600 hover:text-blue-700">忘记密码?</a>
+                                <a href="#" className="font-bold text-blue-600 hover:text-blue-700">{t('loginPortal.forgotPassword')}</a>
                             </div>
                         </div>
 
@@ -254,7 +258,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             disabled={isLoading}
                             className="w-full flex items-center justify-center py-3.5 px-6 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
                         >
-                            {isLoading ? <Loader2 size={18} className="animate-spin" /> : '立即登录'}
+                            {isLoading ? <Loader2 size={18} className="animate-spin" /> : t('loginPortal.submit')}
                         </button>
                     </form>
                 </div>

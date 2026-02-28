@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2, ChevronDown, Paperclip, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Send, X, Loader2, Bot, User, Trash2, Maximize2, Minimize2, ChevronDown, Paperclip } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ApiClient from '../services/api';
 import { AIModelOption } from '../types';
+import { useTranslation } from 'react-i18next';
 
 interface AIAssistantProps {
   isOpen: boolean;
@@ -17,22 +18,25 @@ interface Message {
   imageUrl?: string;
 }
 
-const SUGGESTED_PROMPTS = [
-  "如何申请年假？",
-  "IT 部门的联系方式是什么？",
-  "公司最新的差旅报销政策",
-  "怎么预定会议室？"
-];
-
 const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPrompt }) => {
+  const { t } = useTranslation();
+  const defaultAssistantName = t('aiAssistantWidget.defaults.assistantName');
+  const getWelcomeMessage = (name?: string) =>
+    t('aiAssistantWidget.messages.welcome', { name: name || defaultAssistantName });
+  const suggestedPrompts = [
+    t('aiAssistantWidget.suggestedPrompts.prompt1'),
+    t('aiAssistantWidget.suggestedPrompts.prompt2'),
+    t('aiAssistantWidget.suggestedPrompts.prompt3'),
+    t('aiAssistantWidget.suggestedPrompts.prompt4')
+  ];
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'ai', text: "你好！我是企业智能助手。有什么可以帮你的吗？" }
+    { role: 'ai', text: getWelcomeMessage() }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [aiConfig, setAiConfig] = useState<{ name: string; icon: string; enabled: boolean }>({
-    name: 'ShiKu Assistant',
+    name: defaultAssistantName,
     icon: '',
     enabled: true
   });
@@ -51,7 +55,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        alert("图片大小不能超过 5MB");
+        alert(t('aiAssistantWidget.messages.uploadTooLarge'));
         return;
       }
       setSelectedImage(file);
@@ -89,7 +93,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
           return loc && msg ? `${loc}: ${msg}` : msg;
         })
         .filter(Boolean)
-        .join('；');
+        .join('; ');
       if (formatted) return formatted;
     }
 
@@ -102,7 +106,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       return genericMessage;
     }
 
-    return "请求失败，请稍后重试。";
+    return t('aiAssistantWidget.messages.requestRetry');
   };
 
   // Fetch AI Config and Models on mount
@@ -115,7 +119,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         ]);
 
         setAiConfig({
-          name: config.ai_name || 'ShiKu Assistant',
+          name: config.ai_name || defaultAssistantName,
           icon: config.ai_icon || '',
           enabled: config.ai_enabled !== 'false'
         });
@@ -143,7 +147,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         // Update initial welcome message name if needed
         setMessages(prev => {
           if (prev.length === 1 && prev[0].role === 'ai') {
-            return [{ role: 'ai', text: `你好！我是${config.ai_name || '企业智能助手'}。有什么可以帮你的吗？` }];
+            return [{ role: 'ai', text: getWelcomeMessage(config.ai_name) }];
           }
           return prev;
         });
@@ -184,12 +188,16 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         imageUrl = await ApiClient.uploadImage(selectedImage);
       } catch (e) {
         console.error("Upload failed", e);
-        setMessages(prev => [...prev, { role: 'user', text: userMsg }, { role: 'ai', text: "❌ 图片上传失败，请重试。" }]);
+        setMessages(prev => [
+          ...prev,
+          { role: 'user', text: userMsg },
+          { role: 'ai', text: t('aiAssistantWidget.messages.uploadFailed') }
+        ]);
         return;
       }
     }
 
-    const userDisplayText = userMsg || (imageUrl ? "（图片）" : "");
+    const userDisplayText = userMsg || (imageUrl ? t('aiAssistantWidget.messages.imageOnly') : '');
     const newMessage: Message = { role: 'user', text: userDisplayText, imageUrl: imageUrl || undefined };
 
     setInput('');
@@ -205,7 +213,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (error) {
       const errorMessage = extractApiErrorMessage(error);
-      setMessages(prev => [...prev, { role: 'ai', text: `请求失败：${errorMessage}` }]);
+      setMessages(prev => [...prev, { role: 'ai', text: t('aiAssistantWidget.messages.requestFailedWithReason', { error: errorMessage }) }]);
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +227,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
   }, [isOpen, initialPrompt]);
 
   const clearChat = () => {
-    setMessages([{ role: 'ai', text: `对话已重置。有什么新问题吗？` }]);
+    setMessages([{ role: 'ai', text: t('aiAssistantWidget.messages.resetConversation') }]);
   };
 
   // If AI is disabled globally, do not render anything
@@ -236,7 +244,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
         <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20 group-hover:opacity-40"></div>
         <div className="relative w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-full shadow-2xl shadow-blue-500/40 flex items-center justify-center border border-white/20 overflow-hidden">
           {aiConfig.icon ? (
-            <img src={aiConfig.icon} alt="AI" className="w-full h-full object-cover" />
+            <img src={aiConfig.icon} alt={t('aiAssistantWidget.labels.aiImageAlt')} className="w-full h-full object-cover" />
           ) : (
             <Sparkles size={24} className="animate-pulse" />
           )}
@@ -256,7 +264,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden">
                 {aiConfig.icon ? (
-                  <img src={aiConfig.icon} alt="AI" className="w-full h-full object-cover" />
+                  <img src={aiConfig.icon} alt={t('aiAssistantWidget.labels.aiImageAlt')} className="w-full h-full object-cover" />
                 ) : (
                   <Bot size={18} />
                 )}
@@ -265,12 +273,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 <h3 className="font-black text-sm text-slate-800 dark:text-white tracking-tight">{aiConfig.name}</h3>
                 <div className="flex items-center space-x-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Online</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('aiAssistantWidget.labels.online')}</span>
                 </div>
               </div>
             </div>
             <div className="flex items-center space-x-1">
-              <button onClick={clearChat} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors" title="清空对话">
+              <button onClick={clearChat} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors" title={t('aiAssistantWidget.labels.clearConversation')}>
                 <Trash2 size={16} />
               </button>
               <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-colors hidden sm:block">
@@ -307,7 +315,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                       <div className="mb-2">
                         <img
                           src={m.imageUrl}
-                          alt="User Upload"
+                          alt={t('aiAssistantWidget.labels.userUploadImageAlt')}
                           className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => window.open(m.imageUrl, '_blank')}
                         />
@@ -328,7 +336,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
             {/* Quick Prompts - Show only if messages length is small */}
             {messages.length < 2 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-8 animate-in fade-in zoom-in-95 delay-200 duration-500">
-                {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                {suggestedPrompts.map((prompt, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSend(prompt)}
@@ -357,7 +365,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 {/* Dropdown Menu */}
                 {showModelSelector && (
                   <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl ring-1 ring-slate-100 dark:ring-slate-700 py-1 w-48 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-700/50 mb-1">Select Model</div>
+                    <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-700/50 mb-1">{t('aiAssistantWidget.labels.selectModel')}</div>
                     {models.map(model => (
                       <button
                         key={model.id}
@@ -385,7 +393,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
-                placeholder={`Ask ${selectedModelName}...`}
+                placeholder={t('aiAssistantWidget.labels.askPlaceholder', { name: selectedModelName })}
                 disabled={isLoading}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-10 pr-14 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-inner dark:text-white transition-all placeholder:text-slate-400"
               />
@@ -401,7 +409,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute left-2.5 p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-all"
-                title="Upload Image"
+                title={t('aiAssistantWidget.labels.uploadImage')}
               >
                 <Paperclip size={18} />
               </button>
@@ -410,7 +418,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
               {imagePreview && (
                 <div className="absolute left-10 top-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 flex items-center gap-2 shadow-lg">
                   <div className="relative w-8 h-8 rounded overflow-hidden">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <img src={imagePreview} alt={t('aiAssistantWidget.labels.imagePreviewAlt')} className="w-full h-full object-cover" />
                   </div>
                   <button onClick={clearImage} className="text-slate-400 hover:text-red-500 p-0.5"><X size={12} /></button>
                 </div>
@@ -425,7 +433,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
               </button>
             </div>
             <p className="text-[9px] text-center text-slate-400 mt-2 font-medium">
-              AI 可能会犯错。重要信息请查阅公司官方文档。
+              {t('aiAssistantWidget.messages.disclaimer')}
             </p>
           </div>
         </div>

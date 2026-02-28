@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Shield } from 'lucide-react';
 import { Role, Permission } from '../../types';
 import ApiClient from '../../services/api';
 import { message, Checkbox, Empty, Tooltip, Input, Popconfirm } from 'antd';
+import { useTranslation } from 'react-i18next';
 import {
     AppButton,
     AppModal,
@@ -16,6 +17,7 @@ import { getCurrentLocale, getLocalizedRoleMeta } from '../../utils/iamRoleI18n'
 const RESERVED_ROLE_CODES = new Set(['user', 'portaladmin', 'portal_admin', 'superadmin']);
 
 const RoleList: React.FC = () => {
+    const { t } = useTranslation();
     const [roles, setRoles] = useState<Role[]>([]);
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ const RoleList: React.FC = () => {
             const data = await ApiClient.getRoles();
             setRoles(data);
         } catch (error) {
-            message.error('加载角色失败');
+            message.error(t('roleList.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -57,9 +59,9 @@ const RoleList: React.FC = () => {
         try {
             await ApiClient.deleteRole(id);
             fetchData();
-            message.success('角色已删除');
+            message.success(t('roleList.messages.deleteSuccess'));
         } catch (e: any) {
-            message.error(e.response?.data?.detail || '删除失败');
+            message.error(e.response?.data?.detail || t('roleList.messages.deleteFailed'));
         }
     };
 
@@ -89,15 +91,15 @@ const RoleList: React.FC = () => {
                     description: values.description,
                     permission_ids: values.permission_ids
                 });
-                message.success('角色更新成功');
+                message.success(t('roleList.messages.updateSuccess'));
             } else {
                 await ApiClient.createRole(values);
-                message.success('角色创建成功');
+                message.success(t('roleList.messages.createSuccess'));
             }
             setIsEditorOpen(false);
             fetchData();
         } catch (error: any) {
-            message.error(error.response?.data?.detail || '保存失败');
+            message.error(error.response?.data?.detail || t('roleList.messages.saveFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -119,11 +121,11 @@ const RoleList: React.FC = () => {
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             {/* Page Header */}
             <AppPageHeader
-                title="角色定义与权限"
-                subtitle="管理系统用户角色及其对应权限"
+                title={t('roleList.page.title')}
+                subtitle={t('roleList.page.subtitle')}
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
-                        新增角色
+                        {t('roleList.page.createButton')}
                     </AppButton>
                 }
             />
@@ -131,7 +133,7 @@ const RoleList: React.FC = () => {
             {/* Filter Bar */}
             <AppFilterBar>
                 <AppFilterBar.Search
-                    placeholder="搜索角色名称或代码..."
+                    placeholder={t('roleList.filter.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     onSearch={setSearch}
@@ -141,9 +143,9 @@ const RoleList: React.FC = () => {
             {/* Role Cards Grid */}
             <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-100 dark:border-slate-700">
                 {loading ? (
-                    <div className="text-center py-12 text-slate-400">加载中...</div>
+                    <div className="text-center py-12 text-slate-400">{t('roleList.states.loading')}</div>
                 ) : filteredRoles.length === 0 ? (
-                    <Empty description="暂无角色数据" />
+                    <Empty description={t('roleList.states.empty')} />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredRoles.map(role => {
@@ -164,11 +166,11 @@ const RoleList: React.FC = () => {
                                     />
                                     {!isReservedRole(role.code) && (
                                         <Popconfirm
-                                            title="删除角色"
-                                            description="确定要删除该角色吗？这可能会影响已分配该角色的用户。"
+                                            title={t('roleList.confirm.deleteTitle')}
+                                            description={t('roleList.confirm.deleteDescription')}
                                             onConfirm={() => handleDelete(role.id)}
-                                            okText="删除"
-                                            cancelText="取消"
+                                            okText={t('common.buttons.delete')}
+                                            cancelText={t('common.buttons.cancel')}
                                             okButtonProps={{ danger: true }}
                                         >
                                             <AppButton
@@ -198,13 +200,13 @@ const RoleList: React.FC = () => {
                                 </div>
 
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
-                                    {localizedRole.description || '无描述'}
+                                    {localizedRole.description || t('roleList.card.noDescription')}
                                 </p>
 
                                 {/* Permissions */}
                                 <div>
                                     <p className="text-xs font-medium text-slate-400 mb-2">
-                                        权限列表 ({role.permissions?.length || 0})
+                                        {t('roleList.card.permissions', { count: role.permissions?.length || 0 })}
                                     </p>
                                     <div className="flex flex-wrap gap-1">
                                         {role.permissions?.slice(0, 5).map(p => (
@@ -214,11 +216,11 @@ const RoleList: React.FC = () => {
                                         ))}
                                         {(role.permissions?.length || 0) > 5 && (
                                             <span className="text-xs text-slate-400">
-                                                +{role.permissions!.length - 5} more
+                                                {t('roleList.card.more', { count: role.permissions!.length - 5 })}
                                             </span>
                                         )}
                                         {(!role.permissions || role.permissions.length === 0) && (
-                                            <span className="text-xs text-slate-300 italic">暂无权限</span>
+                                            <span className="text-xs text-slate-300 italic">{t('roleList.card.noPermissions')}</span>
                                         )}
                                     </div>
                                 </div>
@@ -230,12 +232,12 @@ const RoleList: React.FC = () => {
 
             {/* Edit/Create Modal */}
             <AppModal
-                title={editingRole ? '编辑角色' : '创建新角色'}
+                title={editingRole ? t('roleList.modal.editTitle') : t('roleList.modal.createTitle')}
                 open={isEditorOpen}
                 onCancel={() => setIsEditorOpen(false)}
                 onOk={() => form.submit()}
                 confirmLoading={submitting}
-                okText={editingRole ? '保存修改' : '创建角色'}
+                okText={editingRole ? t('roleList.modal.saveChanges') : t('roleList.modal.createRole')}
                 width={640}
             >
                 <AppForm
@@ -245,30 +247,30 @@ const RoleList: React.FC = () => {
                 >
                     <div className="grid grid-cols-2 gap-4">
                         <AppForm.Item
-                            label="角色名称"
+                            label={t('roleList.form.name')}
                             name="name"
-                            rules={[{ required: true, message: '请输入角色名称' }]}
+                            rules={[{ required: true, message: t('roleList.form.validation.nameRequired') }]}
                         >
-                            <Input placeholder="例如：内容审核员" />
+                            <Input placeholder={t('roleList.form.placeholders.name')} />
                         </AppForm.Item>
 
                         <AppForm.Item
-                            label="角色代码 (唯一)"
+                            label={t('roleList.form.code')}
                             name="code"
-                            rules={[{ required: true, message: '请输入角色代码' }]}
+                            rules={[{ required: true, message: t('roleList.form.validation.codeRequired') }]}
                         >
                             <Input
-                                placeholder="例如：content_auditor"
+                                placeholder={t('roleList.form.placeholders.code')}
                                 disabled={!!editingRole}
                             />
                         </AppForm.Item>
                     </div>
 
-                    <AppForm.Item label="描述 (可选)" name="description">
-                        <Input placeholder="角色描述" />
+                    <AppForm.Item label={t('roleList.form.description')} name="description">
+                        <Input placeholder={t('roleList.form.placeholders.description')} />
                     </AppForm.Item>
 
-                    <AppForm.Item label="权限分配" name="permission_ids">
+                    <AppForm.Item label={t('roleList.form.permissions')} name="permission_ids">
                         <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
                             <Checkbox.Group style={{ width: '100%' }}>
                                 <div className="grid grid-cols-2 gap-3">
@@ -285,7 +287,7 @@ const RoleList: React.FC = () => {
                                     ))}
                                     {permissions.length === 0 && (
                                         <p className="text-sm text-slate-400 col-span-2">
-                                            暂无可用权限，请联系开发人员添加权限定义。
+                                            {t('roleList.form.noPermissionsHint')}
                                         </p>
                                     )}
                                 </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Users, FileText, Activity, Server,
     TrendingUp, TrendingDown,
@@ -25,6 +26,7 @@ const formatCompact = (n: number): string => {
 const formatNumber = (n: number): string => n.toLocaleString();
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCount }) => {
+    const { t, i18n } = useTranslation();
     // ... (rest of component)
 
     // --- Real Data State ---
@@ -143,6 +145,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
     // System Info State
     const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+    const dateLocale = i18n.resolvedLanguage === 'zh-CN' ? 'zh-CN' : 'en-US';
 
     // Fetch AI Stats on mount
     useEffect(() => {
@@ -185,20 +188,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
         }
 
         const normalized = `${rawType} ${rawStatus}`.toLowerCase();
-        if (expired || /到期|expired|expire/.test(normalized)) {
+        if (expired || /\u5230\u671f|expired|expire/.test(normalized)) {
             return {
-                label: '授权到期',
+                label: t('adminDashboard.systemInfo.license.expired'),
                 className: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
             };
         }
-        if (/测试|trial|beta|dev/.test(normalized)) {
+        if (/\u6d4b\u8bd5|trial|beta|dev/.test(normalized)) {
             return {
-                label: '测试授权',
+                label: t('adminDashboard.systemInfo.license.trial'),
                 className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
             };
         }
         return {
-            label: '正式授权',
+            label: t('adminDashboard.systemInfo.license.formal'),
             className: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
         };
     };
@@ -206,39 +209,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
     const statCards = [
         {
-            title: '系统访问量',
+            title: t('adminDashboard.stats.systemVisits'),
             value: stats?.system_visits.toLocaleString() || '---',
             trend: stats?.activity_trend || '+0.0%',
             isUp: (stats?.activity_trend || '+0.0%').startsWith('+'),
             icon: <Eye size={20} />,
-            subtitle: '周环比',
+            subtitle: t('adminDashboard.stats.weeklyComparison'),
             color: 'blue'
         },
         {
-            title: '活跃用户',
+            title: t('adminDashboard.stats.activeUsers'),
             value: stats?.active_users.toLocaleString() || '---',
             trend: stats?.active_users_trend || '+0.0%',
             isUp: (stats?.active_users_trend || '+0.0%').startsWith('+'),
             icon: <Users size={20} />,
-            subtitle: '周环比',
+            subtitle: t('adminDashboard.stats.weeklyComparison'),
             color: 'emerald'
         },
         {
-            title: '应用访问',
+            title: t('adminDashboard.stats.appVisits'),
             value: stats?.tool_clicks.toLocaleString() || '---',
             trend: stats?.tool_clicks_trend || '+0.0%',
             isUp: (stats?.tool_clicks_trend || '+0.0%').startsWith('+'),
             icon: <MousePointer2 size={20} />,
-            subtitle: '周环比',
+            subtitle: t('adminDashboard.stats.weeklyComparison'),
             color: 'rose'
         },
         {
-            title: '新增内容',
+            title: t('adminDashboard.stats.newContent'),
             value: stats?.new_content.toLocaleString() || '---',
             trend: stats?.new_content_trend || '+0.0%',
             isUp: (stats?.new_content_trend || '+0.0%').startsWith('+'),
             icon: <FileText size={20} />,
-            subtitle: '周环比',
+            subtitle: t('adminDashboard.stats.weeklyComparison'),
             color: 'indigo'
         }
     ];
@@ -251,7 +254,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
             {/* Top Toolbar */}
             <div className="flex md:items-center justify-between flex-col md:flex-row gap-4 mb-2">
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">仪表盘</h1>
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('adminDashboard.page.title')}</h1>
                 {/* <div className="flex gap-3">
                     <button className="flex items-center space-x-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm hover:shadow transition-shadow">
                         <Calendar size={14} />
@@ -301,12 +304,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                     <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 h-full">
                         <div className="flex justify-between items-center mb-8">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">系统资源监控</h3>
-                                <p className="text-xs text-slate-400 font-medium mt-1">实时服务器性能指标</p>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('adminDashboard.resources.title')}</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-1">{t('adminDashboard.resources.subtitle')}</p>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">实时监控中</span>
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">{t('adminDashboard.resources.realtime')}</span>
                             </div>
                         </div>
 
@@ -317,7 +320,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg"><Server size={18} /></div>
                                     <span className="text-xl font-black text-slate-800 dark:text-white">{resources?.cpu_percent ?? 0}%</span>
                                 </div>
-                                <div className="text-xs font-bold text-slate-400 mb-2">CPU 使用率</div>
+                                <div className="text-xs font-bold text-slate-400 mb-2">{t('adminDashboard.resources.cpuUsage')}</div>
                                 <div className="h-2 w-full bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${resources?.cpu_percent ?? 0}%` }}></div>
                                 </div>
@@ -329,7 +332,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                     <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg"><Database size={18} /></div>
                                     <span className="text-sm font-black text-slate-800 dark:text-white">{resources?.memory_percent ?? 0}%</span>
                                 </div>
-                                <div className="text-xs font-bold text-slate-400 mb-2 whitespace-nowrap overflow-hidden text-ellipsis">内存 ({resources?.memory_used || '0GB'} / {resources?.memory_total || '0GB'})</div>
+                                <div className="text-xs font-bold text-slate-400 mb-2 whitespace-nowrap overflow-hidden text-ellipsis">{t('adminDashboard.resources.memory', { used: resources?.memory_used || '0GB', total: resources?.memory_total || '0GB' })}</div>
                                 <div className="h-2 w-full bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                                     <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${resources?.memory_percent ?? 0}%` }}></div>
                                 </div>
@@ -341,7 +344,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-lg"><HardDrive size={18} /></div>
                                     <span className="text-xl font-black text-slate-800 dark:text-white">{resources?.disk_percent ?? 0}%</span>
                                 </div>
-                                <div className="text-xs font-bold text-slate-400 mb-2">磁盘 (SSD)</div>
+                                <div className="text-xs font-bold text-slate-400 mb-2">{t('adminDashboard.resources.diskSsd')}</div>
                                 <div className="h-2 w-full bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${resources?.disk_percent ?? 0}%` }}></div>
                                 </div>
@@ -351,15 +354,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                             <div className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col justify-between">
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg"><Activity size={18} /></div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">网络带宽</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{t('adminDashboard.resources.networkBandwidth')}</span>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <div className="flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-400"><ArrowDown size={10} className="mr-1" /> 下行</div>
+                                        <div className="flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-400"><ArrowDown size={10} className="mr-1" /> {t('adminDashboard.resources.download')}</div>
                                         <span className="text-sm font-black text-slate-800 dark:text-white">{resources?.network_recv_speed ?? 0} MB/s</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <div className="flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-400"><ArrowUp size={10} className="mr-1" /> 上行</div>
+                                        <div className="flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-400"><ArrowUp size={10} className="mr-1" /> {t('adminDashboard.resources.upload')}</div>
                                         <span className="text-sm font-black text-slate-800 dark:text-white">{resources?.network_sent_speed ?? 0} MB/s</span>
                                     </div>
                                 </div>
@@ -374,8 +377,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                     <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 h-full flex flex-col justify-center">
                         <div className="flex justify-between items-center mb-6">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">对象存储</h3>
-                                <p className="text-xs text-slate-400 font-medium mt-1">MinIO 存储统计</p>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('adminDashboard.storage.title')}</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-1">{t('adminDashboard.storage.subtitle')}</p>
                             </div>
                             <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
                                 <HardDrive size={18} />
@@ -391,8 +394,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                         // @ts-ignore
                                         <Pie
                                             data={[
-                                                { name: '已用', value: storageStats?.used_percent ?? 0 },
-                                                { name: '剩余', value: 100 - (storageStats?.used_percent ?? 0) }
+                                                { name: t('adminDashboard.storage.used'), value: storageStats?.used_percent ?? 0 },
+                                                { name: t('adminDashboard.storage.remaining'), value: 100 - (storageStats?.used_percent ?? 0) }
                                             ]}
                                             cx={75} // Center X adjustment
                                             cy={85} // Center Y (Bottom)
@@ -433,7 +436,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                 >
                                     <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
                                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"></span>
-                                        <span className={`text-xs font-bold transition-colors ${activeStorageIndex === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>已用容量</span>
+                                        <span className={`text-xs font-bold transition-colors ${activeStorageIndex === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>{t('adminDashboard.storage.usedCapacity')}</span>
                                     </div>
                                     <div className={`flex-grow border-b-2 border-dotted mb-1.5 mx-4 transition-colors ${activeStorageIndex === 0 ? 'border-emerald-200 dark:border-emerald-800' : 'border-slate-200 dark:border-slate-700'}`}></div>
                                     <div className={`relative z-10 pl-2 text-sm font-black transition-colors ${activeStorageIndex === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200'}`}>
@@ -447,7 +450,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                 <div className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg ${activeStorageIndex !== null ? 'opacity-40 grayscale' : ''}`}>
                                     <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
                                         <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.3)]"></span>
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">剩余容量</span>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('adminDashboard.storage.remainingCapacity')}</span>
                                     </div>
                                     <div className="flex-grow border-b-2 border-dotted border-slate-200 dark:border-slate-700 mb-1.5 mx-4"></div>
                                     <div className="relative z-10 pl-2 text-sm font-black text-slate-700 dark:text-slate-200">
@@ -459,7 +462,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                 <div className={`flex items-end justify-between group transition-all duration-300 p-1.5 -mx-1.5 rounded-lg ${activeStorageIndex !== null ? 'opacity-40 grayscale' : ''}`}>
                                     <div className="flex items-center gap-2.5 mb-0.5 relative z-10 pr-2">
                                         <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.3)]"></span>
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Object 数</span>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('adminDashboard.storage.objectCount')}</span>
                                     </div>
                                     <div className="flex-grow border-b-2 border-dotted border-slate-200 dark:border-slate-700 mb-1.5 mx-4"></div>
                                     <div className="relative z-10 pl-2 text-sm font-black text-slate-700 dark:text-slate-200">
@@ -481,11 +484,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
                     <div className="flex justify-between items-center mb-8 relative z-10">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                            AI 模型消耗趋势
+                            {t('adminDashboard.ai.title')}
                         </h3>
                         {aiStats?.total_tokens && (
                             <div className="px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700/50 text-xs font-bold text-slate-500 border border-slate-100 dark:border-slate-700">
-                                近7日总计: <span className="text-violet-600 dark:text-violet-400">{aiStats.total_tokens.toLocaleString()}</span> Tokens
+                                {t('adminDashboard.ai.total7Days')}: <span className="text-violet-600 dark:text-violet-400">{aiStats.total_tokens.toLocaleString()}</span> Tokens
                             </div>
                         )}
                     </div>
@@ -495,7 +498,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                         <div>
                             <h4 className="text-xs font-bold text-slate-400 mb-6 uppercase tracking-wider flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#2636dd]"></span>
-                                近7日 Token 趋势
+                                {t('adminDashboard.ai.trend7Days')}
                             </h4>
 
                             {/* Chart Container (Recharts) */}
@@ -503,7 +506,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                 {aiStats?.daily_trend && aiStats.daily_trend.length > 0 ? (
                                     (() => {
                                         const chartData = aiStats.daily_trend!.slice(-7).map(d => ({
-                                            date: new Date(d.date).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '-'),
+                                            date: new Date(d.date).toLocaleDateString(dateLocale, { month: '2-digit', day: '2-digit' }).replace('/', '-'),
                                             out: d.tokens_out,
                                             in: d.tokens_in,
                                         }));
@@ -543,7 +546,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                         );
                                     })()
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-bold">暂无数据</div>
+                                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-bold">{t('common.empty.none')}</div>
                                 )}
                             </div>
                         </div>
@@ -562,7 +565,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
 
                                 const segments = [
                                     ...top3.map((m, i) => ({ label: m.model, value: m.total_tokens, color: colors[i], bgColor: bgColors[i] })),
-                                    ...(others > 0 ? [{ label: '其他', value: others, color: colors[3], bgColor: bgColors[3] }] : [])
+                                    ...(others > 0 ? [{ label: t('adminDashboard.ai.others'), value: others, color: colors[3], bgColor: bgColors[3] }] : [])
                                 ];
 
                                 // State for hovered segment
@@ -652,7 +655,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                                                 : '0'
                                                             }
                                                         </div>
-                                                        <div className="text-[10px] font-bold text-slate-400">今日 Token</div>
+                                                        <div className="text-[10px] font-bold text-slate-400">{t('adminDashboard.ai.todayToken')}</div>
                                                     </>
                                                 )}
                                             </div>
@@ -661,7 +664,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                                         {/* Legend (Right Side List) - No Percentages */}
                                         <div className="flex flex-col justify-center gap-3 min-w-[140px] flex-1">
                                             {segmentAngles.length === 0 ? (
-                                                <div className="text-[10px] text-slate-400">暂无数据</div>
+                                                <div className="text-[10px] text-slate-400">{t('common.empty.none')}</div>
                                             ) : (
                                                 segmentAngles.map((item, i) => (
                                                     <div
@@ -696,38 +699,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ employeeCount, newsCoun
                 <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col">
                     <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">系统信息</h3>
-                            <p className="text-xs text-slate-400 font-medium mt-1">软件版本与授权状态</p>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('adminDashboard.systemInfo.title')}</h3>
+                            <p className="text-xs text-slate-400 font-medium mt-1">{t('adminDashboard.systemInfo.subtitle')}</p>
                         </div>
                     </div>
 
                     <div className="space-y-2">
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">软件名称</span>
-                            <span className="text-sm font-medium text-slate-800 dark:text-white text-right">{systemInfo?.software_name || 'Loading...'}</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.softwareName')}</span>
+                            <span className="text-sm font-medium text-slate-800 dark:text-white text-right">{systemInfo?.software_name || t('adminDashboard.systemInfo.loading')}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">软件版本</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.softwareVersion')}</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.version || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">访问地址</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.accessAddress')}</span>
                             <a href={systemInfo?.access_address} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline truncate max-w-[150px] text-right" title={systemInfo?.access_address}>
                                 {systemInfo?.access_address ? new URL(systemInfo.access_address).hostname : '---'}
                             </a>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">序列号</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.serialNumber')}</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white whitespace-nowrap text-right">{systemInfo?.serial_number || systemInfo?.license_id || '---'}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">授权类型</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.licenseType')}</span>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${licenseBadge.className}`}>
                                 {licenseBadge.label}
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">客户名称</span>
+                            <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">{t('adminDashboard.systemInfo.customerName')}</span>
                             <span className="text-sm font-medium text-slate-800 dark:text-white">{systemInfo?.authorized_unit || '---'}</span>
                         </div>
                     </div>

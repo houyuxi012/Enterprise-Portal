@@ -3,6 +3,7 @@ import { Input, DatePicker, Select, Popconfirm, message, Upload, Switch, Image, 
 import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { NewsItem } from '../../types';
 import ApiClient from '../../services/api';
 import dayjs from 'dayjs';
@@ -29,7 +30,10 @@ const getBase64 = (file: FileType): Promise<string> =>
 const { Option } = Select;
 const { TextArea } = Input;
 
+const CATEGORY_CODES = ['announcement', 'activity', 'policy', 'culture'] as const;
+
 const NewsList: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const [news, setNews] = useState<NewsItem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
@@ -37,6 +41,22 @@ const NewsList: React.FC = () => {
     const [form] = AppForm.useForm();
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const categoryAliases = React.useMemo(() => {
+        const aliases: Record<string, string> = {};
+        CATEGORY_CODES.forEach((code) => {
+            aliases[code] = code;
+            const zhLabel = String(i18n.t(`newsList.categories.${code}`, { lng: 'zh-CN' })).trim();
+            const enLabel = String(i18n.t(`newsList.categories.${code}`, { lng: 'en-US' })).trim();
+            if (zhLabel) aliases[zhLabel] = code;
+            if (enLabel) aliases[enLabel] = code;
+        });
+        return aliases;
+    }, [i18n.resolvedLanguage]);
+
+    const normalizeCategory = (value?: string): string => {
+        const raw = String(value || '').trim();
+        return categoryAliases[raw] || raw || 'announcement';
+    };
 
     // Upload state
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -54,7 +74,7 @@ const NewsList: React.FC = () => {
             setNews(data);
         } catch (error) {
             console.error(error);
-            message.error('加载资讯失败');
+            message.error(t('newsList.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -63,10 +83,10 @@ const NewsList: React.FC = () => {
     const handleDelete = async (id: any) => {
         try {
             await ApiClient.deleteNews(id);
-            message.success('资讯已删除');
+            message.success(t('newsList.messages.deleteSuccess'));
             fetchNews();
         } catch (error) {
-            message.error('删除失败');
+            message.error(t('newsList.messages.deleteFailed'));
         }
     };
 
@@ -74,6 +94,7 @@ const NewsList: React.FC = () => {
         setEditingNews(item);
         form.setFieldsValue({
             ...item,
+            category: normalizeCategory(item.category),
             date: dayjs(item.date)
         });
 
@@ -98,7 +119,7 @@ const NewsList: React.FC = () => {
         setEditingNews(null);
         form.resetFields();
         form.setFieldsValue({
-            category: '公告',
+            category: 'announcement',
             date: dayjs(),
             author: 'Admin',
             image: ''
@@ -129,17 +150,17 @@ const NewsList: React.FC = () => {
 
             if (editingNews) {
                 await ApiClient.updateNews(Number(editingNews.id), payload);
-                message.success('资讯已更新');
+                message.success(t('newsList.messages.updateSuccess'));
             } else {
                 await ApiClient.createNews(payload);
-                message.success('资讯已发布');
+                message.success(t('newsList.messages.createSuccess'));
             }
             setIsModalOpen(false);
             fetchNews();
         } catch (error: any) {
-            const errorDetail = error?.response?.data?.detail || error?.message || '未知错误';
+            const errorDetail = error?.response?.data?.detail || error?.message || t('newsList.messages.unknownError');
             const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
-            message.error('操作失败: ' + errorMsg);
+            message.error(t('newsList.messages.actionFailed', { reason: errorMsg }));
         } finally {
             setSubmitLoading(false);
         }
@@ -151,25 +172,25 @@ const NewsList: React.FC = () => {
 
     const columns: ColumnsType<NewsItem> = [
         {
-            title: '封面',
+            title: t('newsList.table.cover'),
             dataIndex: 'image',
             key: 'image',
             width: 80,
             render: (image: string) => (
                 <div className="w-12 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-                    <img src={image} alt="cover" className="w-full h-full object-cover" />
+                    <img src={image} alt={t('newsList.table.coverAlt')} className="w-full h-full object-cover" />
                 </div>
             )
         },
         {
-            title: '标题',
+            title: t('newsList.table.title'),
             dataIndex: 'title',
             key: 'title',
             render: (text: string, record: NewsItem) => (
                 <div className="flex items-center space-x-2">
                     {record.is_top && (
                         <span className="bg-rose-50 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-100">
-                            置顶
+                            {t('newsList.table.topBadge')}
                         </span>
                     )}
                     <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
@@ -177,18 +198,18 @@ const NewsList: React.FC = () => {
             )
         },
         {
-            title: '分类',
+            title: t('newsList.table.category'),
             dataIndex: 'category',
             key: 'category',
             width: 100,
             render: (category: string) => (
                 <span className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                    {category}
+                    {t(`newsList.categories.${normalizeCategory(category)}`, { defaultValue: category })}
                 </span>
             ),
         },
         {
-            title: '发布日期',
+            title: t('newsList.table.publishDate'),
             dataIndex: 'date',
             key: 'date',
             width: 120,
@@ -197,7 +218,7 @@ const NewsList: React.FC = () => {
             )
         },
         {
-            title: '操作',
+            title: t('newsList.table.actions'),
             key: 'action',
             width: 160,
             render: (_: any, record: NewsItem) => (
@@ -208,11 +229,11 @@ const NewsList: React.FC = () => {
                         icon={<Edit size={14} />}
                         onClick={() => handleEdit(record)}
                     >
-                        编辑
+                        {t('common.buttons.edit')}
                     </AppButton>
-                    <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
+                    <Popconfirm title={t('newsList.confirm.deleteTitle')} onConfirm={() => handleDelete(record.id)}>
                         <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>
-                            删除
+                            {t('common.buttons.delete')}
                         </AppButton>
                     </Popconfirm>
                 </div>
@@ -223,18 +244,18 @@ const NewsList: React.FC = () => {
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             <AppPageHeader
-                title="资讯内容管理"
-                subtitle="发布和编辑企业新闻动态"
+                title={t('newsList.page.title')}
+                subtitle={t('newsList.page.subtitle')}
                 action={
                     <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
-                        发布资讯
+                        {t('newsList.page.publishButton')}
                     </AppButton>
                 }
             />
 
             <AppFilterBar>
                 <AppFilterBar.Search
-                    placeholder="搜索标题..."
+                    placeholder={t('newsList.filters.searchPlaceholder')}
                     value={textSearch}
                     onChange={e => setTextSearch(e.target.value)}
                     onSearch={setTextSearch}
@@ -247,18 +268,18 @@ const NewsList: React.FC = () => {
                     dataSource={filteredNews}
                     rowKey="id"
                     loading={loading}
-                    emptyText="暂无资讯数据"
+                    emptyText={t('newsList.table.empty')}
                 />
             </Card>
 
             <AppModal
-                title={editingNews ? '编辑资讯' : '发布新的资讯动态'}
+                title={editingNews ? t('newsList.modal.editTitle') : t('newsList.modal.createTitle')}
                 open={isModalOpen}
                 onOk={() => form.submit()}
                 onCancel={() => setIsModalOpen(false)}
                 confirmLoading={submitLoading}
                 width={800}
-                okText="确认发布"
+                okText={t('newsList.modal.okText')}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
                     {/* Hidden Author Field */}
@@ -269,8 +290,8 @@ const NewsList: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Left Column: Image Upload */}
                         <div className="md:col-span-1 space-y-4">
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">封面图片</h3>
-                            <AppForm.Item name="image" rules={[{ required: true, message: '请上传封面图片' }]} noStyle>
+                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t('newsList.modal.sections.cover')}</h3>
+                            <AppForm.Item name="image" rules={[{ required: true, message: t('newsList.form.validation.imageRequired') }]} noStyle>
                                 <Input hidden />
                             </AppForm.Item>
 
@@ -284,10 +305,10 @@ const NewsList: React.FC = () => {
                                     try {
                                         const url = await ApiClient.uploadImage(file as File);
                                         form.setFieldsValue({ image: url });
-                                        message.success('图片上传成功');
+                                        message.success(t('newsList.messages.uploadSuccess'));
                                         onSuccess?.(url);
                                     } catch (err) {
-                                        message.error('图片上传失败');
+                                        message.error(t('newsList.messages.uploadFailed'));
                                         onError?.(err as Error);
                                     }
                                 }}
@@ -295,7 +316,7 @@ const NewsList: React.FC = () => {
                                 {fileList.length >= 1 ? null : (
                                     <button style={{ border: 0, background: 'none' }} type="button">
                                         <PlusOutlined />
-                                        <div style={{ marginTop: 8 }}>上传封面</div>
+                                        <div style={{ marginTop: 8 }}>{t('newsList.form.uploadCover')}</div>
                                     </button>
                                 )}
                             </Upload>
@@ -313,39 +334,39 @@ const NewsList: React.FC = () => {
                             )}
 
                             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mt-4">
-                                <AppForm.Item name="is_top" label="置顶推广" valuePropName="checked" className="mb-0">
-                                    <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                                <AppForm.Item name="is_top" label={t('newsList.form.topPromotion')} valuePropName="checked" className="mb-0">
+                                    <Switch checkedChildren={t('newsList.form.switch.on')} unCheckedChildren={t('newsList.form.switch.off')} />
                                 </AppForm.Item>
-                                <p className="text-xs text-slate-400 mt-2">开启后，该资讯将优先显示在首页轮播或置顶位置。</p>
+                                <p className="text-xs text-slate-400 mt-2">{t('newsList.form.topPromotionHint')}</p>
                             </div>
                         </div>
 
                         {/* Right Column: Info & Content */}
                         <div className="md:col-span-2 space-y-4">
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">基本信息</h3>
-                            <AppForm.Item name="title" label="资讯标题" rules={[{ required: true, message: '请输入标题' }]}>
-                                <Input placeholder="请输入引人注目的标题" />
+                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t('newsList.modal.sections.basic')}</h3>
+                            <AppForm.Item name="title" label={t('newsList.form.title')} rules={[{ required: true, message: t('newsList.form.validation.titleRequired') }]}>
+                                <Input placeholder={t('newsList.form.placeholders.title')} />
                             </AppForm.Item>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <AppForm.Item name="category" label="所属分类" rules={[{ required: true, message: '请选择分类' }]}>
-                                    <Select placeholder="选择分类">
-                                        <Option value="公告">公告</Option>
-                                        <Option value="活动">活动</Option>
-                                        <Option value="政策">政策</Option>
-                                        <Option value="文化">文化</Option>
+                                <AppForm.Item name="category" label={t('newsList.form.category')} rules={[{ required: true, message: t('newsList.form.validation.categoryRequired') }]}>
+                                    <Select placeholder={t('newsList.form.placeholders.category')}>
+                                        <Option value="announcement">{t('newsList.categories.announcement')}</Option>
+                                        <Option value="activity">{t('newsList.categories.activity')}</Option>
+                                        <Option value="policy">{t('newsList.categories.policy')}</Option>
+                                        <Option value="culture">{t('newsList.categories.culture')}</Option>
                                     </Select>
                                 </AppForm.Item>
-                                <AppForm.Item name="date" label="发布日期" rules={[{ required: true, message: '请选择日期' }]}>
+                                <AppForm.Item name="date" label={t('newsList.form.publishDate')} rules={[{ required: true, message: t('newsList.form.validation.dateRequired') }]}>
                                     <DatePicker style={{ width: '100%' }} />
                                 </AppForm.Item>
                             </div>
 
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pt-2">内容详情</h3>
-                            <AppForm.Item name="summary" label="资讯摘要" rules={[{ required: true, message: '请输入摘要' }]}>
+                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pt-2">{t('newsList.modal.sections.content')}</h3>
+                            <AppForm.Item name="summary" label={t('newsList.form.summary')} rules={[{ required: true, message: t('newsList.form.validation.summaryRequired') }]}>
                                 <TextArea
                                     rows={6}
-                                    placeholder="请输入主要内容摘要..."
+                                    placeholder={t('newsList.form.placeholders.summary')}
                                     maxLength={200}
                                     showCount
                                 />

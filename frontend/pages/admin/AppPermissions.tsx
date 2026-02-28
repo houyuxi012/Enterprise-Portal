@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, TreeSelect, message, Tag, Tooltip, Space, Row, Col, Card, Tree, Empty, Switch, Typography, App } from 'antd';
+import { Button, Modal, TreeSelect, Tag, Tooltip, Space, Row, Col, Card, Tree, Empty, Switch, App } from 'antd';
 import type { DataNode } from 'antd/es/tree';
-import { KeyOutlined, EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import ApiClient, { QuickToolDTO } from '../../services/api';
 import { getIcon } from '../../utils/iconMap';
 import { getColorClass } from '../../utils/colorMap';
 import {
-    AppButton,
     AppTable,
-    AppModal,
     AppPageHeader,
 } from '../../components/admin';
 
-const { Text } = Typography;
-
 const AppPermissions: React.FC = () => {
+    const { t } = useTranslation();
     const { message: antdMessage } = App.useApp();
     const [tools, setTools] = useState<QuickToolDTO[]>([]);
     const [loading, setLoading] = useState(false);
@@ -63,7 +61,7 @@ const AppPermissions: React.FC = () => {
             setDeptTreeData(buildTreeData(deptsData));
         } catch (error) {
             console.error(error);
-            antdMessage.error('加载数据失败');
+            antdMessage.error(t('appPermissions.messages.loadFailed'));
         }
         setLoading(false);
     };
@@ -89,7 +87,7 @@ const AppPermissions: React.FC = () => {
         // Logic check
         if (isPublic) {
             if (!checked) {
-                antdMessage.warning("全员可见的应用无法直接禁止单个部门。请先配置为'仅部分可见'。");
+                antdMessage.warning(t('appPermissions.messages.publicCannotDisable'));
                 return;
             }
             // Already public, checking it does nothing
@@ -138,10 +136,10 @@ const AppPermissions: React.FC = () => {
                 visible_to_departments: newList.length > 0 ? JSON.stringify(newList) : "[]"
             });
 
-            antdMessage.success("权限已更新");
+            antdMessage.success(t('appPermissions.messages.permissionUpdated'));
             fetchData(); // Refresh to be sure
         } catch (e) {
-            antdMessage.error("更新失败");
+            antdMessage.error(t('appPermissions.messages.updateFailed'));
         }
     };
 
@@ -183,12 +181,12 @@ const AppPermissions: React.FC = () => {
                 visible_to_departments: payloadVal
             });
 
-            antdMessage.success('权限更新成功');
+            antdMessage.success(t('appPermissions.messages.permissionUpdateSuccess'));
             setIsModalOpen(false);
             fetchData();
         } catch (error) {
             console.error(error);
-            antdMessage.error('更新失败');
+            antdMessage.error(t('appPermissions.messages.updateFailed'));
         }
         setSaving(false);
     };
@@ -199,7 +197,7 @@ const AppPermissions: React.FC = () => {
             title: (
                 <Space>
                     <AppstoreOutlined className="text-slate-400" />
-                    <span>应用名称</span>
+                    <span>{t('appPermissions.table.appName')}</span>
                 </Space>
             ),
             dataIndex: 'name',
@@ -223,24 +221,24 @@ const AppPermissions: React.FC = () => {
             }
         },
         {
-            title: '范围',
+            title: t('appPermissions.table.scope'),
             key: 'scope',
             width: 120,
             render: (_: any, record: QuickToolDTO) => {
                 const raw = (record as any).visible_to_departments;
-                if (!raw) return <Tag icon={<GlobalOutlined />} color="green">全员</Tag>;
+                if (!raw) return <Tag icon={<GlobalOutlined />} color="green">{t('appPermissions.scope.all')}</Tag>;
                 try {
                     const list = JSON.parse(raw);
-                    if (list.length === 0) return <Tag icon={<LockOutlined />} color="red">隐藏</Tag>;
-                    return <Tag color="blue">指定部门</Tag>;
+                    if (list.length === 0) return <Tag icon={<LockOutlined />} color="red">{t('appPermissions.scope.hidden')}</Tag>;
+                    return <Tag color="blue">{t('appPermissions.scope.selectedDepartments')}</Tag>;
                 } catch {
-                    return <Tag>Error</Tag>;
+                    return <Tag>{t('appPermissions.scope.error')}</Tag>;
                 }
             }
         },
         // Dynamic Column for Selected Dept
         ...(selectedDeptName ? [{
-            title: `${selectedDeptName} 访问权限`,
+            title: t('appPermissions.table.departmentAccess', { dept: selectedDeptName }),
             key: 'access',
             render: (_: any, record: QuickToolDTO) => {
                 const isPublic = !(record as any).visible_to_departments;
@@ -259,13 +257,13 @@ const AppPermissions: React.FC = () => {
                             onChange={(checked) => handleToggleAccess(record, checked)}
                             size="small"
                         />
-                        {isPublic && <Tooltip title="全员可见应用默认允许访问"><InfoCircleOutlined className="text-slate-400" /></Tooltip>}
+                        {isPublic && <Tooltip title={t('appPermissions.tooltips.publicAllowed')}><InfoCircleOutlined className="text-slate-400" /></Tooltip>}
                     </Space>
                 );
             }
         }] : []),
         {
-            title: '操作',
+            title: t('appPermissions.table.actions'),
             key: 'action',
             width: 100,
             render: (_: any, record: QuickToolDTO) => (
@@ -274,7 +272,7 @@ const AppPermissions: React.FC = () => {
                     icon={<EditOutlined />}
                     onClick={() => handleEdit(record)}
                 >
-                    配置
+                    {t('appPermissions.actions.configure')}
                 </Button>
             ),
         },
@@ -283,8 +281,8 @@ const AppPermissions: React.FC = () => {
     return (
         <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
             <AppPageHeader
-                title="应用权限管理"
-                subtitle="控制各部门对应用中心应用的访问权限"
+                title={t('appPermissions.page.title')}
+                subtitle={t('appPermissions.page.subtitle')}
             />
 
             <Row gutter={24}>
@@ -294,7 +292,7 @@ const AppPermissions: React.FC = () => {
                         title={
                             <div className="flex items-center gap-2">
                                 <TeamOutlined className="text-blue-500" />
-                                <span>部门列表</span>
+                                <span>{t('appPermissions.sidebar.departments')}</span>
                             </div>
                         }
                         className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full mb-6 lg:mb-0"
@@ -316,7 +314,7 @@ const AppPermissions: React.FC = () => {
                                     defaultExpandAll
                                 />
                             ) : (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无部门" />
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('appPermissions.sidebar.empty')} />
                             )}
                         </div>
                     </Card>
@@ -327,9 +325,11 @@ const AppPermissions: React.FC = () => {
                     <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="font-bold text-slate-700 dark:text-slate-200">
-                                {selectedDeptName ? `${selectedDeptName} - 应用权限` : '所有应用'}
+                                {selectedDeptName
+                                    ? t('appPermissions.content.selectedDeptTitle', { dept: selectedDeptName })
+                                    : t('appPermissions.content.allApps')}
                             </h3>
-                            {!selectedDeptName && <span className="text-xs text-slate-400">请选择左侧部门以快速配置权限</span>}
+                            {!selectedDeptName && <span className="text-xs text-slate-400">{t('appPermissions.content.selectHint')}</span>}
                         </div>
                         <AppTable
                             columns={columns}
@@ -346,7 +346,7 @@ const AppPermissions: React.FC = () => {
                 title={
                     <div className="flex items-center gap-2">
                         <SafetyCertificateOutlined className="text-blue-600" />
-                        <span>配置应用可见性 - {currentTool?.name}</span>
+                        <span>{t('appPermissions.modal.title', { name: currentTool?.name || '-' })}</span>
                     </div>
                 }
                 open={isModalOpen}
@@ -358,15 +358,15 @@ const AppPermissions: React.FC = () => {
                 <div className="py-4">
                     <div className="bg-blue-50 text-blue-700 p-3 rounded mb-4 text-xs">
                         <InfoCircleOutlined className="mr-1" />
-                        如果不选择任何部门，该应用将默认对<b>全员可见</b>。
+                        {t('appPermissions.modal.publicHintPrefix')}<b>{t('appPermissions.modal.publicHintBold')}</b>{t('appPermissions.modal.publicHintSuffix')}
                     </div>
-                    <p className="mb-2 text-slate-500">选择允许访问该应用的部门：</p>
+                    <p className="mb-2 text-slate-500">{t('appPermissions.modal.selectDepartments')}</p>
                     <TreeSelect
                         style={{ width: '100%' }}
                         value={selectedDepts}
                         dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
                         treeData={transformDeptsToSelect(departments)}
-                        placeholder="请选择部门"
+                        placeholder={t('appPermissions.modal.departmentPlaceholder')}
                         treeDefaultExpandAll
                         multiple
                         treeCheckable
