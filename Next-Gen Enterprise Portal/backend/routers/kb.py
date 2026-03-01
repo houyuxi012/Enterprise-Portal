@@ -18,10 +18,17 @@ from middleware.trace_context import get_trace_id
 from routers.auth import get_current_user
 from fastapi import Request
 from services.audit_service import AuditService
+from services.license_service import LicenseService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/kb", tags=["knowledge-base"])
+
+
+async def _require_kb_license(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "kb.manage")
 
 
 # ──── Schemas ────
@@ -82,6 +89,7 @@ async def create_document(
     background_tasks: BackgroundTasks,
     req: DocumentCreateRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """入库文档"""
@@ -131,6 +139,7 @@ async def create_document(
 @router.get("/documents", response_model=List[DocumentResponse])
 async def list_documents(
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """文档列表"""
@@ -157,6 +166,7 @@ async def list_documents(
 async def get_document_detail(
     doc_id: int,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """获取文档详情 (含内容) - 优先返回原文，缺失时兼容旧数据。"""
@@ -192,6 +202,7 @@ async def delete_document(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """删除文档 (级联删除 chunks)"""
@@ -229,6 +240,7 @@ async def update_document(
     background_tasks: BackgroundTasks,
     req: DocumentCreateRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """更新文档 (全量替换)"""
@@ -284,6 +296,7 @@ async def reindex_document(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """重建文档索引"""
@@ -316,6 +329,7 @@ async def reindex_document(
 @router.get("/stats", response_model=KBStatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """命中统计"""
@@ -348,6 +362,7 @@ async def get_stats(
 async def query_kb(
     req: KBQueryRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_kb_license),
     current_user: User = Depends(PermissionChecker("kb:query")),
 ):
     """向量检索 topK"""

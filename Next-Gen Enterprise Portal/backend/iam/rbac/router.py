@@ -425,6 +425,11 @@ async def reset_password(
         new_pwd = generated
 
     await set_user_password(db, user, new_pwd, validate=True, configs=configs)
+    force_change_after_reset = str(
+        configs.get("security_force_change_password_after_reset", "false")
+    ).strip().lower() == "true"
+    user.password_change_required = force_change_after_reset
+    db.add(user)
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
@@ -438,6 +443,7 @@ async def reset_password(
     return {
         "message": f"Password for {user.username} has been reset",
         "new_password": new_pwd if auto_generated else None,
+        "force_change_password": force_change_after_reset,
     }
 
 

@@ -30,6 +30,7 @@ class UserMeResponse(BaseModel):
     permissions: List[str] = []
     perm_version: int = 1
     password_violates_policy: bool = False
+    password_change_required: bool = False
     
     class Config:
         from_attributes = True

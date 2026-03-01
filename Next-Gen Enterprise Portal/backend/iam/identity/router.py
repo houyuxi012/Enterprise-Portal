@@ -18,15 +18,22 @@ from .schemas import (
     SessionRevokeResponse,
     OnlineUserSessionItem,
 )
-from iam.deps import get_db, get_current_identity, PermissionChecker, verify_admin_aud
+from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from iam.rbac.service import RBACService
 from iam.audit.service import IAMAuditService
+from services.license_service import LicenseService
 from services.password_policy import set_user_password
 import models
 import utils
 
 router = APIRouter(prefix="/auth", tags=["iam-identity"])
 user_router = APIRouter(prefix="/users", tags=["iam-identity"])
+
+
+async def _require_session_security_feature(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "session.security")
 
 @router.post("/portal/token", response_model=TokenResponse)
 async def login_portal(
@@ -65,6 +72,7 @@ async def logout_all(
     response: Response,
     payload: SessionScopeRequest | None = None,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_session_security_feature),
 ):
     """当前用户全端下线（可按 audience_scope）。"""
     return await IdentityService.logout_all(
@@ -85,6 +93,7 @@ async def kick_user_sessions(
     request: Request,
     payload: SessionScopeRequest | None = None,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_session_security_feature),
     current_user=Depends(PermissionChecker("sys:user:edit")),
 ):
     """管理员踢指定用户下线（可按 audience_scope）。"""
@@ -106,7 +115,8 @@ async def list_online_users(
     audience_scope: str = Query(default="all", pattern="^(admin|portal|all)$"),
     keyword: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _=Depends(PermissionChecker("sys:user:view")),
+    _license_gate: None = Depends(_require_session_security_feature),
+    _permission: None = Depends(PermissionChecker("sys:user:view")),
 ):
     """在线用户列表（按 audience_scope 聚合）。"""
     return await IdentityService.list_online_users(
@@ -143,6 +153,7 @@ async def get_me(
         avatar=resolved_avatar,
         is_active=user.is_active,
         password_violates_policy=getattr(user, "password_violates_policy", False),
+        password_change_required=getattr(user, "password_change_required", False),
         roles=[RoleOut(**r) for r in roles],
         permissions=list(permissions_set),
         perm_version=perm_version
@@ -153,9 +164,10 @@ async def get_me(
 async def change_my_password(
     request: Request,
     payload: PasswordChangeRequest,
+    audience: str | None = Query(default=None, pattern="^(admin|portal)$"),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_identity),
 ):
+    current_user = await IdentityService.get_current_user(request, db, audience=audience)
     if not await utils.verify_password(payload.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="原密码不正确")
     if payload.old_password == payload.new_password:

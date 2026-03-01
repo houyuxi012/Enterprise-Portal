@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Layout, Menu, theme, Avatar, Dropdown, Modal, Tooltip } from 'antd';
 import {
     DashboardOutlined,
@@ -63,6 +63,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
     const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [forcePasswordChange, setForcePasswordChange] = useState(false);
     const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
     const { i18n, t } = useTranslation();
     const { user } = useAuth();
@@ -323,6 +324,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     const brandName = appName || t('adminLayout.branding.fallbackAppName');
     const compactBrandTitle = isEnglish || brandName.length > 18;
 
+    useEffect(() => {
+        const shouldForce = Boolean(user?.password_change_required);
+        setForcePasswordChange(shouldForce);
+        if (shouldForce) {
+            setChangePasswordModalOpen(true);
+        }
+    }, [user?.id, user?.password_change_required]);
+
     return (
         <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
             {/* Sidebar with Glassmorphism / Soft Style */}
@@ -427,8 +436,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             <VersionModal open={versionModalOpen} onClose={() => setVersionModalOpen(false)} />
             <AdminChangePasswordModal
                 open={changePasswordModalOpen}
-                onClose={() => setChangePasswordModalOpen(false)}
-                onSuccess={() => setChangePasswordModalOpen(false)}
+                onClose={() => {
+                    if (forcePasswordChange) return;
+                    setChangePasswordModalOpen(false);
+                }}
+                onSuccess={() => {
+                    setForcePasswordChange(false);
+                    setChangePasswordModalOpen(false);
+                }}
+                forceMode={forcePasswordChange}
             />
             <Modal
                 title={t('adminLayout.preferences.title')}

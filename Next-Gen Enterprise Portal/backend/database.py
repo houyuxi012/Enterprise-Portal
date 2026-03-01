@@ -71,6 +71,10 @@ async def apply_startup_migrations():
         ))
         await conn.execute(text(
             "ALTER TABLE users "
+            "ADD COLUMN IF NOT EXISTS password_change_required BOOLEAN DEFAULT FALSE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users "
             "ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NOW()"
         ))
         await conn.execute(text(
@@ -84,6 +88,10 @@ async def apply_startup_migrations():
         await conn.execute(text(
             "UPDATE users SET password_changed_at = NOW() "
             "WHERE password_changed_at IS NULL"
+        ))
+        await conn.execute(text(
+            "UPDATE users SET password_change_required = FALSE "
+            "WHERE password_change_required IS NULL"
         ))
         # Keep built-in admin as system account by default
         await conn.execute(text(
@@ -361,5 +369,9 @@ async def apply_startup_migrations():
         ))
         await conn.execute(text(
             "INSERT INTO system_config (key, value) VALUES ('security_lockout_scope', 'account') "
+            "ON CONFLICT (key) DO NOTHING"
+        ))
+        await conn.execute(text(
+            "INSERT INTO system_config (key, value) VALUES ('security_force_change_password_after_reset', 'false') "
             "ON CONFLICT (key) DO NOTHING"
         ))

@@ -21,6 +21,9 @@ def _infer_request_audience(request: Request) -> str | None:
         return "admin"
     if path.startswith("/api/app/"):
         return "portal"
+    query_audience = (request.query_params.get("audience") or "").strip().lower()
+    if query_audience in {"admin", "portal"}:
+        return query_audience
     return None
 
 

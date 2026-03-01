@@ -154,12 +154,16 @@
     "subtitle": "License Management",
     "upload": {
       "button": "导入授权",
+      "revocationButton": "导入吊销列表",
       "parseFailed": "授权文件解析失败，请确认是生成器导出的 .bin",
+      "revocationParseFailed": "吊销列表解析失败，请确认文件格式正确",
       "emptyContent": "授权内容不能为空",
       "invalidJson": "授权文件不是有效 JSON/.bin 内容",
       "invalidFormat": "授权格式错误，必须包含 payload 与 signature",
+      "revocationInvalidFormat": "吊销列表格式错误，必须包含 revoked 数组",
       "success": "授权导入成功",
       "successWithFile": "授权导入成功：{{fileName}}",
+      "revocationSuccess": "吊销列表导入成功：{{fileName}}（{{count}} 条）",
       "failedPrefix": "授权导入失败：{{reason}}",
       "unknownError": "未知错误"
     },
@@ -186,6 +190,7 @@
       "empty": "暂无授权导入记录",
       "columns": {
         "time": "时间",
+        "licenseId": "License ID",
         "grantType": "授权类型",
         "customerName": "客户名称",
         "importStatus": "导入状态",
@@ -219,6 +224,9 @@
       "LICENSE_INSTALLATION_MISMATCH": "授权序列号不匹配",
       "LICENSE_NOT_YET_VALID": "授权尚未生效",
       "LICENSE_EXPIRED": "授权已过期",
+      "LICENSE_REVOKED": "授权已被吊销",
+      "LICENSE_REVOCATION_PATH_MISSING": "系统未配置吊销列表存储路径",
+      "LICENSE_REVOCATION_WRITE_FAILED": "吊销列表写入失败",
       "TIME_ROLLBACK": "检测到系统时间回拨，授权校验失败"
     },
     "effectiveModal": {
@@ -734,7 +742,8 @@
       "read_iam_audit_logs": "查看 IAM 审计日志",
       "license_install": "导入授权许可",
       "license_verify_failed": "授权校验失败",
-      "license_expired": "授权过期"
+      "license_expired": "授权过期",
+      "license_revocation_install": "导入吊销列表"
     }
   },
   "userList": {
@@ -2233,6 +2242,8 @@
       "lockoutDuration": "锁定时间 (分钟)",
       "lockoutScope": "锁定方式",
       "lockoutScopeHelp": "账户锁定：仅锁定当前账户；IP锁定：锁定当前来源 IP。",
+      "forceChangeAfterReset": "重置密码后首次登录强制修改密码",
+      "forceChangeAfterResetHelp": "开启后，控制台重置密码的用户使用重置密码登录后必须先修改密码。",
       "options": {
         "lockByAccount": "按账户锁定",
         "lockByIp": "按 IP 锁定"

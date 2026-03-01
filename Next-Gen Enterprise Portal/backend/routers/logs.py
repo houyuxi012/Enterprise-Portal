@@ -15,6 +15,7 @@ import os
 import logging
 import re
 from services.audit_service import AuditService
+from services.license_service import LicenseService
 from pydantic import BaseModel, Field
 
 router = APIRouter(
@@ -109,6 +110,18 @@ def _sanitize_client_detail(raw_detail: Optional[str]) -> Optional[str]:
         return None
     compact = " ".join(raw_detail.split())
     return compact[:1000] or None
+
+
+async def _require_log_forwarding_license(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "log.forwarding")
+
+
+async def _require_ai_audit_license(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "ai.audit")
 
 
 async def _record_log_query_audit(
@@ -422,6 +435,7 @@ async def read_log_configs(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig))
@@ -455,6 +469,7 @@ async def create_log_config(
     background_tasks: BackgroundTasks,
     config: schemas.LogForwardingConfigCreate,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     from services.log_forwarder import invalidate_forwarding_cache
@@ -497,6 +512,7 @@ async def delete_log_config(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     from services.log_forwarder import invalidate_forwarding_cache
@@ -611,6 +627,7 @@ async def read_ai_audit_logs(
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_ai_audit_license),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """
@@ -816,6 +833,7 @@ async def get_ai_audit_detail(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_ai_audit_license),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """Get detailed AI audit log by event_id"""
@@ -854,6 +872,7 @@ async def get_ai_audit_stats(
     background_tasks: BackgroundTasks,
     days: int = 7,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_ai_audit_license),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """Get AI audit statistics summary"""

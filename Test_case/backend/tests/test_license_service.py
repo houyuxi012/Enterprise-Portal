@@ -8,6 +8,7 @@ from fastapi import HTTPException
 # Ensure backend modules are importable in both old/new repo layouts.
 _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
     os.path.join(_repo_root, "code", "backend"),
     os.path.join(_repo_root, "backend"),
     _repo_root,
@@ -22,6 +23,15 @@ from services.license_settings import settings
 class _NoopPublicKey:
     def verify(self, signature: bytes, payload: bytes) -> None:
         return None
+
+
+def _mock_signature_verifier(monkeypatch):
+    monkeypatch.setattr(LicenseService, "_decode_signature", classmethod(lambda cls, _: b"sig"))
+    monkeypatch.setattr(
+        LicenseService,
+        "_load_public_keyring",
+        classmethod(lambda cls: {"default": _NoopPublicKey()}),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -96,8 +106,7 @@ def test_verify_payload_rejects_installation_id_mismatch(monkeypatch):
     monkeypatch.setattr(settings, "PRODUCT_MODEL", "NGEPv3.0-HYX-PS", raising=False)
     monkeypatch.setattr(settings, "INSTALLATION_ID", "install-a", raising=False)
 
-    monkeypatch.setattr(LicenseService, "_decode_signature", classmethod(lambda cls, _: b"sig"))
-    monkeypatch.setattr(LicenseService, "_get_public_key", classmethod(lambda cls: _NoopPublicKey()))
+    _mock_signature_verifier(monkeypatch)
 
     payload = {
         "license_id": "HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY",
@@ -124,8 +133,7 @@ def test_verify_payload_rejects_product_model_mismatch(monkeypatch):
     monkeypatch.setattr(settings, "PRODUCT_MODEL", "NGEPv3.0-HYX-PS", raising=False)
     monkeypatch.setattr(settings, "INSTALLATION_ID", "install-a", raising=False)
 
-    monkeypatch.setattr(LicenseService, "_decode_signature", classmethod(lambda cls, _: b"sig"))
-    monkeypatch.setattr(LicenseService, "_get_public_key", classmethod(lambda cls: _NoopPublicKey()))
+    _mock_signature_verifier(monkeypatch)
 
     payload = {
         "license_id": "HYX-AAAAA-BBBBB-CCCCC-DDDDD-EEEEE",
@@ -153,8 +161,7 @@ def test_verify_payload_rejects_time_rollback(monkeypatch):
     monkeypatch.setattr(settings, "INSTALLATION_ID", "install-a", raising=False)
     monkeypatch.setattr(settings, "LICENSE_TIME_ROLLBACK_GRACE_SECONDS", 600, raising=False)
 
-    monkeypatch.setattr(LicenseService, "_decode_signature", classmethod(lambda cls, _: b"sig"))
-    monkeypatch.setattr(LicenseService, "_get_public_key", classmethod(lambda cls: _NoopPublicKey()))
+    _mock_signature_verifier(monkeypatch)
 
     payload = {
         "license_id": "HYX-11111-22222-33333-44444-55555",
@@ -186,8 +193,7 @@ def test_verify_payload_rejects_invalid_license_id_format(monkeypatch):
     monkeypatch.setattr(settings, "PRODUCT_MODEL", "NGEPv3.0-HYX-PS", raising=False)
     monkeypatch.setattr(settings, "INSTALLATION_ID", "install-a", raising=False)
 
-    monkeypatch.setattr(LicenseService, "_decode_signature", classmethod(lambda cls, _: b"sig"))
-    monkeypatch.setattr(LicenseService, "_get_public_key", classmethod(lambda cls: _NoopPublicKey()))
+    _mock_signature_verifier(monkeypatch)
 
     payload = {
         "license_id": "LIC-EP-2026-DEMO",
@@ -206,3 +212,42 @@ def test_verify_payload_rejects_invalid_license_id_format(monkeypatch):
         LicenseService.verify_payload_signature_and_claims(payload=payload, signature="signature")
 
     assert exc_info.value.code == LicenseService.CODE_INVALID_PAYLOAD
+
+
+def test_verify_payload_rejects_revoked_license(monkeypatch):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(settings, "PRODUCT_ID", "enterprise-portal", raising=False)
+    monkeypatch.setattr(settings, "PRODUCT_MODEL", "NGEPv3.0-HYX-PS", raising=False)
+    monkeypatch.setattr(settings, "INSTALLATION_ID", "install-a", raising=False)
+
+    _mock_signature_verifier(monkeypatch)
+    monkeypatch.setattr(
+        LicenseService,
+        "_load_revocation_list",
+        classmethod(
+            lambda cls: {
+                "product_id": "enterprise-portal",
+                "license_ids": {"HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY"},
+                "fingerprints": set(),
+                "rev": 1,
+            }
+        ),
+    )
+
+    payload = {
+        "license_id": "HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY",
+        "product_id": "enterprise-portal",
+        "product_model": "NGEPv3.0-HYX-PS",
+        "installation_id": "install-a",
+        "grant_type": "formal",
+        "customer": "ACME",
+        "features": {"ldap": True},
+        "limits": {"users": 100},
+        "not_before": (now - timedelta(minutes=5)).isoformat(),
+        "expires_at": (now + timedelta(days=30)).isoformat(),
+    }
+
+    with pytest.raises(LicenseValidationError) as exc_info:
+        LicenseService.verify_payload_signature_and_claims(payload=payload, signature="signature")
+
+    assert exc_info.value.code == LicenseService.CODE_REVOKED

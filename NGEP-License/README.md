@@ -14,6 +14,39 @@
 - 附加子命令：
   - `gen-keypair`：生成 Ed25519 密钥对（仅生成器环境使用）
 
+## 项目结构
+
+```text
+NGEP-License/
+├── README.md
+├── .gitignore
+├── requirements.txt
+├── ngep_license_cli.py
+├── ngep_license_web.py
+├── examples/
+│   ├── license.formal.sample.json
+│   └── revocation-list.sample.json
+├── keys/
+│   ├── public_key.pem                 # 本地公钥（验签/导入产品公钥来源）
+│   └── private_key.pem                # 本地离线私钥（严禁入镜像/提交）
+├── logs/
+│   └── issue-history.jsonl            # 运行后自动生成（签发记录）
+├── views/                             # 预留目录（当前为空）
+└── __pycache__/                       # Python 运行缓存（可删除）
+```
+
+## 文件夹/文件释义
+
+- `ngep_license_cli.py`：离线命令行入口，负责签发、验签、展示、吊销列表、生成密钥。
+- `ngep_license_web.py`：本地 Web 管理界面入口，提供可视化签发与记录管理。
+- `examples/`：示例输入/输出目录，放示例授权与示例吊销列表。
+- `keys/`：离线私钥目录，仅用于授权中心环境，不应进入产品仓库发布物。
+- `logs/`：运行日志目录，默认保存签发记录文件 `issue-history.jsonl`。
+- `views/`：前端模板/视图预留目录，后续可扩展静态页面资源。
+- `requirements.txt`：Python 依赖清单（当前依赖极少，保持轻量）。
+- `.gitignore`：忽略私钥、缓存、临时文件等不应纳入版本库的内容。
+- `README.md`：生成器使用说明、字段规范、运行方法与安全边界。
+
 ## 环境要求
 
 - `python3`（3.10+）
@@ -36,6 +69,8 @@ canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_as
 signature = private_key.sign(canonical.encode("utf-8"))
 ```
 
+指纹计算与产品端保持一致：`sha256(canonical_payload_bytes)`（不包含 signature）。
+
 本工具实际执行签名/验签时使用 `openssl pkeyutl`（Ed25519）：
 - 签名：`openssl pkeyutl -sign -rawin ...`
 - 验签：`openssl pkeyutl -verify -rawin ...`
@@ -43,6 +78,7 @@ signature = private_key.sign(canonical.encode("utf-8"))
 ## 字段规范（payload）
 
 - `license_id`（格式：`HYX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`，通常以 `HYX` 开头）
+- `key_id`（可选，配合产品端公钥 keyring 路由验签）
 - `product_id`
 - `product_model`（例如 `NGEPv3.0-HYX-PS`）
 - `grant_type`（`formal|trial|learning`）
@@ -63,7 +99,7 @@ signature = private_key.sign(canonical.encode("utf-8"))
 ```bash
 python3 ngep_license_cli.py gen-keypair \
   --private-key-out ./keys/private_key.pem \
-  --public-key-out ./examples/public_key.pem
+  --public-key-out ./keys/public_key.pem
 ```
 
 ### 2) 签发 License
@@ -90,7 +126,7 @@ python3 ngep_license_cli.py issue \
 
 ```bash
 python3 ngep_license_cli.py verify \
-  --public-key ./examples/public_key.pem \
+  --public-key ./keys/public_key.pem \
   --license-file ./examples/license.formal.sample.json
 ```
 
@@ -139,4 +175,4 @@ python3 ngep_license_web.py --host 127.0.0.1 --port 8765
 
 - 私钥只允许存在于 License 生成器环境（本目录）
 - 禁止将私钥放入产品容器镜像或业务仓库构建上下文
-- 产品侧仅内置公钥（`public_key.pem` 内容）
+- 产品侧仅内置公钥（建议来源：`keys/public_key.pem`）

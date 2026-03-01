@@ -25,7 +25,7 @@ services:
       - ./openldap-seed:/container/service/slapd/assets/config/bootstrap/ldif/custom
     command: --copy-service
     networks:
-      - enterpriseportal_default
+      - next-genenterpriseportal_default
 
   phpldapadmin:
     image: osixia/phpldapadmin:0.9.0
@@ -38,7 +38,7 @@ services:
     depends_on:
       - openldap
     networks:
-      - enterpriseportal_default
+      - next-genenterpriseportal_default
 
 volumes:
   openldap_data:
@@ -46,5 +46,5 @@ volumes:
 
 
 networks:
-  enterpriseportal_default:
+  next-genenterpriseportal_default:
     external: true

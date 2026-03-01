@@ -29,6 +29,7 @@ const SecuritySettings: React.FC = () => {
                         ? parseInt(config.login_session_absolute_timeout_minutes)
                         : 480,
                     login_captcha_threshold: config.login_captcha_threshold ? parseInt(config.login_captcha_threshold) : 3,
+                    security_force_change_password_after_reset: config.security_force_change_password_after_reset === 'true',
                 };
 
                 form.setFieldsValue(formattedConfig);
@@ -53,6 +54,7 @@ const SecuritySettings: React.FC = () => {
                 login_session_timeout_minutes: String(values.login_session_timeout_minutes),
                 login_session_absolute_timeout_minutes: String(values.login_session_absolute_timeout_minutes),
                 login_captcha_threshold: String(values.login_captcha_threshold),
+                security_force_change_password_after_reset: String(values.security_force_change_password_after_reset),
             };
 
             await ApiClient.updateSystemConfig(payload);
@@ -97,6 +99,7 @@ const SecuritySettings: React.FC = () => {
                         login_session_timeout_minutes: 30,
                         login_session_absolute_timeout_minutes: 480,
                         login_captcha_threshold: 3,
+                        security_force_change_password_after_reset: false,
                     }}
                 >
                     <div>
@@ -151,6 +154,15 @@ const SecuritySettings: React.FC = () => {
                                     ]}
                                     className="w-full"
                                 />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="security_force_change_password_after_reset"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.forceChangeAfterReset')}</span>}
+                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.forceChangeAfterResetHelp')}</span>}
+                                valuePropName="checked"
+                            >
+                                <Switch size="small" />
                             </Form.Item>
                         </div>
                     </div>

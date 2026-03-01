@@ -29,6 +29,9 @@ class LicenseGateMiddleware(BaseHTTPMiddleware):
         "/api/iam/auth/logout-all",
         "/api/iam/auth/me",
         "/api/system/session/ping",
+        # Keep system version/info readable for logged-in operators even before license install.
+        "/api/admin/system/info",
+        "/api/admin/system/version",
     }
 
     EXEMPT_PREFIXES = (

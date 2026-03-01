@@ -13,6 +13,8 @@ export interface User {
     permissions?: string[];
     name?: string;
     avatar?: string;
+    password_violates_policy?: boolean;
+    password_change_required?: boolean;
 }
 
 interface AuthResponse {

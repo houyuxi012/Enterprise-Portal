@@ -79,6 +79,14 @@ sh import_test_data.sh
 - **限流保护**: Nginx 层 API 限流
 - **文件上传安全**: 魔数校验、大小限制
 
+### License 安全配置（当前实现）
+
+- **公钥 Keyring 轮转**: 支持 `LICENSE_ED25519_PUBLIC_KEYS`（`kid -> public_key`）+ `LICENSE_ED25519_ACTIVE_KID`
+- **公钥指纹 Pinning**: 支持 `LICENSE_ED25519_PUBLIC_KEY_FINGERPRINTS`（`kid -> sha256(public_key_pem)`），启动即校验
+- **签名指纹语义**: 系统与离线生成器统一为 `sha256(canonical_payload_bytes)`（不包含 signature）
+- **吊销列表闭环**: 支持导入 revoke-list（`POST /api/admin/system/license/revocations/install/`），默认落盘 `data/license_revocation_list.json`
+- **运行时吊销拦截**: 命中吊销后返回 `LICENSE_REVOKED`，并阻断功能访问
+
 ### 登录与会话策略（当前实现）
 
 - **登录会话超时（分钟）**: `login_session_timeout_minutes`，用于签发会话 cookie 的 `Max-Age/Expires`
@@ -186,7 +194,7 @@ Enterprise Portal/
 
 ---
 
-## � 构建与发布 (Build & Release)
+## 🚀 构建与发布 (Build & Release)
 
 在构建 Docker 镜像前，需运行版本生成脚本以注入 Git SHA 和构建时间：
 
@@ -200,7 +208,7 @@ docker-compose build
 
 ---
 
-## �📝 License
+## 📝 License
 
 MIT License © 2025 侯钰熙  
 https://www.houyuxi.com

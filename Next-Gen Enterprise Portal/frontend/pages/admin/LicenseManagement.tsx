@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Col, Descriptions, message, Modal, Row, Table, Tag, Typography, Upload } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, Col, Descriptions, message, Modal, Row, Space, Table, Tag, Typography, Upload } from 'antd';
 import { UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
@@ -57,12 +57,39 @@ const parseLicenseDocument = (raw: string, t: (key: string) => string) => {
     };
 };
 
+const parseRevocationDocument = (raw: string, t: (key: string) => string) => {
+    const text = (raw || '').trim();
+    if (!text) {
+        throw new Error(t('license.upload.emptyContent'));
+    }
+
+    let parsed: any;
+    try {
+        parsed = JSON.parse(text);
+    } catch {
+        try {
+            const decoded = atob(text);
+            parsed = JSON.parse(decoded);
+        } catch {
+            throw new Error(t('license.upload.invalidJson'));
+        }
+    }
+
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.revoked)) {
+        throw new Error(t('license.upload.revocationInvalidFormat'));
+    }
+    return parsed as Record<string, any>;
+};
+
 const LicenseManagement: React.FC = () => {
     const { t, i18n } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [statusData, setStatusData] = useState<LicenseStatus | null>(null);
     const [claimsData, setClaimsData] = useState<LicenseClaimsResponse | null>(null);
     const [licenseEvents, setLicenseEvents] = useState<LicenseEventItem[]>([]);
+    const [eventPage, setEventPage] = useState(1);
+    const [eventPageSize, setEventPageSize] = useState(10);
+    const [eventTotal, setEventTotal] = useState(0);
     const displayLicenseId = formatLicenseId(statusData?.license_id);
 
     const grantTypeLabel = (grantType?: string | null) => {
@@ -113,6 +140,12 @@ const LicenseManagement: React.FC = () => {
         return 'default';
     };
 
+    const eventReasonLabel = (reason?: string | null) => {
+        const code = String(reason || '').trim();
+        if (!code) return '-';
+        return t(`license.errors.${code}`, { defaultValue: code });
+    };
+
     const formatDateTime = (value?: string | null) => {
         if (!value) return '-';
         const dt = new Date(value);
@@ -135,30 +168,36 @@ const LicenseManagement: React.FC = () => {
         return [];
     }, [claimsData]);
 
-    const importEvents = useMemo(
-        () => licenseEvents.filter((event) => ['license.install', 'license.verify_failed'].includes(String(event.event_type || '').toLowerCase())),
-        [licenseEvents],
+    const fetchLicenseEvents = useCallback(
+        async (page: number, pageSize: number) => {
+            const normalizedPage = Math.max(1, page || 1);
+            const normalizedPageSize = Math.max(1, pageSize || 10);
+            const offset = (normalizedPage - 1) * normalizedPageSize;
+            const events = await ApiClient.getLicenseEvents(normalizedPageSize, offset, true);
+            setLicenseEvents(events.items || []);
+            setEventTotal(Number(events.total || 0));
+        },
+        [],
     );
 
-    const fetchLicenseData = async () => {
+    const fetchLicenseData = useCallback(async (page = 1, pageSize = 10) => {
         try {
-            const [status, claims, events] = await Promise.all([
+            const [status, claims] = await Promise.all([
                 ApiClient.getLicenseStatus(),
                 ApiClient.getLicenseClaims(),
-                ApiClient.getLicenseEvents(20),
             ]);
             setStatusData(status);
             setClaimsData(claims);
-            setLicenseEvents(events.items || []);
+            await fetchLicenseEvents(page, pageSize);
         } catch (error: any) {
             console.error('Failed to load license info', error);
             message.error(error?.response?.data?.detail?.message || t('license.errors.loadFailed'));
         }
-    };
+    }, [fetchLicenseEvents, t]);
 
     useEffect(() => {
-        fetchLicenseData();
-    }, []);
+        fetchLicenseData(1, eventPageSize);
+    }, [eventPageSize, fetchLicenseData]);
 
     const importLicenseDocument = async (payload: Record<string, any>, signature: string, fileName?: string) => {
         setLoading(true);
@@ -168,7 +207,8 @@ const LicenseManagement: React.FC = () => {
                 signature,
             });
             message.success(fileName ? t('license.upload.successWithFile', { fileName }) : t('license.upload.success'));
-            await fetchLicenseData();
+            setEventPage(1);
+            await fetchLicenseData(1, eventPageSize);
             Modal.confirm({
                 title: t('license.effectiveModal.title'),
                 content: t('license.effectiveModal.content'),
@@ -189,6 +229,29 @@ const LicenseManagement: React.FC = () => {
         }
     };
 
+    const importRevocationDocument = async (payload: Record<string, any>, fileName?: string) => {
+        setLoading(true);
+        try {
+            const result = await ApiClient.installLicenseRevocations({ payload });
+            const revokedCount = Number(result?.revoked_count || 0);
+            message.success(
+                t('license.upload.revocationSuccess', {
+                    fileName: fileName || '-',
+                    count: revokedCount,
+                }),
+            );
+            await fetchLicenseData(eventPage, eventPageSize);
+        } catch (error: any) {
+            const detail = error?.response?.data?.detail;
+            const code = String(detail?.code || '');
+            const backendMessage = detail?.message || (typeof detail === 'string' ? detail : '') || error?.message;
+            const localized = code ? t(`license.errors.${code}`, { defaultValue: backendMessage }) : backendMessage;
+            message.error(t('license.upload.failedPrefix', { reason: localized || t('license.upload.unknownError') }));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-4 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
             <div className="flex justify-between items-center mb-2 max-w-[1440px] mx-auto w-full">
@@ -196,26 +259,48 @@ const LicenseManagement: React.FC = () => {
                     <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('license.title')}</h2>
                     <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{t('license.subtitle')}</p>
                 </div>
-                <Upload
-                    showUploadList={false}
-                    disabled={loading}
-                    accept=".bin,.json,application/octet-stream,application/json,text/plain"
-                    beforeUpload={async (file) => {
-                        try {
-                            const buffer = await file.arrayBuffer();
-                            const text = new TextDecoder('utf-8').decode(buffer);
-                            const parsed = parseLicenseDocument(text, t);
-                            await importLicenseDocument(parsed.payload, parsed.signature, file.name);
-                        } catch {
-                            message.error(t('license.upload.parseFailed'));
-                        }
-                        return false;
-                    }}
-                >
-                    <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                        {t('license.upload.button')}
-                    </AppButton>
-                </Upload>
+                <Space>
+                    <Upload
+                        showUploadList={false}
+                        disabled={loading}
+                        accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                        beforeUpload={async (file) => {
+                            try {
+                                const buffer = await file.arrayBuffer();
+                                const text = new TextDecoder('utf-8').decode(buffer);
+                                const parsed = parseRevocationDocument(text, t);
+                                await importRevocationDocument(parsed, file.name);
+                            } catch {
+                                message.error(t('license.upload.revocationParseFailed'));
+                            }
+                            return false;
+                        }}
+                    >
+                        <AppButton intent="secondary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
+                            {t('license.upload.revocationButton')}
+                        </AppButton>
+                    </Upload>
+                    <Upload
+                        showUploadList={false}
+                        disabled={loading}
+                        accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                        beforeUpload={async (file) => {
+                            try {
+                                const buffer = await file.arrayBuffer();
+                                const text = new TextDecoder('utf-8').decode(buffer);
+                                const parsed = parseLicenseDocument(text, t);
+                                await importLicenseDocument(parsed.payload, parsed.signature, file.name);
+                            } catch {
+                                message.error(t('license.upload.parseFailed'));
+                            }
+                            return false;
+                        }}
+                    >
+                        <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
+                            {t('license.upload.button')}
+                        </AppButton>
+                    </Upload>
+                </Space>
             </div>
 
             <div className="max-w-[1440px] mx-auto">
@@ -282,11 +367,25 @@ const LicenseManagement: React.FC = () => {
                         rowKey="id"
                         size="middle"
                         pagination={{
-                            pageSize: 10,
+                            current: eventPage,
+                            pageSize: eventPageSize,
+                            total: eventTotal,
                             showSizeChanger: false,
                             hideOnSinglePage: true,
+                            onChange: async (page, pageSize) => {
+                                const normalizedPageSize = pageSize || eventPageSize;
+                                setEventPage(page);
+                                if (normalizedPageSize !== eventPageSize) {
+                                    setEventPageSize(normalizedPageSize);
+                                }
+                                try {
+                                    await fetchLicenseEvents(page, normalizedPageSize);
+                                } catch (error: any) {
+                                    message.error(error?.response?.data?.detail?.message || t('license.errors.loadFailed'));
+                                }
+                            },
                         }}
-                        dataSource={importEvents}
+                        dataSource={licenseEvents}
                         locale={{ emptyText: t('license.eventsCard.empty') }}
                         columns={[
                             {
@@ -295,6 +394,15 @@ const LicenseManagement: React.FC = () => {
                                 key: 'created_at',
                                 width: 220,
                                 render: (value: string) => <span className="text-xs text-slate-500">{formatDateTime(value)}</span>,
+                            },
+                            {
+                                title: t('license.eventsCard.columns.licenseId'),
+                                dataIndex: 'license_id',
+                                key: 'license_id',
+                                width: 260,
+                                render: (value: string | null | undefined) => (
+                                    <span className="font-mono text-xs text-slate-700">{formatLicenseId(value)}</span>
+                                ),
                             },
                             {
                                 title: t('license.eventsCard.columns.grantType'),
@@ -326,7 +434,7 @@ const LicenseManagement: React.FC = () => {
                                 dataIndex: 'reason',
                                 key: 'reason',
                                 render: (value: string | null | undefined) => (
-                                    <span className="text-slate-500">{value || '-'}</span>
+                                    <span className="text-slate-500">{eventReasonLabel(value)}</span>
                                 ),
                             },
                         ]}

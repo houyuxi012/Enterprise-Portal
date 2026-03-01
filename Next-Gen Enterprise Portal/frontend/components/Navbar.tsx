@@ -137,6 +137,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const [aiPreviewAnswer, setAiPreviewAnswer] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
 
   // Cached logo URL to prevent flash on refresh
   const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
@@ -241,6 +242,14 @@ const Navbar: React.FC<NavbarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const shouldForce = Boolean(currentUser?.password_change_required);
+    setForcePasswordChange(shouldForce);
+    if (shouldForce) {
+      setChangePasswordModalOpen(true);
+    }
+  }, [currentUser?.id, currentUser?.password_change_required]);
 
   const handleViewAllSearch = () => {
     setView(AppView.SEARCH_RESULTS);
@@ -587,11 +596,16 @@ const Navbar: React.FC<NavbarProps> = ({
       {/* Modals */}
       <ChangePasswordModal
         open={changePasswordModalOpen}
-        onClose={() => setChangePasswordModalOpen(false)}
+        onClose={() => {
+          if (forcePasswordChange) return;
+          setChangePasswordModalOpen(false);
+        }}
         onSuccess={() => {
+          setForcePasswordChange(false);
           setChangePasswordModalOpen(false);
           // Optional: handle auth refresh or force relogin; for now just close
         }}
+        forceMode={forcePasswordChange}
       />
     </div>
   );

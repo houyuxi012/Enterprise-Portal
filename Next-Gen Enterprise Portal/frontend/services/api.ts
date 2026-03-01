@@ -13,6 +13,7 @@ import {
   LicenseStatus,
   LicenseClaimsResponse,
   LicenseEventListResponse,
+  LicenseRevocationInstallResponse,
   UserOption,
   OnlineUserSession,
   SessionRevokeResult,
@@ -324,7 +325,10 @@ export const ApiClient = {
   },
 
   changeMyPassword: async (data: any): Promise<any> => {
-    const response = await api.put('/iam/users/me/password', data);
+    const audience = getRuntimeScopePrefix() === '/admin' ? 'admin' : 'portal';
+    const response = await api.put('/iam/users/me/password', data, {
+      params: { audience },
+    });
     return response.data;
   },
 
@@ -453,6 +457,16 @@ export const ApiClient = {
     return response.data;
   },
 
+  installLicenseRevocations: async (
+    revocation: { payload: Record<string, any> },
+  ): Promise<LicenseRevocationInstallResponse> => {
+    const response = await api.post<LicenseRevocationInstallResponse>(
+      '/admin/system/license/revocations/install/',
+      revocation,
+    );
+    return response.data;
+  },
+
   getLicenseStatus: async (): Promise<LicenseStatus> => {
     const response = await api.get<LicenseStatus>('/admin/system/license/status/');
     return response.data;
@@ -463,9 +477,9 @@ export const ApiClient = {
     return response.data;
   },
 
-  getLicenseEvents: async (limit = 20): Promise<LicenseEventListResponse> => {
+  getLicenseEvents: async (limit = 20, offset = 0, importOnly = true): Promise<LicenseEventListResponse> => {
     const response = await api.get<LicenseEventListResponse>('/admin/system/license/events/', {
-      params: { limit },
+      params: { limit, offset, import_only: importOnly },
     });
     return response.data;
   },

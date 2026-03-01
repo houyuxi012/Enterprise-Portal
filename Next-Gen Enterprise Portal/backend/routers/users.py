@@ -12,7 +12,7 @@ from iam.deps import PermissionChecker
 from dependencies import get_current_user
 from iam.audit.service import IAMAuditService
 from iam.rbac.service import RBACService
-from services.password_policy import validate_password, generate_compliant_password
+from services.password_policy import validate_password, generate_compliant_password, set_user_password
 
 router = APIRouter(
     prefix="/users",
@@ -46,14 +46,8 @@ async def change_password(
     if payload.old_password == payload.new_password:
         raise HTTPException(status_code=400, detail="新密码不能与原密码相同")
 
-    # Validate against actual policy
-    await validate_password(db, payload.new_password, current_user)
-
-    # Hash and save
-    new_hashed = await utils.get_password_hash(payload.new_password)
-    current_user.hashed_password = new_hashed
-    current_user.password_violates_policy = False
-    db.add(current_user)
+    # Validate against policy + persist hash/history/flags
+    await set_user_password(db, current_user, payload.new_password, validate=True)
 
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
@@ -402,9 +396,12 @@ async def reset_password(
         new_pwd = generate_compliant_password(configs)
 
     # Validate against actual policy
-    await validate_password(db, new_pwd, user)
-
-    user.hashed_password = await utils.get_password_hash(new_pwd)
+    await set_user_password(db, user, new_pwd, validate=True, configs=configs)
+    force_change_after_reset = str(
+        configs.get("security_force_change_password_after_reset", "false")
+    ).strip().lower() == "true"
+    user.password_change_required = force_change_after_reset
+    db.add(user)
     
     # Audit Log
     trace_id = request.headers.get("X-Request-ID")
@@ -421,4 +418,5 @@ async def reset_password(
     return {
         "message": f"Password for {user.username} has been reset",
         "new_password": new_pwd if auto_generated else None,
+        "force_change_password": force_change_after_reset,
     }

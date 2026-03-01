@@ -134,6 +134,7 @@ class User(Base):
     directory_id = Column(Integer, nullable=True, index=True)
     external_id = Column(String(255), nullable=True, index=True)
     password_violates_policy = Column(Boolean, default=False)
+    password_change_required = Column(Boolean, default=False)
     password_changed_at = Column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
     
     roles = relationship("Role", secondary=user_roles, backref="users")

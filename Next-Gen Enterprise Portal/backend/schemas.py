@@ -210,6 +210,7 @@ class UserBase(BaseModel):
     is_active: Optional[bool] = True
     role: Optional[str] = "user"  # Deprecated, kept for compatibility
     password_violates_policy: Optional[bool] = False
+    password_change_required: Optional[bool] = False
 
 
 class UserCreate(UserBase):
@@ -249,6 +250,7 @@ class UserMeResponse(BaseModel):
     permissions: List[str] = []  # Flattened permission codes
     perm_version: int = 1
     password_violates_policy: bool = False
+    password_change_required: bool = False
     
     class Config:
         from_attributes = True
@@ -376,6 +378,19 @@ class LicenseInstallRequest(BaseModel):
     signature: str
 
 
+class LicenseRevocationInstallRequest(BaseModel):
+    payload: Dict[str, Any]
+
+
+class LicenseRevocationInstallResponse(BaseModel):
+    installed: bool
+    path: str
+    product_id: Optional[str] = None
+    rev: int
+    revoked_count: int
+    updated_at: Optional[str] = None
+
+
 class LicenseStatusResponse(BaseModel):
     installed: bool
     status: str
@@ -404,6 +419,7 @@ class LicenseEventItem(BaseModel):
     event_type: str
     status: str
     reason: Optional[str] = None
+    license_id: Optional[str] = None
     product_id: Optional[str] = None
     installation_id: Optional[str] = None
     grant_type: Optional[str] = None
@@ -415,6 +431,8 @@ class LicenseEventItem(BaseModel):
 
 class LicenseEventListResponse(BaseModel):
     total: int
+    limit: int = 20
+    offset: int = 0
     items: List[LicenseEventItem]
 
 

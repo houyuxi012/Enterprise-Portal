@@ -152,7 +152,9 @@ def parse_json_input(value: str | None, file_path: str | None, default: Any) -> 
 
 def extract_fingerprint(payload: dict[str, Any], signature: str) -> str:
     canonical = canonical_json(payload)
-    return hashlib.sha256(f"{canonical}.{signature}".encode("utf-8")).hexdigest()
+    # Keep fingerprint semantics aligned with product verifier:
+    # sha256(canonical_payload_bytes)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_license_document(
@@ -217,6 +219,7 @@ def generate_keypair(private_key_out: str, public_key_out: str) -> dict[str, str
 def build_license_payload(
     *,
     license_id: str | None,
+    key_id: str | None,
     product_id: str,
     product_model: str,
     grant_type: str,
@@ -246,7 +249,7 @@ def build_license_payload(
         limits[k] = v
     limits["users"] = int(limits_users)
 
-    return {
+    payload: dict[str, Any] = {
         "license_id": normalize_license_id(license_id),
         "product_id": product_id,
         "product_model": product_model,
@@ -261,6 +264,10 @@ def build_license_payload(
         "limits": limits,
         "rev": int(rev),
     }
+    key_id_value = str(key_id or "").strip()
+    if key_id_value:
+        payload["key_id"] = key_id_value
+    return payload
 
 
 def issue_license(
@@ -372,6 +379,7 @@ def cmd_issue(args: argparse.Namespace) -> int:
     extra_limits = parse_json_input(args.limits_json, args.limits_file, {})
     payload = build_license_payload(
         license_id=args.license_id,
+        key_id=args.key_id,
         product_id=args.product_id,
         product_model=args.product_model,
         grant_type=args.grant_type,
@@ -390,6 +398,8 @@ def cmd_issue(args: argparse.Namespace) -> int:
     print(f"[ok] license file: {args.output}")
     print(f"[ok] license_id : {payload['license_id']}")
     print(f"[ok] product_model: {payload['product_model']}")
+    if payload.get("key_id"):
+        print(f"[ok] key_id      : {payload.get('key_id')}")
     print(f"[ok] fingerprint: {result['fingerprint']}")
     return 0
 
@@ -406,6 +416,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
     print(f"[ok] product_id : {payload.get('product_id')}")
     print(f"[ok] product_model : {payload.get('product_model')}")
     print(f"[ok] grant_type : {payload.get('grant_type')}")
+    if payload.get("key_id"):
+        print(f"[ok] key_id    : {payload.get('key_id')}")
     print(f"[ok] expires_at : {payload.get('expires_at')}")
     print(f"[ok] fingerprint: {result['fingerprint']}")
     return 0
@@ -444,14 +456,27 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_key = sub.add_parser("gen-keypair", help="Generate Ed25519 keypair (private/public PEM)")
-    p_key.add_argument("--private-key-out", required=True, help="Output path for private key PEM")
-    p_key.add_argument("--public-key-out", required=True, help="Output path for public key PEM")
+    p_key.add_argument(
+        "--private-key-out",
+        default="./keys/private_key.pem",
+        help="Output path for private key PEM (default: ./keys/private_key.pem)",
+    )
+    p_key.add_argument(
+        "--public-key-out",
+        default="./keys/public_key.pem",
+        help="Output path for public key PEM (default: ./keys/public_key.pem)",
+    )
     p_key.set_defaults(func=cmd_gen_keypair)
 
     p_issue = sub.add_parser("issue", help="Issue license file {payload, signature}")
-    p_issue.add_argument("--private-key", required=True, help="Ed25519 private key PEM")
+    p_issue.add_argument(
+        "--private-key",
+        default="./keys/private_key.pem",
+        help="Ed25519 private key PEM (default: ./keys/private_key.pem)",
+    )
     p_issue.add_argument("--output", required=True, help="License output JSON path")
     p_issue.add_argument("--license-id", help="license_id (default auto: HYX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX)")
+    p_issue.add_argument("--key-id", help="optional signing key id (kid) for verifier keyring routing")
     p_issue.add_argument("--product-id", default="enterprise-portal", help="product_id (default: enterprise-portal)")
     p_issue.add_argument("--product-model", default="NGEPv3.0-HYX-PS", help="product_model, e.g. NGEPv3.0-HYX-PS")
     p_issue.add_argument("--grant-type", required=True, choices=["formal", "trial", "learning"])
@@ -470,7 +495,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_issue.set_defaults(func=cmd_issue)
 
     p_verify = sub.add_parser("verify", help="Verify license signature with public key")
-    p_verify.add_argument("--public-key", required=True, help="Ed25519 public key PEM")
+    p_verify.add_argument(
+        "--public-key",
+        default="./keys/public_key.pem",
+        help="Ed25519 public key PEM (default: ./keys/public_key.pem)",
+    )
     p_verify.add_argument("--license-file", required=True, help="License JSON file")
     p_verify.set_defaults(func=cmd_verify)
 

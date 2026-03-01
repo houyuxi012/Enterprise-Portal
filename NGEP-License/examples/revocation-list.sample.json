@@ -1,18 +1,18 @@
 {
   "product_id": "enterprise-portal",
   "rev": 1,
-  "updated_at": "2026-02-27T14:45:07Z",
+  "updated_at": "2026-03-01T15:19:58Z",
   "revoked": [
     {
       "license_id": "LIC-EP-2026-0001",
       "reason": "manual_revoke",
-      "revoked_at": "2026-02-27T14:45:07Z"
+      "revoked_at": "2026-03-01T15:19:58Z"
     },
     {
-      "license_id": "LIC-EP-2026-0001",
-      "fingerprint": "8fdae35c53d8f22164e9d5205962714444f414460aef6f6e42d32694f78b1240",
+      "license_id": "HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY",
+      "fingerprint": "51c8b81fec61692f7911375669f4fa5a646e61431ef5315ecd4ee0abaced1d16",
       "reason": "manual_revoke",
-      "revoked_at": "2026-02-27T14:45:07Z"
+      "revoked_at": "2026-03-01T15:19:58Z"
     }
   ]
 }

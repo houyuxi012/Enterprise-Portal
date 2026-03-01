@@ -145,6 +145,7 @@ async def set_user_password(
     user.hashed_password = await utils.get_password_hash(new_password)
     user.password_changed_at = now
     user.password_violates_policy = False
+    user.password_change_required = False
     db.add(user)
 
     if old_hash and getattr(user, "id", None):

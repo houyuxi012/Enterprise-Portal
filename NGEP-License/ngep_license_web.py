@@ -4,8 +4,10 @@ import base64
 import json
 import os
 import re
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from ngep_license_cli import (
@@ -19,6 +21,82 @@ from ngep_license_cli import (
 )
 
 DEFAULT_PRODUCT_ID = os.getenv("NGEP_LICENSE_PRODUCT_ID", "enterprise-portal")
+DEFAULT_HISTORY_FILE = os.getenv(
+    "NGEP_LICENSE_HISTORY_FILE",
+    "./logs/issue-history.jsonl",
+)
+DEFAULT_HISTORY_LIMIT = max(1, min(int(os.getenv("NGEP_LICENSE_HISTORY_LIMIT", "200")), 1000))
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _count_enabled_features(features: Any) -> int:
+    if isinstance(features, dict):
+        count = 0
+        for item in features.values():
+            if isinstance(item, bool):
+                if item:
+                    count += 1
+            elif isinstance(item, (int, float)):
+                if item > 0:
+                    count += 1
+            elif isinstance(item, str):
+                if item.strip().lower() in {"1", "true", "yes", "enabled", "on"}:
+                    count += 1
+            elif item:
+                count += 1
+        return count
+    if isinstance(features, (list, tuple, set)):
+        return len([f for f in features if str(f).strip()])
+    return 0
+
+
+def _append_issue_history(record: dict[str, Any]) -> None:
+    path = Path(DEFAULT_HISTORY_FILE)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fp:
+        fp.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")))
+        fp.write("\n")
+
+
+def _read_issue_history(limit: int = DEFAULT_HISTORY_LIMIT) -> list[dict[str, Any]]:
+    path = Path(DEFAULT_HISTORY_FILE)
+    if not path.exists():
+        return []
+
+    lines: list[str] = []
+    with path.open("r", encoding="utf-8") as fp:
+        for line in fp:
+            text = line.strip()
+            if text:
+                lines.append(text)
+
+    records: list[dict[str, Any]] = []
+    for text in reversed(lines):
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            records.append(parsed)
+        if len(records) >= limit:
+            break
+    return records
+
+
+def _clear_issue_history() -> None:
+    path = Path(DEFAULT_HISTORY_FILE)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
 
 
 INDEX_HTML = """<!doctype html>
@@ -29,16 +107,20 @@ INDEX_HTML = """<!doctype html>
   <title>NGEP License Web</title>
   <style>
     :root {
-      --bg: #f5f7fb;
+      --bg: #f1f6fb;
+      --bg-2: #e8f1fa;
       --card: #ffffff;
-      --line: #e2e8f0;
-      --text: #0f172a;
-      --sub: #475569;
-      --primary: #2563eb;
-      --primary-2: #1d4ed8;
+      --line: #d6e2f0;
+      --line-strong: #c4d5e8;
+      --text: #0b1f33;
+      --sub: #4b627d;
+      --primary: #0f5fd6;
+      --primary-2: #0b4cb0;
+      --accent: #0ea5e9;
       --ok: #15803d;
       --warn: #b45309;
       --err: #b91c1c;
+      --shadow: 0 20px 42px rgba(10, 33, 65, .08);
     }
     * { box-sizing: border-box; }
     body {
@@ -46,93 +128,185 @@ INDEX_HTML = """<!doctype html>
       font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 10% 0%, #dbeafe 0, transparent 26%),
-        radial-gradient(circle at 90% 10%, #d1fae5 0, transparent 30%),
-        var(--bg);
+        radial-gradient(circle at 12% -10%, #bfdbfe 0, transparent 34%),
+        radial-gradient(circle at 88% -6%, #bae6fd 0, transparent 30%),
+        linear-gradient(180deg, var(--bg), var(--bg-2) 62%, var(--bg));
+      min-height: 100vh;
     }
-    .shell { max-width: 1200px; margin: 28px auto; padding: 0 16px; }
+    .shell { max-width: 1280px; margin: 26px auto 36px; padding: 0 20px; }
     .header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(176, 197, 224, .6);
+      background: rgba(255, 255, 255, .72);
+      backdrop-filter: blur(8px);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: 0 12px 34px rgba(15, 64, 130, .08);
     }
     .header-left { min-width: 0; }
     .header-right {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       flex-shrink: 0;
+      border: 1px solid rgba(148, 173, 204, .45);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .76);
+      padding: 8px 10px;
     }
     .lang-label {
       font-size: 12px;
       color: var(--sub);
-      font-weight: 700;
-    }
-    .lang-select {
-      width: 108px;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 6px 10px;
-      font-size: 13px;
-      background: #fff;
-      color: #0f172a;
-      font-weight: 600;
-    }
-    .title {
-      font-size: 26px;
-      font-weight: 800;
-      margin: 0 0 6px;
+      font-weight: 650;
       letter-spacing: .2px;
     }
-    .sub { color: var(--sub); margin: 0; }
+    .lang-select {
+      width: 120px;
+      border: 1px solid #c8d8ec;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      background: linear-gradient(180deg, #ffffff, #f4f8fd);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .lang-select:focus { border-color: var(--accent); outline: none; }
+    .title {
+      font-size: 28px;
+      font-weight: 820;
+      margin: 0 0 4px;
+      letter-spacing: .25px;
+      color: #0c1f36;
+    }
+    .sub {
+      color: #5a7190;
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .meta-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #edf4ff;
+      border: 1px solid #d3e3fb;
+      color: #244567;
+    }
+    .meta-chip::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #10b981;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, .13);
+    }
     .panel {
       background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+      border: 1px solid rgba(194, 211, 234, .7);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
       overflow: hidden;
+      position: relative;
+    }
+    .panel::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #0b4cb0, #0f5fd6, #0ea5e9);
     }
     .tabs {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(90deg, #eef2ff 0%, #f8fafc 100%);
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      border-bottom: 1px solid #d4e2f2;
+      background: linear-gradient(90deg, #f4f8fe 0%, #f8fbff 100%);
+      padding: 12px;
     }
     .tab-btn {
-      border: 0;
-      border-right: 1px solid var(--line);
-      background: transparent;
-      padding: 14px 10px;
+      border: 1px solid #d2e0f1;
+      border-radius: 12px;
+      background: #f7fbff;
+      padding: 11px 10px;
       cursor: pointer;
       font-weight: 700;
-      color: #334155;
+      color: #2f4e72;
+      transition: all .2s ease;
     }
-    .tab-btn:last-child { border-right: 0; }
+    .tab-btn:hover {
+      transform: translateY(-1px);
+      border-color: #b8d0ea;
+      box-shadow: 0 8px 14px rgba(17, 79, 148, .08);
+    }
     .tab-btn.active {
       color: #fff;
       background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      border-color: transparent;
+      box-shadow: 0 8px 18px rgba(15, 95, 214, .35);
     }
-    .content { padding: 18px; }
+    .content { padding: 18px 18px 20px; }
     .tab { display: none; }
-    .tab.active { display: block; }
+    .tab.active {
+      display: block;
+      animation: tabFade .22s ease;
+    }
+    .section-head {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid #dbe6f4;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff, #f5f9ff);
+    }
+    .section-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 760;
+      color: #17375e;
+    }
+    .section-sub {
+      margin: 4px 0 0;
+      color: #607892;
+      font-size: 12px;
+      line-height: 1.5;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px 14px;
+      gap: 10px 12px;
       margin-bottom: 12px;
     }
     .grid.full { grid-template-columns: 1fr; }
+    .grid > div {
+      border: 1px solid #d9e5f3;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      box-shadow: 0 3px 10px rgba(31, 74, 126, .03);
+    }
     .feature-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #ccdbed;
       border-radius: 10px;
       padding: 10px;
-      background: #f8fafc;
+      background: #f5f9ff;
     }
     .feature-item {
       display: flex;
@@ -147,44 +321,70 @@ INDEX_HTML = """<!doctype html>
       width: auto;
       margin: 0;
       padding: 0;
+      accent-color: var(--primary);
     }
-    label { display: block; font-size: 12px; color: var(--sub); margin-bottom: 6px; font-weight: 600; }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--sub);
+      margin-bottom: 6px;
+      font-weight: 640;
+      letter-spacing: .15px;
+    }
     input, textarea, select {
       width: 100%;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #c9d9eb;
       border-radius: 10px;
       padding: 10px 12px;
       font-size: 14px;
       outline: none;
-      background: #fff;
+      background: #fdfefe;
+      color: #10273f;
     }
     textarea { min-height: 108px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    input:focus, textarea:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
-    .actions { display: flex; gap: 10px; margin-top: 8px; }
+    input::placeholder, textarea::placeholder { color: #8fa1b8; }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(15,95,214,.13);
+    }
+    .actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
     .btn {
       border: 0;
-      border-radius: 10px;
-      padding: 10px 16px;
+      border-radius: 11px;
+      padding: 10px 17px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 720;
       cursor: pointer;
       color: #fff;
       background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 10px 18px rgba(15, 95, 214, .23);
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: saturate(1.06);
+      box-shadow: 0 14px 24px rgba(15, 95, 214, .28);
     }
     .btn.secondary {
-      color: #1e293b;
-      background: #e2e8f0;
+      color: #1f3550;
+      background: linear-gradient(180deg, #eef4fc, #e2ecf7);
+      box-shadow: 0 8px 16px rgba(38, 67, 102, .12);
+    }
+    .btn.secondary:hover {
+      box-shadow: 0 12px 20px rgba(38, 67, 102, .18);
     }
     .hint {
       margin-top: 10px;
       font-size: 12px;
-      color: #64748b;
+      color: #5f7793;
       line-height: 1.5;
     }
     .result-wrap {
-      margin-top: 16px;
-      border-top: 1px dashed #cbd5e1;
-      padding-top: 16px;
+      margin-top: 14px;
+      border: 1px dashed #c3d6ec;
+      border-radius: 14px;
+      padding: 12px;
+      background: #f8fbff;
     }
     .status {
       display: inline-block;
@@ -192,34 +392,115 @@ INDEX_HTML = """<!doctype html>
       border-radius: 999px;
       font-size: 12px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .ok { background: #dcfce7; color: var(--ok); }
     .warn { background: #fef3c7; color: var(--warn); }
     .err { background: #fee2e2; color: var(--err); }
     pre {
       margin: 0;
-      border: 1px solid #dbeafe;
-      background: #0b1220;
-      color: #e2e8f0;
+      border: 1px solid #20344f;
+      background: #0d1a2b;
+      color: #dce8f8;
       border-radius: 12px;
       padding: 12px;
-      max-height: 360px;
+      max-height: 380px;
       overflow: auto;
       font-size: 12px;
       line-height: 1.55;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+    }
+    pre::-webkit-scrollbar { width: 8px; height: 8px; }
+    pre::-webkit-scrollbar-thumb {
+      background: rgba(148, 179, 213, .48);
+      border-radius: 999px;
+    }
+    pre::-webkit-scrollbar-track {
+      background: rgba(12, 24, 39, .4);
+    }
+    .history-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .history-toolbar .mini {
+      width: 120px;
+    }
+    .history-toolbar .wide {
+      width: 220px;
+    }
+    .history-toolbar .grant-select {
+      width: 170px;
+    }
+    .history-table-wrap {
+      border: 1px solid #cfdded;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .history-table thead th {
+      background: #f2f7ff;
+      color: #274564;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #d7e3f2;
+      white-space: nowrap;
+    }
+    .history-table tbody td {
+      padding: 10px;
+      border-bottom: 1px solid #edf2f9;
+      color: #2e4663;
+      vertical-align: top;
+    }
+    .history-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .history-empty {
+      padding: 20px 12px;
+      color: #6f84a0;
+      text-align: center;
+      background: #f9fbff;
+      font-size: 13px;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+    }
+    @keyframes tabFade {
+      from { opacity: .15; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 960px) {
       .header {
         flex-direction: column;
         align-items: stretch;
       }
-      .header-right {
-        justify-content: flex-end;
-      }
+      .header-right { justify-content: flex-end; }
       .tabs { grid-template-columns: repeat(2, 1fr); }
       .grid { grid-template-columns: 1fr; }
       .feature-grid { grid-template-columns: 1fr; }
+      .shell { padding: 0 12px; }
+      .content { padding: 14px; }
+      .history-table thead { display: none; }
+      .history-table, .history-table tbody, .history-table tr, .history-table td {
+        display: block;
+        width: 100%;
+      }
+      .history-table tbody tr {
+        border-bottom: 1px solid #e5edf8;
+        padding: 8px 0;
+      }
+      .history-table tbody td {
+        border: none;
+        padding: 5px 10px;
+      }
     }
   </style>
 </head>
@@ -229,6 +510,11 @@ INDEX_HTML = """<!doctype html>
       <div class="header-left">
         <h1 id="app_title" class="title">NGEP 离线授权生成器</h1>
         <p id="app_sub" class="sub">本地运行，不依赖外网。签名算法：Ed25519（OpenSSL）。</p>
+        <div class="meta-row">
+          <span id="meta_local" class="meta-chip">离线环境</span>
+          <span id="meta_algorithm" class="meta-chip">Ed25519 签名</span>
+          <span id="meta_no_upload" class="meta-chip">数据不出本机</span>
+        </div>
       </div>
       <div class="header-right">
         <span id="lang_label" class="lang-label">语言</span>
@@ -243,10 +529,15 @@ INDEX_HTML = """<!doctype html>
         <button id="tab_btn_issue" class="tab-btn active" data-tab="issue">签发授权</button>
         <button id="tab_btn_verify" class="tab-btn" data-tab="verify">验签与展示</button>
         <button id="tab_btn_revoke" class="tab-btn" data-tab="revoke">吊销列表</button>
+        <button id="tab_btn_history" class="tab-btn" data-tab="history">生成记录</button>
         <button id="tab_btn_keypair" class="tab-btn" data-tab="keypair">生成密钥</button>
       </div>
       <div class="content">
         <section class="tab active" id="tab-issue">
+          <div class="section-head">
+            <h2 id="section_issue_title" class="section-title">签发授权文件</h2>
+            <p id="section_issue_sub" class="section-sub">输入客户信息、授权范围和功能开关，签发后自动下载 .bin 授权文件。</p>
+          </div>
           <div class="grid">
             <div><label id="lbl_issue_private_key">私钥路径</label><input id="issue_private_key" value="./keys/private_key.pem"></div>
             <div><label id="lbl_issue_license_id">License ID（HYX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX，留空自动生成）</label><input id="issue_license_id" value=""></div>
@@ -288,8 +579,12 @@ INDEX_HTML = """<!doctype html>
         </section>
 
         <section class="tab" id="tab-verify">
+          <div class="section-head">
+            <h2 id="section_verify_title" class="section-title">验签与内容展示</h2>
+            <p id="section_verify_sub" class="section-sub">上传现有授权文件，执行签名校验并解析 claims，支持输出 canonical payload。</p>
+          </div>
           <div class="grid">
-            <div><label id="lbl_verify_public_key">公钥路径</label><input id="verify_public_key" value="./examples/public_key.pem"></div>
+            <div><label id="lbl_verify_public_key">公钥路径</label><input id="verify_public_key" value="./keys/public_key.pem"></div>
             <div><label id="lbl_verify_with_canonical">输出 canonical payload</label><select id="verify_with_canonical"><option value="true">true</option><option value="false">false</option></select></div>
           </div>
           <div class="grid full">
@@ -303,6 +598,10 @@ INDEX_HTML = """<!doctype html>
         </section>
 
         <section class="tab" id="tab-revoke">
+          <div class="section-head">
+            <h2 id="section_revoke_title" class="section-title">生成吊销列表</h2>
+            <p id="section_revoke_sub" class="section-sub">通过 License ID 或授权文件批量生成吊销清单，用于系统侧快速封禁失效授权。</p>
+          </div>
           <div class="grid">
             <div><label id="lbl_revoke_output">输出文件</label><input id="revoke_output" value="./examples/revocation-list.sample.json"></div>
             <div><label id="lbl_revoke_reason">reason</label><input id="revoke_reason" value="manual_revoke"></div>
@@ -315,10 +614,52 @@ INDEX_HTML = """<!doctype html>
           <div class="actions"><button id="btn_revoke" class="btn" onclick="makeRevokeList()">生成吊销列表</button></div>
         </section>
 
+        <section class="tab" id="tab-history">
+          <div class="section-head">
+            <h2 id="section_history_title" class="section-title">License 生成记录</h2>
+            <p id="section_history_sub" class="section-sub">展示本机签发历史记录，支持刷新和清空（本地文件持久化）。</p>
+          </div>
+          <div class="history-toolbar">
+            <input id="history_limit" class="mini" type="number" min="1" max="1000" value="100" />
+            <input id="history_customer_filter" class="wide" type="text" placeholder="按客户名称筛选" />
+            <select id="history_grant_type_filter" class="grant-select">
+              <option id="opt_history_grant_all" value="all">全部授权类型</option>
+              <option id="opt_history_grant_formal" value="formal">正式授权</option>
+              <option id="opt_history_grant_trial" value="trial">试用授权</option>
+              <option id="opt_history_grant_learning" value="learning">学习授权</option>
+            </select>
+            <button id="btn_history_refresh" class="btn secondary" onclick="refreshIssueHistory()">刷新记录</button>
+            <button id="btn_history_export_csv" class="btn secondary" onclick="exportIssueHistoryCsv()">导出 CSV</button>
+            <button id="btn_history_clear" class="btn secondary" onclick="clearIssueHistory()">清空记录</button>
+          </div>
+          <div class="history-table-wrap">
+            <div id="history_empty" class="history-empty">暂无生成记录</div>
+            <table id="history_table" class="history-table" style="display:none;">
+              <thead>
+                <tr>
+                  <th id="th_history_time">时间</th>
+                  <th id="th_history_license_id">License ID</th>
+                  <th id="th_history_customer">客户名称</th>
+                  <th id="th_history_grant_type">授权类型</th>
+                  <th id="th_history_product_model">产品型号</th>
+                  <th id="th_history_expires_at">过期时间</th>
+                  <th id="th_history_feature_count">功能数</th>
+                  <th id="th_history_download_name">下载文件</th>
+                </tr>
+              </thead>
+              <tbody id="history_tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="tab" id="tab-keypair">
+          <div class="section-head">
+            <h2 id="section_keypair_title" class="section-title">生成密钥对</h2>
+            <p id="section_keypair_sub" class="section-sub">生成离线签发所需 Ed25519 密钥对，私钥仅保留在授权中心环境。</p>
+          </div>
           <div class="grid">
             <div><label id="lbl_key_private_out">私钥输出路径</label><input id="key_private_out" value="./keys/private_key.pem"></div>
-            <div><label id="lbl_key_public_out">公钥输出路径</label><input id="key_public_out" value="./examples/public_key.pem"></div>
+            <div><label id="lbl_key_public_out">公钥输出路径</label><input id="key_public_out" value="./keys/public_key.pem"></div>
           </div>
           <div class="actions"><button id="btn_keypair" class="btn" onclick="genKeypair()">生成密钥对</button></div>
           <p id="hint_keypair" class="hint">私钥仅用于离线授权环境，不要进入产品容器镜像。</p>
@@ -338,11 +679,25 @@ INDEX_HTML = """<!doctype html>
       zh: {
         app_title: 'NGEP 离线授权生成器',
         app_sub: '本地运行，不依赖外网。签名算法：Ed25519（OpenSSL）。',
+        meta_local: '离线环境',
+        meta_algorithm: 'Ed25519 签名',
+        meta_no_upload: '数据不出本机',
         lang_label: '语言',
         tab_btn_issue: '签发授权',
         tab_btn_verify: '验签与展示',
         tab_btn_revoke: '吊销列表',
+        tab_btn_history: '生成记录',
         tab_btn_keypair: '生成密钥',
+        section_issue_title: '签发授权文件',
+        section_issue_sub: '输入客户信息、授权范围和功能开关，签发后自动下载 .bin 授权文件。',
+        section_verify_title: '验签与内容展示',
+        section_verify_sub: '上传现有授权文件，执行签名校验并解析 claims，支持输出 canonical payload。',
+        section_revoke_title: '生成吊销列表',
+        section_revoke_sub: '通过 License ID 或授权文件批量生成吊销清单，用于系统侧快速封禁失效授权。',
+        section_history_title: 'License 生成记录',
+        section_history_sub: '展示本机签发历史记录，支持刷新和清空（本地文件持久化）。',
+        section_keypair_title: '生成密钥对',
+        section_keypair_sub: '生成离线签发所需 Ed25519 密钥对，私钥仅保留在授权中心环境。',
         lbl_issue_private_key: '私钥路径',
         lbl_issue_license_id: 'License ID（HYX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX，留空自动生成）',
         lbl_issue_product_model: '产品型号',
@@ -387,6 +742,36 @@ INDEX_HTML = """<!doctype html>
         lbl_key_private_out: '私钥输出路径',
         lbl_key_public_out: '公钥输出路径',
         btn_keypair: '生成密钥对',
+        lbl_history_limit: '记录数',
+        ph_history_customer: '按客户名称筛选',
+        opt_history_grant_all: '全部授权类型',
+        opt_history_grant_formal: '正式授权',
+        opt_history_grant_trial: '试用授权',
+        opt_history_grant_learning: '学习授权',
+        btn_history_refresh: '刷新记录',
+        btn_history_export_csv: '导出 CSV',
+        btn_history_clear: '清空记录',
+        history_empty: '暂无生成记录',
+        history_confirm_clear: '确认清空所有生成记录？',
+        history_clear_success: '生成记录已清空',
+        history_no_export_data: '当前筛选条件下没有可导出的记录',
+        history_export_success: 'CSV 导出成功',
+        th_history_time: '时间',
+        th_history_license_id: 'License ID',
+        th_history_customer: '客户名称',
+        th_history_grant_type: '授权类型',
+        th_history_product_model: '产品型号',
+        th_history_expires_at: '过期时间',
+        th_history_feature_count: '功能数',
+        th_history_download_name: '下载文件',
+        history_col_time: '时间',
+        history_col_license_id: 'License ID',
+        history_col_customer: '客户',
+        history_col_grant_type: '类型',
+        history_col_product_model: '型号',
+        history_col_expires_at: '过期',
+        history_col_feature_count: '功能数',
+        history_col_download_name: '文件',
         hint_keypair: '私钥仅用于离线授权环境，不要进入产品容器镜像。',
         err_select_license_file: '请先上传 License 文件',
         err_invalid_license_file: 'License 文件格式错误，必须包含 payload 与 signature',
@@ -398,11 +783,25 @@ INDEX_HTML = """<!doctype html>
       en: {
         app_title: 'NGEP License Offline Generator',
         app_sub: 'Runs locally without external network. Signature algorithm: Ed25519 (OpenSSL).',
+        meta_local: 'Offline Mode',
+        meta_algorithm: 'Ed25519 Signature',
+        meta_no_upload: 'Local Data Only',
         lang_label: 'Language',
         tab_btn_issue: 'Issue',
         tab_btn_verify: 'Verify & Show',
         tab_btn_revoke: 'Revoke List',
+        tab_btn_history: 'Issue History',
         tab_btn_keypair: 'Gen Keypair',
+        section_issue_title: 'Issue License Package',
+        section_issue_sub: 'Configure customer scope and features, then issue and download a .bin license package.',
+        section_verify_title: 'Verify and Inspect Claims',
+        section_verify_sub: 'Upload a license file to verify signature and inspect claims with optional canonical payload.',
+        section_revoke_title: 'Generate Revocation List',
+        section_revoke_sub: 'Build revoke-list entries from license IDs or existing license files for immediate enforcement.',
+        section_history_title: 'License Issue History',
+        section_history_sub: 'Shows local issue history with refresh and clear controls (persisted on local file).',
+        section_keypair_title: 'Generate Key Pair',
+        section_keypair_sub: 'Create Ed25519 key pair for offline issuance. Keep private key only in issuing environment.',
         lbl_issue_private_key: 'Private Key Path',
         lbl_issue_license_id: 'License ID (HYX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX, auto-generate when empty)',
         lbl_issue_product_model: 'Product Model',
@@ -447,6 +846,36 @@ INDEX_HTML = """<!doctype html>
         lbl_key_private_out: 'Private Key Output Path',
         lbl_key_public_out: 'Public Key Output Path',
         btn_keypair: 'Generate Keypair',
+        lbl_history_limit: 'Limit',
+        ph_history_customer: 'Filter by customer',
+        opt_history_grant_all: 'All Grant Types',
+        opt_history_grant_formal: 'Formal',
+        opt_history_grant_trial: 'Trial',
+        opt_history_grant_learning: 'Learning',
+        btn_history_refresh: 'Refresh History',
+        btn_history_export_csv: 'Export CSV',
+        btn_history_clear: 'Clear History',
+        history_empty: 'No issue history',
+        history_confirm_clear: 'Are you sure you want to clear all issue history?',
+        history_clear_success: 'Issue history cleared',
+        history_no_export_data: 'No records to export under current filters',
+        history_export_success: 'CSV export completed',
+        th_history_time: 'Time',
+        th_history_license_id: 'License ID',
+        th_history_customer: 'Customer',
+        th_history_grant_type: 'Grant Type',
+        th_history_product_model: 'Product Model',
+        th_history_expires_at: 'Expires At',
+        th_history_feature_count: 'Features',
+        th_history_download_name: 'Download File',
+        history_col_time: 'Time',
+        history_col_license_id: 'License ID',
+        history_col_customer: 'Customer',
+        history_col_grant_type: 'Type',
+        history_col_product_model: 'Model',
+        history_col_expires_at: 'Expires',
+        history_col_feature_count: 'Features',
+        history_col_download_name: 'File',
         hint_keypair: 'Private key is for offline issuing environment only, never ship to product image.',
         err_select_license_file: 'Please upload a license file first',
         err_invalid_license_file: 'Invalid license file format: payload/signature are required',
@@ -458,6 +887,7 @@ INDEX_HTML = """<!doctype html>
     };
     const LANG_STORAGE_KEY = 'ngep-license-web-lang';
     let currentLang = 'zh';
+    let historyRowsCache = [];
 
     function t(key) {
       return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh && I18N.zh[key]) || key;
@@ -478,6 +908,11 @@ INDEX_HTML = """<!doctype html>
       if (statusEl && statusEl.classList.contains('warn') && (statusEl.textContent || '').trim()) {
         statusEl.textContent = t('result_waiting');
       }
+      const historyCustomerFilter = $('history_customer_filter');
+      if (historyCustomerFilter) {
+        historyCustomerFilter.placeholder = t('ph_history_customer');
+      }
+      renderIssueHistory(getFilteredHistoryRows());
       try {
         localStorage.setItem(LANG_STORAGE_KEY, currentLang);
       } catch (_) {}
@@ -500,6 +935,9 @@ INDEX_HTML = """<!doctype html>
         tabs.forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'history') {
+          refreshIssueHistory();
+        }
       });
     });
 
@@ -519,6 +957,75 @@ INDEX_HTML = """<!doctype html>
       const payload = await res.json().catch(() => ({detail: 'Invalid JSON response'}));
       if (!res.ok) throw payload;
       return payload;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatHistoryDate(value) {
+      const dt = new Date(value || '');
+      if (Number.isNaN(dt.getTime())) return value || '-';
+      return dt.toLocaleString(currentLang === 'en' ? 'en-US' : 'zh-CN', { hour12: false });
+    }
+
+    function getFilteredHistoryRows() {
+      const rows = Array.isArray(historyRowsCache) ? historyRowsCache : [];
+      const customerFilter = String(($('history_customer_filter') && $('history_customer_filter').value) || '').trim().toLowerCase();
+      const grantTypeFilter = String(($('history_grant_type_filter') && $('history_grant_type_filter').value) || 'all').trim().toLowerCase();
+      return rows.filter((row) => {
+        const customer = String((row && row.customer) || '').toLowerCase();
+        const grantType = String((row && row.grant_type) || '').toLowerCase();
+        const customerMatched = !customerFilter || customer.includes(customerFilter);
+        const grantTypeMatched = grantTypeFilter === 'all' || grantType === grantTypeFilter;
+        return customerMatched && grantTypeMatched;
+      });
+    }
+
+    function renderIssueHistory(items) {
+      const rows = Array.isArray(items) ? items : [];
+      const emptyEl = $('history_empty');
+      const tableEl = $('history_table');
+      const tbody = $('history_tbody');
+      if (!emptyEl || !tableEl || !tbody) return;
+
+      if (rows.length === 0) {
+        tbody.innerHTML = '';
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = t('history_empty');
+        tableEl.style.display = 'none';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      tableEl.style.display = 'table';
+      tbody.innerHTML = rows.map((row) => {
+        const generatedAt = formatHistoryDate(row.generated_at);
+        const licenseId = row.license_id || '-';
+        const customer = row.customer || '-';
+        const grantType = row.grant_type || '-';
+        const productModel = row.product_model || '-';
+        const expiresAt = row.expires_at || '-';
+        const featureCount = Number(row.features_count || 0);
+        const downloadName = row.download_name || '-';
+        return `
+          <tr>
+            <td><span class="mono">${escapeHtml(generatedAt)}</span></td>
+            <td><span class="mono">${escapeHtml(licenseId)}</span></td>
+            <td>${escapeHtml(customer)}</td>
+            <td>${escapeHtml(grantType)}</td>
+            <td><span class="mono">${escapeHtml(productModel)}</span></td>
+            <td><span class="mono">${escapeHtml(expiresAt)}</span></td>
+            <td>${escapeHtml(String(featureCount))}</td>
+            <td><span class="mono">${escapeHtml(downloadName)}</span></td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function parseMaybeJson(text) {
@@ -593,6 +1100,100 @@ INDEX_HTML = """<!doctype html>
       return features;
     }
 
+    async function refreshIssueHistory() {
+      try {
+        const limit = Math.max(1, Math.min(Number(($('history_limit') && $('history_limit').value) || 100), 1000));
+        const ret = await post('/api/history', { limit });
+        historyRowsCache = Array.isArray(ret.items) ? ret.items : [];
+        renderIssueHistory(getFilteredHistoryRows());
+      } catch (e) {
+        setResult('err', e);
+      }
+    }
+
+    async function clearIssueHistory() {
+      if (!confirm(t('history_confirm_clear'))) return;
+      try {
+        await post('/api/history/clear', {});
+        historyRowsCache = [];
+        renderIssueHistory(getFilteredHistoryRows());
+        setResult('ok', { message: t('history_clear_success') });
+      } catch (e) {
+        setResult('err', e);
+      }
+    }
+
+    function csvCell(value) {
+      const text = String(value == null ? '' : value);
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function exportIssueHistoryCsv() {
+      const rows = getFilteredHistoryRows();
+      if (!rows.length) {
+        setResult('warn', { message: t('history_no_export_data') });
+        return;
+      }
+      const header = [
+        t('th_history_time'),
+        t('th_history_license_id'),
+        t('th_history_customer'),
+        t('th_history_grant_type'),
+        t('th_history_product_model'),
+        t('th_history_expires_at'),
+        t('th_history_feature_count'),
+        t('th_history_download_name'),
+      ];
+      const lines = [header.map(csvCell).join(',')];
+      rows.forEach((row) => {
+        lines.push(
+          [
+            formatHistoryDate(row.generated_at),
+            row.license_id || '',
+            row.customer || '',
+            row.grant_type || '',
+            row.product_model || '',
+            row.expires_at || '',
+            Number(row.features_count || 0),
+            row.download_name || '',
+          ].map(csvCell).join(',')
+        );
+      });
+      const content = "\\uFEFF" + lines.join("\\n");
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const href = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `issue-history-${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(href);
+      setResult('ok', { message: t('history_export_success'), count: rows.length, file_name: a.download });
+    }
+
+    function bindHistoryFilterEvents() {
+      const historyCustomerFilter = $('history_customer_filter');
+      if (historyCustomerFilter) {
+        historyCustomerFilter.addEventListener('input', () => {
+          renderIssueHistory(getFilteredHistoryRows());
+        });
+      }
+      const historyGrantTypeFilter = $('history_grant_type_filter');
+      if (historyGrantTypeFilter) {
+        historyGrantTypeFilter.addEventListener('change', () => {
+          renderIssueHistory(getFilteredHistoryRows());
+        });
+      }
+      const historyLimit = $('history_limit');
+      if (historyLimit) {
+        historyLimit.addEventListener('change', () => {
+          refreshIssueHistory();
+        });
+      }
+    }
+
     function fillDemoIssue() {
       $('issue_installation_id').value = 'e1728c6b-0713-5963-a3c4-63d5e7155616';
       $('issue_license_id').value = 'HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY';
@@ -626,6 +1227,7 @@ INDEX_HTML = """<!doctype html>
           downloadBase64File(ret.download_base64, ret.download_name || 'license.bin');
         }
         setResult('ok', ret);
+        refreshIssueHistory();
       } catch (e) {
         setResult('err', e);
       }
@@ -717,8 +1319,10 @@ INDEX_HTML = """<!doctype html>
         applyLanguage((e.target && e.target.value) || 'zh');
       });
     }
+    bindHistoryFilterEvents();
     bindFeatureSelectionEvents();
     applyLanguage(detectInitialLang());
+    refreshIssueHistory();
   </script>
 </body>
 </html>
@@ -801,6 +1405,7 @@ class LicenseHandler(BaseHTTPRequestHandler):
             if self.path == "/api/issue":
                 payload = build_license_payload(
                     license_id=body.get("license_id"),
+                    key_id=(str(body.get("key_id") or "").strip() or None),
                     product_id=DEFAULT_PRODUCT_ID,
                     product_model=str(body.get("product_model") or "").strip(),
                     grant_type=str(body.get("grant_type") or "").strip(),
@@ -821,6 +1426,20 @@ class LicenseHandler(BaseHTTPRequestHandler):
                     output=str(body.get("output") or "").strip() or None,
                 )
                 download_name, download_base64 = _build_download_payload(result["license_doc"])
+                _append_issue_history(
+                    {
+                        "generated_at": _utc_now_iso(),
+                        "license_id": str(payload.get("license_id") or ""),
+                        "customer": str(payload.get("customer") or ""),
+                        "grant_type": str(payload.get("grant_type") or ""),
+                        "product_model": str(payload.get("product_model") or ""),
+                        "installation_id": str(payload.get("installation_id") or ""),
+                        "expires_at": str(payload.get("expires_at") or ""),
+                        "features_count": _count_enabled_features(payload.get("features")),
+                        "limits_users": _safe_int((payload.get("limits") or {}).get("users"), 0),
+                        "download_name": download_name,
+                    }
+                )
                 self._send_json(
                     HTTPStatus.OK,
                     {
@@ -832,6 +1451,17 @@ class LicenseHandler(BaseHTTPRequestHandler):
                         "download_base64": download_base64,
                     },
                 )
+                return
+
+            if self.path == "/api/history":
+                limit = _safe_int(body.get("limit"), DEFAULT_HISTORY_LIMIT)
+                limit = max(1, min(limit, 1000))
+                self._send_json(HTTPStatus.OK, {"ok": True, "items": _read_issue_history(limit)})
+                return
+
+            if self.path == "/api/history/clear":
+                _clear_issue_history()
+                self._send_json(HTTPStatus.OK, {"ok": True, "cleared": True})
                 return
 
             if self.path == "/api/verify":

@@ -9,7 +9,7 @@ from typing import Dict
 
 import psutil
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import database
@@ -393,6 +393,22 @@ async def _install_license(
     )
 
 
+async def _install_license_revocations(
+    *,
+    request: Request,
+    payload: schemas.LicenseRevocationInstallRequest,
+    db: AsyncSession,
+    current_user: models.User,
+) -> dict:
+    return await LicenseService.install_revocation_list(
+        db=db,
+        payload=payload.payload,
+        request=request,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+    )
+
+
 async def _get_license_status(
     *,
     request: Request,
@@ -425,11 +441,23 @@ async def _get_license_events(
     *,
     db: AsyncSession,
     limit: int,
+    offset: int,
+    import_only: bool = False,
 ) -> dict:
     safe_limit = max(1, min(limit, 200))
+    safe_offset = max(0, offset)
+    base_query = select(models.LicenseEvent)
+    if import_only:
+        base_query = base_query.where(
+            models.LicenseEvent.event_type.in_(["license.install", "license.verify_failed", "license.expired"])
+        )
+
+    total_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
+    total = int(total_result.scalar() or 0)
     result = await db.execute(
-        select(models.LicenseEvent)
+        base_query
         .order_by(models.LicenseEvent.created_at.desc())
+        .offset(safe_offset)
         .limit(safe_limit)
     )
     rows = result.scalars().all()
@@ -439,6 +467,11 @@ async def _get_license_events(
             "event_type": row.event_type,
             "status": row.status,
             "reason": row.reason,
+            "license_id": (
+                str((row.payload or {}).get("license_id") or "").strip()
+                if isinstance(row.payload, dict)
+                else None
+            ),
             "product_id": row.product_id,
             "installation_id": row.installation_id,
             "grant_type": row.grant_type,
@@ -450,7 +483,9 @@ async def _get_license_events(
         for row in rows
     ]
     return {
-        "total": len(items),
+        "total": total,
+        "limit": safe_limit,
+        "offset": safe_offset,
         "items": items,
     }
 
@@ -463,6 +498,21 @@ async def install_license_admin(
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
     return await _install_license(
+        request=request,
+        payload=payload,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@router.post("/license/revocations/install/", response_model=schemas.LicenseRevocationInstallResponse)
+async def install_license_revocations_admin(
+    request: Request,
+    payload: schemas.LicenseRevocationInstallRequest,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    return await _install_license_revocations(
         request=request,
         payload=payload,
         db=db,
@@ -499,12 +549,16 @@ async def get_license_claims_admin(
 @router.get("/license/events/", response_model=schemas.LicenseEventListResponse)
 async def get_license_events_admin(
     limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    import_only: bool = Query(False),
     db: AsyncSession = Depends(database.get_db),
     _: models.User = Depends(PermissionChecker("sys:settings:view")),
 ):
     return await _get_license_events(
         db=db,
         limit=limit,
+        offset=offset,
+        import_only=import_only,
     )
 
 
@@ -516,6 +570,21 @@ async def install_license_alias(
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
     return await _install_license(
+        request=request,
+        payload=payload,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@license_alias_router.post("/revocations/install/", response_model=schemas.LicenseRevocationInstallResponse)
+async def install_license_revocations_alias(
+    request: Request,
+    payload: schemas.LicenseRevocationInstallRequest,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    return await _install_license_revocations(
         request=request,
         payload=payload,
         db=db,
@@ -552,12 +621,16 @@ async def get_license_claims_alias(
 @license_alias_router.get("/events/", response_model=schemas.LicenseEventListResponse)
 async def get_license_events_alias(
     limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    import_only: bool = Query(False),
     db: AsyncSession = Depends(database.get_db),
     _: models.User = Depends(PermissionChecker("sys:settings:view")),
 ):
     return await _get_license_events(
         db=db,
         limit=limit,
+        offset=offset,
+        import_only=import_only,
     )
 
 

@@ -8,9 +8,10 @@ interface AdminChangePasswordModalProps {
     open: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    forceMode?: boolean;
 }
 
-const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ open, onClose, onSuccess }) => {
+const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ open, onClose, onSuccess, forceMode = false }) => {
     const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -48,15 +49,20 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
             }
             open={open}
             onCancel={() => {
+                if (forceMode) return;
                 form.resetFields();
                 onClose();
             }}
             onOk={() => form.submit()}
             confirmLoading={loading}
+            closable={!forceMode}
+            maskClosable={!forceMode}
+            keyboard={!forceMode}
             destroyOnClose
             centered
             width={480}
             okText={t('adminChangePassword.actions.confirm')}
+            cancelButtonProps={forceMode ? { style: { display: 'none' } } : undefined}
             cancelText={t('common.buttons.cancel')}
         >
             <div className="pt-4">

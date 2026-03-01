@@ -154,12 +154,16 @@
     "subtitle": "License Management",
     "upload": {
       "button": "Import License",
+      "revocationButton": "Import Revocation List",
       "parseFailed": "Failed to parse license file. Please ensure it is a .bin exported by the generator.",
+      "revocationParseFailed": "Failed to parse revocation list file. Please check the file format.",
       "emptyContent": "License content cannot be empty",
       "invalidJson": "The license file is not valid JSON/.bin content",
       "invalidFormat": "Invalid license format. `payload` and `signature` are required.",
+      "revocationInvalidFormat": "Invalid revocation list format. `revoked` array is required.",
       "success": "License imported successfully",
       "successWithFile": "License imported successfully: {{fileName}}",
+      "revocationSuccess": "Revocation list imported: {{fileName}} ({{count}} items)",
       "failedPrefix": "License import failed: {{reason}}",
       "unknownError": "Unknown error"
     },
@@ -186,6 +190,7 @@
       "empty": "No license import records",
       "columns": {
         "time": "Time",
+        "licenseId": "License ID",
         "grantType": "Grant Type",
         "customerName": "Customer Name",
         "importStatus": "Import Status",
@@ -219,6 +224,9 @@
       "LICENSE_INSTALLATION_MISMATCH": "License serial number does not match",
       "LICENSE_NOT_YET_VALID": "License is not yet valid",
       "LICENSE_EXPIRED": "License has expired",
+      "LICENSE_REVOKED": "License has been revoked",
+      "LICENSE_REVOCATION_PATH_MISSING": "Revocation list storage path is not configured",
+      "LICENSE_REVOCATION_WRITE_FAILED": "Failed to write revocation list",
       "TIME_ROLLBACK": "System time rollback detected, license verification failed"
     },
     "effectiveModal": {
@@ -734,7 +742,8 @@
       "read_iam_audit_logs": "Read IAM Audit Logs",
       "license_install": "Install License",
       "license_verify_failed": "License Verification Failed",
-      "license_expired": "License Expired"
+      "license_expired": "License Expired",
+      "license_revocation_install": "Install Revocation List"
     }
   },
   "userList": {
@@ -2233,6 +2242,8 @@
       "lockoutDuration": "Lockout Duration (minutes)",
       "lockoutScope": "Lockout Scope",
       "lockoutScopeHelp": "Account lockout: lock current account only; IP lockout: lock current source IP.",
+      "forceChangeAfterReset": "Force password change after admin reset",
+      "forceChangeAfterResetHelp": "When enabled, users who log in with a reset password must change it before continuing.",
       "options": {
         "lockByAccount": "Lock by account",
         "lockByIp": "Lock by IP"

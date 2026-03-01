@@ -8,9 +8,10 @@ interface ChangePasswordModalProps {
     open: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    forceMode?: boolean;
 }
 
-const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose, onSuccess }) => {
+const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose, onSuccess, forceMode = false }) => {
     const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -48,10 +49,18 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
             }
             open={open}
             onCancel={() => {
+                if (forceMode) return;
                 form.resetFields();
                 onClose();
             }}
-            footer={[
+            closable={!forceMode}
+            maskClosable={!forceMode}
+            keyboard={!forceMode}
+            footer={forceMode ? [
+                <Button key="submit" type="primary" loading={loading} onClick={() => form.submit()}>
+                    {t('common.buttons.confirm')}
+                </Button>
+            ] : [
                 <Button key="cancel" onClick={() => {
                     form.resetFields();
                     onClose();

@@ -328,6 +328,7 @@ export interface LicenseEventItem {
   event_type: string;
   status: string;
   reason?: string | null;
+  license_id?: string | null;
   product_id?: string | null;
   installation_id?: string | null;
   grant_type?: string | null;
@@ -339,7 +340,18 @@ export interface LicenseEventItem {
 
 export interface LicenseEventListResponse {
   total: number;
+  limit?: number;
+  offset?: number;
   items: LicenseEventItem[];
+}
+
+export interface LicenseRevocationInstallResponse {
+  installed: boolean;
+  path: string;
+  product_id?: string | null;
+  rev: number;
+  revoked_count: number;
+  updated_at?: string | null;
 }
 
 export interface TodoUserResponse {
