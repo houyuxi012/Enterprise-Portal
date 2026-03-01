@@ -1,0 +1,285 @@
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+from database import get_db
+import models, schemas
+from sqlalchemy import select, delete as sa_delete
+from fastapi import Request
+from services.audit_service import AuditService
+from dependencies import PermissionChecker
+from routers.auth import get_current_user
+from services.password_policy import (
+    generate_compliant_password,
+    get_password_policy_configs,
+    set_user_password,
+    validate_password,
+)
+
+router = APIRouter(
+    prefix="/employees",
+    tags=["employees"]
+)
+
+app_router = APIRouter(
+    prefix="/employees",
+    tags=["employees"]
+)
+
+@app_router.get("/", response_model=List[schemas.Employee])
+async def read_employees_for_portal(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """
+    Portal-facing employee directory.
+    Returns only active employees so frontend通讯录与“启用状态”一致。
+    """
+    result = await db.execute(
+        select(models.Employee)
+        .filter(models.Employee.status == "Active")
+        .offset(skip)
+        .limit(limit)
+    )
+    employees = result.scalars().all()
+    return employees
+
+@router.get("/", response_model=List[schemas.Employee])
+async def read_employees(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(PermissionChecker("sys:user:view")),
+):
+    result = await db.execute(select(models.Employee).offset(skip).limit(limit))
+    employees = result.scalars().all()
+    return employees
+
+@router.get("/{employee_id}", response_model=schemas.Employee)
+async def read_employee(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(PermissionChecker("sys:user:view")),
+):
+    result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
+    employee = result.scalars().first()
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return employee
+
+@router.post("/", response_model=schemas.EmployeeCreateResult, status_code=status.HTTP_201_CREATED)
+async def create_employee(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    employee: schemas.EmployeeCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
+):
+    # 1. Create Employee
+    db_employee = models.Employee(**employee.dict())
+    db.add(db_employee)
+    
+    # 2. Auto-provision portal login account (hidden from system-account UI by frontend filter)
+    auto_provisioned = False
+    portal_initial_password: str | None = None
+    user_stmt = select(models.User).filter(models.User.username == employee.account)
+    user_result = await db.execute(user_stmt)
+    existing_user = user_result.scalars().first()
+
+    if existing_user:
+        account_type = (existing_user.account_type or "PORTAL").upper()
+        if account_type != "PORTAL":
+            raise HTTPException(
+                status_code=400,
+                detail=f"账户 {employee.account} 已存在且不是 PORTAL 身份，无法用于门户登录。"
+            )
+        existing_user.is_active = (employee.status == "Active")
+        if not existing_user.name:
+            existing_user.name = employee.name
+        if employee.avatar:
+            existing_user.avatar = employee.avatar
+    else:
+        configs = await get_password_policy_configs(db)
+
+        user_email = employee.email
+        email_result = await db.execute(select(models.User).filter(models.User.email == employee.email))
+        email_conflict = email_result.scalars().first()
+        if email_conflict:
+            user_email = None
+
+        policy_subject = models.User(username=employee.account, email=user_email)
+        generated_password: str | None = None
+        for _ in range(12):
+            candidate = generate_compliant_password(configs)
+            try:
+                await validate_password(
+                    db,
+                    candidate,
+                    policy_subject,
+                    configs=configs,
+                    check_history=False,
+                )
+                generated_password = candidate
+                break
+            except HTTPException as e:
+                if e.status_code != 400:
+                    raise
+        if not generated_password:
+            raise HTTPException(status_code=500, detail="无法生成符合密码策略的初始密码")
+        portal_initial_password = generated_password
+
+        new_user = models.User(
+            username=employee.account,
+            email=user_email,
+            account_type="PORTAL",
+            is_active=(employee.status == "Active"),
+            name=employee.name,
+            avatar=employee.avatar,
+        )
+        await set_user_password(
+            db,
+            new_user,
+            portal_initial_password,
+            validate=False,
+            configs=configs,
+        )
+
+        role_result = await db.execute(
+            select(models.Role).filter(
+                models.Role.app_id == "portal",
+                models.Role.code == "user",
+            )
+        )
+        default_role = role_result.scalars().first()
+        if default_role:
+            new_user.roles = [default_role]
+
+        db.add(new_user)
+        auto_provisioned = True
+        
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="CREATE_EMPLOYEE", 
+        target=f"用户:{db_employee.name}", 
+        detail=f"auto_portal_account={'yes' if auto_provisioned else 'existing'}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    
+    await db.commit()
+    await db.refresh(db_employee)
+    return {
+        "id": db_employee.id,
+        "account": db_employee.account,
+        "job_number": db_employee.job_number,
+        "name": db_employee.name,
+        "gender": db_employee.gender,
+        "department": db_employee.department,
+        "role": db_employee.role,
+        "email": db_employee.email,
+        "phone": db_employee.phone,
+        "location": db_employee.location,
+        "avatar": db_employee.avatar,
+        "status": db_employee.status,
+        "portal_initial_password": portal_initial_password,
+        "portal_account_auto_created": auto_provisioned,
+    }
+
+@router.put("/{employee_id}", response_model=schemas.Employee)
+async def update_employee(
+    employee_id: int, 
+    request: Request,
+    background_tasks: BackgroundTasks,
+    employee_update: schemas.EmployeeCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
+):
+    result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
+    employee = result.scalars().first()
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    previous_status = employee.status
+    
+    for key, value in employee_update.dict().items():
+        setattr(employee, key, value)
+    
+    # Sync employee profile fields to linked portal user account.
+    # Frontend profile avatar renders from /iam/auth/me (User.avatar), not Employee.avatar.
+    if employee.account:
+        user_result = await db.execute(select(models.User).filter(models.User.username == employee.account))
+        user = user_result.scalars().first()
+        if user:
+            user.is_active = (employee.status == "Active")
+            user.name = employee.name
+            user.avatar = employee.avatar
+    
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="UPDATE_EMPLOYEE",
+        target=f"用户:{employee.name}",
+        detail=f"employee_id={employee_id}",
+        ip_address=ip,
+        trace_id=trace_id,
+    )
+
+    await db.commit()
+    await db.refresh(employee)
+    return employee
+
+@router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_employee(
+    employee_id: int, 
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:user:edit"))
+):
+    result = await db.execute(select(models.Employee).filter(models.Employee.id == employee_id))
+    employee = result.scalars().first()
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # 级联删除关联的 User 记录（仅 PORTAL 类型，不影响 SYSTEM 管理员）
+    linked_user = None
+    if employee.account:
+        user_result = await db.execute(
+            select(models.User).filter(
+                models.User.username == employee.account,
+                models.User.account_type != "SYSTEM",
+            )
+        )
+        linked_user = user_result.scalars().first()
+    
+    await db.delete(employee)
+    if linked_user:
+        # 清除没有 ondelete=CASCADE 的关联表记录
+        await db.execute(sa_delete(models.UserPasswordHistory).where(models.UserPasswordHistory.user_id == linked_user.id))
+        await db.execute(sa_delete(models.AnnouncementRead).where(models.AnnouncementRead.user_id == linked_user.id))
+        await db.delete(linked_user)
+    
+    # Audit Log
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id, 
+        username=current_user.username, 
+        action="DELETE_EMPLOYEE", 
+        target=f"用户:{employee.name}", 
+        detail=f"linked_user_deleted={'yes' if linked_user else 'no'}",
+        ip_address=ip,
+        trace_id=trace_id
+    )
+    await db.commit()
+    return None

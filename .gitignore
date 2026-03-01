@@ -30,3 +30,7 @@ Thumbs.db
 *.log
 /logs/
 backend/uploads/
+
+# Local cookie/session artifacts
+cookie.txt
+*.cookie

@@ -1,0 +1,50 @@
+# 临时 OpenLDAP 测试环境
+# 用法: docker-compose -f docker-compose.openldap.yml up -d
+# 删除: docker-compose -f docker-compose.openldap.yml down -v
+
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: test-openldap
+    hostname: openldap
+    environment:
+      LDAP_ORGANISATION: "Enterprise Portal Lab"
+      LDAP_DOMAIN: "example.com"
+      LDAP_BASE_DN: "dc=example,dc=com"
+      LDAP_ADMIN_PASSWORD: "admin123"
+      LDAP_CONFIG_PASSWORD: "config123"
+      LDAP_READONLY_USER: "true"
+      LDAP_READONLY_USER_USERNAME: "readonly"
+      LDAP_READONLY_USER_PASSWORD: "readonly123"
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - openldap_data:/var/lib/ldap
+      - openldap_config:/etc/ldap/slapd.d
+      - ./openldap-seed:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    command: --copy-service
+    networks:
+      - enterpriseportal_default
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: test-phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "6443:80"
+    depends_on:
+      - openldap
+    networks:
+      - enterpriseportal_default
+
+volumes:
+  openldap_data:
+  openldap_config:
+
+
+networks:
+  enterpriseportal_default:
+    external: true

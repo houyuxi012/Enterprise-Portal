@@ -1,0 +1,66 @@
+dn: ou=People,dc=example,dc=com
+objectClass: organizationalUnit
+ou: People
+
+dn: ou=Groups,dc=example,dc=com
+objectClass: organizationalUnit
+ou: Groups
+
+dn: uid=zhangsan,ou=People,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: zhangsan
+sn: Zhang
+givenName: San
+cn: Zhang San
+displayName: 张三
+uidNumber: 10001
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/zhangsan
+mail: zhangsan@example.com
+mobile: 13800000001
+
+dn: uid=lisi,ou=People,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: lisi
+sn: Li
+givenName: Si
+cn: Li Si
+displayName: 李四
+uidNumber: 10002
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/lisi
+mail: lisi@example.com
+mobile: 13800000002
+
+dn: uid=wangwu,ou=People,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: wangwu
+sn: Wang
+givenName: Wu
+cn: Wang Wu
+displayName: 王五
+uidNumber: 10003
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/wangwu
+mail: wangwu@example.com
+mobile: 13800000003
+
+dn: cn=developers,ou=Groups,dc=example,dc=com
+objectClass: posixGroup
+cn: developers
+gidNumber: 10000
+memberUid: zhangsan
+memberUid: lisi
+memberUid: wangwu

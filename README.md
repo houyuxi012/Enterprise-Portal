@@ -165,19 +165,23 @@ ALL CHECKS PASSED
 
 ```
 Enterprise Portal/
-├── backend/           # FastAPI 后端
-│   ├── routers/       # API 路由
-│   ├── iam/           # IAM 模块 (identity/rbac/audit)
-│   ├── services/      # 业务逻辑
-│   └── models.py      # 数据模型
-├── frontend/          # React 前端
-│   ├── pages/         # 页面组件
-│   ├── components/    # 通用组件
-│   └── services/      # API 客户端
-├── nginx/             # Nginx 反代配置
-├── grafana/           # Grafana 仪表盘
-├── loki/              # Loki 日志配置
-└── docker-compose.yml
+├── Next-Gen Enterprise Portal/   # 主系统代码目录（后端/前端/运维编排）
+│   ├── backend/                  # FastAPI 后端（IAM、日志、License、身份数据源等）
+│   ├── frontend/                 # React + Vite 管理端与门户端
+│   ├── grafana/                  # Grafana 仪表盘与数据源配置
+│   ├── loki/                     # Loki 日志存储配置
+│   ├── nginx/                    # Nginx 统一入口与 TLS 配置
+│   └── docker-compose.yml        # 主系统容器编排文件
+├── NGEP-License/                 # 离线 License 生成器（签发/验签/Web 工具）
+├── 产品官网/                      # 官网落地页与 Cloudflare Worker/Pages 代码
+├── Test_case/                    # 测试用例总目录（功能/集成/联调）
+│   ├── backend/                  # 后端测试脚本与用例
+│   └── openldap/                 # OpenLDAP 本地联调编排与种子数据
+├── test_db/                      # 测试数据与导入脚本
+├── docs/                         # 项目文档（架构、版本、运维说明）
+├── test_env/                     # 本地测试环境辅助目录
+├── .git/                         # Git 元数据目录
+└── .pytest_cache/                # pytest 运行缓存目录
 ```
 
 ---

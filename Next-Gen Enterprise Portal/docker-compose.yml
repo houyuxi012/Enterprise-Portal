@@ -1,0 +1,168 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: portal_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8.4-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: enterpriseportal-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin@houyuxi
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  createbuckets:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      - minio
+    entrypoint: |
+      /bin/sh -c '
+      set -e
+
+      echo "wait minio..."
+      ok=0
+
+      for i in $(seq 1 60); do
+        if /usr/bin/mc alias set myminio http://minio:9000 minioadmin "minioadmin@houyuxi" >/dev/null 2>&1; then
+          ok=1
+          break
+        fi
+        sleep 2
+      done
+
+      if [ "$$ok" -ne 1 ]; then
+        echo "minio not ready after 120s"
+        exit 1
+      fi
+
+      /usr/bin/mc mb -p myminio/next-gen-enterprise-portal || true
+      /usr/bin/mc anonymous set public myminio/next-gen-enterprise-portal || true
+
+      echo "done"
+      '
+    restart: "no"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/portal_db
+      REDIS_URL: redis://redis:6379
+      PYTHONDONTWRITEBYTECODE: "1"
+      DB_POOL_SIZE: "50"
+      DB_MAX_OVERFLOW: "100"
+      SECRET_KEY: "super-secret-fixed-key-for-persistence"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "5" # Default 5 minutes
+      WEB_CONCURRENCY: "4"
+      GUNICORN_TIMEOUT: "120"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      STORAGE_TYPE: minio
+      PUBLIC_BASE_URL: "https://127.0.0.1" # Frontend entry point
+      CORS_ORIGINS: "https://127.0.0.1" # Strict single origin
+      COOKIE_DOMAIN: "" # HostOnly
+      COOKIE_SECURE: "True" # Force secure cookie
+      COOKIE_SAMESITE: "lax"
+      MINIO_ENDPOINT: minio:9000 # Internal Docker network
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin@houyuxi
+      MINIO_BUCKET_NAME: next-gen-enterprise-portal
+      MINIO_EXTERNAL_ENDPOINT: 127.0.0.1/minio # Routed via Nginx
+      MINIO_EXTERNAL_PROTOCOL: https
+      LOKI_PUSH_URL: http://loki:3100
+      LOKI_BASE_URL: http://loki:3100
+      LOKI_TENANT_ID: enterprise-portal
+      LICENSE_ED25519_PUBLIC_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MCowBQYDK2VwAyEADko/AM8cwzU86O44/rXDqn8ukJpxJGgPEKJskfw7Iwk=
+        -----END PUBLIC KEY-----
+      LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT: "57e66ed76ba225868318c89943a34f92edfb7d542303fa1b0d66c9dc6b644046"
+      BIND_PASSWORD_ENC_KEYS: '{"k2025q4":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY","k2026q1":"YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk"}'
+      BIND_PASSWORD_ENC_ACTIVE_KID: "k2026q1"
+    depends_on:
+      - db
+      - redis
+      - minio
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+      - ./loki:/app/loki # Allow backend to update Loki config
+      - ../test_db:/app/test_db # Mount test data scripts
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VITE_API_BASE_URL: /api
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+
+  loki:
+    image: grafana/loki:2.9.4
+    command: -config.file=/etc/loki/loki-config.yaml
+    expose:
+      - "3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3100/ready" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=Grafana@houyuxi
+      - GF_USERS_ALLOW_SIGN_UP=false
+      # 自动安装 Redis 数据源插件
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+      - redis
+      - db
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  loki_data:
+  grafana_data:

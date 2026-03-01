@@ -5,8 +5,15 @@ from datetime import datetime, timezone
 
 from sqlalchemy import delete, insert, select, update
 
-# Add parent directory to sys.path to allow importing from backend modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add backend path to sys.path for both old/new repo layouts.
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (
+    os.path.join(_repo_root, "code", "backend"),
+    os.path.join(_repo_root, "backend"),
+    _repo_root,
+):
+    if os.path.isdir(_candidate) and _candidate not in sys.path:
+        sys.path.append(_candidate)
 
 from database import Base, SessionLocal, engine
 from models import (
