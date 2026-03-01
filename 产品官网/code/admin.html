@@ -31,9 +31,8 @@
 
             <div class="space-y-4">
                 <input id="admin-key" type="password" placeholder="请输入管理密码"
-                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition text-sm"
-                    onkeydown="if(event.key==='Enter') login()" />
-                <button onclick="login()"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition text-sm" />
+                <button id="login-btn"
                     class="w-full py-3 bg-[#111] text-white rounded-xl font-medium hover:bg-black transition">
                     进入后台
                 </button>
@@ -59,19 +58,19 @@
                     class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium"></span>
             </div>
             <div class="flex gap-3">
-                <button onclick="loadLeads()"
+                <button id="refresh-btn"
                     class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
                     刷新
                 </button>
-                <button onclick="toggleRateLimits()"
+                <button id="toggle-rate-btn"
                     class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
                     IP 监控
                 </button>
-                <button onclick="exportCSV()"
+                <button id="export-btn"
                     class="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium">
                     导出 CSV
                 </button>
-                <button onclick="logout()" class="px-4 py-2 text-sm text-gray-400 hover:text-red-500 transition">
+                <button id="logout-btn" class="px-4 py-2 text-sm text-gray-400 hover:text-red-500 transition">
                     退出
                 </button>
             </div>
@@ -112,7 +111,7 @@
                         <span class="font-semibold text-gray-800">🛡️ IP 速率限制监控</span>
                         <span id="rate-info" class="text-xs text-gray-400"></span>
                     </div>
-                    <button onclick="loadRateLimits()" class="text-xs text-blue-500 hover:text-blue-700">刷新</button>
+                    <button id="rate-refresh-btn" class="text-xs text-blue-500 hover:text-blue-700">刷新</button>
                 </div>
                 <table class="w-full text-sm">
                     <thead>
@@ -134,35 +133,63 @@
     </div>
 
     <script>
-        // Pages Function 地址 — 与官网同域，直接使用绝对路径
-        const API_URL = 'https://ngep.houyuxi.com';
-        let ADMIN_KEY = '';
+        // Pages Function 地址（同域）
+        const API_URL = window.location.origin;
         let leadsData = [];
 
-        function login() {
-            ADMIN_KEY = document.getElementById('admin-key').value;
+        function showAuthScreen() {
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
 
-            if (!ADMIN_KEY) {
+        function showDashboard() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        async function apiFetch(path, options = {}) {
+            return fetch(`${API_URL}${path}`, {
+                credentials: 'include',
+                ...options,
+            });
+        }
+
+        async function login() {
+            const key = document.getElementById('admin-key').value;
+            if (!key) {
                 showAuthError('请填写完整信息');
                 return;
             }
 
-            loadLeads().then(ok => {
-                if (ok) {
-                    document.getElementById('auth-screen').classList.add('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    // 仅存入 sessionStorage（关闭标签页即失效）
-                    sessionStorage.setItem('ngep_admin_key', ADMIN_KEY);
+            try {
+                const res = await apiFetch('/api/admin/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key }),
+                });
+                const json = await res.json().catch(() => ({}));
+
+                if (!res.ok || !json.success) {
+                    showAuthError(json.error || '认证失败');
+                    return;
                 }
-            });
+
+                document.getElementById('admin-key').value = '';
+                showDashboard();
+                await loadLeads();
+            } catch (e) {
+                showAuthError('网络错误：' + e.message);
+            }
         }
 
-        function logout() {
-            sessionStorage.removeItem('ngep_admin_key');
-            ADMIN_KEY = '';
+        async function logout() {
+            try {
+                await apiFetch('/api/admin/session', { method: 'DELETE' });
+            } catch (e) {
+                console.warn('logout failed:', e);
+            }
             document.getElementById('admin-key').value = '';
-            document.getElementById('auth-screen').classList.remove('hidden');
-            document.getElementById('dashboard').classList.add('hidden');
+            showAuthScreen();
         }
 
         function showAuthError(msg) {
@@ -173,11 +200,16 @@
 
         async function loadLeads() {
             try {
-                const res = await fetch(`${API_URL}/api/leads?key=${encodeURIComponent(ADMIN_KEY)}`);
-                const json = await res.json();
+                const res = await apiFetch('/api/leads');
+                const json = await res.json().catch(() => ({}));
 
+                if (res.status === 401) {
+                    showAuthError('登录状态已失效，请重新登录');
+                    showAuthScreen();
+                    return false;
+                }
                 if (!res.ok || !json.success) {
-                    showAuthError(json.error || '认证失败');
+                    showAuthError(json.error || '查询失败');
                     return false;
                 }
 
@@ -202,7 +234,7 @@
             }
 
             empty.classList.add('hidden');
-            tbody.innerHTML = data.map((row, i) => `
+                tbody.innerHTML = data.map((row, i) => `
                 <tr class="border-t border-gray-50 hover:bg-blue-50/30 transition">
                     <td class="px-6 py-4 text-gray-400">${i + 1}</td>
                     <td class="px-6 py-4 font-medium text-gray-900">${esc(row.name)}</td>
@@ -213,7 +245,7 @@
                     <td class="px-6 py-4 text-gray-600 max-w-[200px] truncate" title="${esc(row.requirement)}">${esc(row.requirement)}</td>
                     <td class="px-6 py-4 text-gray-400 text-xs whitespace-nowrap">${row.created_at || '-'}</td>
                     <td class="px-6 py-4">
-                        <button onclick="deleteLead(${row.id})" class="text-xs text-red-400 hover:text-red-600 transition">删除</button>
+                        <button data-action="delete" data-id="${row.id}" class="text-xs text-red-400 hover:text-red-600 transition">删除</button>
                     </td>
                 </tr>
             `).join('');
@@ -222,7 +254,7 @@
         async function deleteLead(id) {
             if (!confirm('确认删除这条线索？')) return;
             try {
-                const res = await fetch(`${API_URL}/api/leads?key=${encodeURIComponent(ADMIN_KEY)}&id=${id}`, {
+                const res = await apiFetch(`/api/leads?id=${encodeURIComponent(id)}`, {
                     method: 'DELETE'
                 });
                 const json = await res.json();
@@ -245,11 +277,10 @@
             a.click();
 
             // 通知企业微信
-            fetch(`${API_URL}/api/notify`, {
+            apiFetch('/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    key: ADMIN_KEY,
                     title: '数据导出通知',
                     message: `管理员导出了 **${leadsData.length}** 条线索数据为 CSV 文件`
                 })
@@ -262,13 +293,17 @@
             return d.innerHTML;
         }
 
-        // 仅会话级自动登录（sessionStorage，关闭浏览器/标签页后失效）
+        // 自动恢复服务端会话（HttpOnly Cookie）
         window.addEventListener('DOMContentLoaded', () => {
-            const savedKey = sessionStorage.getItem('ngep_admin_key');
-            if (savedKey) {
-                document.getElementById('admin-key').value = savedKey;
-                login();
-            }
+            apiFetch('/api/admin/session')
+                .then((res) => {
+                    if (!res.ok) throw new Error('not authed');
+                    showDashboard();
+                    return loadLeads();
+                })
+                .catch(() => {
+                    showAuthScreen();
+                });
         });
 
         // 速率限制 IP 监控
@@ -284,8 +319,13 @@
 
         async function loadRateLimits() {
             try {
-                const res = await fetch(`${API_URL}/api/rate-limits?key=${encodeURIComponent(ADMIN_KEY)}`);
+                const res = await apiFetch('/api/rate-limits');
                 const json = await res.json();
+                if (res.status === 401) {
+                    showAuthError('登录状态已失效，请重新登录');
+                    showAuthScreen();
+                    return;
+                }
                 if (!json.success) return;
 
                 document.getElementById('rate-info').textContent = `限制：${json.limit}次/${json.window}秒`;
@@ -315,6 +355,41 @@
                 console.error('Load rate limits failed:', e);
             }
         }
+
+        function bindUIEvents() {
+            const loginBtn = document.getElementById('login-btn');
+            const adminKeyInput = document.getElementById('admin-key');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const toggleRateBtn = document.getElementById('toggle-rate-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const rateRefreshBtn = document.getElementById('rate-refresh-btn');
+            const leadsTbody = document.getElementById('leads-tbody');
+
+            loginBtn?.addEventListener('click', () => login());
+            adminKeyInput?.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    login();
+                }
+            });
+            refreshBtn?.addEventListener('click', () => loadLeads());
+            toggleRateBtn?.addEventListener('click', () => toggleRateLimits());
+            exportBtn?.addEventListener('click', () => exportCSV());
+            logoutBtn?.addEventListener('click', () => logout());
+            rateRefreshBtn?.addEventListener('click', () => loadRateLimits());
+            leadsTbody?.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) return;
+                const button = target.closest('button[data-action=\"delete\"]');
+                if (!(button instanceof HTMLButtonElement)) return;
+                const id = Number(button.dataset.id);
+                if (!Number.isFinite(id)) return;
+                deleteLead(id);
+            });
+        }
+
+        bindUIEvents();
     </script>
 </body>
 

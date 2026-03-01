@@ -62,6 +62,7 @@ code/
 |---------------|-----|------|
 | `ADMIN_KEY` | 自定义管理密码 | 后台查询/删除鉴权 |
 | `WECHAT_WEBHOOK_URL` | `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key` | 企业微信推送 |
+| `CSP_STRICT_STYLE` | 默认 `true`（可选） | 严格样式 CSP（nonce/external）；如需兼容回退可设为 `false` |
 
 > ⚠️ 修改 Settings 后需要**重新部署一次**才能生效（Create deployment → 重新上传文件夹）
 
@@ -102,21 +103,29 @@ code/
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
+| `POST` | `/api/admin/session` | body: `key` | 登录后台，签发 HttpOnly 会话 Cookie |
+| `GET` | `/api/admin/session` | HttpOnly 会话 Cookie | 检查会话是否有效 |
+| `DELETE` | `/api/admin/session` | 无（可调用） | 注销后台会话（清除 Cookie） |
 | `POST` | `/api/leads` | 无（速率限制：5次/分钟/IP） | 提交线索 + 企微通知 |
-| `GET` | `/api/leads?key=xxx` | ADMIN_KEY | 查询所有线索 |
-| `DELETE` | `/api/leads?key=xxx&id=1` | ADMIN_KEY | 删除线索 + 企微通知 |
-| `POST` | `/api/notify` | ADMIN_KEY (body) | 自定义操作通知 |
+| `GET` | `/api/leads` | HttpOnly 会话 Cookie | 查询所有线索 |
+| `DELETE` | `/api/leads?id=1` | HttpOnly 会话 Cookie | 删除线索 + 企微通知 |
+| `GET` | `/api/rate-limits` | HttpOnly 会话 Cookie | 查看限流统计 |
+| `POST` | `/api/notify` | HttpOnly 会话 Cookie | 自定义操作通知（会话/IP 频控 + 最小间隔 + 长度上限） |
 
 ---
 
 ## 八、数据库表结构
 
-参见 `docs/schema.sql`，包含两张表：
+参见 `docs/schema.sql`，关键表如下：
 
 | 表名 | 用途 |
 |------|------|
 | `leads` | 线索数据存储 |
 | `rate_limits` | IP 速率限制计数器（自动清理过期记录） |
+| `notify_rate_limits` | 通知接口会话/IP 限流与发送间隔控制 |
+| `admin_auth_attempts` | 后台登录尝试计数（按 IP/时间窗） |
+| `admin_auth_failures` | 后台登录失败计数（用于锁定策略） |
+| `admin_auth_lockouts` | 后台登录临时锁定状态 |
 
 ---
 
@@ -129,10 +138,15 @@ code/
 | 输入 Sanitize | 去除 HTML 标签，500 字符上限 |
 | 手机/邮箱格式校验 | 正则验证 |
 | IP 速率限制 | D1 全局一致，每 IP 每分钟 5 次 |
+| 通知接口限流 | `/api/notify` 每 IP 每分钟 6 次、每会话每分钟 10 次、同会话最小间隔 10 秒 |
+| 通知长度限制 | 标题最大 80 字符，消息最大 1200 字符 |
+| 登录/通知请求体限制 | `/api/admin/session` 最大 8KB，`/api/notify` 最大 16KB，超限返回 413 |
+| 后台登录防爆破 | `/api/admin/session` 每 IP 每分钟 8 次、最小间隔 2 秒、10 分钟内失败 10 次锁定 15 分钟；全站 10 分钟失败 50 次触发全局锁定 10 分钟 |
 | 请求体大小限制 | 10KB 上限 |
 | 暴力破解防护 | 鉴权失败延迟 500ms |
 | 错误信息脱敏 | 不暴露内部错误 |
-| 密钥会话级存储 | sessionStorage，关闭标签页即清除 |
+| 会话安全 | ADMIN_KEY 不持久化，登录后仅使用 HttpOnly Cookie |
+| 样式策略收敛 | 默认启用 nonce 样式模式并禁用 `style` 属性内联；可通过 `CSP_STRICT_STYLE=false` 兼容回退 |
 | DELETE 方法 | 副作用操作使用正确的 HTTP 方法 |
 
 ---

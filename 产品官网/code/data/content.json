@@ -1,0 +1,234 @@
+{
+    "meta": {
+        "version": "2.4.1",
+        "buildId": "ngep-prod-20260228",
+        "locale": "zh-CN",
+        "api": "/api/v2",
+        "cdnBase": "https://cdn.houyuxi.com/ngep"
+    },
+    "hero": {
+        "badge": "高效、安全、无缝连接",
+        "title": [
+            "重塑企业",
+            "数字化入口"
+        ],
+        "subtitle": "从分散到统一。构建基于零信任架构的新一代网关，一站式聚合应用与信息，打破孤岛，赋能全员高效协作。",
+        "cta": [
+            {
+                "label": "免费试用",
+                "action": "openModal",
+                "style": "primary"
+            },
+            {
+                "label": "获取资料",
+                "href": "#features",
+                "style": "secondary"
+            }
+        ],
+        "floatingCards": [
+            {
+                "title": "一账通行",
+                "desc": "SSO全量应用整合",
+                "icon": "lock"
+            },
+            {
+                "title": "零信任安全驱动",
+                "desc": "双写审计 · 告别越权隐患",
+                "icon": "shield"
+            }
+        ]
+    },
+    "features": {
+        "sectionTitle": "统一门户带来的三大核心业务价值",
+        "sectionDesc": "从繁琐的遗留系统到极简的统一操作体验，NGEP 关注您的核心 IT 关切。",
+        "items": [
+            {
+                "icon": "key",
+                "title": "统一鉴权与单点登录",
+                "desc": "支持 OIDC / OAuth2 等标准协议。员工仅需登录一次，即可无缝串接所有内部系统，杜绝多账号密码遗忘，IT 支持工单大幅下降 60%。"
+            },
+            {
+                "icon": "grid",
+                "title": "多源系统入口聚合",
+                "desc": "以高度模块化的卡片网格展现应用目录。系统能够根据组织架构自动化调整应用的可见性与访问控制，让员工寻找入口的时间爆减 40%。"
+            },
+            {
+                "icon": "shield",
+                "title": "合规留痕全链路审计",
+                "desc": "细粒度记录用户的每一次登录及后台的敏感操作。采用双写模式将会话日志落库并推入 Loki 流引擎，构建 100% 无死角的审查追溯网络。"
+            }
+        ]
+    },
+    "useCases": {
+        "sectionTitle": "一套门户解决您的内部协同挑战",
+        "sectionDesc": "全场景覆盖，打破从办公软件到核心生产系统的数据墙垣。",
+        "groups": [
+            {
+                "title": "敏捷的无侵入式整合模式",
+                "points": [
+                    {
+                        "bold": "无需硬复写到底层：",
+                        "text": "使用前置网关设计控制会话校验与拦截，原应用逻辑分毫未动。"
+                    },
+                    {
+                        "bold": "快速平滑迁移：",
+                        "text": "支持标准化的 OIDC 对接参数表填报，仅需两步配置即可纳管业务应用。"
+                    },
+                    {
+                        "bold": "员工离职阻断回收：",
+                        "text": "只要在门户管理后台冻结人员身份，所有子系统通行立刻失效，防止越权。"
+                    }
+                ],
+                "visual": "gateway"
+            },
+            {
+                "title": "企业级数字资讯下发展板",
+                "points": [
+                    {
+                        "bold": "集中资讯区：",
+                        "text": "内置文章与轮播通知编辑器，实现重要公文的全天候霸屏曝光，避免聊天群刷屏漏阅。"
+                    },
+                    {
+                        "bold": "强关注签署：",
+                        "text": "支持阅后勾选、强弹窗通知等强制手段，保证管理层精神与行政规定百分百触达终端用户。"
+                    },
+                    {
+                        "bold": "沉淀式知识检索：",
+                        "text": "可打通网盘或企业 Wiki，充当单一的智能文档索引及入口网关。"
+                    }
+                ],
+                "visual": "bulletin"
+            }
+        ]
+    },
+    "architecture": {
+        "sectionTitle": "零信任架构基石，值得信赖的部署保障",
+        "sectionDesc": "完善的私有部署策略及国产化安全适配方案。",
+        "items": [
+            {
+                "title": "双平面网络物理隔离",
+                "desc": "针对普通员工前台与管理后台进行了物理层的访问流隔离。\"双会话策略\"确保终端用户请求凭证无法向系统管理界面进行平行越权跃迁，自底层斩断提权攻击链。"
+            },
+            {
+                "title": "全面适配主流国产化要求",
+                "desc": "底层环境完全跨平台支持。无论是 X86 还是 ARM（鲲鹏、飞腾服务器），或是主流国产系统与信创名录数据库如达梦、人大金仓体系，均能按标准模式一键兼容部署。"
+            },
+            {
+                "title": "高可用与可观测性封装",
+                "desc": "在 Docker/K8s 容器化发布的基础之上，内嵌完整的 Grafana 业务看板体系以及 Loki 流媒体追踪体系，确保系统不仅\"可用\"更能被 IT 人员随时\"洞明\"。"
+            },
+            {
+                "title": "专家级交付与技术支持服务",
+                "desc": "从评估到实施迁移全生命周期覆盖。提供原厂专家服务（包含 7x24 工单及紧急响应机制），兼顾安全性与企业系统整合带来的技术摩擦成本。"
+            }
+        ]
+    },
+    "trustLogos": {
+        "sectionTitle": "他们都在用（NGEP）",
+        "items": [
+            {
+                "name": "泰国大管家(BHK)",
+                "abbr": "BIG HOUSEKEEPER",
+                "type": "image",
+                "src": "images/footerLogo-DJmhLSCs.png"
+            },
+            {
+                "name": "山东新华设计工程有限公司",
+                "abbr": "Shandong Xinhua Design & Engineering Co.,Ltd.",
+                "type": "image",
+                "src": "images/shandong_xinhua_design_engineering_co_ltd_logo.png"
+            },
+            {
+                "name": "北京视酷公司",
+                "abbr": "shiku_inc",
+                "type": "image",
+                "src": "images/shiku_inc_logo.png"
+            },
+            {
+                "name": "青岛启弘信息科技有限公司",
+                "abbr": "Qingdao Qiho Information&Technology Co.,Ltd.",
+                "type": "image",
+                "src": "images/qingdao_qiho_information_technology_co_ltd_logo.webp"
+            },
+            {
+                "name": "西安天谛伟创探测技术有限公司",
+                "abbr": "Xi'an Tiandi Weichuang Detection Technology Co., Ltd.",
+                "type": "image",
+                "src": "images/xi_an_ti_an_di_wei_chuang_detection_technology_co_ltd_logo.png"
+            }
+        ]
+    },
+    "form": {
+        "title": "获取企业级方案",
+        "subtitle": "请留下您的联系方式，我们的专属顾问将尽快与您取得联系。",
+        "fields": [
+            {
+                "name": "name",
+                "label": "姓名",
+                "type": "text",
+                "placeholder": "您的姓名",
+                "required": true
+            },
+            {
+                "name": "phone",
+                "label": "手机号码",
+                "type": "tel",
+                "placeholder": "您的手机号码",
+                "required": true
+            },
+            {
+                "name": "email",
+                "label": "工作邮箱",
+                "type": "email",
+                "placeholder": "work@company.com",
+                "required": true
+            },
+            {
+                "name": "company",
+                "label": "公司名称",
+                "type": "text",
+                "placeholder": "所属企业全称",
+                "required": true
+            },
+            {
+                "name": "title",
+                "label": "您的职位",
+                "type": "text",
+                "placeholder": "如：IT 总监",
+                "required": true
+            },
+            {
+                "name": "requirement",
+                "label": "咨询事宜",
+                "type": "select",
+                "required": true,
+                "options": [
+                    {
+                        "value": "",
+                        "label": "请选择您的主要需求",
+                        "disabled": true
+                    },
+                    {
+                        "value": "product_demo",
+                        "label": "产品演示与试用"
+                    },
+                    {
+                        "value": "pricing",
+                        "label": "获取报价方案"
+                    },
+                    {
+                        "value": "technical",
+                        "label": "技术架构交流"
+                    },
+                    {
+                        "value": "other",
+                        "label": "其他合作意向"
+                    }
+                ]
+            }
+        ],
+        "submitText": "提交申请",
+        "successMsg": "提交成功！我们的架构专家会尽快与您联系。",
+        "errorMsg": "非常抱歉，接口连接失败，请稍后再试。"
+    }
+}
