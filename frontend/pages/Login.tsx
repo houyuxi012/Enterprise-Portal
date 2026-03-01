@@ -11,6 +11,9 @@ interface LoginProps {
 }
 
 const REMEMBERED_PORTAL_USERNAME_KEY = 'portal_remembered_username';
+const DEFAULT_LOGO_URL = '/images/logo.png';
+
+const normalizeConfigValue = (value?: string): string => String(value ?? '').trim();
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const { t } = useTranslation();
@@ -27,9 +30,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [captchaImage, setCaptchaImage] = useState('');
     const [captchaCode, setCaptchaCode] = useState('');
 
-    const [appName, setAppName] = useState(() => localStorage.getItem('sys_app_name') || t('loginPortal.fallbackAppName'));
-    const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('sys_logo_url') || '/images/logo.png');
-    const [footerText, setFooterText] = useState(() => localStorage.getItem('sys_footer_text') || t('loginPortal.fallbackFooter'));
+    const [appName, setAppName] = useState(() => normalizeConfigValue(localStorage.getItem('sys_app_name') || '') || t('loginPortal.fallbackAppName'));
+    const [logoUrl, setLogoUrl] = useState<string>(() => normalizeConfigValue(localStorage.getItem('sys_logo_url') || '') || DEFAULT_LOGO_URL);
+    const [footerText, setFooterText] = useState(() => normalizeConfigValue(localStorage.getItem('sys_footer_text') || '') || t('loginPortal.fallbackFooter'));
 
     const fetchCaptcha = async () => {
         try {
@@ -51,36 +54,47 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         const fetchConfig = async () => {
             try {
                 const config = await ApiClient.getPublicSystemConfig();
-                if (config.app_name) {
-                    setAppName(config.app_name);
-                    localStorage.setItem('sys_app_name', config.app_name);
-                }
-                if (config.logo_url) {
-                    setLogoUrl(config.logo_url);
-                    localStorage.setItem('sys_logo_url', config.logo_url);
-                }
-                if (config.footer_text) {
-                    setFooterText(config.footer_text);
-                    localStorage.setItem('sys_footer_text', config.footer_text);
-                }
-                if (config.browser_title) document.title = config.browser_title;
-                if (config.favicon_url) {
-                    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-                    if (link) {
-                        link.href = config.favicon_url;
-                    } else {
-                        const newLink = document.createElement('link');
-                        newLink.rel = 'icon';
-                        newLink.href = config.favicon_url;
-                        document.head.appendChild(newLink);
-                    }
+                const nextAppNameRaw = normalizeConfigValue(config.app_name);
+                const nextLogoUrlRaw = normalizeConfigValue(config.logo_url);
+                const nextFooterTextRaw = normalizeConfigValue(config.footer_text);
+                const nextBrowserTitleRaw = normalizeConfigValue(config.browser_title);
+                const nextFaviconRaw = normalizeConfigValue(config.favicon_url);
+
+                const nextAppName = nextAppNameRaw || t('loginPortal.fallbackAppName');
+                const nextLogoUrl = nextLogoUrlRaw || DEFAULT_LOGO_URL;
+                const nextFooterText = nextFooterTextRaw || t('loginPortal.fallbackFooter');
+
+                setAppName(nextAppName);
+                setLogoUrl(nextLogoUrl);
+                setFooterText(nextFooterText);
+
+                if (nextAppNameRaw) localStorage.setItem('sys_app_name', nextAppNameRaw);
+                else localStorage.removeItem('sys_app_name');
+
+                if (nextLogoUrlRaw) localStorage.setItem('sys_logo_url', nextLogoUrlRaw);
+                else localStorage.removeItem('sys_logo_url');
+
+                if (nextFooterTextRaw) localStorage.setItem('sys_footer_text', nextFooterTextRaw);
+                else localStorage.removeItem('sys_footer_text');
+
+                document.title = nextBrowserTitleRaw || nextAppName;
+
+                const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+                const finalFavicon = nextFaviconRaw || '/favicon.ico';
+                if (link) {
+                    link.href = finalFavicon;
+                } else {
+                    const newLink = document.createElement('link');
+                    newLink.rel = 'icon';
+                    newLink.href = finalFavicon;
+                    document.head.appendChild(newLink);
                 }
             } catch (error) {
                 console.error("Failed to load system config:", error);
             }
         };
         fetchConfig();
-    }, []);
+    }, [t]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -23,6 +23,53 @@ import { useAuth } from './contexts/AuthContext';
 
 const NEWS_CATEGORY_CODES = ['announcement', 'activity', 'policy', 'culture'] as const;
 type NewsCategoryCode = (typeof NEWS_CATEGORY_CODES)[number];
+const TOOL_CATEGORY_CODES = [
+  'administration',
+  'it',
+  'finance',
+  'hr',
+  'engineering',
+  'design',
+  'marketing',
+  'legal',
+  'general',
+  'other',
+] as const;
+type ToolCategoryCode = (typeof TOOL_CATEGORY_CODES)[number];
+
+const TOOL_CATEGORY_BASE_ALIASES: Record<string, ToolCategoryCode> = {
+  administration: 'administration',
+  行政: 'administration',
+  办公: 'administration',
+  office: 'administration',
+  it: 'it',
+  信息技术: 'it',
+  finance: 'finance',
+  财务: 'finance',
+  hr: 'hr',
+  'human resources': 'hr',
+  人力资源: 'hr',
+  engineering: 'engineering',
+  研发: 'engineering',
+  开发: 'engineering',
+  design: 'design',
+  设计: 'design',
+  marketing: 'marketing',
+  营销: 'marketing',
+  legal: 'legal',
+  法律: 'legal',
+  general: 'general',
+  通用: 'general',
+  other: 'other',
+  其他: 'other',
+};
+
+const normalizeAliasKey = (value: string): string =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[-_]/g, '');
 
 const NEWS_CATEGORY_LABEL_KEYS: Record<NewsCategoryCode, string> = {
   announcement: 'appRoot.news.tabAnnouncement',
@@ -206,6 +253,66 @@ const App: React.FC = () => {
     if (!value || value === '-') return t('appRoot.news.customerFallback');
     return value;
   }, [systemConfig, t]);
+  const toolCategoryAliases = useMemo(() => {
+    const aliases: Record<string, ToolCategoryCode> = { ...TOOL_CATEGORY_BASE_ALIASES };
+    const normalizedAliases: Record<string, ToolCategoryCode> = {};
+
+    Object.entries(aliases).forEach(([key, code]) => {
+      normalizedAliases[normalizeAliasKey(key)] = code;
+      normalizedAliases[normalizeAliasKey(key.toUpperCase())] = code;
+    });
+
+    TOOL_CATEGORY_CODES.forEach((code) => {
+      aliases[code] = code;
+      aliases[code.toUpperCase()] = code;
+      const zhLabel = String(i18n.t(`toolList.categories.${code}`, { lng: 'zh-CN' })).trim();
+      const enLabel = String(i18n.t(`toolList.categories.${code}`, { lng: 'en-US' })).trim();
+      if (zhLabel) {
+        aliases[zhLabel] = code;
+        normalizedAliases[normalizeAliasKey(zhLabel)] = code;
+      }
+      if (enLabel) {
+        aliases[enLabel] = code;
+        aliases[enLabel.toLowerCase()] = code;
+        normalizedAliases[normalizeAliasKey(enLabel)] = code;
+      }
+    });
+
+    return { aliases, normalizedAliases };
+  }, [i18n.resolvedLanguage]);
+
+  const normalizeToolCategory = useCallback((value?: string): string => {
+    const raw = String(value || '').trim();
+    if (!raw) return 'general';
+
+    const direct =
+      toolCategoryAliases.aliases[raw] || toolCategoryAliases.aliases[raw.toLowerCase()];
+    if (direct) return direct;
+
+    const normalized = normalizeAliasKey(raw);
+    const normalizedMatch = toolCategoryAliases.normalizedAliases[normalized];
+    if (normalizedMatch) return normalizedMatch;
+
+    if (raw.includes('研发') || raw.includes('开发')) return 'engineering';
+    if (raw.includes('行政') || raw.includes('办公')) return 'administration';
+    if (raw.includes('营销')) return 'marketing';
+    if (raw.includes('法律')) return 'legal';
+    if (raw.includes('财务')) return 'finance';
+    if (raw.includes('人力')) return 'hr';
+    if (raw.includes('设计')) return 'design';
+    if (raw.includes('通用')) return 'general';
+    if (raw.includes('其他')) return 'other';
+
+    return raw;
+  }, [toolCategoryAliases]);
+
+  const renderToolCategoryLabel = useCallback((value: string): string => {
+    if (value === 'all') return t('common.status.all');
+    if (TOOL_CATEGORY_CODES.includes(value as ToolCategoryCode)) {
+      return t(`toolList.categories.${value}`);
+    }
+    return value;
+  }, [t]);
 
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
@@ -218,29 +325,40 @@ const App: React.FC = () => {
   const applyBrandingConfig = useCallback((config: Record<string, string>) => {
     if (!config) return;
 
-    if (config.app_name) {
-      localStorage.setItem('sys_app_name', config.app_name);
-    }
-    if (config.logo_url) {
-      localStorage.setItem('sys_logo_url', config.logo_url);
-    }
-    if (config.footer_text) {
-      localStorage.setItem('sys_footer_text', config.footer_text);
+    const appName = String(config.app_name || '').trim();
+    const logoUrl = String(config.logo_url || '').trim();
+    const footerText = String(config.footer_text || '').trim();
+    const browserTitle = String(config.browser_title || '').trim();
+    const faviconUrl = String(config.favicon_url || '').trim();
+
+    if (appName) localStorage.setItem('sys_app_name', appName);
+    else localStorage.removeItem('sys_app_name');
+
+    if (logoUrl) localStorage.setItem('sys_logo_url', logoUrl);
+    else localStorage.removeItem('sys_logo_url');
+
+    if (footerText) localStorage.setItem('sys_footer_text', footerText);
+    else localStorage.removeItem('sys_footer_text');
+
+    if (browserTitle) {
+      document.title = browserTitle;
+    } else if (appName) {
+      document.title = appName;
     }
 
-    if (config.browser_title) {
-      document.title = config.browser_title;
-    }
-    if (config.favicon_url) {
+    if (faviconUrl) {
       const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
       if (link) {
-        link.href = config.favicon_url;
+        link.href = faviconUrl;
       } else {
         const newLink = document.createElement('link');
         newLink.rel = 'icon';
-        newLink.href = config.favicon_url;
+        newLink.href = faviconUrl;
         document.head.appendChild(newLink);
       }
+    } else {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) link.href = '/favicon.ico';
     }
   }, []);
 
@@ -591,10 +709,10 @@ const App: React.FC = () => {
           </div>
         );
       case AppView.TOOLS:
-        const appCategories = ['all', ...Array.from(new Set(tools.map(t => t.category).filter(Boolean)))];
+        const appCategories = ['all', ...Array.from(new Set(tools.map(t => normalizeToolCategory(t.category)).filter(Boolean)))];
         const tabFilteredTools = filteredTools.filter(t => {
           if (activeAppCategory === 'all') return true;
-          return t.category === activeAppCategory;
+          return normalizeToolCategory(t.category) === activeAppCategory;
         });
 
         return (
@@ -615,7 +733,7 @@ const App: React.FC = () => {
                       : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                   >
-                    {category === 'all' ? t('common.status.all') : category}
+                    {renderToolCategoryLabel(category)}
                   </button>
                 ))}
               </div>
