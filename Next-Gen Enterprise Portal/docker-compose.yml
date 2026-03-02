@@ -110,7 +110,7 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
-      - ./loki:/app/loki # Allow backend to update Loki config
+      - ./ops/loki:/app/loki # Allow backend to update Loki config
       - ../test_db:/app/test_db # Mount test data scripts
 
   frontend:
@@ -126,8 +126,8 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/certs:/etc/nginx/certs:ro
 
   loki:
     image: grafana/loki:2.9.4
@@ -135,7 +135,7 @@ services:
     expose:
       - "3100"
     volumes:
-      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - ./ops/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3100/ready" ]
@@ -154,7 +154,7 @@ services:
       - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
       - redis
