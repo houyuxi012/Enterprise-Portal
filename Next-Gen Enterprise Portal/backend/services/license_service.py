@@ -881,6 +881,37 @@ class LicenseService:
         if row is None:
             return
 
+        # Re-evaluate against the latest DB row to avoid stale worker cache
+        # incorrectly mutating a newly installed license.
+        current_state = cls._serialize_state(row)
+        current_runtime = cls._evaluate_runtime_state(
+            current_state,
+            system_now=safe_now or datetime.now(timezone.utc),
+        )
+        current_reason = current_runtime.get("reason_code")
+
+        # Self-heal: if row is marked expired but time window is actually valid,
+        # reactivate it instead of keeping the system in read-only mode forever.
+        if (
+            reason_code == cls.CODE_EXPIRED
+            and safe_now is not None
+            and safe_now < cls._ensure_utc(row.expires_at)
+            and (row.status or "").lower() == "expired"
+            and (row.reason or "").upper() in {"", cls.CODE_EXPIRED}
+        ):
+            row.status = "active"
+            row.reason = None
+            row.last_seen_time = safe_now
+            await db.commit()
+            cls.invalidate_cache()
+            return
+
+        # If current row no longer has the same runtime reason, skip transition.
+        # This happens when another worker has already installed/refreshed license.
+        if current_reason != reason_code:
+            cls.invalidate_cache()
+            return
+
         should_emit = False
         event_type = "license.verify_failed"
         if reason_code == cls.CODE_EXPIRED:
