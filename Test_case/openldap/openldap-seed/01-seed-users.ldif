@@ -1,31 +1,67 @@
 # ============================================================
 # 组织结构: 百度 > 财务部 / 设计部 / 研发中心
-# Base DN: dc=example,dc=com
+#   设计部 > 设计一组 / 设计二组
+#   研发中心 > 北京研发中心 / 上海研发中心
+#     北京研发中心 > 研发一组 / 研发二组
+#       研发二组 > 外包组
+# Base DN: dc=baiduinc,dc=com
 # ============================================================
 
 # --- 顶层 OU ---
-dn: ou=百度,dc=example,dc=com
+dn: ou=百度,dc=baiduinc,dc=com
 objectClass: organizationalUnit
 ou: 百度
 
-# --- 部门 OU ---
-dn: ou=财务部,ou=百度,dc=example,dc=com
+# --- 一级部门 OU ---
+dn: ou=财务部,ou=百度,dc=baiduinc,dc=com
 objectClass: organizationalUnit
 ou: 财务部
 
-dn: ou=设计部,ou=百度,dc=example,dc=com
+dn: ou=设计部,ou=百度,dc=baiduinc,dc=com
 objectClass: organizationalUnit
 ou: 设计部
 
-dn: ou=研发中心,ou=百度,dc=example,dc=com
+dn: ou=研发中心,ou=百度,dc=baiduinc,dc=com
 objectClass: organizationalUnit
 ou: 研发中心
+
+# --- 设计部子组 ---
+dn: ou=设计一组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 设计一组
+
+dn: ou=设计二组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 设计二组
+
+# --- 研发中心子组 ---
+dn: ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 北京研发中心
+
+dn: ou=上海研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 上海研发中心
+
+# --- 北京研发中心子组 ---
+dn: ou=研发一组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 研发一组
+
+dn: ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 研发二组
+
+# --- 研发二组子组 ---
+dn: ou=外包组,ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: organizationalUnit
+ou: 外包组
 
 # ============================================================
 # 财务部 - 3 名用户
 # ============================================================
 
-dn: uid=zhaomin,ou=财务部,ou=百度,dc=example,dc=com
+dn: uid=zhaomin,ou=财务部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -42,7 +78,7 @@ homeDirectory: /home/zhaomin
 mail: zhaomin@example.com
 mobile: 13800000001
 
-dn: uid=sunli,ou=财务部,ou=百度,dc=example,dc=com
+dn: uid=sunli,ou=财务部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -59,7 +95,7 @@ homeDirectory: /home/sunli
 mail: sunli@example.com
 mobile: 13800000002
 
-dn: uid=qianwei,ou=财务部,ou=百度,dc=example,dc=com
+dn: uid=qianwei,ou=财务部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -77,10 +113,10 @@ mail: qianwei@example.com
 mobile: 13800000003
 
 # ============================================================
-# 设计部 - 3 名用户
+# 设计部 - 3 名用户（直属）
 # ============================================================
 
-dn: uid=liuyan,ou=设计部,ou=百度,dc=example,dc=com
+dn: uid=liuyan,ou=设计部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -97,7 +133,7 @@ homeDirectory: /home/liuyan
 mail: liuyan@example.com
 mobile: 13800000004
 
-dn: uid=chenfei,ou=设计部,ou=百度,dc=example,dc=com
+dn: uid=chenfei,ou=设计部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -114,7 +150,7 @@ homeDirectory: /home/chenfei
 mail: chenfei@example.com
 mobile: 13800000005
 
-dn: uid=zhoujie,ou=设计部,ou=百度,dc=example,dc=com
+dn: uid=zhoujie,ou=设计部,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -132,10 +168,86 @@ mail: zhoujie@example.com
 mobile: 13800000006
 
 # ============================================================
-# 研发中心 - 3 名用户
+# 设计一组 - 2 名用户
 # ============================================================
 
-dn: uid=wangkai,ou=研发中心,ou=百度,dc=example,dc=com
+dn: uid=tangrui,ou=设计一组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: tangrui
+sn: Tang
+givenName: Rui
+cn: Tang Rui
+displayName: 唐睿
+uidNumber: 10010
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/tangrui
+mail: tangrui@example.com
+mobile: 13800000010
+
+dn: uid=hejing,ou=设计一组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: hejing
+sn: He
+givenName: Jing
+cn: He Jing
+displayName: 何静
+uidNumber: 10011
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/hejing
+mail: hejing@example.com
+mobile: 13800000011
+
+# ============================================================
+# 设计二组 - 2 名用户
+# ============================================================
+
+dn: uid=fanxin,ou=设计二组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: fanxin
+sn: Fan
+givenName: Xin
+cn: Fan Xin
+displayName: 范欣
+uidNumber: 10012
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/fanxin
+mail: fanxin@example.com
+mobile: 13800000012
+
+dn: uid=luochen,ou=设计二组,ou=设计部,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: luochen
+sn: Luo
+givenName: Chen
+cn: Luo Chen
+displayName: 罗晨
+uidNumber: 10013
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/luochen
+mail: luochen@example.com
+mobile: 13800000013
+
+# ============================================================
+# 研发中心 - 3 名用户（直属）
+# ============================================================
+
+dn: uid=wangkai,ou=研发中心,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -152,7 +264,7 @@ homeDirectory: /home/wangkai
 mail: wangkai@example.com
 mobile: 13800000007
 
-dn: uid=huangting,ou=研发中心,ou=百度,dc=example,dc=com
+dn: uid=huangting,ou=研发中心,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -169,7 +281,7 @@ homeDirectory: /home/huangting
 mail: huangting@example.com
 mobile: 13800000008
 
-dn: uid=xuming,ou=研发中心,ou=百度,dc=example,dc=com
+dn: uid=xuming,ou=研发中心,ou=百度,dc=baiduinc,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -185,3 +297,155 @@ loginShell: /bin/bash
 homeDirectory: /home/xuming
 mail: xuming@example.com
 mobile: 13800000009
+
+# ============================================================
+# 北京研发中心 > 研发一组 - 2 名用户
+# ============================================================
+
+dn: uid=songyang,ou=研发一组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: songyang
+sn: Song
+givenName: Yang
+cn: Song Yang
+displayName: 宋阳
+uidNumber: 10020
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/songyang
+mail: songyang@example.com
+mobile: 13800000020
+
+dn: uid=guowei,ou=研发一组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: guowei
+sn: Guo
+givenName: Wei
+cn: Guo Wei
+displayName: 郭伟
+uidNumber: 10021
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/guowei
+mail: guowei@example.com
+mobile: 13800000021
+
+# ============================================================
+# 北京研发中心 > 研发二组 - 2 名用户
+# ============================================================
+
+dn: uid=malin,ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: malin
+sn: Ma
+givenName: Lin
+cn: Ma Lin
+displayName: 马林
+uidNumber: 10022
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/malin
+mail: malin@example.com
+mobile: 13800000022
+
+dn: uid=caoyue,ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: caoyue
+sn: Cao
+givenName: Yue
+cn: Cao Yue
+displayName: 曹越
+uidNumber: 10023
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/caoyue
+mail: caoyue@example.com
+mobile: 13800000023
+
+# ============================================================
+# 北京研发中心 > 研发二组 > 外包组 - 2 名用户
+# ============================================================
+
+dn: uid=dengchao,ou=外包组,ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: dengchao
+sn: Deng
+givenName: Chao
+cn: Deng Chao
+displayName: 邓超
+uidNumber: 10024
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/dengchao
+mail: dengchao@example.com
+mobile: 13800000024
+
+dn: uid=yanli,ou=外包组,ou=研发二组,ou=北京研发中心,ou=研发中心,ou=百度,dc=baiduinc,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: yanli
+sn: Yan
+givenName: Li
+cn: Yan Li
+displayName: 严丽
+uidNumber: 10025
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/yanli
+mail: yanli@example.com
+mobile: 13800000025
+
+# ============================================================
+# 上海研发中心 - 2 名用户
+# ============================================================
+
+dn: uid=jiangbo,ou=上海研发中心,ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: jiangbo
+sn: Jiang
+givenName: Bo
+cn: Jiang Bo
+displayName: 蒋波
+uidNumber: 10026
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/jiangbo
+mail: jiangbo@example.com
+mobile: 13800000026
+
+dn: uid=xieyu,ou=上海研发中心,ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: xieyu
+sn: Xie
+givenName: Yu
+cn: Xie Yu
+displayName: 谢宇
+uidNumber: 10027
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/xieyu
+mail: xieyu@example.com
+mobile: 13800000027

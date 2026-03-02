@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   App,
   Button,
   Card,
+  Col,
   DatePicker,
   Empty,
   Input,
-  Popconfirm,
+  InputNumber,
+  Modal,
+  Row,
   Select,
   Space,
   Switch,
@@ -19,10 +22,12 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import {
   CheckCircleOutlined,
+  DeleteOutlined,
   EditOutlined,
   EyeOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SafetyOutlined,
   SearchOutlined,
   SyncOutlined,
   ThunderboltOutlined,
@@ -144,6 +149,13 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
   const [testError, setTestError] = useState<{ code?: string; message?: string } | null>(null);
   const [licenseBlocked, setLicenseBlocked] = useState(false);
   const [licenseBlockedMessage, setLicenseBlockedMessage] = useState('');
+
+  // ── Global delete-protection state ──
+  const [deleteProtection, setDeleteProtection] = useState<{ delete_grace_days: number; delete_whitelist: string }>({ delete_grace_days: 7, delete_whitelist: '[]' });
+  const [deleteProtectionModalOpen, setDeleteProtectionModalOpen] = useState(false);
+  const [dpGraceDays, setDpGraceDays] = useState(7);
+  const [dpWhitelistRules, setDpWhitelistRules] = useState<Array<{ type: string; pattern: string }>>([]);
+  const [dpSaving, setDpSaving] = useState(false);
 
   const hasManagePermission = useMemo(() => {
     if (!user) return false;
@@ -267,6 +279,44 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Delete protection ──
+  const fetchDeleteProtection = useCallback(async () => {
+    try {
+      const data = await DirectoryService.getDeleteProtection();
+      setDeleteProtection(data);
+    } catch { /* ignore on first load */ }
+  }, []);
+
+  useEffect(() => {
+    if (hasManagePermission) void fetchDeleteProtection();
+  }, [hasManagePermission, fetchDeleteProtection]);
+
+  const openDeleteProtectionModal = () => {
+    setDpGraceDays(deleteProtection.delete_grace_days);
+    try {
+      setDpWhitelistRules(JSON.parse(deleteProtection.delete_whitelist || '[]'));
+    } catch { setDpWhitelistRules([]); }
+    setDeleteProtectionModalOpen(true);
+  };
+
+  const saveDeleteProtection = async () => {
+    setDpSaving(true);
+    try {
+      const data = await DirectoryService.updateDeleteProtection({
+        delete_grace_days: dpGraceDays,
+        delete_whitelist: JSON.stringify(dpWhitelistRules),
+      });
+      setDeleteProtection(data);
+      setDeleteProtectionModalOpen(false);
+      message.success(t('directory.deleteProtection.saveSuccess'));
+    } catch (error: any) {
+      const detail = getApiErrorDetail(error);
+      message.error(detail.message || t('directory.deleteProtection.saveFailed'));
+    } finally {
+      setDpSaving(false);
     }
   };
 
@@ -730,11 +780,25 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
               placeholder={[t('directory.filters.updatedAtStart'), t('directory.filters.updatedAtEnd')]}
             />
             <Button onClick={handleResetFilters}>{t('directory.filters.reset')}</Button>
-            <Button type="link" onClick={handleClearUrlAndReset}>
-              {t('directory.filters.clearUrl')}
-            </Button>
           </Space>
-          <Text type="secondary">{t('directory.summary.current', { summary: filterSummary })}</Text>
+          <Space size={8}>
+            <Tooltip title={t('directory.deleteProtection.tooltip')}>
+              <Button
+                size="small"
+                icon={<SafetyOutlined />}
+                onClick={openDeleteProtectionModal}
+                disabled={actionDisabled}
+              >
+                {t('directory.deleteProtection.buttonLabel', { days: deleteProtection.delete_grace_days })}
+                {(() => {
+                  try {
+                    const rules = JSON.parse(deleteProtection.delete_whitelist || '[]');
+                    return rules.length > 0 ? t('directory.deleteProtection.whitelistCount', { count: rules.length }) : '';
+                  } catch { return ''; }
+                })()}
+              </Button>
+            </Tooltip>
+          </Space>
         </div>
 
         <Table<DirectoryConfig>
@@ -812,6 +876,88 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
           setTestError(null);
         }}
       />
+
+      {/* ── 全局回收保护 Modal ── */}
+      <Modal
+        title={<><SafetyOutlined style={{ marginRight: 8 }} />{t('directory.deleteProtection.modalTitle')}</>}
+        open={deleteProtectionModalOpen}
+        onOk={() => void saveDeleteProtection()}
+        onCancel={() => setDeleteProtectionModalOpen(false)}
+        okText={t('directory.deleteProtection.save')}
+        cancelText={t('directory.deleteProtection.cancel')}
+        confirmLoading={dpSaving}
+        width={560}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary">{t('directory.deleteProtection.description')}</Text>
+        </div>
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={12}>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>{t('directory.deleteProtection.graceDaysLabel')}</div>
+            <InputNumber min={0} max={365} value={dpGraceDays} onChange={(v) => setDpGraceDays(v ?? 7)} style={{ width: '100%' }} />
+          </Col>
+          <Col span={12}>
+            <Text type="secondary" style={{ display: 'block', marginTop: 24, fontSize: 12 }}>
+              {t('directory.deleteProtection.graceDaysHint')}
+            </Text>
+          </Col>
+        </Row>
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>{t('directory.deleteProtection.whitelistLabel')}</div>
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>{t('directory.deleteProtection.whitelistHint')}</Text>
+        </div>
+        {dpWhitelistRules.map((rule, idx) => (
+          <Row key={idx} gutter={8} style={{ marginBottom: 8 }}>
+            <Col span={8}>
+              <Select
+                size="small"
+                value={rule.type}
+                onChange={(val) => {
+                  const copy = [...dpWhitelistRules];
+                  copy[idx] = { ...copy[idx], type: val };
+                  setDpWhitelistRules(copy);
+                }}
+                style={{ width: '100%' }}
+                options={[
+                  { value: 'username', label: t('directory.deleteProtection.typeUsername') },
+                  { value: 'ou', label: t('directory.deleteProtection.typeOu') },
+                  { value: 'group', label: t('directory.deleteProtection.typeGroup') },
+                ]}
+              />
+            </Col>
+            <Col span={12}>
+              <Input
+                size="small"
+                placeholder={t('directory.deleteProtection.patternPlaceholder')}
+                value={rule.pattern}
+                onChange={(e) => {
+                  const copy = [...dpWhitelistRules];
+                  copy[idx] = { ...copy[idx], pattern: e.target.value };
+                  setDpWhitelistRules(copy);
+                }}
+              />
+            </Col>
+            <Col span={4}>
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => setDpWhitelistRules(dpWhitelistRules.filter((_, i) => i !== idx))}
+              />
+            </Col>
+          </Row>
+        ))}
+        <Button
+          size="small"
+          type="dashed"
+          icon={<PlusOutlined />}
+          onClick={() => setDpWhitelistRules([...dpWhitelistRules, { type: 'username', pattern: '' }])}
+          style={{ width: '100%' }}
+        >
+          {t('directory.deleteProtection.addRule')}
+        </Button>
+      </Modal>
     </div>
   );
 };

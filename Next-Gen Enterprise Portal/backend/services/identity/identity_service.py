@@ -89,24 +89,43 @@ class ProviderIdentityService:
     _avatar_logger = logging.getLogger(__name__ + ".avatar")
 
     @staticmethod
-    def _upload_avatar_to_storage(blob: bytes, username: str) -> str | None:
-        """Upload raw avatar bytes to object storage, return public URL."""
+    def _upload_avatar_to_storage(
+        blob: bytes, username: str, *, existing_hash: str | None = None,
+    ) -> tuple[str | None, str | None]:
+        """Upload raw avatar bytes to object storage with SHA-256 dedup.
+
+        Returns (avatar_url, sha256_hex).  If the hash matches *existing_hash*
+        the upload is skipped and (None, existing_hash) is returned so the
+        caller can keep the old URL.
+        """
+        import logging
+        from services.identity.sync_errors import SYNC_AVATAR_DEDUP_HIT, SYNC_AVATAR_UPLOAD_FAILED
+        _log = logging.getLogger(__name__)
+
+        avatar_hash = hashlib.sha256(blob).hexdigest()
+
+        # Dedup: same hash as existing → skip upload
+        if existing_hash and avatar_hash == existing_hash:
+            _log.debug("avatar_dedup code=%s user=%s hash=%s", SYNC_AVATAR_DEDUP_HIT, username, avatar_hash)
+            return None, avatar_hash  # caller keeps old URL
+
         try:
             from services.storage import storage as _storage
 
-            # Detect extension from magic bytes
             if blob.startswith(b"\x89PNG\r\n\x1a\n"):
                 ext, mime = "png", "image/png"
+            elif blob.startswith((b"GIF87a", b"GIF89a")):
+                ext, mime = "gif", "image/gif"
+            elif blob[:4] == b"RIFF" and blob[8:12] == b"WEBP":
+                ext, mime = "webp", "image/webp"
             else:
                 ext, mime = "jpg", "image/jpeg"
 
-            content_hash = hashlib.md5(blob).hexdigest()[:8]
-            filename = f"avatars/ldap-{username}-{content_hash}.{ext}"
+            filename = f"avatars/ldap-{username}-{avatar_hash[:12]}.{ext}"
 
             import asyncio
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # We're inside an async context; storage.upload is sync-wrapped
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     pool.submit(
@@ -123,10 +142,10 @@ class ProviderIdentityService:
                 )
 
             url = _storage.get_url(filename, is_public=True)
-            return url
+            return url, avatar_hash
         except Exception as exc:
-            logging.getLogger(__name__).warning("Avatar upload failed for %s: %s", username, exc)
-            return None
+            _log.warning("avatar_upload_failed code=%s user=%s err=%s", SYNC_AVATAR_UPLOAD_FAILED, username, exc)
+            return None, avatar_hash  # caller should keep old URL (fallback)
 
     @classmethod
     async def _ensure_employee_profile(
@@ -135,6 +154,9 @@ class ProviderIdentityService:
         user: models.User,
         *,
         mobile: str | None = None,
+        department: str | None = None,
+        primary_department_id: int | None = None,
+        avatar_hash: str | None = None,
     ) -> None:
         mobile = str(mobile or "").strip() or None
         emp_result = await db.execute(select(models.Employee).filter(models.Employee.account == user.username))
@@ -146,6 +168,12 @@ class ProviderIdentityService:
             employee.avatar = user.avatar
             if mobile:
                 employee.phone = mobile
+            if department:
+                employee.department = department
+            if primary_department_id is not None:
+                employee.primary_department_id = primary_department_id
+            if avatar_hash:
+                employee.avatar_hash = avatar_hash
             employee.status = "Active"
             return
 
@@ -160,12 +188,14 @@ class ProviderIdentityService:
                 job_number=None,
                 name=user.name or user.username,
                 gender="未知",
-                department="未分配",
+                department=department or "未分配",
+                primary_department_id=primary_department_id,
                 role="",
                 email=candidate_email,
                 phone=mobile or "-",
                 location="",
                 avatar=user.avatar,
+                avatar_hash=avatar_hash,
                 status="Active",
             )
         )
@@ -177,8 +207,9 @@ class ProviderIdentityService:
         *,
         auth_result: IdentityAuthResult,
         directory_id: int | None,
-        org_mapping: dict[str, int] | None = None,
-        dn_to_dept: dict[str, int] | None = None,
+        org_mapping_name: dict[str, str] | None = None,
+        dn_to_dept_name: dict[str, str] | None = None,
+        dn_to_dept_id: dict[str, int] | None = None,
     ) -> models.User:
         user: models.User | None = None
         if directory_id and auth_result.external_id:
@@ -203,11 +234,23 @@ class ProviderIdentityService:
                 },
             )
 
-        # Resolve avatar: upload bytes to MinIO, keep string URLs as-is
+        # ── Avatar: dedup-aware upload ────────────────────────────────
         raw_avatar = (auth_result.attributes or {}).get("avatar")
         avatar_url: str | None = None
+        avatar_hash: str | None = None
+
+        # Retrieve existing employee avatar_hash for dedup
+        existing_hash: str | None = None
+        if user:
+            emp_q = await db.execute(
+                select(models.Employee.avatar_hash).filter(models.Employee.account == user.username)
+            )
+            existing_hash = emp_q.scalar_one_or_none()
+
         if isinstance(raw_avatar, (bytes, bytearray)):
-            avatar_url = cls._upload_avatar_to_storage(bytes(raw_avatar), auth_result.username)
+            avatar_url, avatar_hash = cls._upload_avatar_to_storage(
+                bytes(raw_avatar), auth_result.username, existing_hash=existing_hash,
+            )
         elif isinstance(raw_avatar, str) and raw_avatar:
             avatar_url = raw_avatar
 
@@ -241,25 +284,32 @@ class ProviderIdentityService:
                 user.directory_id = directory_id
             if auth_result.external_id:
                 user.external_id = auth_result.external_id
+            # Clear pending delete marker & restore status if user re-appears in source
+            if user.pending_delete_at is not None:
+                user.pending_delete_at = None
+                user.status = "active"
             db.add(user)
             await db.flush()
+
+        # Resolve department string & primary department ID
+        dept_name = None
+        primary_dept_id = None
+        if getattr(auth_result, "department_external_ids", None):
+            for ext_id in auth_result.department_external_ids:
+                dept_name = (dn_to_dept_name or {}).get(ext_id) or (org_mapping_name or {}).get(ext_id)
+                if not primary_dept_id:
+                    primary_dept_id = (dn_to_dept_id or {}).get(ext_id)
+                if dept_name:
+                    break
 
         await cls._ensure_employee_profile(
             db,
             user,
             mobile=(auth_result.attributes or {}).get("mobile"),
+            department=dept_name,
+            primary_department_id=primary_dept_id,
+            avatar_hash=avatar_hash,
         )
-        
-        # Link user to department
-        # For OpenLDAP: department_external_ids are DNs, but org_mapping keys may be entryUUIDs
-        # so we check dn_to_dept (DN -> dept_id) first, then fallback to org_mapping
-        if getattr(auth_result, "department_external_ids", None) and getattr(user, "employee_profile", None):
-            for ext_id in auth_result.department_external_ids:
-                dept_id = (dn_to_dept or {}).get(ext_id) or (org_mapping or {}).get(ext_id)
-                if dept_id:
-                    user.employee_profile.department_id = dept_id
-                    db.add(user.employee_profile)
-                    break
         
         return user
 

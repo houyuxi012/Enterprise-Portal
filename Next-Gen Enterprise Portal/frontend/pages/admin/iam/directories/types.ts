@@ -32,6 +32,9 @@ export interface DirectoryConfig {
   sync_page_size?: number | null;
   sync_cursor?: string | null;
 
+  delete_grace_days?: number;
+  delete_whitelist?: string | null;
+
   enabled: boolean;
   has_bind_password: boolean;
   created_at: string;
@@ -82,6 +85,9 @@ export interface DirectoryCreatePayload {
   group_name_attr?: string | null;
   group_desc_attr?: string | null;
 
+  delete_grace_days?: number;
+  delete_whitelist?: string | null;
+
   enabled: boolean;
 }
 
@@ -115,6 +121,9 @@ export interface DirectoryUpdatePayload {
   group_filter?: string | null;
   group_name_attr?: string | null;
   group_desc_attr?: string | null;
+
+  delete_grace_days?: number;
+  delete_whitelist?: string | null;
 
   enabled?: boolean;
 }

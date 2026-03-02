@@ -114,6 +114,23 @@ const DirectoryService = {
       params: { is_incremental: isIncremental === true },
     });
   },
+
+  getDeleteProtection: async (): Promise<{
+    delete_grace_days: number;
+    delete_whitelist: string;
+  }> => {
+    return api.get('/iam/admin/directories/delete-protection');
+  },
+
+  updateDeleteProtection: async (payload: {
+    delete_grace_days: number;
+    delete_whitelist: string;
+  }): Promise<{
+    delete_grace_days: number;
+    delete_whitelist: string;
+  }> => {
+    return api.put('/iam/admin/directories/delete-protection', payload);
+  },
 };
 
 export default DirectoryService;

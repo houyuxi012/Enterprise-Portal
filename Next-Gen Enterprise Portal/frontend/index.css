@@ -92,3 +92,19 @@ body {
 .ant-popover-buttons .ant-btn {
     @apply text-sm;
 }
+
+/* Compact Steps for DirectoryDrawer */
+.compact-steps.ant-steps {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.compact-steps.ant-steps .ant-steps-item-title {
+    padding-right: 8px !important;
+}
+.compact-steps.ant-steps .ant-steps-item-icon {
+    margin-right: 6px !important;
+}
+.compact-steps.ant-steps-horizontal:not(.ant-steps-label-vertical) .ant-steps-item {
+    padding-left: 8px;
+}

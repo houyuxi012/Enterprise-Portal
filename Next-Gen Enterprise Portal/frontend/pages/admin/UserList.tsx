@@ -104,7 +104,7 @@ const UserList: React.FC = () => {
                 <div className="flex items-center gap-2 py-1">
                     <span className="font-medium text-slate-700 dark:text-slate-200">{dept.name}</span>
                     <span className="text-xs text-slate-400">
-                        ({countEmployeesInDept(dept.name, employees)})
+                        ({countEmployeesInDept(dept, employees)})
                     </span>
                 </div>
             ),
@@ -145,10 +145,21 @@ const UserList: React.FC = () => {
         ...overrides,
     });
 
-    // Helper to count employees in a department (recursive rough check or exact match?)
-    // For now, strict match.
-    const countEmployeesInDept = (deptName: string, allEmps: Employee[]) => {
-        return allEmps.filter(e => e.department === deptName).length;
+    // Helper to get all descendant department names including self
+    const getAllSubDeptNames = (dept: Department): string[] => {
+        let names = [dept.name];
+        if (dept.children && dept.children.length > 0) {
+            dept.children.forEach(child => {
+                names = names.concat(getAllSubDeptNames(child));
+            });
+        }
+        return names;
+    };
+
+    // Helper to count employees in a department recursively (includes all children)
+    const countEmployeesInDept = (dept: Department, allEmps: Employee[]) => {
+        const targetNames = new Set(getAllSubDeptNames(dept));
+        return allEmps.filter(e => targetNames.has(e.department)).length;
     };
 
     // Refresh tree counts when employees change

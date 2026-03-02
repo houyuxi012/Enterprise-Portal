@@ -74,11 +74,13 @@ class Employee(Base):
     name = Column(String, index=True) # 姓名
     gender = Column(String) # 性别
     department = Column(String, index=True) # 部门
+    primary_department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)  # 主部门
     role = Column(String) # 职位
     email = Column(String, unique=True, index=True) # 邮箱
     phone = Column(String) # 手机号码
     location = Column(String) # 办公地
     avatar = Column(String)
+    avatar_hash = Column(String(64), nullable=True, index=True)  # SHA-256 去重
     status = Column(String)
 
 class NewsItem(Base):
@@ -137,6 +139,7 @@ class User(Base):
     avatar = Column(String, nullable=True)
     directory_id = Column(Integer, nullable=True, index=True)
     external_id = Column(String(255), nullable=True, index=True)
+    pending_delete_at = Column(DateTime(timezone=True), nullable=True)  # grace period 标记
     password_violates_policy = Column(Boolean, default=False)
     password_change_required = Column(Boolean, default=False)
     password_changed_at = Column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
@@ -247,6 +250,10 @@ class DirectoryConfig(Base):
     group_name_attr = Column(String(128), nullable=True, default="cn")
     group_desc_attr = Column(String(128), nullable=True, default="description")
 
+    # Delete protection
+    delete_grace_days = Column(Integer, nullable=False, default=7)
+    delete_whitelist = Column(Text, nullable=True)  # JSON: [{"type":"username|ou|group","pattern":"..."}]
+
     enabled = Column(Boolean, nullable=False, default=False, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -255,6 +262,25 @@ class DirectoryConfig(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
+
+
+class SyncJob(Base):
+    """Tracks each directory sync execution with checkpoint & stats."""
+    __tablename__ = "sync_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    directory_id = Column(Integer, ForeignKey("directory_configs.id"), nullable=False, index=True)
+    job_type = Column(String(20), nullable=False, default="full")  # full | incremental
+    status = Column(String(20), nullable=False, default="running", index=True)  # running | success | failed
+    stage = Column(String(20), nullable=True)  # current stage: orgs / groups / users / reconcile / delete
+    checkpoint_data = Column(JSON, nullable=True)  # {"stage": "users", "cookie": "...", "page_no": 5, ...}
+    stats = Column(JSON, nullable=True)  # per-stage timing & counts
+    cursor_start = Column(String(255), nullable=True)
+    cursor_end = Column(String(255), nullable=True)
+    max_usn_seen = Column(String(255), nullable=True)
+    error_detail = Column(Text, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
 
 class SystemConfig(Base):
     __tablename__ = "system_config"

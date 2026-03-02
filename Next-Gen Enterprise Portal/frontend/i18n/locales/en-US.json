@@ -152,7 +152,11 @@
       "iam_directory_create": "Create Directory",
       "iam_directory_update": "Update Directory",
       "iam_directory_delete": "Delete Directory",
-      "iam_directory_test_connection": "Test Directory Connection"
+      "iam_directory_test_connection": "Test Directory Connection",
+      "iam_directory_test": "Test Directory Connection",
+      "iam_directory_sync_grace_mark": "Sync Grace Period Mark",
+      "iam_directory_sync_delete_skip": "Sync Whitelist Skip",
+      "iam_directory_sync_user_removed_grace": "Sync Grace Expired Delete"
     }
   },
   "license": {
@@ -2422,7 +2426,7 @@
   "directory": {
     "page": {
       "title": "Identity Sources",
-      "subtitle": "Manage directory service (Active Directory/OpenLDAP) identity sources",
+      "subtitle": "Manage identity data source configuration",
       "createButton": "Create Source",
       "searchPlaceholder": "Search by name, host, or Base DN"
     },
@@ -2435,6 +2439,26 @@
       "updatedAtEnd": "Updated To",
       "reset": "Reset Filters",
       "clearUrl": "Clear URL Params"
+    },
+    "deleteProtection": {
+      "tooltip": "Global delete protection (applies to all sources)",
+      "buttonLabel": "Delete Protection: {{days}}-day grace",
+      "whitelistCount": " · {{count}} whitelist rules",
+      "modalTitle": "Global Delete Protection Settings",
+      "description": "During full sync, users that no longer exist in the LDAP source will enter a grace period before being permanently deleted. This setting applies to all data sources.",
+      "graceDaysLabel": "Grace Period (days)",
+      "graceDaysHint": "Set to 0 for immediate deletion (not recommended)",
+      "whitelistLabel": "Delete Whitelist",
+      "whitelistHint": "Whitelisted users will not be marked for deletion even if they no longer exist in the LDAP source",
+      "typeUsername": "Username",
+      "typeOu": "Org OU",
+      "typeGroup": "Group",
+      "patternPlaceholder": "Match value, e.g. admin or VIP",
+      "addRule": "Add Rule",
+      "saveSuccess": "Delete protection saved",
+      "saveFailed": "Save failed",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "summary": {
       "current": "Current filters: {{summary}}",

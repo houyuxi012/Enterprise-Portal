@@ -460,3 +460,62 @@ async def apply_startup_migrations():
             "INSERT INTO system_config (key, value) VALUES ('security_force_change_password_after_reset', 'false') "
             "ON CONFLICT (key) DO NOTHING"
         ))
+
+        # ── LDAP sync hardening migrations ────────────────────────────────
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS sync_jobs ("
+            "id SERIAL PRIMARY KEY, "
+            "directory_id INTEGER NOT NULL REFERENCES directory_configs(id), "
+            "job_type VARCHAR(20) NOT NULL DEFAULT 'full', "
+            "status VARCHAR(20) NOT NULL DEFAULT 'running', "
+            "stage VARCHAR(20), "
+            "checkpoint_data JSONB, "
+            "stats JSONB, "
+            "cursor_start VARCHAR(255), "
+            "cursor_end VARCHAR(255), "
+            "max_usn_seen VARCHAR(255), "
+            "error_detail TEXT, "
+            "started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+            "finished_at TIMESTAMPTZ"
+            ")"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sync_jobs_directory_id ON sync_jobs (directory_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sync_jobs_status ON sync_jobs (status)"
+        ))
+
+        # DirectoryConfig: delete protection
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS delete_grace_days INTEGER NOT NULL DEFAULT 7"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS delete_whitelist TEXT"
+        ))
+
+        # Employee: primary department + avatar hash
+        await conn.execute(text(
+            "ALTER TABLE employees "
+            "ADD COLUMN IF NOT EXISTS primary_department_id INTEGER REFERENCES departments(id)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE employees "
+            "ADD COLUMN IF NOT EXISTS avatar_hash VARCHAR(64)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_employees_primary_department_id "
+            "ON employees (primary_department_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_employees_avatar_hash "
+            "ON employees (avatar_hash)"
+        ))
+
+        # User: pending delete marker
+        await conn.execute(text(
+            "ALTER TABLE users "
+            "ADD COLUMN IF NOT EXISTS pending_delete_at TIMESTAMPTZ"
+        ))

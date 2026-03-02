@@ -154,15 +154,25 @@ class LdapIdentityProvider(IdentityProvider):
     @classmethod
     def _resolve_avatar(cls, entry: Any, attr_name: str) -> bytes | None:
         """Return raw avatar bytes from LDAP entry, or None."""
+        import logging
+        from services.identity.sync_errors import MAX_AVATAR_BYTES, ALLOWED_AVATAR_MIMES, SYNC_AVATAR_SIZE_EXCEEDED, SYNC_AVATAR_INVALID_FORMAT
+        _log = logging.getLogger(__name__)
+
         raw = cls._entry_attr_raw(entry, attr_name)
         if raw is None:
             return None
         if isinstance(raw, str):
-            # Some LDAP servers return avatar as a URL string
             return None
         if isinstance(raw, (bytes, bytearray)):
             blob = bytes(raw)
-            if not blob or len(blob) > 524_288:  # 512KB limit
+            if not blob:
+                return None
+            if len(blob) > MAX_AVATAR_BYTES:
+                _log.warning("avatar_skip code=%s size=%d max=%d dn=%s", SYNC_AVATAR_SIZE_EXCEEDED, len(blob), MAX_AVATAR_BYTES, getattr(entry, 'entry_dn', '?'))
+                return None
+            mime = cls._guess_image_mime(blob)
+            if mime not in ALLOWED_AVATAR_MIMES:
+                _log.warning("avatar_skip code=%s mime=%s dn=%s", SYNC_AVATAR_INVALID_FORMAT, mime, getattr(entry, 'entry_dn', '?'))
                 return None
             return blob
         return None
@@ -431,14 +441,25 @@ class LdapIdentityProvider(IdentityProvider):
         attributes: list[str],
         page_size: int = 1000,
         size_limit: int = 0,
+        *,
+        job_id: int | None = None,
+        stage: str | None = None,
+        resume_cookie: bytes | None = None,
     ) -> Generator[Any, None, None]:
+        """Yield LDAP entries page-by-page with structured logging and checkpoint support."""
+        import logging
+        import time
         import ldap3
-        
-        cookie = None
+
+        logger = logging.getLogger(__name__)
+        cookie = resume_cookie
         total_retrieved = 0
-        
+        page_no = 0
+
         while True:
-            # We must pass the cookie on subsequent requests
+            page_no += 1
+            page_start = time.monotonic()
+
             conn.search(
                 search_base=search_base,
                 search_filter=search_filter,
@@ -447,12 +468,21 @@ class LdapIdentityProvider(IdentityProvider):
                 paged_size=page_size,
                 paged_cookie=cookie,
             )
-            
+
+            page_entries = 0
             for entry in conn.entries:
                 if size_limit > 0 and total_retrieved >= size_limit:
                     return
                 yield entry
                 total_retrieved += 1
+                page_entries += 1
+
+            elapsed_ms = round((time.monotonic() - page_start) * 1000, 1)
+            logger.info(
+                "ldap_paged_search page=%d entries=%d total=%d duration_ms=%.1f job_id=%s stage=%s",
+                page_no, page_entries, total_retrieved, elapsed_ms,
+                job_id or "-", stage or "-",
+            )
 
             # Get the page cookie from the result controls
             cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')

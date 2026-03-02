@@ -9,8 +9,8 @@ services:
     hostname: openldap
     environment:
       LDAP_ORGANISATION: "Enterprise Portal Lab"
-      LDAP_DOMAIN: "example.com"
-      LDAP_BASE_DN: "dc=example,dc=com"
+      LDAP_DOMAIN: "baiduinc.com"
+      LDAP_BASE_DN: "dc=baiduinc,dc=com"
       LDAP_ADMIN_PASSWORD: "admin123"
       LDAP_CONFIG_PASSWORD: "config123"
       LDAP_READONLY_USER: "true"

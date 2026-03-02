@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ApiOutlined,
   CloudServerOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  SafetyOutlined,
   SettingOutlined,
   TeamOutlined,
   ThunderboltOutlined,
@@ -81,6 +84,8 @@ interface DirectoryFormValues {
   sync_mode: 'manual' | 'auto';
   sync_interval_minutes?: number | null;
   sync_page_size?: number;
+  delete_grace_days?: number;
+  delete_whitelist?: string;
   enabled: boolean;
 }
 
@@ -179,6 +184,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         sync_mode: 'manual',
         sync_interval_minutes: 60,
         sync_page_size: defaults.sync_page_size,
+        delete_grace_days: 7,
+        delete_whitelist: '[]',
         enabled: true,
       });
       return;
@@ -210,6 +217,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         sync_mode: initialValue.sync_mode || 'manual',
         sync_interval_minutes: initialValue.sync_interval_minutes ?? 60,
         sync_page_size: initialValue.sync_page_size ?? 1000,
+        delete_grace_days: initialValue.delete_grace_days ?? 7,
+        delete_whitelist: initialValue.delete_whitelist || '[]',
         enabled: initialValue.enabled,
       });
     }
@@ -260,6 +269,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
       sync_mode: values.sync_mode,
       sync_interval_minutes: values.sync_mode === 'auto' ? Number(values.sync_interval_minutes || 60) : null,
       sync_page_size: values.sync_page_size ? Number(values.sync_page_size) : 1000,
+      delete_grace_days: values.delete_grace_days ?? 7,
+      delete_whitelist: values.delete_whitelist || '[]',
       enabled: Boolean(values.enabled),
     };
 
@@ -389,7 +400,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         current={currentStep}
         size="small"
         onChange={(step) => { if (step < currentStep) setCurrentStep(step); }}
-        style={{ marginBottom: 28 }}
+        style={{ marginTop: 24, marginBottom: 32 }}
+        className="px-6 compact-steps"
         items={stepItems}
       />
 
@@ -407,9 +419,6 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
       >
         {/* ──── Step 1: 连接配置 ──── */}
         <div style={{ display: currentStep === 0 ? undefined : 'none' }}>
-          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
-            {t('directory.form.sections.connection')}
-          </Divider>
 
           <Row gutter={16}>
             <Col span={16}>
@@ -453,33 +462,31 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
             <Input placeholder={t('directory.form.placeholders.baseDn')} />
           </Form.Item>
 
-          <Form.Item label={t('directory.form.fields.bindDn')} name="bind_dn">
-            <Input placeholder={t('directory.form.placeholders.bindDn')} />
-          </Form.Item>
-
-          {mode === 'edit' && initialValue?.has_bind_password && (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }} message={t('directory.form.bindPasswordSetHint')} />
-          )}
-
-          <Form.Item label={t('directory.form.fields.bindPassword')} name="bind_password">
-            <Input.Password
-              autoComplete="new-password"
-              placeholder={mode === 'edit' ? t('directory.form.placeholders.bindPasswordEdit') : t('directory.form.placeholders.bindPassword')}
-            />
-          </Form.Item>
-
-          {mode === 'edit' && initialValue?.has_bind_password && (
-            <Form.Item name="clear_bind_password" valuePropName="checked">
-              <Checkbox>{t('directory.form.fields.clearBindPassword')}</Checkbox>
-            </Form.Item>
-          )}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.bindDn')} name="bind_dn">
+                <Input placeholder={t('directory.form.placeholders.bindDn')} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.bindPassword')} name="bind_password" style={{ marginBottom: mode === 'edit' && initialValue?.has_bind_password ? 8 : 24 }}>
+                <Input.Password
+                  autoComplete="new-password"
+                  placeholder={mode === 'edit' ? t('directory.form.placeholders.bindPasswordEdit') : t('directory.form.placeholders.bindPassword')}
+                />
+              </Form.Item>
+              {mode === 'edit' && initialValue?.has_bind_password && (
+                <Form.Item name="clear_bind_password" valuePropName="checked" style={{ marginBottom: 24 }}>
+                  <Checkbox>{t('directory.form.fields.clearBindPassword')}</Checkbox>
+                </Form.Item>
+              )}
+            </Col>
+          </Row>
         </div>
 
         {/* ──── Step 2: 用户映射 ──── */}
         <div style={{ display: currentStep === 1 ? undefined : 'none' }}>
-          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
-            {t('directory.form.sections.userMapping', '用户映射')}
-          </Divider>
+
 
           <Form.Item
             label={t('directory.form.fields.userFilter')}
@@ -532,9 +539,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
 
         {/* ──── Step 3: 组织 & 角色映射 ──── */}
         <div style={{ display: currentStep === 2 ? undefined : 'none' }}>
-          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
-            组织机构映射（OU → 部门）
-          </Divider>
+
 
           <Form.Item
             label={t('directory.form.fields.orgBaseDn', '组织 Base DN（留空默认继承）')}
@@ -557,9 +562,9 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
             </Col>
           </Row>
 
-          <Divider titlePlacement="left">
-            群组映射（Group → 角色）
-          </Divider>
+
+          <Divider style={{ margin: '12px 0' }} />
+
 
           <Form.Item
             label={t('directory.form.fields.groupBaseDn', '群组 Base DN（留空默认继承）')}
@@ -590,20 +595,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
 
         {/* ──── Step 4: 扩展配置 ──── */}
         <div style={{ display: currentStep === 3 ? undefined : 'none' }}>
-          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
-            {t('directory.form.sections.extra', '扩展配置')}
-          </Divider>
 
-          {mode === 'create' && (
-            <Form.Item label={t('directory.form.fields.remark')} name="remark">
-              <Input.TextArea
-                placeholder={t('directory.form.placeholders.remark')}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                maxLength={500}
-                showCount
-              />
-            </Form.Item>
-          )}
 
           <Row gutter={16}>
             <Col span={12}>

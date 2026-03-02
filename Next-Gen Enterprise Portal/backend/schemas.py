@@ -467,6 +467,9 @@ class DirectoryConfigBase(BaseModel):
     group_name_attr: Optional[str] = "cn"
     group_desc_attr: Optional[str] = "description"
 
+    delete_grace_days: int = 7
+    delete_whitelist: Optional[str] = None
+
     enabled: bool = False
 
 
@@ -504,6 +507,9 @@ class DirectoryConfigUpdate(BaseModel):
     group_filter: Optional[str] = None
     group_name_attr: Optional[str] = None
     group_desc_attr: Optional[str] = None
+
+    delete_grace_days: Optional[int] = None
+    delete_whitelist: Optional[str] = None
 
     enabled: Optional[bool] = None
 
