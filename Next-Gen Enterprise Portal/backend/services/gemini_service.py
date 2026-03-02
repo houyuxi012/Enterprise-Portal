@@ -5,7 +5,7 @@ from google.genai import types
 # Configure the Gemini API with the key from environment variables
 api_key = os.getenv("GEMINI_API_KEY")
 
-SYSTEM_INSTRUCTION = """你是 ShiKu Assistant，ShiKu Home 公司内网的官方 AI 指南。
+SYSTEM_INSTRUCTION = """你是 HouYuxi Assistant，公司内网的官方 AI 助手。
 你的任务是根据提供的【上下文信息】回答员工的问题。
 
 核心原则：

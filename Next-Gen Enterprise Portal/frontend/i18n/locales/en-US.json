@@ -2045,7 +2045,7 @@
       "schema": "Schema"
     },
     "footer": {
-      "author": "Hou Yuxi",
+      "author": "HouYuxi",
       "rights": "All Rights Reserved."
     }
   },
@@ -2226,7 +2226,7 @@
         "browserTitle": "Next-Gen Enterprise Portal | By HouYuXi",
         "logoUrl": "https://example.com/logo.png",
         "faviconUrl": "https://example.com/favicon.ico",
-        "footerText": "© 2025 Hou Yuxi. All Rights Reserved.",
+        "footerText": "© HouYuxi. All Rights Reserved.",
         "privacyPolicy": "Enter privacy policy content here..."
       }
     }
@@ -2484,6 +2484,11 @@
     "status": {
       "enabled": "Enabled",
       "disabled": "Disabled"
+    },
+    "errors": {
+      "LDAP_CONNECT_FAILED": "Cannot connect to LDAP server",
+      "LDAP_BIND_FAILED": "Bind failed",
+      "LDAP_STARTTLS_FAILED": "StartTLS failed"
     },
     "actions": {
       "test": "Test Connection",

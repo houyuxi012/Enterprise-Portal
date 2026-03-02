@@ -519,7 +519,7 @@ class LdapIdentityProvider(IdentityProvider):
             if cls._normalize_bool(directory_config.start_tls) and not conn.start_tls():
                 raise IdentityProviderError(code="LDAP_STARTTLS_FAILED", message="StartTLS failed", status_code=502)
             if directory_config.bind_dn and not conn.bind():
-                raise IdentityProviderError(code="LDAP_BIND_FAILED", message="Bind failed", status_code=400)
+                raise IdentityProviderError(code="LDAP_BIND_FAILED", message="目录服务 Bind 失败", status_code=400)
 
             org_filter = str(directory_config.org_filter or "(objectClass=organizationalUnit)").strip()
             org_name_attr = directory_config.org_name_attr or "ou"
@@ -603,7 +603,7 @@ class LdapIdentityProvider(IdentityProvider):
             if cls._normalize_bool(directory_config.start_tls) and not conn.start_tls():
                 raise IdentityProviderError(code="LDAP_STARTTLS_FAILED", message="StartTLS failed", status_code=502)
             if directory_config.bind_dn and not conn.bind():
-                raise IdentityProviderError(code="LDAP_BIND_FAILED", message="Bind failed", status_code=400)
+                raise IdentityProviderError(code="LDAP_BIND_FAILED", message="目录服务 Bind 失败", status_code=400)
 
             group_filter = str(directory_config.group_filter or "(objectClass=groupOfNames)").strip()
             group_name_attr = directory_config.group_name_attr or "cn"

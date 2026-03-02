@@ -43,7 +43,7 @@ async def main() -> int:
             user_filter="(&(objectClass=inetOrgPerson)(uid={username}))",
             username_attr="uid",
             email_attr="mail",
-            display_name_attr="cn",
+            display_name_attr="displayName",
             mobile_attr="mobile",
             avatar_attr="jpegPhoto",
             enabled=True,

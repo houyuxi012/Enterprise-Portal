@@ -539,7 +539,7 @@
     }
   },
   "appRoot": {
-    "footerDefault": "© 2025 侯钰熙. All Rights Reserved.",
+    "footerDefault": "© 侯钰熙. All Rights Reserved.",
     "comingSoon": "即将上线",
     "toolCategoryKeywords": {
       "engineering": [
@@ -2225,7 +2225,7 @@
         "browserTitle": "Next-Gen Enterprise Portal ｜ By HouYuXi",
         "logoUrl": "https://example.com/logo.png",
         "faviconUrl": "https://example.com/favicon.ico",
-        "footerText": "© 2025 侯钰熙. All Rights Reserved.",
+        "footerText": "© 侯钰熙. All Rights Reserved.",
         "privacyPolicy": "在此输入隐私政策内容..."
       }
     }
@@ -2483,6 +2483,11 @@
     "status": {
       "enabled": "启用",
       "disabled": "禁用"
+    },
+    "errors": {
+      "LDAP_CONNECT_FAILED": "无法连接到 LDAP 服务器",
+      "LDAP_BIND_FAILED": "目录服务 Bind 失败",
+      "LDAP_STARTTLS_FAILED": "开启 StartTLS 失败"
     },
     "actions": {
       "test": "测试连接",

@@ -244,6 +244,13 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
     window.location.href = '/admin';
   };
 
+  const getErrorMessage = (detail: { code?: string; message?: string }, fallback: string) => {
+    if (!detail.code) return detail.message || fallback;
+    const key = `directory.errors.${detail.code}`;
+    const translated = t(key as any);
+    return translated !== key ? translated : (detail.message || fallback);
+  };
+
   const handleLicenseBlock = (error: any) => {
     const detail = getApiErrorDetail(error);
     const messageText = detail.message || t('directory.license.alert');
@@ -516,8 +523,9 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
         message.warning(handleLicenseBlock(error));
       }
       const detail = getApiErrorDetail(error);
-      setTestError({ code: detail.code, message: detail.message });
-      message.error(detail.message || t('directory.messages.testFailed'));
+      const errMsg = getErrorMessage(detail, t('directory.messages.testFailed'));
+      setTestError({ code: detail.code, message: errMsg });
+      message.error(errMsg);
     } finally {
       setTestLoading(false);
     }
@@ -545,8 +553,9 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
         message.warning(handleLicenseBlock(error));
       }
       const detail = getApiErrorDetail(error);
-      setTestError({ code: detail.code, message: detail.message });
-      message.error(detail.message || t('directory.messages.testFailed'));
+      const errMsg = getErrorMessage(detail, t('directory.messages.testFailed'));
+      setTestError({ code: detail.code, message: errMsg });
+      message.error(errMsg);
     } finally {
       setTestLoading(false);
     }
