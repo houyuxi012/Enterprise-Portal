@@ -146,7 +146,13 @@
       "iam_permission_revoke": "撤销权限",
       "license_install": "导入授权许可",
       "license_verify_failed": "授权校验失败",
-      "license_expired": "授权过期"
+      "license_expired": "授权过期",
+      "iam_directory_sync": "身份源同步",
+      "iam_directory_sync_user_removed": "同步移除用户",
+      "iam_directory_create": "创建身份数据源",
+      "iam_directory_update": "更新身份数据源",
+      "iam_directory_delete": "删除身份数据源",
+      "iam_directory_test_connection": "测试数据源连接"
     }
   },
   "license": {
@@ -532,16 +538,38 @@
     "footerDefault": "© 2025 侯钰熙. All Rights Reserved.",
     "comingSoon": "即将上线",
     "toolCategoryKeywords": {
-      "engineering": ["研发", "开发"],
-      "administration": ["行政", "办公"],
-      "marketing": ["营销"],
-      "legal": ["法律"],
-      "finance": ["财务"],
-      "hr": ["人力"],
-      "design": ["设计"],
-      "general": ["通用"],
-      "other": ["其他"],
-      "it": ["IT"]
+      "engineering": [
+        "研发",
+        "开发"
+      ],
+      "administration": [
+        "行政",
+        "办公"
+      ],
+      "marketing": [
+        "营销"
+      ],
+      "legal": [
+        "法律"
+      ],
+      "finance": [
+        "财务"
+      ],
+      "hr": [
+        "人力"
+      ],
+      "design": [
+        "设计"
+      ],
+      "general": [
+        "通用"
+      ],
+      "other": [
+        "其他"
+      ],
+      "it": [
+        "IT"
+      ]
     },
     "license": {
       "noLicense": "系统未安装授权许可，当前仅开放「授权许可」功能。",
@@ -775,7 +803,8 @@
     },
     "source": {
       "local": "本地",
-      "ldap": "LDAP",
+      "ldap": "OpenLDAP",
+      "ad": "Active Directory",
       "import": "导入"
     },
     "batch": {
@@ -1933,11 +1962,26 @@
       "all": "全部"
     },
     "tagAliases": {
-      "food": ["美食", "food"],
-      "maintenance": ["维护", "maintenance"],
-      "administration": ["行政", "administration"],
-      "recruitment": ["招聘", "recruitment"],
-      "it": ["IT", "it"]
+      "food": [
+        "美食",
+        "food"
+      ],
+      "maintenance": [
+        "维护",
+        "maintenance"
+      ],
+      "administration": [
+        "行政",
+        "administration"
+      ],
+      "recruitment": [
+        "招聘",
+        "recruitment"
+      ],
+      "it": [
+        "IT",
+        "it"
+      ]
     },
     "newsDetail": {
       "summaryHint": "（此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段）"
@@ -2418,6 +2462,9 @@
     },
     "actions": {
       "test": "测试连接",
+      "sync": "手动同步",
+      "fullSync": "全量同步",
+      "incrementalSync": "增量同步",
       "enable": "启用",
       "disable": "禁用",
       "enableConfirm": "确认启用该目录配置？",
@@ -2460,6 +2507,9 @@
       "sections": {
         "connection": "连接配置",
         "mapping": "目录映射",
+        "userMapping": "用户映射",
+        "orgMapping": "组织和角色映射",
+        "groupMapping": "用户群组映射",
         "extra": "扩展配置"
       },
       "fields": {
@@ -2482,6 +2532,14 @@
         "avatarAttr": "头像属性",
         "syncMode": "同步方式",
         "syncIntervalMinutes": "同步周期（分钟）",
+        "syncPageSize": "LDAP 分页请求尺寸",
+        "orgBaseDn": "组织 Base DN（留空默认继承）",
+        "orgFilter": "组织过滤条件",
+        "orgNameAttr": "组织名称属性",
+        "groupBaseDn": "群组 Base DN（留空默认继承）",
+        "groupFilter": "群组过滤条件",
+        "groupNameAttr": "群组名称属性",
+        "groupDescAttr": "群组描述属性",
         "enabled": "启用状态"
       },
       "syncMode": {
@@ -2502,7 +2560,14 @@
         "emailAttr": "例如 mail",
         "displayNameAttr": "例如 displayName",
         "mobileAttr": "例如 mobile",
-        "avatarAttr": "例如 thumbnailPhoto"
+        "avatarAttr": "例如 thumbnailPhoto",
+        "orgBaseDn": "ou=Departments,dc=example,dc=com",
+        "orgFilter": "(objectClass=organizationalUnit)",
+        "orgNameAttr": "ou",
+        "groupBaseDn": "ou=Groups,dc=example,dc=com",
+        "groupFilter": "(objectClass=groupOfNames)",
+        "groupNameAttr": "cn",
+        "groupDescAttr": "description"
       },
       "validation": {
         "nameRequired": "请输入名称",
@@ -2553,6 +2618,10 @@
       "testSuccess": "目录连接测试成功",
       "testFailed": "目录连接测试失败",
       "testAfterSave": "请先保存身份数据源后再进行连接测试",
+      "syncRunning": "正在同步目录用户，请稍候...",
+      "syncSuccess": "同步完成：拉取 {{fetched}} 人，成功 {{synced}} 人，失败 {{failed}} 人",
+      "syncSuccessDetails": "同步完成：拉取 {{fetched}} 条记录，用户 {{users}} 人，组织 {{orgs}} 个，群组 {{groups}} 个，失败 {{failed}} 条",
+      "syncFailed": "目录用户同步失败",
       "tlsConflict": "use_ssl 与 start_tls 不能同时启用",
       "tlsConflictResolved": "已自动关闭冲突的 TLS 选项",
       "unknownError": "未知错误"

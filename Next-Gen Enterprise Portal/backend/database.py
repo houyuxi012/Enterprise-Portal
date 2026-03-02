@@ -209,12 +209,12 @@ async def apply_startup_migrations():
             "remark VARCHAR(500), "
             "bind_password_ciphertext TEXT, "
             "base_dn VARCHAR(512) NOT NULL, "
-            "user_filter VARCHAR(512) NOT NULL DEFAULT '(&(objectClass=user)(sAMAccountName={username}))', "
-            "username_attr VARCHAR(128) NOT NULL DEFAULT 'sAMAccountName', "
+            "user_filter VARCHAR(512) NOT NULL DEFAULT '(&(objectClass=inetOrgPerson)(uid={username}))', "
+            "username_attr VARCHAR(128) NOT NULL DEFAULT 'uid', "
             "email_attr VARCHAR(128) NOT NULL DEFAULT 'mail', "
-            "display_name_attr VARCHAR(128) NOT NULL DEFAULT 'displayName', "
+            "display_name_attr VARCHAR(128) NOT NULL DEFAULT 'cn', "
             "mobile_attr VARCHAR(128) NOT NULL DEFAULT 'mobile', "
-            "avatar_attr VARCHAR(128) NOT NULL DEFAULT 'thumbnailPhoto', "
+            "avatar_attr VARCHAR(128) NOT NULL DEFAULT 'jpegPhoto', "
             "sync_mode VARCHAR(20) NOT NULL DEFAULT 'manual', "
             "sync_interval_minutes INTEGER, "
             "enabled BOOLEAN NOT NULL DEFAULT FALSE, "
@@ -240,7 +240,60 @@ async def apply_startup_migrations():
         ))
         await conn.execute(text(
             "ALTER TABLE directory_configs "
-            "ADD COLUMN IF NOT EXISTS avatar_attr VARCHAR(128) NOT NULL DEFAULT 'thumbnailPhoto'"
+            "ADD COLUMN IF NOT EXISTS avatar_attr VARCHAR(128) NOT NULL DEFAULT 'jpegPhoto'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS sync_page_size INTEGER NOT NULL DEFAULT 1000"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS sync_cursor VARCHAR(255)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS org_base_dn VARCHAR(512)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS org_filter VARCHAR(512) DEFAULT '(objectClass=organizationalUnit)'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS org_name_attr VARCHAR(128) DEFAULT 'ou'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS group_base_dn VARCHAR(512)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS group_filter VARCHAR(512) DEFAULT '(objectClass=groupOfNames)'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS group_name_attr VARCHAR(128) DEFAULT 'cn'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ADD COLUMN IF NOT EXISTS group_desc_attr VARCHAR(128) DEFAULT 'description'"
+        ))
+        # Update column defaults for existing tables (migration from AD defaults to universal defaults)
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ALTER COLUMN user_filter SET DEFAULT '(&(objectClass=inetOrgPerson)(uid={username}))'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ALTER COLUMN username_attr SET DEFAULT 'uid'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ALTER COLUMN display_name_attr SET DEFAULT 'cn'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE directory_configs "
+            "ALTER COLUMN avatar_attr SET DEFAULT 'jpegPhoto'"
         ))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_directory_configs_enabled ON directory_configs (enabled)"
@@ -250,6 +303,38 @@ async def apply_startup_migrations():
         ))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_directory_configs_sync_mode ON directory_configs (sync_mode)"
+        ))
+
+        # Add external identity linking to departments
+        await conn.execute(text(
+            "ALTER TABLE departments "
+            "ADD COLUMN IF NOT EXISTS directory_id INTEGER"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE departments "
+            "ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_departments_directory_id ON departments (directory_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_departments_external_id ON departments (external_id)"
+        ))
+        
+        # Add external identity linking to roles
+        await conn.execute(text(
+            "ALTER TABLE roles "
+            "ADD COLUMN IF NOT EXISTS directory_id INTEGER"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE roles "
+            "ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_roles_directory_id ON roles (directory_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_roles_external_id ON roles (external_id)"
         ))
 
         # Enterprise License state (feature gate)

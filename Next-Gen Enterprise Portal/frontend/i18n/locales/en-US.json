@@ -146,7 +146,13 @@
       "iam_permission_revoke": "Revoke Permission",
       "license_install": "Install License",
       "license_verify_failed": "License Verification Failed",
-      "license_expired": "License Expired"
+      "license_expired": "License Expired",
+      "iam_directory_sync": "Directory Sync",
+      "iam_directory_sync_user_removed": "Sync User Removed",
+      "iam_directory_create": "Create Directory",
+      "iam_directory_update": "Update Directory",
+      "iam_directory_delete": "Delete Directory",
+      "iam_directory_test_connection": "Test Directory Connection"
     }
   },
   "license": {
@@ -532,16 +538,39 @@
     "footerDefault": "© 2025 Hou Yuxi. All Rights Reserved.",
     "comingSoon": "Coming Soon",
     "toolCategoryKeywords": {
-      "engineering": ["Engineering", "Development"],
-      "administration": ["Administration", "Office"],
-      "marketing": ["Marketing"],
-      "legal": ["Legal"],
-      "finance": ["Finance"],
-      "hr": ["HR", "Human Resources"],
-      "design": ["Design"],
-      "general": ["General"],
-      "other": ["Other"],
-      "it": ["IT"]
+      "engineering": [
+        "Engineering",
+        "Development"
+      ],
+      "administration": [
+        "Administration",
+        "Office"
+      ],
+      "marketing": [
+        "Marketing"
+      ],
+      "legal": [
+        "Legal"
+      ],
+      "finance": [
+        "Finance"
+      ],
+      "hr": [
+        "HR",
+        "Human Resources"
+      ],
+      "design": [
+        "Design"
+      ],
+      "general": [
+        "General"
+      ],
+      "other": [
+        "Other"
+      ],
+      "it": [
+        "IT"
+      ]
     },
     "license": {
       "noLicense": "No valid license installed. Only \"License\" is available.",
@@ -775,7 +804,8 @@
     },
     "source": {
       "local": "Local",
-      "ldap": "LDAP",
+      "ldap": "OpenLDAP",
+      "ad": "Active Directory",
       "import": "Import"
     },
     "batch": {
@@ -1933,11 +1963,26 @@
       "all": "All"
     },
     "tagAliases": {
-      "food": ["food", "美食"],
-      "maintenance": ["maintenance", "维护"],
-      "administration": ["administration", "行政"],
-      "recruitment": ["recruitment", "招聘"],
-      "it": ["it", "IT"]
+      "food": [
+        "food",
+        "美食"
+      ],
+      "maintenance": [
+        "maintenance",
+        "维护"
+      ],
+      "administration": [
+        "administration",
+        "行政"
+      ],
+      "recruitment": [
+        "recruitment",
+        "招聘"
+      ],
+      "it": [
+        "it",
+        "IT"
+      ]
     },
     "newsDetail": {
       "summaryHint": "(This currently displays summary content. Full details can be extended as needed.)"
@@ -2418,6 +2463,9 @@
     },
     "actions": {
       "test": "Test Connection",
+      "sync": "Sync Now",
+      "fullSync": "Full Sync",
+      "incrementalSync": "Incremental Sync",
       "enable": "Enable",
       "disable": "Disable",
       "enableConfirm": "Enable this directory configuration?",
@@ -2460,6 +2508,9 @@
       "sections": {
         "connection": "Connection Settings",
         "mapping": "Directory Mapping",
+        "userMapping": "User Mapping",
+        "orgMapping": "Organization & Role Mapping",
+        "groupMapping": "Group Mapping",
         "extra": "Additional Settings"
       },
       "fields": {
@@ -2482,6 +2533,14 @@
         "avatarAttr": "Avatar Attribute",
         "syncMode": "Sync Mode",
         "syncIntervalMinutes": "Sync Interval (minutes)",
+        "syncPageSize": "LDAP Page Size",
+        "orgBaseDn": "Org Base DN (inherits if empty)",
+        "orgFilter": "Org Filter",
+        "orgNameAttr": "Org Name Attribute",
+        "groupBaseDn": "Group Base DN (inherits if empty)",
+        "groupFilter": "Group Filter",
+        "groupNameAttr": "Group Name Attribute",
+        "groupDescAttr": "Group Description Attribute",
         "enabled": "Enabled"
       },
       "syncMode": {
@@ -2502,7 +2561,14 @@
         "emailAttr": "e.g. mail",
         "displayNameAttr": "e.g. displayName",
         "mobileAttr": "e.g. mobile",
-        "avatarAttr": "e.g. thumbnailPhoto"
+        "avatarAttr": "e.g. thumbnailPhoto",
+        "orgBaseDn": "ou=Departments,dc=example,dc=com",
+        "orgFilter": "(objectClass=organizationalUnit)",
+        "orgNameAttr": "ou",
+        "groupBaseDn": "ou=Groups,dc=example,dc=com",
+        "groupFilter": "(objectClass=groupOfNames)",
+        "groupNameAttr": "cn",
+        "groupDescAttr": "description"
       },
       "validation": {
         "nameRequired": "Please enter name",
@@ -2553,6 +2619,10 @@
       "testSuccess": "Directory test succeeded",
       "testFailed": "Directory test failed",
       "testAfterSave": "Please save this identity source before running a connection test",
+      "syncRunning": "Synchronizing directory users, please wait...",
+      "syncSuccess": "Sync complete: fetched {{fetched}}, synced {{synced}}, failed {{failed}}",
+      "syncSuccessDetails": "Sync complete: fetched {{fetched}} records, users {{users}}, orgs {{orgs}}, groups {{groups}}, failed {{failed}}",
+      "syncFailed": "Directory user sync failed",
       "tlsConflict": "use_ssl and start_tls cannot both be enabled",
       "tlsConflictResolved": "Conflicting TLS setting has been auto-adjusted",
       "unknownError": "Unknown error"

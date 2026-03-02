@@ -54,7 +54,26 @@ async def read_employees(
 ):
     result = await db.execute(select(models.Employee).offset(skip).limit(limit))
     employees = result.scalars().all()
-    return employees
+
+    # Build source lookup: account -> directory type
+    accounts = [e.account for e in employees if e.account]
+    source_map: dict[str, str] = {}
+    if accounts:
+        user_result = await db.execute(
+            select(models.User.username, models.DirectoryConfig.type)
+            .outerjoin(models.DirectoryConfig, models.User.directory_id == models.DirectoryConfig.id)
+            .filter(models.User.username.in_(accounts), models.User.directory_id.isnot(None))
+        )
+        for username, dir_type in user_result.all():
+            source_map[username] = dir_type or "ldap"
+
+    # Attach source to each employee
+    out = []
+    for emp in employees:
+        data = schemas.Employee.model_validate(emp)
+        data.source = source_map.get(emp.account, "local")
+        out.append(data)
+    return out
 
 @router.get("/{employee_id}", response_model=schemas.Employee)
 async def read_employee(

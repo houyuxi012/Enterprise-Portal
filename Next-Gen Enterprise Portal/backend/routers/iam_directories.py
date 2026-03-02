@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import desc, func, or_, select, update
+from sqlalchemy import delete as sa_delete, desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import models
@@ -12,8 +13,11 @@ import schemas
 from iam.audit.service import IAMAuditService
 from iam.deps import PermissionChecker, get_db, verify_admin_aud
 from services.crypto_keyring import BindPasswordKeyring, KeyringConfigError
+from services.identity.identity_service import ProviderIdentityService
 from services.identity.providers import IdentityProviderError, LdapIdentityProvider
 from services.license_service import LicenseService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin/directories",
@@ -45,7 +49,7 @@ def _to_out(config: models.DirectoryConfig) -> schemas.DirectoryConfigOut:
         email_attr=config.email_attr,
         display_name_attr=config.display_name_attr,
         mobile_attr=config.mobile_attr or "mobile",
-        avatar_attr=config.avatar_attr or "thumbnailPhoto",
+        avatar_attr=config.avatar_attr or "jpegPhoto",
         sync_mode=sync_mode if sync_mode in {"manual", "auto"} else "manual",
         sync_interval_minutes=sync_interval,
         enabled=bool(config.enabled),
@@ -82,6 +86,27 @@ async def _audit_directory_event(
         user_agent=request.headers.get("User-Agent"),
         trace_id=request.headers.get("X-Request-ID"),
     )
+
+
+def _type_defaults(dir_type: str) -> dict[str, str]:
+    """Return type-aware attribute defaults for AD vs OpenLDAP."""
+    if dir_type == "ad":
+        return {
+            "user_filter": "(&(objectClass=user)(sAMAccountName={username}))",
+            "username_attr": "sAMAccountName",
+            "email_attr": "mail",
+            "display_name_attr": "displayName",
+            "mobile_attr": "mobile",
+            "avatar_attr": "thumbnailPhoto",
+        }
+    return {
+        "user_filter": "(&(objectClass=inetOrgPerson)(uid={username}))",
+        "username_attr": "uid",
+        "email_attr": "mail",
+        "display_name_attr": "cn",
+        "mobile_attr": "mobile",
+        "avatar_attr": "jpegPhoto",
+    }
 
 
 def _normalize_sync_settings(sync_mode: str | None, sync_interval_minutes: int | None) -> tuple[str, int | None]:
@@ -136,11 +161,12 @@ async def create_directory_config(
             detail={"code": "INVALID_TLS_MODE", "message": "use_ssl and start_tls cannot both be enabled"},
         )
     sync_mode, sync_interval_minutes = _normalize_sync_settings(payload.sync_mode, payload.sync_interval_minutes)
-    username_attr = str(payload.username_attr or "").strip() or "sAMAccountName"
-    email_attr = str(payload.email_attr or "").strip() or "mail"
-    display_name_attr = str(payload.display_name_attr or "").strip() or "displayName"
-    mobile_attr = str(payload.mobile_attr or "").strip() or "mobile"
-    avatar_attr = str(payload.avatar_attr or "").strip() or "thumbnailPhoto"
+    defaults = _type_defaults(provider_type)
+    username_attr = str(payload.username_attr or "").strip() or defaults["username_attr"]
+    email_attr = str(payload.email_attr or "").strip() or defaults["email_attr"]
+    display_name_attr = str(payload.display_name_attr or "").strip() or defaults["display_name_attr"]
+    mobile_attr = str(payload.mobile_attr or "").strip() or defaults["mobile_attr"]
+    avatar_attr = str(payload.avatar_attr or "").strip() or defaults["avatar_attr"]
 
     config = models.DirectoryConfig(
         name=payload.name,
@@ -153,7 +179,7 @@ async def create_directory_config(
         remark=str(payload.remark).strip() if payload.remark is not None and str(payload.remark).strip() != "" else None,
         bind_password_ciphertext=None,
         base_dn=payload.base_dn,
-        user_filter=payload.user_filter,
+        user_filter=str(payload.user_filter or "").strip() or defaults["user_filter"],
         username_attr=username_attr,
         email_attr=email_attr,
         display_name_attr=display_name_attr,
@@ -223,6 +249,7 @@ async def test_directory_connection_draft(
             detail={"code": "INVALID_DIRECTORY_TYPE", "message": "type must be ldap or ad"},
         )
 
+    draft_defaults = _type_defaults(provider_type)
     temp_config = SimpleNamespace(
         id=None,
         name="draft",
@@ -235,12 +262,12 @@ async def test_directory_connection_draft(
         bind_password_plain=str(payload.bind_password or ""),
         bind_password_ciphertext=None,
         base_dn=str(payload.base_dn or "").strip(),
-        user_filter=str(payload.user_filter or "").strip() or "(&(objectClass=user)(sAMAccountName={username}))",
-        username_attr=str(payload.username_attr or "").strip() or "sAMAccountName",
-        email_attr=str(payload.email_attr or "").strip() or "mail",
-        display_name_attr=str(payload.display_name_attr or "").strip() or "displayName",
-        mobile_attr=str(payload.mobile_attr or "").strip() or "mobile",
-        avatar_attr=str(payload.avatar_attr or "").strip() or "thumbnailPhoto",
+        user_filter=str(payload.user_filter or "").strip() or draft_defaults["user_filter"],
+        username_attr=str(payload.username_attr or "").strip() or draft_defaults["username_attr"],
+        email_attr=str(payload.email_attr or "").strip() or draft_defaults["email_attr"],
+        display_name_attr=str(payload.display_name_attr or "").strip() or draft_defaults["display_name_attr"],
+        mobile_attr=str(payload.mobile_attr or "").strip() or draft_defaults["mobile_attr"],
+        avatar_attr=str(payload.avatar_attr or "").strip() or draft_defaults["avatar_attr"],
     )
 
     provider = LdapIdentityProvider()
@@ -388,16 +415,13 @@ async def update_directory_config(
         )
     if "type" in update_data and update_data["type"] is not None:
         update_data["type"] = str(update_data["type"]).lower()
-    for attr_key, attr_default in (
-        ("username_attr", "sAMAccountName"),
-        ("email_attr", "mail"),
-        ("display_name_attr", "displayName"),
-        ("mobile_attr", "mobile"),
-        ("avatar_attr", "thumbnailPhoto"),
-    ):
+    # Use type-aware defaults for attribute fallback
+    effective_type = str(update_data.get("type", config.type) or "ldap").lower()
+    update_defaults = _type_defaults(effective_type)
+    for attr_key in ("username_attr", "email_attr", "display_name_attr", "mobile_attr", "avatar_attr"):
         if attr_key in update_data and update_data[attr_key] is not None:
             cleaned = str(update_data[attr_key]).strip()
-            update_data[attr_key] = cleaned or attr_default
+            update_data[attr_key] = cleaned or update_defaults[attr_key]
     effective_use_ssl = update_data.get("use_ssl", config.use_ssl)
     effective_start_tls = update_data.get("start_tls", config.start_tls)
     if effective_use_ssl and effective_start_tls:
@@ -539,3 +563,240 @@ async def test_directory_connection(
         )
         await db.commit()
         raise
+
+
+@router.post("/{directory_id}/sync")
+async def sync_directory_now(
+    directory_id: int,
+    request: Request,
+    is_incremental: bool = Query(False, description="Whether to perform an incremental sync using cursor"),
+    db: AsyncSession = Depends(get_db),
+    operator=Depends(PermissionChecker("iam:directory:manage")),
+):
+    """手动触发一次目录同步（组织、用户组、用户）"""
+    await LicenseService.require_feature(db, "ldap")
+    config = await db.get(models.DirectoryConfig, directory_id)
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DIRECTORY_NOT_FOUND", "message": "Directory config not found"},
+        )
+    if not config.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "DIRECTORY_DISABLED", "message": "Directory is disabled, enable it first"},
+        )
+
+    provider = LdapIdentityProvider()
+    sync_limit = 100000  # Unlikely to hit this practical limit soon
+
+    now = datetime.now(timezone.utc)
+    synced_user_count = 0
+    synced_org_count = 0
+    synced_group_count = 0
+    failed_count = 0
+    fetched_count = 0
+    removed_count = 0
+    removed_users: list[str] = []
+
+    source_label = "OpenLDAP" if str(config.type or "").lower() == "ldap" else "Active Directory"
+    
+    current_cursor = config.sync_cursor if is_incremental else None
+
+    try:
+        # 1. Sync Organizations (OUs) -> Departments
+        orgs, orgs_cursor = await provider.sync_orgs(
+            db=db, directory_config=config, limit=sync_limit, sync_cursor=current_cursor,
+        )
+        
+        # Build org mapping dict to resolve external_id to local department id later
+        org_mapping: dict[str, int] = {}
+        # Also build DN -> dept_id mapping for parent resolution (needed when external_id != DN, e.g. entryUUID)
+        dn_to_dept: dict[str, int] = {}
+        # First pass: create/update all
+        for org in orgs:
+            try:
+                async with db.begin_nested():
+                    dept = await ProviderIdentityService._jit_upsert_org(db, config.id, org)
+                    # We might need to flush immediately to get the id for mapping
+                    await db.flush()
+                    org_mapping[org.external_id] = dept.id
+                    if org.dn:
+                        dn_to_dept[org.dn] = dept.id
+                    synced_org_count += 1
+            except Exception as org_exc:
+                logger.warning("Org sync upsert failed: external_id=%s err=%s", org.external_id, org_exc)
+        
+        # Second pass: establish hierarchy using DN-based parent matching
+        for org in orgs:
+            if org.parent_external_id and org.external_id in org_mapping:
+                child_id = org_mapping[org.external_id]
+                # parent_external_id is always a DN, look up in dn_to_dept first
+                parent_id = dn_to_dept.get(org.parent_external_id) or org_mapping.get(org.parent_external_id)
+                if parent_id:
+                    await db.execute(update(models.Department).where(models.Department.id == child_id).values(parent_id=parent_id))
+
+
+        # 2. Sync Groups -> Roles
+        groups, groups_cursor = await provider.sync_groups(
+            db=db, directory_config=config, limit=sync_limit, sync_cursor=current_cursor,
+        )
+        for group in groups:
+            try:
+                async with db.begin_nested():
+                    await ProviderIdentityService._jit_upsert_group_as_role(db, config.id, group)
+                    synced_group_count += 1
+            except Exception as grp_exc:
+                logger.warning("Group sync upsert failed: external_id=%s err=%s", group.external_id, grp_exc)
+
+
+        # 3. Sync Users
+        users, users_cursor = await provider.sync_users(
+            db=db, directory_config=config, limit=sync_limit, sync_cursor=current_cursor,
+        )
+        fetched_count = len(users)
+
+        # Collect external_ids from LDAP source
+        ldap_external_ids: set[str] = set()
+
+        for auth_result in users:
+            try:
+                async with db.begin_nested():
+                    await ProviderIdentityService._jit_upsert_portal_user(  # noqa: SLF001
+                        db,
+                        auth_result=auth_result,
+                        directory_id=config.id,
+                        org_mapping=org_mapping,
+                        dn_to_dept=dn_to_dept,
+                    )
+                synced_user_count += 1
+                if auth_result.external_id:
+                    ldap_external_ids.add(auth_result.external_id)
+            except Exception as user_exc:
+                failed_count += 1
+                logger.warning(
+                    "Manual sync user upsert failed: directory_id=%s username=%s err=%s",
+                    config.id,
+                    auth_result.username,
+                    user_exc,
+                )
+
+        # --- Remove users that no longer exist in LDAP source (only perform on FULL sync) ---
+        if not is_incremental:
+            local_users_result = await db.execute(
+                select(models.User).filter(models.User.directory_id == config.id)
+            )
+            local_users = local_users_result.scalars().all()
+
+            for local_user in local_users:
+                if local_user.external_id and local_user.external_id not in ldap_external_ids:
+                    username_to_remove = local_user.username
+                    user_id_to_remove = local_user.id
+
+                    # Clean up related records (same logic as delete_user in rbac/router.py)
+                    await db.execute(
+                        sa_delete(models.UserPasswordHistory).where(
+                            models.UserPasswordHistory.user_id == user_id_to_remove
+                        )
+                    )
+                    await db.execute(
+                        sa_delete(models.AnnouncementRead).where(
+                            models.AnnouncementRead.user_id == user_id_to_remove
+                        )
+                    )
+
+                    # Delete associated employee profile
+                    emp_result = await db.execute(
+                        select(models.Employee).filter(models.Employee.account == username_to_remove)
+                    )
+                    emp = emp_result.scalars().first()
+                    if emp:
+                        await db.delete(emp)
+
+                    await db.delete(local_user)
+                    removed_count += 1
+                    removed_users.append(username_to_remove)
+
+                    # Log individual removal to IAM audit
+                    await _audit_directory_event(
+                        db=db,
+                        request=request,
+                        actor=operator,
+                        action="IAM_DIRECTORY_SYNC_USER_REMOVED",
+                        result="success",
+                        target_id=user_id_to_remove,
+                        target_name=username_to_remove,
+                        detail={
+                            "directory_id": config.id,
+                            "directory_name": config.name,
+                            "source": source_label,
+                            "reason": f"{source_label}数据源中该用户不存在",
+                            "removed_at": now.isoformat(),
+                        },
+                    )
+
+        # Update the cursor back to the database
+        if users_cursor:
+            config.sync_cursor = users_cursor
+            db.add(config)
+
+        # Log overall sync result
+        await _audit_directory_event(
+            db=db,
+            request=request,
+            actor=operator,
+            action="IAM_DIRECTORY_SYNC",
+            result="success",
+            target_id=config.id,
+            target_name=config.name,
+            detail={
+                "directory_id": config.id,
+                "sync_mode": "incremental_trigger" if is_incremental else "manual_trigger",
+                "fetched_count": fetched_count,
+                "synced_user_count": synced_user_count,
+                "synced_org_count": synced_org_count,
+                "synced_group_count": synced_group_count,
+                "failed_count": failed_count,
+                "removed_count": removed_count,
+                "removed_users": removed_users,
+                "executed_at": now.isoformat(),
+                "cursor_used": current_cursor,
+                "new_cursor": users_cursor,
+            },
+        )
+        await db.commit()
+        return {
+            "success": True,
+            "fetched_count": fetched_count,
+            "synced_user_count": synced_user_count,
+            "failed_count": failed_count,
+            "removed_count": removed_count,
+            "removed_users": removed_users,
+            "synced_org_count": synced_org_count,
+            "synced_group_count": synced_group_count,
+            "new_cursor": users_cursor,
+        }
+    except IdentityProviderError as e:
+        await _audit_directory_event(
+            db=db,
+            request=request,
+            actor=operator,
+            action="IAM_DIRECTORY_SYNC",
+            result="fail",
+            target_id=config.id,
+            target_name=config.name,
+            detail={
+                "directory_id": config.id,
+                "sync_mode": "manual_trigger",
+                "fetched_count": fetched_count,
+                "synced_count": synced_count,
+                "failed_count": failed_count,
+                "removed_count": removed_count,
+                "removed_users": removed_users,
+                "executed_at": now.isoformat(),
+            },
+            reason=e.code,
+        )
+        await db.commit()
+        raise HTTPException(status_code=e.status_code, detail={"code": e.code, "message": e.message})
+

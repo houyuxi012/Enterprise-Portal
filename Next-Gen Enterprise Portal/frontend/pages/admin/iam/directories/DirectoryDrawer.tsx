@@ -1,18 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  CloudServerOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
+  Col,
+  Divider,
   Form,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
   Space,
   Steps,
   Switch,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
@@ -60,20 +69,35 @@ interface DirectoryFormValues {
   display_name_attr: string;
   mobile_attr: string;
   avatar_attr: string;
+
+  org_base_dn?: string;
+  org_filter?: string;
+  org_name_attr?: string;
+  group_base_dn?: string;
+  group_filter?: string;
+  group_name_attr?: string;
+  group_desc_attr?: string;
+
   sync_mode: 'manual' | 'auto';
   sync_interval_minutes?: number | null;
+  sync_page_size?: number;
   enabled: boolean;
 }
 
 const DIRECTORY_DEFAULTS = {
   ldap: {
-    user_filter: '(&(objectClass=person)(uid={username}))',
+    user_filter: '(&(objectClass=inetOrgPerson)(uid={username}))',
     username_attr: 'uid',
     email_attr: 'mail',
     display_name_attr: 'cn',
     mobile_attr: 'mobile',
-    avatar_attr: 'thumbnailPhoto',
+    avatar_attr: 'jpegPhoto',
+    org_filter: '(|(objectClass=organizationalUnit)(objectClass=organization))',
+    org_name_attr: 'ou',
+    group_filter: '(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames)(objectClass=posixGroup))',
+    group_name_attr: 'cn',
     port: 389,
+    sync_page_size: 1000,
   },
   ad: {
     user_filter: '(&(objectClass=user)(sAMAccountName={username}))',
@@ -82,7 +106,12 @@ const DIRECTORY_DEFAULTS = {
     display_name_attr: 'displayName',
     mobile_attr: 'mobile',
     avatar_attr: 'thumbnailPhoto',
+    org_filter: '(objectClass=organizationalUnit)',
+    org_name_attr: 'ou',
+    group_filter: '(objectClass=group)',
+    group_name_attr: 'cn',
     port: 389,
+    sync_page_size: 1000,
   },
 } as const;
 
@@ -104,7 +133,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
   const stepFieldGroups: Array<Array<keyof DirectoryFormValues>> = [
     ['host', 'port', 'use_ssl', 'start_tls', 'base_dn', 'bind_dn', 'bind_password', 'clear_bind_password'],
     ['user_filter', 'username_attr', 'email_attr', 'display_name_attr', 'mobile_attr', 'avatar_attr'],
-    ['enabled'],
+    ['org_base_dn', 'org_filter', 'org_name_attr', 'group_base_dn', 'group_filter', 'group_name_attr', 'group_desc_attr'],
+    ['enabled', 'sync_mode', 'sync_interval_minutes', 'sync_page_size'],
   ];
 
   const title = useMemo(
@@ -113,9 +143,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
   );
 
   useEffect(() => {
-    if (open) {
-      setCurrentStep(0);
-    }
+    if (open) setCurrentStep(0);
   }, [open]);
 
   useEffect(() => {
@@ -141,8 +169,16 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         display_name_attr: defaults.display_name_attr,
         mobile_attr: defaults.mobile_attr,
         avatar_attr: defaults.avatar_attr,
+        org_base_dn: '',
+        org_filter: defaults.org_filter,
+        org_name_attr: defaults.org_name_attr,
+        group_base_dn: '',
+        group_filter: defaults.group_filter,
+        group_name_attr: defaults.group_name_attr,
+        group_desc_attr: 'description',
         sync_mode: 'manual',
         sync_interval_minutes: 60,
+        sync_page_size: defaults.sync_page_size,
         enabled: true,
       });
       return;
@@ -164,8 +200,16 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         display_name_attr: initialValue.display_name_attr,
         mobile_attr: initialValue.mobile_attr || 'mobile',
         avatar_attr: initialValue.avatar_attr || 'thumbnailPhoto',
+        org_base_dn: initialValue.org_base_dn || '',
+        org_filter: initialValue.org_filter || (initialValue.type === 'ad' ? DIRECTORY_DEFAULTS.ad.org_filter : DIRECTORY_DEFAULTS.ldap.org_filter),
+        org_name_attr: initialValue.org_name_attr || 'ou',
+        group_base_dn: initialValue.group_base_dn || '',
+        group_filter: initialValue.group_filter || (initialValue.type === 'ad' ? DIRECTORY_DEFAULTS.ad.group_filter : DIRECTORY_DEFAULTS.ldap.group_filter),
+        group_name_attr: initialValue.group_name_attr || 'cn',
+        group_desc_attr: initialValue.group_desc_attr || 'description',
         sync_mode: initialValue.sync_mode || 'manual',
         sync_interval_minutes: initialValue.sync_interval_minutes ?? 60,
+        sync_page_size: initialValue.sync_page_size ?? 1000,
         enabled: initialValue.enabled,
       });
     }
@@ -180,16 +224,11 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
       form.setFieldValue('use_ssl', false);
       message.warning(t('directory.messages.tlsConflictResolved'));
     }
-
     if (Object.prototype.hasOwnProperty.call(changedValues, 'use_ssl')) {
       const port = Number(values.port || 0);
-      if (values.use_ssl && port === 389) {
-        form.setFieldValue('port', 636);
-      } else if (!values.use_ssl && port === 636) {
-        form.setFieldValue('port', 389);
-      }
+      if (values.use_ssl && port === 389) form.setFieldValue('port', 636);
+      else if (!values.use_ssl && port === 636) form.setFieldValue('port', 389);
     }
-
   };
 
   const handleFinish = async (values: DirectoryFormValues) => {
@@ -211,8 +250,16 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
       display_name_attr: values.display_name_attr.trim(),
       mobile_attr: values.mobile_attr.trim(),
       avatar_attr: values.avatar_attr.trim(),
+      org_base_dn: values.org_base_dn?.trim() || null,
+      org_filter: values.org_filter?.trim() || null,
+      org_name_attr: values.org_name_attr?.trim() || null,
+      group_base_dn: values.group_base_dn?.trim() || null,
+      group_filter: values.group_filter?.trim() || null,
+      group_name_attr: values.group_name_attr?.trim() || null,
+      group_desc_attr: values.group_desc_attr?.trim() || null,
       sync_mode: values.sync_mode,
       sync_interval_minutes: values.sync_mode === 'auto' ? Number(values.sync_interval_minutes || 60) : null,
+      sync_page_size: values.sync_page_size ? Number(values.sync_page_size) : 1000,
       enabled: Boolean(values.enabled),
     };
 
@@ -249,19 +296,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
     if (!onTestConnection) return;
     try {
       await form.validateFields([
-        'host',
-        'port',
-        'use_ssl',
-        'start_tls',
-        'base_dn',
-        'bind_dn',
-        'bind_password',
-        'user_filter',
-        'username_attr',
-        'email_attr',
-        'display_name_attr',
-        'mobile_attr',
-        'avatar_attr',
+        'host', 'port', 'use_ssl', 'start_tls', 'base_dn', 'bind_dn', 'bind_password',
+        'user_filter', 'username_attr', 'email_attr', 'display_name_attr', 'mobile_attr', 'avatar_attr',
       ]);
       const values = form.getFieldsValue(true) as DirectoryFormValues;
       if (values.use_ssl && values.start_tls) {
@@ -273,11 +309,8 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
       const enteredBindPassword = values.bind_password?.trim();
       let bindPasswordForDraft: string | null | undefined;
       if (mode === 'edit') {
-        if (values.clear_bind_password) {
-          bindPasswordForDraft = '';
-        } else if (enteredBindPassword) {
-          bindPasswordForDraft = enteredBindPassword;
-        }
+        if (values.clear_bind_password) bindPasswordForDraft = '';
+        else if (enteredBindPassword) bindPasswordForDraft = enteredBindPassword;
       } else if (enteredBindPassword) {
         bindPasswordForDraft = enteredBindPassword;
       }
@@ -304,15 +337,22 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
     }
   };
 
+  const stepItems = [
+    { title: t('directory.form.sections.connection'), icon: <ApiOutlined /> },
+    { title: t('directory.form.sections.userMapping', '用户映射'), icon: <TeamOutlined /> },
+    { title: t('directory.form.sections.orgMapping', '组织映射'), icon: <CloudServerOutlined /> },
+    { title: t('directory.form.sections.extra', '扩展配置'), icon: <SettingOutlined /> },
+  ];
+
   return (
     <Modal
       title={title}
       open={open}
-      width={760}
+      width={960}
       destroyOnHidden
       onCancel={onCancel}
       footer={
-        <div className="flex w-full items-center justify-between">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             {currentStep === stepFieldGroups.length - 1 && onTestConnection ? (
               <Button
@@ -327,11 +367,11 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
           </div>
           <Space>
             <Button onClick={onCancel}>{t('common.buttons.cancel')}</Button>
-            {currentStep > 0 ? (
+            {currentStep > 0 && (
               <Button onClick={handlePrevious} disabled={loading || actionsDisabled}>
                 {t('directory.form.actions.previous')}
               </Button>
-            ) : null}
+            )}
             {currentStep < stepFieldGroups.length - 1 ? (
               <Button type="primary" onClick={() => void handleNext()} disabled={loading || actionsDisabled}>
                 {t('directory.form.actions.next')}
@@ -347,22 +387,15 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
     >
       <Steps
         current={currentStep}
-        className="mb-4"
-        items={[
-          { title: t('directory.form.sections.connection') },
-          { title: t('directory.form.sections.mapping') },
-          { title: t('directory.form.sections.extra') },
-        ]}
+        size="small"
+        onChange={(step) => { if (step < currentStep) setCurrentStep(step); }}
+        style={{ marginBottom: 28 }}
+        items={stepItems}
       />
 
-      {actionsDisabled ? (
-        <Alert
-          type="warning"
-          showIcon
-          message={t('directory.license.alert')}
-          className="mb-4"
-        />
-      ) : null}
+      {actionsDisabled && (
+        <Alert type="warning" showIcon message={t('directory.license.alert')} style={{ marginBottom: 16 }} />
+      )}
 
       <Form<DirectoryFormValues>
         form={form}
@@ -370,126 +403,210 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
         onValuesChange={handleValuesChange}
         onFinish={handleFinish}
         disabled={loading || actionsDisabled}
+        size="middle"
       >
-        {currentStep === 0 ? (
-          <>
-            <Card size="small" title={t('directory.form.sections.connection')} className="mb-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Form.Item
-                  label={t('directory.form.fields.host')}
-                  name="host"
-                  rules={[{ required: true, message: t('directory.form.validation.hostRequired') }]}
-                >
-                  <Input placeholder={t('directory.form.placeholders.host')} />
-                </Form.Item>
-                <Form.Item
-                  label={t('directory.form.fields.port')}
-                  name="port"
-                  rules={[{ required: true, message: t('directory.form.validation.portRequired') }]}
-                >
-                  <InputNumber min={1} max={65535} className="w-full" />
-                </Form.Item>
-              </div>
+        {/* ──── Step 1: 连接配置 ──── */}
+        <div style={{ display: currentStep === 0 ? undefined : 'none' }}>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
+            {t('directory.form.sections.connection')}
+          </Divider>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Form.Item label={t('directory.form.fields.useSsl')} name="use_ssl" valuePropName="checked">
-                  <Switch />
-                </Form.Item>
-                <Form.Item label={t('directory.form.fields.startTls')} name="start_tls" valuePropName="checked">
-                  <Switch />
-                </Form.Item>
-              </div>
-
+          <Row gutter={16}>
+            <Col span={16}>
               <Form.Item
-                label={t('directory.form.fields.baseDn')}
-                name="base_dn"
-                rules={[{ required: true, message: t('directory.form.validation.baseDnRequired') }]}
+                label={t('directory.form.fields.host')}
+                name="host"
+                rules={[{ required: true, message: t('directory.form.validation.hostRequired') }]}
               >
-                <Input placeholder={t('directory.form.placeholders.baseDn')} />
+                <Input placeholder={t('directory.form.placeholders.host')} />
               </Form.Item>
-
-              <Form.Item label={t('directory.form.fields.bindDn')} name="bind_dn">
-                <Input placeholder={t('directory.form.placeholders.bindDn')} />
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label={t('directory.form.fields.port')}
+                name="port"
+                rules={[{ required: true, message: t('directory.form.validation.portRequired') }]}
+              >
+                <InputNumber min={1} max={65535} style={{ width: '100%' }} />
               </Form.Item>
-            </Card>
+            </Col>
+          </Row>
 
-            {mode === 'edit' && initialValue?.has_bind_password ? (
-              <Alert
-                type="info"
-                showIcon
-                className="mb-4"
-                message={t('directory.form.bindPasswordSetHint')}
-              />
-            ) : null}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.useSsl')} name="use_ssl" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.startTls')} name="start_tls" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
 
-            <Form.Item label={t('directory.form.fields.bindPassword')} name="bind_password">
-              <Input.Password
-                autoComplete="new-password"
-                placeholder={mode === 'edit' ? t('directory.form.placeholders.bindPasswordEdit') : t('directory.form.placeholders.bindPassword')}
-              />
+          <Form.Item
+            label={t('directory.form.fields.baseDn')}
+            name="base_dn"
+            rules={[{ required: true, message: t('directory.form.validation.baseDnRequired') }]}
+          >
+            <Input placeholder={t('directory.form.placeholders.baseDn')} />
+          </Form.Item>
+
+          <Form.Item label={t('directory.form.fields.bindDn')} name="bind_dn">
+            <Input placeholder={t('directory.form.placeholders.bindDn')} />
+          </Form.Item>
+
+          {mode === 'edit' && initialValue?.has_bind_password && (
+            <Alert type="info" showIcon style={{ marginBottom: 16 }} message={t('directory.form.bindPasswordSetHint')} />
+          )}
+
+          <Form.Item label={t('directory.form.fields.bindPassword')} name="bind_password">
+            <Input.Password
+              autoComplete="new-password"
+              placeholder={mode === 'edit' ? t('directory.form.placeholders.bindPasswordEdit') : t('directory.form.placeholders.bindPassword')}
+            />
+          </Form.Item>
+
+          {mode === 'edit' && initialValue?.has_bind_password && (
+            <Form.Item name="clear_bind_password" valuePropName="checked">
+              <Checkbox>{t('directory.form.fields.clearBindPassword')}</Checkbox>
             </Form.Item>
+          )}
+        </div>
 
-            {mode === 'edit' && initialValue?.has_bind_password ? (
-              <Form.Item name="clear_bind_password" valuePropName="checked">
-                <Checkbox>{t('directory.form.fields.clearBindPassword')}</Checkbox>
-              </Form.Item>
-            ) : null}
-          </>
-        ) : null}
+        {/* ──── Step 2: 用户映射 ──── */}
+        <div style={{ display: currentStep === 1 ? undefined : 'none' }}>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
+            {t('directory.form.sections.userMapping', '用户映射')}
+          </Divider>
 
-        {currentStep === 1 ? (
-          <Card size="small" title={t('directory.form.sections.mapping')} className="mb-4">
-            <Form.Item
-              label={t('directory.form.fields.userFilter')}
-              name="user_filter"
-              rules={[{ required: true, message: t('directory.form.validation.userFilterRequired') }]}
-            >
-              <Input placeholder={t('directory.form.placeholders.userFilter')} />
-            </Form.Item>
+          <Form.Item
+            label={t('directory.form.fields.userFilter')}
+            name="user_filter"
+            rules={[{ required: true, message: t('directory.form.validation.userFilterRequired') }]}
+            tooltip="LDAP 搜索过滤器，用于匹配用户对象"
+          >
+            <Input placeholder={t('directory.form.placeholders.userFilter')} />
+          </Form.Item>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Form.Item label={t('directory.form.fields.usernameAttr')} name="username_attr">
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                label={t('directory.form.fields.usernameAttr')}
+                name="username_attr"
+                tooltip="用于匹配登录用户名的 LDAP 属性"
+              >
                 <Input placeholder={t('directory.form.placeholders.usernameAttr')} />
               </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item label={t('directory.form.fields.emailAttr')} name="email_attr">
                 <Input placeholder={t('directory.form.placeholders.emailAttr')} />
               </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item label={t('directory.form.fields.displayNameAttr')} name="display_name_attr">
                 <Input placeholder={t('directory.form.placeholders.displayNameAttr')} />
               </Form.Item>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item label={t('directory.form.fields.mobileAttr')} name="mobile_attr">
                 <Input placeholder={t('directory.form.placeholders.mobileAttr')} />
               </Form.Item>
-              <Form.Item label={t('directory.form.fields.avatarAttr')} name="avatar_attr">
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={t('directory.form.fields.avatarAttr')}
+                name="avatar_attr"
+                tooltip="AD 使用 thumbnailPhoto，OpenLDAP 使用 jpegPhoto"
+              >
                 <Input placeholder={t('directory.form.placeholders.avatarAttr')} />
               </Form.Item>
-            </div>
-          </Card>
-        ) : null}
+            </Col>
+          </Row>
+        </div>
 
-        {currentStep === 2 ? (
-          <Card size="small" title={t('directory.form.sections.extra')} className="mb-4">
-            {mode === 'create' ? (
-              <Form.Item label={t('directory.form.fields.remark')} name="remark">
-                <Input.TextArea
-                  placeholder={t('directory.form.placeholders.remark')}
-                  autoSize={{ minRows: 2, maxRows: 4 }}
-                  maxLength={500}
-                  showCount
-                />
+        {/* ──── Step 3: 组织 & 角色映射 ──── */}
+        <div style={{ display: currentStep === 2 ? undefined : 'none' }}>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
+            组织机构映射（OU → 部门）
+          </Divider>
+
+          <Form.Item
+            label={t('directory.form.fields.orgBaseDn', '组织 Base DN（留空默认继承）')}
+            name="org_base_dn"
+            tooltip="留空则使用全局 Base DN 作为组织搜索根"
+          >
+            <Input placeholder={t('directory.form.placeholders.orgBaseDn', 'ou=Departments,dc=example,dc=com')} />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.orgFilter', '组织过滤条件')} name="org_filter">
+                <Input placeholder={t('directory.form.placeholders.orgFilter', '(objectClass=organizationalUnit)')} />
               </Form.Item>
-            ) : (
-              <div className="text-sm text-slate-600">
-                {t('directory.form.fields.remark')}：{initialValue?.remark || '-'}
-              </div>
-            )}
+            </Col>
+            <Col span={12}>
+              <Form.Item label={t('directory.form.fields.orgNameAttr', '组织名称属性')} name="org_name_attr">
+                <Input placeholder={t('directory.form.placeholders.orgNameAttr', 'ou')} />
+              </Form.Item>
+            </Col>
+          </Row>
 
-            <Form.Item label={t('directory.form.fields.enabled')} name="enabled" valuePropName="checked">
-              <Switch />
+          <Divider titlePlacement="left">
+            群组映射（Group → 角色）
+          </Divider>
+
+          <Form.Item
+            label={t('directory.form.fields.groupBaseDn', '群组 Base DN（留空默认继承）')}
+            name="group_base_dn"
+            tooltip="留空则使用全局 Base DN 作为群组搜索根"
+          >
+            <Input placeholder={t('directory.form.placeholders.groupBaseDn', 'ou=Groups,dc=example,dc=com')} />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label={t('directory.form.fields.groupFilter', '群组过滤条件')} name="group_filter">
+                <Input placeholder={t('directory.form.placeholders.groupFilter', '(objectClass=groupOfNames)')} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label={t('directory.form.fields.groupNameAttr', '群组名称属性')} name="group_name_attr">
+                <Input placeholder={t('directory.form.placeholders.groupNameAttr', 'cn')} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label={t('directory.form.fields.groupDescAttr', '群组描述属性')} name="group_desc_attr">
+                <Input placeholder={t('directory.form.placeholders.groupDescAttr', 'description')} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
+
+        {/* ──── Step 4: 扩展配置 ──── */}
+        <div style={{ display: currentStep === 3 ? undefined : 'none' }}>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>
+            {t('directory.form.sections.extra', '扩展配置')}
+          </Divider>
+
+          {mode === 'create' && (
+            <Form.Item label={t('directory.form.fields.remark')} name="remark">
+              <Input.TextArea
+                placeholder={t('directory.form.placeholders.remark')}
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                maxLength={500}
+                showCount
+              />
             </Form.Item>
-            <div className="grid grid-cols-2 gap-3">
+          )}
+
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item
                 label={t('directory.form.fields.syncMode')}
                 name="sync_mode"
@@ -502,10 +619,9 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
                   ]}
                 />
               </Form.Item>
-              <Form.Item
-                shouldUpdate={(prev, cur) => prev.sync_mode !== cur.sync_mode}
-                noStyle
-              >
+            </Col>
+            <Col span={12}>
+              <Form.Item shouldUpdate={(prev, cur) => prev.sync_mode !== cur.sync_mode} noStyle>
                 {({ getFieldValue }) =>
                   getFieldValue('sync_mode') === 'auto' ? (
                     <Form.Item
@@ -513,15 +629,10 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
                       name="sync_interval_minutes"
                       rules={[
                         { required: true, message: t('directory.form.validation.syncIntervalRequired') },
-                        {
-                          type: 'number',
-                          min: 5,
-                          max: 10080,
-                          message: t('directory.form.validation.syncIntervalRange'),
-                        },
+                        { type: 'number', min: 5, max: 10080, message: t('directory.form.validation.syncIntervalRange') },
                       ]}
                     >
-                      <InputNumber min={5} max={10080} className="w-full" />
+                      <InputNumber min={5} max={10080} style={{ width: '100%' }} addonAfter="min" />
                     </Form.Item>
                   ) : (
                     <Form.Item label={t('directory.form.fields.syncIntervalMinutes')}>
@@ -530,10 +641,24 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
                   )
                 }
               </Form.Item>
-            </div>
-            <Text type="secondary">{t('directory.form.footerHint')}</Text>
-          </Card>
-        ) : null}
+            </Col>
+          </Row>
+
+          <Form.Item
+            label={
+              <Tooltip title="每次 LDAP 查询返回的最大条目数，防止大目录超时">
+                {t('directory.form.fields.syncPageSize', 'LDAP 分页请求尺寸')}
+              </Tooltip>
+            }
+            name="sync_page_size"
+          >
+            <InputNumber min={50} max={10000} style={{ width: 200 }} addonAfter="条/页" />
+          </Form.Item>
+
+          <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+            {t('directory.form.footerHint')}
+          </Text>
+        </div>
       </Form>
     </Modal>
   );

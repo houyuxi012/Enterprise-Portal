@@ -57,6 +57,10 @@ class Role(Base):
     
     permissions = relationship("Permission", secondary=role_permissions, backref="roles")
     
+    # external identity linking
+    directory_id = Column(Integer, index=True, nullable=True)
+    external_id = Column(String(255), index=True, nullable=True)
+    
     __table_args__ = (
         UniqueConstraint('app_id', 'code', name='uq_role_app_code'),
     )
@@ -222,15 +226,27 @@ class DirectoryConfig(Base):
     user_filter = Column(
         String(512),
         nullable=False,
-        default="(&(objectClass=user)(sAMAccountName={username}))",
+        default="(&(objectClass=inetOrgPerson)(uid={username}))",
     )
-    username_attr = Column(String(128), nullable=False, default="sAMAccountName")
+    username_attr = Column(String(128), nullable=False, default="uid")
     email_attr = Column(String(128), nullable=False, default="mail")
-    display_name_attr = Column(String(128), nullable=False, default="displayName")
+    display_name_attr = Column(String(128), nullable=False, default="cn")
     mobile_attr = Column(String(128), nullable=False, default="mobile")
-    avatar_attr = Column(String(128), nullable=False, default="thumbnailPhoto")
+    avatar_attr = Column(String(128), nullable=False, default="jpegPhoto")
     sync_mode = Column(String(20), nullable=False, default="manual")  # manual | auto
     sync_interval_minutes = Column(Integer, nullable=True, default=None)
+    sync_page_size = Column(Integer, nullable=False, default=1000)
+    sync_cursor = Column(String(255), nullable=True)
+
+    org_base_dn = Column(String(512), nullable=True)
+    org_filter = Column(String(512), nullable=True, default="(|(objectClass=organizationalUnit)(objectClass=organization))")
+    org_name_attr = Column(String(128), nullable=True, default="ou")
+
+    group_base_dn = Column(String(512), nullable=True)
+    group_filter = Column(String(512), nullable=True, default="(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames)(objectClass=posixGroup))")
+    group_name_attr = Column(String(128), nullable=True, default="cn")
+    group_desc_attr = Column(String(128), nullable=True, default="description")
+
     enabled = Column(Boolean, nullable=False, default=False, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -299,6 +315,10 @@ class Department(Base):
     manager = Column(String, nullable=True)
     description = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
+    
+    # external identity linking
+    directory_id = Column(Integer, index=True, nullable=True)
+    external_id = Column(String(255), index=True, nullable=True)
     
     # Self-referential relationship for tree structure
     children = relationship("Department", back_populates="parent")

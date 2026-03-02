@@ -13,12 +13,25 @@ export interface DirectoryConfig {
   base_dn: string;
   user_filter: string;
   username_attr: string;
-  email_attr: string;
-  display_name_attr: string;
-  mobile_attr: string;
-  avatar_attr: string;
-  sync_mode: 'manual' | 'auto';
+  email_attr?: string | null;
+  display_name_attr?: string | null;
+  mobile_attr?: string | null;
+  avatar_attr?: string | null;
+
+  org_base_dn?: string | null;
+  org_filter?: string | null;
+  org_name_attr?: string | null;
+
+  group_base_dn?: string | null;
+  group_filter?: string | null;
+  group_name_attr?: string | null;
+  group_desc_attr?: string | null;
+
+  sync_mode?: 'manual' | 'auto' | null;
   sync_interval_minutes?: number | null;
+  sync_page_size?: number | null;
+  sync_cursor?: string | null;
+
   enabled: boolean;
   has_bind_password: boolean;
   created_at: string;
@@ -58,6 +71,17 @@ export interface DirectoryCreatePayload {
   avatar_attr?: string;
   sync_mode?: 'manual' | 'auto';
   sync_interval_minutes?: number | null;
+  sync_page_size?: number;
+
+  org_base_dn?: string | null;
+  org_filter?: string | null;
+  org_name_attr?: string | null;
+
+  group_base_dn?: string | null;
+  group_filter?: string | null;
+  group_name_attr?: string | null;
+  group_desc_attr?: string | null;
+
   enabled: boolean;
 }
 
@@ -80,6 +104,18 @@ export interface DirectoryUpdatePayload {
   avatar_attr?: string;
   sync_mode?: 'manual' | 'auto';
   sync_interval_minutes?: number | null;
+  sync_page_size?: number;
+  sync_cursor?: string | null;
+
+  org_base_dn?: string | null;
+  org_filter?: string | null;
+  org_name_attr?: string | null;
+
+  group_base_dn?: string | null;
+  group_filter?: string | null;
+  group_name_attr?: string | null;
+  group_desc_attr?: string | null;
+
   enabled?: boolean;
 }
 
@@ -103,6 +139,16 @@ export interface DirectoryDraftTestPayload {
   display_name_attr?: string;
   mobile_attr?: string;
   avatar_attr?: string;
+
+  org_base_dn?: string | null;
+  org_filter?: string | null;
+  org_name_attr?: string | null;
+
+  group_base_dn?: string | null;
+  group_filter?: string | null;
+  group_name_attr?: string | null;
+  group_desc_attr?: string | null;
+
   username?: string;
   password?: string;
 }

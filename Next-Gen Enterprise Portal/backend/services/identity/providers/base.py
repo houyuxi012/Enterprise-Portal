@@ -16,6 +16,25 @@ class IdentityProviderError(Exception):
 
 
 @dataclass(slots=True)
+class IdentityAuthOrgResult:
+    provider: str
+    external_id: str
+    name: str
+    parent_external_id: Optional[str] = None
+    dn: Optional[str] = None
+    attributes: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class IdentityAuthGroupResult:
+    provider: str
+    external_id: str
+    name: str
+    description: Optional[str] = None
+    attributes: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class IdentityAuthResult:
     provider: str
     username: str
@@ -23,6 +42,7 @@ class IdentityAuthResult:
     display_name: Optional[str] = None
     external_id: Optional[str] = None
     user_dn: Optional[str] = None
+    department_external_ids: list[str] = field(default_factory=list)
     attributes: dict[str, Any] = field(default_factory=dict)
 
 
@@ -67,10 +87,33 @@ class IdentityProvider(ABC):
         db: AsyncSession,
         directory_config: Any,
         limit: int = 1000,
+        sync_cursor: str | None = None,
         request: Any | None = None,
-    ) -> list[IdentityAuthResult]:
+    ) -> tuple[list[IdentityAuthResult], str | None]:
         raise IdentityProviderError(
             code="PROVIDER_SYNC_NOT_SUPPORTED",
-            message=f"{self.provider_name} provider does not support directory sync",
+            message=f"{self.provider_name} provider does not support directory user sync",
             status_code=400,
         )
+
+    async def sync_orgs(
+        self,
+        *,
+        db: AsyncSession,
+        directory_config: Any,
+        limit: int = 1000,
+        sync_cursor: str | None = None,
+        request: Any | None = None,
+    ) -> tuple[list[IdentityAuthOrgResult], str | None]:
+        return [], None
+
+    async def sync_groups(
+        self,
+        *,
+        db: AsyncSession,
+        directory_config: Any,
+        limit: int = 1000,
+        sync_cursor: str | None = None,
+        request: Any | None = None,
+    ) -> tuple[list[IdentityAuthGroupResult], str | None]:
+        return [], None

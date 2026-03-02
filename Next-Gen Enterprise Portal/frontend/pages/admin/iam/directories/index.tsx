@@ -10,6 +10,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -23,6 +24,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
+  SyncOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -416,6 +418,32 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
     }
   };
 
+  const handleSync = async (record: DirectoryConfig, isIncremental: boolean = false) => {
+    const hideLoading = message.loading(t('directory.messages.syncRunning'), 0);
+    try {
+      const result = await DirectoryService.syncDirectory(record.id, isIncremental);
+      message.success(
+        t('directory.messages.syncSuccessDetails', {
+          fetched: result.fetched_count,
+          users: result.synced_user_count,
+          orgs: result.synced_org_count,
+          groups: result.synced_group_count,
+          failed: result.failed_count,
+        }) || `已拉取: ${result.fetched_count}，同步用户: ${result.synced_user_count}，组织: ${result.synced_org_count}，群组: ${result.synced_group_count}，失败: ${result.failed_count}`,
+      );
+      await fetchRows();
+    } catch (error: any) {
+      if (isLdapLicenseRequiredError(error)) {
+        message.warning(handleLicenseBlock(error));
+      } else {
+        const detail = getApiErrorDetail(error);
+        message.error(detail.message || t('directory.messages.syncFailed'));
+      }
+    } finally {
+      hideLoading();
+    }
+  };
+
   const handleTest = async (record: DirectoryConfig) => {
     setTestOpen(true);
     setTestLoading(true);
@@ -548,8 +576,19 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
         dataIndex: 'enabled',
         key: 'enabled',
         width: 120,
-        render: (enabled: boolean) =>
-          enabled ? <Tag color="success">{t('directory.status.enabled')}</Tag> : <Tag>{t('directory.status.disabled')}</Tag>,
+        render: (enabled: boolean, record: DirectoryConfig) => (
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={enabled}
+              onChange={() => void handleToggleEnabled(record)}
+              size="small"
+              disabled={actionDisabled || !hasManagePermission}
+            />
+            <Tag color={enabled ? 'success' : 'default'}>
+              {enabled ? t('directory.status.enabled') : t('directory.status.disabled')}
+            </Tag>
+          </div>
+        ),
       },
       {
         title: t('directory.table.updatedAt'),
@@ -564,7 +603,7 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
       title: t('directory.table.actions'),
       key: 'actions',
       fixed: 'right',
-      width: hasManagePermission ? 260 : 100,
+      width: hasManagePermission ? 200 : 100,
       render: (_, record) => (
         <Space size={8}>
           <Tooltip title={t('common.buttons.detail')}>
@@ -579,23 +618,20 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
                   onClick={() => void handleEdit(record)}
                 />
               </Tooltip>
-              <Tooltip title={licenseBlocked ? t('directory.license.tooltip') : t('directory.actions.test')}>
+              <Tooltip title={licenseBlocked ? t('directory.license.tooltip') : t('directory.actions.fullSync', '全量同步')}>
                 <Button
-                  icon={<ThunderboltOutlined />}
-                  disabled={actionDisabled}
-                  onClick={() => void handleTest(record)}
+                  icon={<SyncOutlined />}
+                  disabled={actionDisabled || !record.enabled}
+                  onClick={() => void handleSync(record, false)}
                 />
               </Tooltip>
-              <Popconfirm
-                title={record.enabled ? t('directory.actions.disableConfirm') : t('directory.actions.enableConfirm')}
-                onConfirm={() => void handleToggleEnabled(record)}
-                okButtonProps={{ disabled: actionDisabled }}
-                disabled={actionDisabled}
-              >
-                <Button disabled={actionDisabled} icon={<CheckCircleOutlined />}>
-                  {record.enabled ? t('directory.actions.disable') : t('directory.actions.enable')}
-                </Button>
-              </Popconfirm>
+              <Tooltip title={licenseBlocked ? t('directory.license.tooltip') : t('directory.actions.incrementalSync', '增量同步')}>
+                <Button
+                  icon={<ThunderboltOutlined />}
+                  disabled={actionDisabled || !record.enabled || !record.sync_cursor}
+                  onClick={() => void handleSync(record, true)}
+                />
+              </Tooltip>
             </>
           ) : null}
         </Space>

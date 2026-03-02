@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import io
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -83,6 +86,48 @@ class ProviderIdentityService:
         existing_fallback = await db.execute(select(models.User.id).filter(models.User.email == fallback))
         return None if existing_fallback.scalar_one_or_none() else fallback
 
+    _avatar_logger = logging.getLogger(__name__ + ".avatar")
+
+    @staticmethod
+    def _upload_avatar_to_storage(blob: bytes, username: str) -> str | None:
+        """Upload raw avatar bytes to object storage, return public URL."""
+        try:
+            from services.storage import storage as _storage
+
+            # Detect extension from magic bytes
+            if blob.startswith(b"\x89PNG\r\n\x1a\n"):
+                ext, mime = "png", "image/png"
+            else:
+                ext, mime = "jpg", "image/jpeg"
+
+            content_hash = hashlib.md5(blob).hexdigest()[:8]
+            filename = f"avatars/ldap-{username}-{content_hash}.{ext}"
+
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're inside an async context; storage.upload is sync-wrapped
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(
+                        _storage.client.put_object,
+                        _storage.bucket,
+                        filename,
+                        io.BytesIO(blob),
+                        len(blob),
+                        mime,
+                    ).result(timeout=10)
+            else:
+                _storage.client.put_object(
+                    _storage.bucket, filename, io.BytesIO(blob), len(blob), mime
+                )
+
+            url = _storage.get_url(filename, is_public=True)
+            return url
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Avatar upload failed for %s: %s", username, exc)
+            return None
+
     @classmethod
     async def _ensure_employee_profile(
         cls,
@@ -132,6 +177,8 @@ class ProviderIdentityService:
         *,
         auth_result: IdentityAuthResult,
         directory_id: int | None,
+        org_mapping: dict[str, int] | None = None,
+        dn_to_dept: dict[str, int] | None = None,
     ) -> models.User:
         user: models.User | None = None
         if directory_id and auth_result.external_id:
@@ -156,6 +203,14 @@ class ProviderIdentityService:
                 },
             )
 
+        # Resolve avatar: upload bytes to MinIO, keep string URLs as-is
+        raw_avatar = (auth_result.attributes or {}).get("avatar")
+        avatar_url: str | None = None
+        if isinstance(raw_avatar, (bytes, bytearray)):
+            avatar_url = cls._upload_avatar_to_storage(bytes(raw_avatar), auth_result.username)
+        elif isinstance(raw_avatar, str) and raw_avatar:
+            avatar_url = raw_avatar
+
         if user is None:
             generated_password = secrets.token_urlsafe(24)
             safe_email = await cls._resolve_unique_user_email(db, auth_result.email, auth_result.username)
@@ -166,7 +221,7 @@ class ProviderIdentityService:
                 account_type="PORTAL",
                 is_active=True,
                 name=auth_result.display_name or auth_result.username,
-                avatar=(auth_result.attributes or {}).get("avatar"),
+                avatar=avatar_url,
                 directory_id=directory_id,
                 external_id=auth_result.external_id,
             )
@@ -180,8 +235,8 @@ class ProviderIdentityService:
                 user.name = auth_result.display_name
             if auth_result.email:
                 user.email = auth_result.email
-            if (auth_result.attributes or {}).get("avatar"):
-                user.avatar = (auth_result.attributes or {}).get("avatar")
+            if avatar_url:
+                user.avatar = avatar_url
             if directory_id:
                 user.directory_id = directory_id
             if auth_result.external_id:
@@ -194,7 +249,81 @@ class ProviderIdentityService:
             user,
             mobile=(auth_result.attributes or {}).get("mobile"),
         )
+        
+        # Link user to department
+        # For OpenLDAP: department_external_ids are DNs, but org_mapping keys may be entryUUIDs
+        # so we check dn_to_dept (DN -> dept_id) first, then fallback to org_mapping
+        if getattr(auth_result, "department_external_ids", None) and getattr(user, "employee_profile", None):
+            for ext_id in auth_result.department_external_ids:
+                dept_id = (dn_to_dept or {}).get(ext_id) or (org_mapping or {}).get(ext_id)
+                if dept_id:
+                    user.employee_profile.department_id = dept_id
+                    db.add(user.employee_profile)
+                    break
+        
         return user
+
+    @classmethod
+    async def _jit_upsert_org(
+        cls,
+        db: AsyncSession,
+        directory_id: int,
+        org: IdentityAuthOrgResult,
+    ) -> models.Department:
+        result = await db.execute(
+            select(models.Department).filter(
+                models.Department.directory_id == directory_id,
+                models.Department.external_id == org.external_id,
+            )
+        )
+        dept = result.scalars().first()
+        if not dept:
+            dept = models.Department(
+                name=org.name,
+                directory_id=directory_id,
+                external_id=org.external_id,
+            )
+            db.add(dept)
+        else:
+            if dept.name != org.name:
+                dept.name = org.name
+                db.add(dept)
+        return dept
+
+    @classmethod
+    async def _jit_upsert_group_as_role(
+        cls,
+        db: AsyncSession,
+        directory_id: int,
+        group: IdentityAuthGroupResult,
+    ) -> models.Role:
+        result = await db.execute(
+            select(models.Role).filter(
+                models.Role.directory_id == directory_id,
+                models.Role.external_id == group.external_id,
+            )
+        )
+        role = result.scalars().first()
+        if not role:
+            # We must assign a basic code. Avoid clashing.
+            safe_code = f"dir_{directory_id}_grp_{hashlib.md5(group.external_id.encode()).hexdigest()[:8]}"
+            role = models.Role(
+                name=group.name,
+                code=safe_code,
+                app_id="portal",
+                description=group.description,
+                directory_id=directory_id,
+                external_id=group.external_id,
+            )
+            db.add(role)
+        else:
+            if role.name != group.name or role.description != group.description:
+                role.name = group.name
+                role.description = group.description
+                db.add(role)
+        return role
+
+
 
     @classmethod
     async def _issue_portal_token(

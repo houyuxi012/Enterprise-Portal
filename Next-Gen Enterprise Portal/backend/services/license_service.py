@@ -679,10 +679,16 @@ class LicenseService:
         if safe_now >= cls._ensure_utc(state["expires_at"]):
             return {"ok": False, "reason_code": cls.CODE_EXPIRED, "safe_now": safe_now}
 
-        if (state.get("status") or "").lower() not in {"active"}:
+        status_value = (state.get("status") or "").lower()
+        reason_value = str(state.get("reason") or "").upper()
+        if status_value not in {"active"}:
+            # Backward-compat self-heal: if a previously expired row remains stale
+            # while current time is still in license validity window, do not block.
+            if reason_value == cls.CODE_EXPIRED:
+                return {"ok": True, "reason_code": None, "safe_now": safe_now}
             return {
                 "ok": False,
-                "reason_code": state.get("reason") or "LICENSE_INACTIVE",
+                "reason_code": reason_value or "LICENSE_INACTIVE",
                 "safe_now": safe_now,
             }
 
@@ -1278,6 +1284,9 @@ class LicenseService:
         state = await cls.get_current_state(db)
         runtime = await cls._evaluate_runtime_with_revocation(db, state)
         if not runtime["ok"]:
+            state = await cls.get_current_state(db, force_refresh=True)
+            runtime = await cls._evaluate_runtime_with_revocation(db, state)
+        if not runtime["ok"]:
             if state and runtime["reason_code"] in {cls.CODE_EXPIRED, cls.CODE_TIME_ROLLBACK, cls.CODE_REVOKED}:
                 await cls._mark_runtime_transition(
                     db,
@@ -1298,6 +1307,9 @@ class LicenseService:
     async def require_feature(cls, db: AsyncSession, feature: str) -> None:
         state = await cls.get_current_state(db)
         runtime = await cls._evaluate_runtime_with_revocation(db, state)
+        if not runtime["ok"]:
+            state = await cls.get_current_state(db, force_refresh=True)
+            runtime = await cls._evaluate_runtime_with_revocation(db, state)
         reason_code = runtime.get("reason_code")
         if runtime["ok"] and state is not None and cls._feature_enabled(state.get("features"), feature):
             await cls._touch_last_seen(db, state["id"], runtime["safe_now"])
@@ -1359,6 +1371,9 @@ class LicenseService:
         """
         state = await cls.get_current_state(db)
         runtime = await cls._evaluate_runtime_with_revocation(db, state)
+        if not runtime["ok"]:
+            state = await cls.get_current_state(db, force_refresh=True)
+            runtime = await cls._evaluate_runtime_with_revocation(db, state)
         reason_code = runtime.get("reason_code")
 
         if runtime["ok"] and state is not None:
@@ -1430,6 +1445,9 @@ class LicenseService:
     ) -> dict[str, Any]:
         state = await cls.get_current_state(db)
         runtime = await cls._evaluate_runtime_with_revocation(db, state)
+        if not runtime["ok"]:
+            state = await cls.get_current_state(db, force_refresh=True)
+            runtime = await cls._evaluate_runtime_with_revocation(db, state)
         if state is None:
             return {
                 "installed": False,
@@ -1466,10 +1484,19 @@ class LicenseService:
 
         features = state.get("features") if state else {}
         features_count = len(features) if isinstance(features, dict) else 0
+        runtime_reason = None if runtime["ok"] else runtime.get("reason_code")
+        if runtime["ok"]:
+            runtime_status = "active"
+        elif runtime_reason == cls.CODE_EXPIRED:
+            runtime_status = "expired"
+        elif runtime_reason == cls.CODE_MISSING:
+            runtime_status = "missing"
+        else:
+            runtime_status = "invalid"
         return {
             "installed": True,
-            "status": (state.get("status") if state else "unknown"),
-            "reason": (state.get("reason") if state else runtime.get("reason_code")),
+            "status": runtime_status,
+            "reason": runtime_reason,
             "license_id": (
                 (state.get("payload") or {}).get("license_id")
                 if isinstance(state.get("payload"), dict)

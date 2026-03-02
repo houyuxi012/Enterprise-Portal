@@ -43,6 +43,7 @@ class EmployeeCreate(EmployeeBase):
 
 class Employee(EmployeeBase):
     id: int
+    source: Optional[str] = "local"
     class Config:
         from_attributes = True
 
@@ -446,14 +447,26 @@ class DirectoryConfigBase(BaseModel):
     bind_dn: Optional[str] = None
     remark: Optional[str] = None
     base_dn: str
-    user_filter: str = "(&(objectClass=user)(sAMAccountName={username}))"
-    username_attr: str = "sAMAccountName"
+    user_filter: str = "(&(objectClass=inetOrgPerson)(uid={username}))"
+    username_attr: str = "uid"
     email_attr: str = "mail"
-    display_name_attr: str = "displayName"
+    display_name_attr: str = "cn"
     mobile_attr: str = "mobile"
-    avatar_attr: str = "thumbnailPhoto"
+    avatar_attr: str = "jpegPhoto"
     sync_mode: Literal["manual", "auto"] = "manual"
     sync_interval_minutes: Optional[int] = None
+    sync_page_size: int = 1000
+    sync_cursor: Optional[str] = None
+
+    org_base_dn: Optional[str] = None
+    org_filter: Optional[str] = "(|(objectClass=organizationalUnit)(objectClass=organization))"
+    org_name_attr: Optional[str] = "ou"
+
+    group_base_dn: Optional[str] = None
+    group_filter: Optional[str] = "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames)(objectClass=posixGroup))"
+    group_name_attr: Optional[str] = "cn"
+    group_desc_attr: Optional[str] = "description"
+
     enabled: bool = False
 
 
@@ -480,6 +493,18 @@ class DirectoryConfigUpdate(BaseModel):
     avatar_attr: Optional[str] = None
     sync_mode: Optional[Literal["manual", "auto"]] = None
     sync_interval_minutes: Optional[int] = None
+    sync_page_size: Optional[int] = None
+    sync_cursor: Optional[str] = None
+
+    org_base_dn: Optional[str] = None
+    org_filter: Optional[str] = None
+    org_name_attr: Optional[str] = None
+
+    group_base_dn: Optional[str] = None
+    group_filter: Optional[str] = None
+    group_name_attr: Optional[str] = None
+    group_desc_attr: Optional[str] = None
+
     enabled: Optional[bool] = None
 
 
@@ -506,6 +531,9 @@ class DirectoryConnectionTestRequest(BaseModel):
     password: Optional[str] = None
 
 
+    portal_url: Optional[str] = None
+
+
 class DirectoryConnectionDraftTestRequest(BaseModel):
     type: Literal["ldap", "ad"] = "ldap"
     host: str
@@ -515,12 +543,22 @@ class DirectoryConnectionDraftTestRequest(BaseModel):
     bind_dn: Optional[str] = None
     bind_password: Optional[str] = None
     base_dn: str
-    user_filter: str = "(&(objectClass=user)(sAMAccountName={username}))"
-    username_attr: str = "sAMAccountName"
+    user_filter: str = "(&(objectClass=inetOrgPerson)(uid={username}))"
+    username_attr: str = "uid"
     email_attr: str = "mail"
-    display_name_attr: str = "displayName"
+    display_name_attr: str = "cn"
     mobile_attr: str = "mobile"
-    avatar_attr: str = "thumbnailPhoto"
+    avatar_attr: str = "jpegPhoto"
+    
+    org_base_dn: Optional[str] = None
+    org_filter: Optional[str] = "(|(objectClass=organizationalUnit)(objectClass=organization))"
+    org_name_attr: Optional[str] = "ou"
+
+    group_base_dn: Optional[str] = None
+    group_filter: Optional[str] = "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames)(objectClass=posixGroup))"
+    group_name_attr: Optional[str] = "cn"
+    group_desc_attr: Optional[str] = "description"
+    
     username: Optional[str] = None
     password: Optional[str] = None
 

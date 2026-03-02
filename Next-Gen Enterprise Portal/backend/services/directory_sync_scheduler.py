@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 
 import models
 from iam.audit.service import IAMAuditService
@@ -131,19 +131,67 @@ class DirectorySyncScheduler:
             if str(config.sync_mode or "manual").lower() != "auto":
                 return
 
-            synced_count = 0
+            synced_user_count = 0
+            synced_group_count = 0
+            synced_org_count = 0
             failed_count = 0
             fetched_count = 0
+            removed_count = 0
+            removed_users: list[str] = []
             reason = None
             result_status = "success"
 
+            source_label = "OpenLDAP" if str(config.type or "").lower() == "ldap" else "Active Directory"
+            current_cursor = config.sync_cursor
+
             try:
-                users = await provider.sync_users(
+                # 1. Sync Organizations
+                orgs, orgs_cursor = await provider.sync_orgs(
+                    db=db, directory_config=config, limit=sync_limit, sync_cursor=current_cursor,
+                )
+                org_mapping: dict[str, int] = {}
+                dn_to_dept: dict[str, int] = {}
+                for org in orgs:
+                    try:
+                        async with db.begin_nested():
+                            dept = await ProviderIdentityService._jit_upsert_org(db, config.id, org)
+                            await db.flush()
+                            org_mapping[org.external_id] = dept.id
+                            if org.dn:
+                                dn_to_dept[org.dn] = dept.id
+                            synced_org_count += 1
+                    except Exception as org_exc:
+                        logger.warning("Auto sync org upsert failed: %s %s", org.external_id, org_exc)
+                        
+                for org in orgs:
+                    if org.parent_external_id and org.external_id in org_mapping:
+                        child_id = org_mapping[org.external_id]
+                        parent_id = dn_to_dept.get(org.parent_external_id) or org_mapping.get(org.parent_external_id)
+                        if parent_id:
+                            await db.execute(update(models.Department).where(models.Department.id == child_id).values(parent_id=parent_id))
+
+                # 2. Sync Groups
+                groups, groups_cursor = await provider.sync_groups(
+                    db=db, directory_config=config, limit=sync_limit, sync_cursor=current_cursor,
+                )
+                for group in groups:
+                    try:
+                        async with db.begin_nested():
+                            await ProviderIdentityService._jit_upsert_group_as_role(db, config.id, group)
+                            synced_group_count += 1
+                    except Exception as grp_exc:
+                        logger.warning("Auto sync group upsert failed: %s %s", group.external_id, grp_exc)
+
+                # 3. Sync Users
+                users, users_cursor = await provider.sync_users(
                     db=db,
                     directory_config=config,
                     limit=sync_limit,
+                    sync_cursor=current_cursor,
                 )
                 fetched_count = len(users)
+
+                ldap_external_ids: set[str] = set()
 
                 for auth_result in users:
                     try:
@@ -152,8 +200,12 @@ class DirectorySyncScheduler:
                                 db,
                                 auth_result=auth_result,
                                 directory_id=config.id,
+                                org_mapping=org_mapping,
+                                dn_to_dept=dn_to_dept,
                             )
-                        synced_count += 1
+                        synced_user_count += 1
+                        if auth_result.external_id:
+                            ldap_external_ids.add(auth_result.external_id)
                     except Exception as user_exc:
                         failed_count += 1
                         logger.warning(
@@ -162,6 +214,13 @@ class DirectorySyncScheduler:
                             auth_result.username,
                             user_exc,
                         )
+
+                # 自动调度仅执行增量同步，不清理LDAP不存在的本地用户（通常留给全量同步解决）
+
+                if users_cursor:
+                    config.sync_cursor = users_cursor
+                    db.add(config)
+
                 await IAMAuditService.log(
                     db=db,
                     action="IAM_DIRECTORY_SYNC",
@@ -175,9 +234,15 @@ class DirectorySyncScheduler:
                         "sync_mode": config.sync_mode,
                         "sync_interval_minutes": config.sync_interval_minutes,
                         "fetched_count": fetched_count,
-                        "synced_count": synced_count,
+                        "synced_user_count": synced_user_count,
+                        "synced_org_count": synced_org_count,
+                        "synced_group_count": synced_group_count,
                         "failed_count": failed_count,
+                        "removed_count": removed_count,
+                        "removed_users": removed_users,
                         "executed_at": now.isoformat(),
+                        "cursor_used": current_cursor,
+                        "new_cursor": users_cursor,
                     },
                     result="success",
                     ip_address="127.0.0.1",
@@ -200,8 +265,10 @@ class DirectorySyncScheduler:
                         "sync_mode": config.sync_mode,
                         "sync_interval_minutes": config.sync_interval_minutes,
                         "fetched_count": fetched_count,
-                        "synced_count": synced_count,
+                        "synced_user_count": synced_user_count,
                         "failed_count": failed_count,
+                        "removed_count": removed_count,
+                        "removed_users": removed_users,
                         "executed_at": now.isoformat(),
                     },
                     result="fail",
@@ -234,8 +301,10 @@ class DirectorySyncScheduler:
                             "sync_mode": config.sync_mode,
                             "sync_interval_minutes": config.sync_interval_minutes,
                             "fetched_count": fetched_count,
-                            "synced_count": synced_count,
+                            "synced_user_count": synced_user_count,
                             "failed_count": failed_count,
+                            "removed_count": removed_count,
+                            "removed_users": removed_users,
                             "executed_at": now.isoformat(),
                         },
                         result="fail",
@@ -248,11 +317,12 @@ class DirectorySyncScheduler:
                     await db.rollback()
             finally:
                 logger.info(
-                    "Directory sync finished: id=%s result=%s reason=%s fetched=%s synced=%s failed=%s",
+                    "Directory sync finished: id=%s result=%s reason=%s fetched=%s synced=%s failed=%s removed=%s",
                     config.id,
                     result_status,
                     reason,
                     fetched_count,
-                    synced_count,
+                    synced_user_count,
                     failed_count,
+                    removed_count,
                 )

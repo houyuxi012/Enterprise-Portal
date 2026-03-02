@@ -63,7 +63,7 @@ export interface DirectoryListParams {
 
 const DirectoryService = {
   listDirectories: async (params: DirectoryListParams = {}): Promise<DirectoryListResponse> => {
-    const data = await api.get('/iam/admin/directories/', { params });
+    const data: any = await api.get('/iam/admin/directories/', { params });
     if (Array.isArray(data)) {
       return {
         total: data.length,
@@ -100,6 +100,19 @@ const DirectoryService = {
 
   testDirectoryDraft: async (payload: DirectoryDraftTestPayload): Promise<DirectoryTestResponse> => {
     return api.post('/iam/admin/directories/test-draft', payload);
+  },
+
+  syncDirectory: async (id: number, isIncremental?: boolean): Promise<{
+    success: boolean;
+    fetched_count: number;
+    synced_user_count: number;
+    synced_org_count: number;
+    synced_group_count: number;
+    failed_count: number;
+  }> => {
+    return api.post(`/iam/admin/directories/${id}/sync`, null, {
+      params: { is_incremental: isIncremental === true },
+    });
   },
 };
 

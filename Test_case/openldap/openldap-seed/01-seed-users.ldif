@@ -1,66 +1,187 @@
-dn: ou=People,dc=example,dc=com
-objectClass: organizationalUnit
-ou: People
+# ============================================================
+# 组织结构: 百度 > 财务部 / 设计部 / 研发中心
+# Base DN: dc=example,dc=com
+# ============================================================
 
-dn: ou=Groups,dc=example,dc=com
+# --- 顶层 OU ---
+dn: ou=百度,dc=example,dc=com
 objectClass: organizationalUnit
-ou: Groups
+ou: 百度
 
-dn: uid=zhangsan,ou=People,dc=example,dc=com
+# --- 部门 OU ---
+dn: ou=财务部,ou=百度,dc=example,dc=com
+objectClass: organizationalUnit
+ou: 财务部
+
+dn: ou=设计部,ou=百度,dc=example,dc=com
+objectClass: organizationalUnit
+ou: 设计部
+
+dn: ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: organizationalUnit
+ou: 研发中心
+
+# ============================================================
+# 财务部 - 3 名用户
+# ============================================================
+
+dn: uid=zhaomin,ou=财务部,ou=百度,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
-uid: zhangsan
-sn: Zhang
-givenName: San
-cn: Zhang San
-displayName: 张三
+uid: zhaomin
+sn: Zhao
+givenName: Min
+cn: Zhao Min
+displayName: 赵敏
 uidNumber: 10001
 gidNumber: 10000
 userPassword: test123
 loginShell: /bin/bash
-homeDirectory: /home/zhangsan
-mail: zhangsan@example.com
+homeDirectory: /home/zhaomin
+mail: zhaomin@example.com
 mobile: 13800000001
 
-dn: uid=lisi,ou=People,dc=example,dc=com
+dn: uid=sunli,ou=财务部,ou=百度,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
-uid: lisi
-sn: Li
-givenName: Si
-cn: Li Si
-displayName: 李四
+uid: sunli
+sn: Sun
+givenName: Li
+cn: Sun Li
+displayName: 孙莉
 uidNumber: 10002
 gidNumber: 10000
 userPassword: test123
 loginShell: /bin/bash
-homeDirectory: /home/lisi
-mail: lisi@example.com
+homeDirectory: /home/sunli
+mail: sunli@example.com
 mobile: 13800000002
 
-dn: uid=wangwu,ou=People,dc=example,dc=com
+dn: uid=qianwei,ou=财务部,ou=百度,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
-uid: wangwu
-sn: Wang
-givenName: Wu
-cn: Wang Wu
-displayName: 王五
+uid: qianwei
+sn: Qian
+givenName: Wei
+cn: Qian Wei
+displayName: 钱伟
 uidNumber: 10003
 gidNumber: 10000
 userPassword: test123
 loginShell: /bin/bash
-homeDirectory: /home/wangwu
-mail: wangwu@example.com
+homeDirectory: /home/qianwei
+mail: qianwei@example.com
 mobile: 13800000003
 
-dn: cn=developers,ou=Groups,dc=example,dc=com
-objectClass: posixGroup
-cn: developers
+# ============================================================
+# 设计部 - 3 名用户
+# ============================================================
+
+dn: uid=liuyan,ou=设计部,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: liuyan
+sn: Liu
+givenName: Yan
+cn: Liu Yan
+displayName: 刘燕
+uidNumber: 10004
 gidNumber: 10000
-memberUid: zhangsan
-memberUid: lisi
-memberUid: wangwu
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/liuyan
+mail: liuyan@example.com
+mobile: 13800000004
+
+dn: uid=chenfei,ou=设计部,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: chenfei
+sn: Chen
+givenName: Fei
+cn: Chen Fei
+displayName: 陈飞
+uidNumber: 10005
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/chenfei
+mail: chenfei@example.com
+mobile: 13800000005
+
+dn: uid=zhoujie,ou=设计部,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: zhoujie
+sn: Zhou
+givenName: Jie
+cn: Zhou Jie
+displayName: 周杰
+uidNumber: 10006
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/zhoujie
+mail: zhoujie@example.com
+mobile: 13800000006
+
+# ============================================================
+# 研发中心 - 3 名用户
+# ============================================================
+
+dn: uid=wangkai,ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: wangkai
+sn: Wang
+givenName: Kai
+cn: Wang Kai
+displayName: 王凯
+uidNumber: 10007
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/wangkai
+mail: wangkai@example.com
+mobile: 13800000007
+
+dn: uid=huangting,ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: huangting
+sn: Huang
+givenName: Ting
+cn: Huang Ting
+displayName: 黄婷
+uidNumber: 10008
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/huangting
+mail: huangting@example.com
+mobile: 13800000008
+
+dn: uid=xuming,ou=研发中心,ou=百度,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: xuming
+sn: Xu
+givenName: Ming
+cn: Xu Ming
+displayName: 徐明
+uidNumber: 10009
+gidNumber: 10000
+userPassword: test123
+loginShell: /bin/bash
+homeDirectory: /home/xuming
+mail: xuming@example.com
+mobile: 13800000009
