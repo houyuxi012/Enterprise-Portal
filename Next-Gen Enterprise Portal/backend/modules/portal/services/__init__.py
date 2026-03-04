@@ -1,6 +1,7 @@
-"""Portal domain service package."""
+"""Portal service package.
 
-from modules.portal.services.ai_engine import AIEngine
-from modules.portal.services.kb.retriever import classify_hit, search
+Keep this package init side-effect free to avoid circular-import chains.
+Import concrete services from their module files directly.
+"""
 
-__all__ = ["AIEngine", "search", "classify_hit"]
+__all__: list[str] = []

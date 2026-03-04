@@ -224,6 +224,44 @@ def _check_file(path: Path, forbidden_import_patterns: list[re.Pattern[str]]) ->
                     "message": f"forbidden import: {snippet}",
                 }
             )
+    violations.extend(_check_cross_module_model_imports(path, content))
+    return violations
+
+
+_CROSS_MODEL_IMPORT_RE = re.compile(
+    r"^\s*(?:from\s+modules\.(admin|iam|portal)\.models\s+import\s+|import\s+modules\.(admin|iam|portal)\.models(?:\s|$))",
+    re.MULTILINE,
+)
+
+
+def _check_cross_module_model_imports(path: Path, content: str) -> list[dict]:
+    # Allow only the central aggregation module to import domain model modules directly.
+    if path.as_posix().endswith("backend/modules/models.py"):
+        return []
+
+    owner: str | None = None
+    parts = path.parts
+    if "modules" in parts:
+        idx = parts.index("modules")
+        if idx + 1 < len(parts) and parts[idx + 1] in {"admin", "iam", "portal"}:
+            owner = parts[idx + 1]
+
+    violations: list[dict] = []
+    for match in _CROSS_MODEL_IMPORT_RE.finditer(content):
+        imported_domain = (match.group(1) or match.group(2) or "").strip()
+        # Same-domain model import is allowed.
+        if owner and imported_domain == owner:
+            continue
+        line_no = content.count("\n", 0, match.start()) + 1
+        snippet = match.group(0).strip()
+        violations.append(
+            {
+                "type": "cross_module_model_import",
+                "file": str(path),
+                "line": line_no,
+                "message": f"cross-module model import forbidden: {snippet}",
+            }
+        )
     return violations
 
 
