@@ -15,7 +15,7 @@ from sqlalchemy import select, desc
 from pydantic import BaseModel
 
 from iam.deps import get_db, PermissionChecker, verify_admin_aud
-from services.audit_service import AuditService
+from modules.iam.services.audit_service import AuditService
 from .models import IAMAuditLog
 
 router = APIRouter(

@@ -195,6 +195,18 @@
       "enabledFeatures": "已启用功能",
       "noEnabledFeatures": "暂无已启用功能"
     },
+    "featureLabels": {
+      "ldap": "目录服务（LDAP/AD）",
+      "sso": "单点登录（SSO）",
+      "ai_audit": "AI 审计",
+      "rbac_advanced": "高级 RBAC",
+      "kb_manage": "知识库管理",
+      "log_forwarding": "日志外发",
+      "iam_audit": "IAM 审计",
+      "session_security": "会话安全策略",
+      "customization_manage": "客户化管理",
+      "mfa_settings": "多因素认证设置"
+    },
     "eventsCard": {
       "title": "授权导入记录",
       "empty": "暂无授权导入记录",
@@ -401,8 +413,12 @@
       "security": "安全设置",
       "securityBasic": "基础设置",
       "passwordPolicy": "密码策略",
+      "mfaSettings": "多因素设置",
+      "mfaSettingsLicenseRequired": "需要多因素认证功能授权",
       "system": "系统管理",
-      "customization": "客户化设置",
+      "customization": "客户化管理",
+      "customizationLicenseRequired": "未授权：仅可查看默认配置，无法修改",
+      "platformSettings": "平台设置",
       "license": "授权许可",
       "aboutUs": "关于我们"
     },
@@ -474,6 +490,7 @@
       "settings": "偏好设置",
       "language": "语言",
       "changePassword": "修改密码",
+      "security": "安全设置",
       "logout": "退出登录"
     }
   },
@@ -722,6 +739,7 @@
       "update_ai_policy": "更新 AI 安全策略",
       "delete_ai_policy": "删除 AI 安全策略",
       "update_system_config": "更新系统配置",
+      "update_mfa_settings": "更新多因素认证设置",
       "create_employee": "新增用户",
       "update_employee": "更新用户",
       "delete_employee": "删除用户",
@@ -755,7 +773,14 @@
       "read_ai_audit_detail": "查看 AI 审计详情",
       "read_ai_audit_stats": "查看 AI 审计统计",
       "read_system_config": "查看系统配置",
+      "read_mfa_settings": "查看多因素认证设置",
+      "read_platform_settings": "查看平台设置",
+      "read_platform_runtime_status": "查看平台运行状态",
       "optimize_storage": "执行存储优化",
+      "update_platform_settings": "更新平台设置",
+      "test_platform_ntp_connectivity": "测试 NTP 连通性",
+      "apply_platform_settings": "应用平台设置",
+      "apply_platform_settings_failed": "应用平台设置失败",
       "system_upgrade": "系统版本升级",
       "auto_log_cleanup": "自动日志清理",
       "auto_iam_archive": "自动 IAM 归档",
@@ -763,6 +788,10 @@
       "update_ai_quota": "更新 AI 配额",
       "test_ai_provider": "测试 AI 供应商",
       "admin_test_ai_provider": "后台测试 AI 供应商",
+      "test_smtp_service": "测试 SMTP 服务",
+      "test_telegram_bot": "测试 Telegram Bot",
+      "test_sms_service": "测试短信网关",
+      "read_notification_health": "查看通知服务健康状态",
       "authz_denied": "权限拒绝",
       "http_request": "HTTP 请求",
       "mark_notifications_read": "通知已读",
@@ -826,8 +855,8 @@
       "resetPwdContent": "密码将按当前密码策略重置为系统默认密码。",
       "confirmResetPwd": "确认重置",
       "resetting": "正在重置...",
-      "noSystemAccountForReset": "所选用户未开通系统账户，无法重置密码",
-      "resetSingleSuccess": "批量重置成功，默认密码：{{password}}",
+      "noResettableAccount": "所选用户未开通系统账户或受外部目录服务托管，无法执行重置密码",
+      "resetSingleSuccess": "批量重置成功，默认密码：{{password}}（仅本次重置有效，旧密码已立即失效）",
       "resetDone": "批量重置完成：成功 {{success}}，跳过 {{skipped}}",
       "resetDoneWithFail": "批量重置完成：成功 {{success}}，失败 {{failed}}，跳过 {{skipped}}",
       "resetFailed": "批量重置失败",
@@ -844,14 +873,26 @@
       "movingUsers": "正在移动用户...",
       "moveDone": "已将 {{success}} 位用户移动到“{{department}}”",
       "moveDoneWithFail": "移动完成：成功 {{success}}，失败 {{failed}}",
-      "moveFailed": "批量移动失败"
+      "moveFailed": "批量移动失败",
+      "resetMfaButton": "重置 MFA",
+      "resetMfaTitle": "确定重置选中的 {{count}} 位用户的 MFA 吗？",
+      "resetMfaContent": "其中 {{bound}} 位用户已绑定 MFA，重置后需要重新绑定。",
+      "resetMfaNone": "所选用户均未绑定 MFA",
+      "confirmResetMfa": "确认重置",
+      "resettingMfa": "正在重置 MFA...",
+      "resetMfaDone": "已成功重置 {{count}} 位用户的 MFA",
+      "resetMfaFailed": "重置 MFA 失败"
+    },
+    "mfa": {
+      "bound": "已绑定",
+      "unbound": "未绑定"
     },
     "messages": {
       "loadFailed": "加载数据失败",
       "deleteSuccess": "用户已删除",
       "deleteFailed": "删除失败",
       "resetNoSystemAccount": "用户 {{account}} 未开通系统账户，无法重置密码",
-      "resetWithPassword": "用户 {{account}} 密码已重置为 {{password}}",
+      "resetWithPassword": "用户 {{account}} 密码已重置为 {{password}}（仅本次重置有效，旧密码已立即失效）",
       "resetSuccess": "用户 {{account}} 密码重置成功",
       "resetFailed": "重置密码失败",
       "statusChanged": "用户 {{name}} 已{{status}}",
@@ -928,11 +969,13 @@
       "email": "邮箱",
       "actions": "操作",
       "empty": "暂无用户数据",
-      "noRoles": "暂无角色"
+      "noRoles": "暂无角色",
+      "managedExternally": "外部管理"
     },
     "actions": {
       "resetPassword": "重置密码",
-      "builtinAdminDeleteDenied": "系统内置 admin 账户不可删除"
+      "builtinAdminDeleteDenied": "系统内置 admin 账户不可删除",
+      "resetPasswordDisabledExternal": "不支持重置目录同步账号密码"
     },
     "popconfirm": {
       "resetTitle": "重置密码",
@@ -944,7 +987,7 @@
       "loadFailed": "加载数据失败",
       "deleteSuccess": "用户已删除",
       "deleteFailed": "删除失败",
-      "resetWithPassword": "{{username}} 密码已重置为 {{password}}",
+      "resetWithPassword": "{{username}} 密码已重置为 {{password}}（仅本次重置有效，旧密码已立即失效）",
       "resetSuccess": "{{username}} 密码重置成功",
       "resetFailed": "密码重置失败",
       "updateSuccess": "用户更新成功",
@@ -2202,6 +2245,7 @@
       "loadFailed": "加载系统设置失败",
       "saveSuccess": "设置更新成功，请刷新页面查看更改。",
       "saveFailed": "更新设置失败",
+      "readonlyByLicense": "未授权客户化管理：当前仅可读取默认配置，无法保存修改。",
       "uploadSuccess": "上传成功",
       "uploadFailed": "上传失败"
     },
@@ -2305,6 +2349,301 @@
       "ipAllowlistHelp": "留空代表允许所有 IP",
       "placeholders": {
         "ipAllowlist": "192.168.1.0/24"
+      }
+    }
+  },
+  "platformSettingsPage": {
+    "page": {
+      "title": "平台设置",
+      "subtitle": "平台网络、证书、SNMP 与 NTP 配置",
+      "saveButton": "保存配置",
+      "applyButton": "保存并应用"
+    },
+    "sections": {
+      "domain": "平台域名与地址",
+      "ssl": "SSL 证书与密钥",
+      "snmp": "SNMP 配置",
+      "ntp": "NTP 配置"
+    },
+    "labels": {
+      "enabled": "开启",
+      "disabled": "关闭",
+      "certConfigured": "证书已配置",
+      "certNotConfigured": "证书未配置"
+    },
+    "messages": {
+      "loadFailed": "平台设置加载失败",
+      "saveSuccess": "平台设置保存成功",
+      "saveFailed": "平台设置保存失败",
+      "uploadSuccess": "证书文件读取成功",
+      "uploadFailed": "证书文件读取失败",
+      "applySuccess": "平台配置已应用",
+      "applySuccessNeedReload": "平台配置已应用，请按提示执行网关重载",
+      "applyFailed": "平台配置应用失败",
+      "ntpServerRequired": "请先填写 NTP 服务器地址",
+      "ntpTestSuccess": "NTP 连通性测试成功（延迟 {{latency}} ms，层级 {{stratum}}）",
+      "ntpTestFailed": "NTP 连通性测试失败"
+    },
+    "actions": {
+      "uploadCert": "上传证书文件",
+      "uploadKey": "上传 Key 文件",
+      "testNtp": "测试连通性"
+    },
+    "form": {
+      "platformDomain": "平台域名",
+      "publicBaseUrl": "前台访问地址",
+      "adminBaseUrl": "后台访问地址",
+      "sslEnabled": "启用自定义 HTTPS 证书",
+      "sslCertificate": "SSL 证书内容 (PEM)",
+      "sslPrivateKey": "SSL 私钥内容 (PEM)",
+      "snmpEnabled": "启用 SNMP",
+      "snmpHost": "SNMP 目标地址",
+      "snmpPort": "SNMP 端口",
+      "snmpVersion": "SNMP 版本",
+      "snmpCommunity": "SNMP Community",
+      "snmpCommunityHelp": "仅 SNMP v2c 使用。生产环境请结合访问控制。",
+      "ntpEnabled": "启用 NTP",
+      "ntpServer": "NTP 服务器",
+      "ntpPort": "NTP 端口",
+      "ntpSyncInterval": "同步周期 (分钟)",
+      "placeholders": {
+        "platformDomain": "portal.example.com",
+        "publicBaseUrl": "https://portal.example.com",
+        "adminBaseUrl": "https://portal.example.com/admin",
+        "sslCertificate": "-----BEGIN CERTIFICATE-----",
+        "sslPrivateKey": "-----BEGIN PRIVATE KEY-----",
+        "snmpHost": "192.168.1.100",
+        "snmpCommunity": "public",
+        "ntpServer": "pool.ntp.org"
+      }
+    },
+    "runtime": {
+      "title": "运行时应用状态",
+      "description": "状态：{{status}}；应用时间：{{appliedAt}}；Hook：{{hook}}；网关重载：{{reload}}；说明：{{message}}",
+      "notApplied": "未应用",
+      "reloadRequired": "需要手动重载",
+      "reloadNotRequired": "已自动处理"
+    }
+  },
+  "notificationServices": {
+    "title": "通知服务",
+    "subtitle": "配置系统邮件和短信服务，用于通知推送和安全验证码发送",
+    "tabs": {
+      "smtp": "SMTP 邮件服务",
+      "telegram": "Telegram Bot",
+      "sms": "短信网关"
+    },
+    "labels": {
+      "configured": "已配置",
+      "enabled": "开启",
+      "disabled": "关闭",
+      "comingSoon": "即将推出"
+    },
+    "actions": {
+      "save": "保存配置",
+      "sendTest": "发送测试"
+    },
+    "messages": {
+      "smtpSaved": "SMTP 配置已保存",
+      "telegramSaved": "Telegram Bot 配置已保存",
+      "smsSaved": "短信网关配置已保存",
+      "saveFailed": "保存失败",
+      "smtpTestSuccess": "测试邮件已发送，请检查收件箱",
+      "smtpTestFailed": "发送测试邮件失败",
+      "telegramTestSuccess": "Telegram 测试消息发送成功",
+      "telegramTestFailed": "Telegram 测试消息发送失败",
+      "smsTestSuccess": "短信测试发送成功",
+      "smsTestFailed": "短信测试发送失败"
+    },
+    "health": {
+      "title": "通知服务健康检查",
+      "subtitle": "查看 SMTP、Telegram Bot、短信网关的配置健康状态",
+      "overall": "总体状态",
+      "channels": {
+        "smtp": "SMTP",
+        "telegram": "Telegram Bot",
+        "sms": "短信网关"
+      },
+      "status": {
+        "healthy": "正常",
+        "degraded": "异常",
+        "disabled": "未启用",
+        "misconfigured": "配置不完整",
+        "not_configured": "未配置"
+      }
+    },
+    "smtp": {
+      "fields": {
+        "host": "SMTP 服务器地址",
+        "port": "端口",
+        "username": "用户名 / 邮箱",
+        "password": "密码 / 授权码",
+        "sender": "发件人地址",
+        "tls": "启用 TLS 加密",
+        "testEmail": "接收测试邮箱"
+      },
+      "validation": {
+        "hostRequired": "请输入 SMTP 服务器地址",
+        "portRequired": "请输入端口号",
+        "usernameRequired": "请输入用户名",
+        "passwordRequired": "请输入密码",
+        "testEmailRequired": "请输入接收测试邮箱",
+        "testEmailInvalid": "请输入有效的邮箱地址"
+      },
+      "placeholders": {
+        "host": "例如：smtp.qq.com 或 smtp.gmail.com",
+        "username": "用于 SMTP 认证的邮箱地址",
+        "password": "部分邮箱需使用授权码而非密码",
+        "testEmail": "输入接收测试的邮箱地址"
+      },
+      "help": {
+        "sender": "留空则使用用户名作为发件人"
+      }
+    },
+    "telegram": {
+      "fields": {
+        "enabled": "启用 Telegram Bot 通知",
+        "botToken": "Bot Token",
+        "chatId": "Chat ID",
+        "parseMode": "消息格式",
+        "disableWebPreview": "关闭链接预览",
+        "testMessage": "测试消息"
+      },
+      "validation": {
+        "botTokenRequired": "请输入 Bot Token",
+        "chatIdRequired": "请输入 Chat ID",
+        "tokenAndChatRequiredWhenEnabled": "启用 Telegram Bot 后必须填写 Bot Token 和 Chat ID"
+      },
+      "placeholders": {
+        "botToken": "例如：123456789:AAxxxxxxxxxxxxxxxxxxxxxx",
+        "chatId": "例如：-1001234567890 或 123456789",
+        "testMessage": "请输入测试消息内容（可选）"
+      },
+      "help": {
+        "testMessage": "留空将使用默认测试消息"
+      },
+      "options": {
+        "none": "不使用格式化"
+      },
+      "defaultTestMessage": "【Next-Gen Enterprise Portal】Telegram Bot 测试消息"
+    },
+    "sms": {
+      "selectProviderFirst": "请先选择短信服务商，再填写对应配置项",
+      "fields": {
+        "enabled": "启用短信网关",
+        "provider": "服务商",
+        "testPhone": "测试手机号",
+        "testMessage": "测试短信内容",
+        "aliyunAccessKeyId": "AccessKey ID",
+        "aliyunAccessKeySecret": "AccessKey Secret",
+        "aliyunSignName": "短信签名",
+        "aliyunTemplateCode": "模板 CODE",
+        "aliyunTemplateParam": "模板参数 JSON",
+        "aliyunRegion": "地域",
+        "tencentSecretId": "SecretId",
+        "tencentSecretKey": "SecretKey",
+        "tencentSdkAppId": "短信 SDK AppID",
+        "tencentSignName": "短信签名",
+        "tencentTemplateId": "模板 ID",
+        "tencentTemplateParams": "模板参数（逗号分隔）",
+        "tencentRegion": "地域",
+        "twilioAccountSid": "Account SID",
+        "twilioAuthToken": "Auth Token",
+        "twilioFromNumber": "From Number",
+        "twilioMessagingServiceSid": "Messaging Service SID（可选）"
+      },
+      "providers": {
+        "aliyun": "阿里云短信",
+        "tencent": "腾讯云短信",
+        "twilio": "Twilio"
+      },
+      "validation": {
+        "providerRequired": "请选择短信服务商",
+        "testPhoneRequired": "请输入测试手机号",
+        "aliyunRequired": "阿里云短信缺少必要配置（AK/SK/签名/模板）",
+        "tencentRequired": "腾讯云短信缺少必要配置（Secret/AppID/签名/模板）",
+        "twilioRequired": "Twilio 缺少必要配置（SID/Auth Token/From Number 或 Messaging Service SID）"
+      },
+      "placeholders": {
+        "provider": "请选择短信服务商",
+        "testPhone": "例如：+8613800138000",
+        "testMessage": "请输入测试短信内容（可选）",
+        "aliyunAccessKeyId": "请输入阿里云 AccessKey ID",
+        "aliyunAccessKeySecret": "请输入阿里云 AccessKey Secret",
+        "aliyunSignName": "例如：企业签名",
+        "aliyunTemplateCode": "例如：SMS_123456789",
+        "tencentSecretId": "请输入腾讯云 SecretId",
+        "tencentSecretKey": "请输入腾讯云 SecretKey",
+        "tencentSdkAppId": "例如：1400XXXXXXX",
+        "tencentSignName": "例如：企业签名",
+        "tencentTemplateId": "例如：123456",
+        "twilioAccountSid": "例如：ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "twilioAuthToken": "请输入 Twilio Auth Token",
+        "twilioMessagingServiceSid": "例如：MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "help": {
+        "aliyunTemplateParam": "JSON 字符串，例如 {\"code\":\"123456\"}",
+        "tencentTemplateParams": "与模板变量顺序一致，多个参数用逗号分隔",
+        "twilioFromNumber": "需为 Twilio 已验证或已购买号码；如已填 Messaging Service SID 可留空",
+        "testMessage": "Twilio 使用该内容；阿里云/腾讯云使用模板参数"
+      },
+      "defaultTestMessage": "【Next-Gen Enterprise Portal】短信网关测试消息"
+    }
+  },
+  "notificationTemplates": {
+    "title": "通知模版",
+    "subtitle": "管理系统通知邮件和短信的模版内容",
+    "empty": {
+      "title": "通知模版管理",
+      "description": "通知模版功能正在开发中，将支持自定义邮件验证码模版、密码重置模版、系统告警通知模版等，支持变量替换和多语言配置。",
+      "tag": "敬请期待"
+    }
+  },
+  "thirdPartyNotifications": {
+    "title": "三方通知",
+    "subtitle": "对接第三方系统的通知渠道，如企业微信、钉钉、飞书等",
+    "empty": {
+      "title": "三方通知对接",
+      "description": "三方通知功能正在开发中，将支持对接企业微信机器人、钉钉 Webhook、飞书机器人等主流企业通知渠道，实现系统事件的跨平台推送。",
+      "tag": "敬请期待"
+    }
+  },
+  "mfaSettingsPage": {
+    "page": {
+      "title": "多因素认证设置",
+      "subtitle": "MULTI-FACTOR AUTHENTICATION",
+      "saveButton": "保存设置"
+    },
+    "messages": {
+      "loadFailed": "多因素认证设置加载失败",
+      "saveSuccess": "多因素认证设置保存成功",
+      "saveFailed": "多因素认证设置保存失败"
+    },
+    "sections": {
+      "globalSwitch": "全局 MFA 策略",
+      "methods": "认证方式"
+    },
+    "alert": {
+      "description": "启用强制 MFA 后，所有用户登录时将需要提供二次验证码。建议在启用前通知全体用户绑定 TOTP 应用。"
+    },
+    "form": {
+      "forceMfa": "强制 MFA 认证",
+      "forceMfaHelp": "启用后所有用户登录时必须完成多因素认证"
+    },
+    "methods": {
+      "supported": "已支持",
+      "comingSoon": "即将推出",
+      "totp": {
+        "title": "TOTP 验证器",
+        "description": "使用 Google Authenticator、Microsoft Authenticator 等应用生成一次性验证码"
+      },
+      "email": {
+        "title": "邮箱验证",
+        "description": "通过注册邮箱接收一次性验证码"
+      },
+      "webauthn": {
+        "title": "硬件安全密钥",
+        "description": "支持 FIDO2/WebAuthn 协议的硬件密钥，如 YubiKey"
       }
     }
   },
@@ -2598,6 +2937,17 @@
         "groupNameAttr": "cn",
         "groupDescAttr": "description"
       },
+      "tooltips": {
+        "userFilter": "LDAP 搜索过滤器，用于匹配用户对象",
+        "usernameAttr": "用于匹配登录用户名的 LDAP 属性",
+        "avatarAttr": "AD 使用 thumbnailPhoto，OpenLDAP 使用 jpegPhoto",
+        "orgBaseDn": "留空则使用全局 Base DN 作为组织搜索根",
+        "groupBaseDn": "留空则使用全局 Base DN 作为群组搜索根",
+        "syncPageSize": "每次 LDAP 查询返回的最大条目数，防止大目录超时"
+      },
+      "units": {
+        "page": "条/页"
+      },
       "validation": {
         "nameRequired": "请输入名称",
         "typeRequired": "请选择身份数据源类型",
@@ -2682,6 +3032,67 @@
       "newPasswordRequired": "请输入新密码",
       "newPasswordMin": "新密码不能少于 6 位",
       "confirmPasswordRequired": "请再次输入新密码以确认"
+    }
+  },
+  "mfa": {
+    "title": "多因素认证",
+    "subtitle": "请输入您的验证器应用中的 6 位验证码",
+    "verify": "验证",
+    "backToLogin": "返回登录",
+    "invalidCode": "验证码错误或已过期",
+    "setupTitle": "绑定 TOTP 验证器",
+    "setupSubtitle": "使用 Google Authenticator、Microsoft Authenticator 或其他 TOTP 应用扫描二维码",
+    "scanQrCode": "扫描二维码",
+    "manualEntry": "手动输入密钥",
+    "enterCode": "输入验证码",
+    "bindSuccess": "TOTP 验证器绑定成功",
+    "unbindTitle": "解绑 TOTP 验证器",
+    "unbindConfirm": "解绑后登录将不再需要验证码，确认解绑？",
+    "unbindPassword": "请输入密码确认解绑",
+    "unbindSuccess": "TOTP 验证器已解绑",
+    "status": {
+      "enabled": "已启用",
+      "disabled": "未启用"
+    },
+    "useSecurityKey": "使用安全密钥",
+    "orUse": "或使用",
+    "webauthnFailed": "安全密钥验证失败"
+  },
+  "portalSecurity": {
+    "subtitle": "管理您的账户安全选项",
+    "messages": {
+      "setupFailed": "设置失败",
+      "actionFailed": "操作失败",
+      "passwordRequired": "请输入密码",
+      "codeRequired": "请输入 6 位验证码"
+    },
+    "placeholders": {
+      "code6": "请输入 6 位验证码"
+    },
+    "emailMfa": {
+      "messages": {
+        "codeSentSuccess": "验证码已发送到您的邮箱",
+        "sendFailed": "发送失败",
+        "enabled": "邮箱验证已启用",
+        "invalidCode": "验证码错误",
+        "passwordRequired": "请输入密码",
+        "disabled": "邮箱验证已关闭"
+      }
+    },
+    "webauthn": {
+      "title": "硬件安全密钥",
+      "subtitle": "使用 FIDO2/WebAuthn 兼容的硬件安全密钥（如 YubiKey）或平台认证器（Touch ID / Windows Hello）",
+      "addKey": "添加安全密钥",
+      "keyCount": "已注册 {{count}} 个密钥",
+      "registerSuccess": "安全密钥注册成功",
+      "registerFailed": "注册安全密钥失败",
+      "cancelled": "操作已取消",
+      "deleteSuccess": "安全密钥已删除",
+      "deleteTitle": "删除安全密钥",
+      "deleteConfirm": "删除后该安全密钥将无法用于登录验证，确认删除？",
+      "namingTitle": "为安全密钥命名",
+      "namingDesc": "给您的安全密钥起个名字，方便后续管理",
+      "namePlaceholder": "例如: 我的 YubiKey"
     }
   }
 }

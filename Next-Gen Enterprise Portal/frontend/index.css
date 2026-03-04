@@ -77,14 +77,17 @@ body {
 .prose strong { font-weight: 700; }
 .prose a { text-decoration: underline; }
 
-/* Tooltip global text color */
+/* Overlay text color: force Tooltip / Popover / Popconfirm content to black */
 .ant-tooltip .ant-tooltip-inner,
-.ant-popover .ant-popover-inner-content {
-    color: #111827 !important;
-}
-
 .ant-tooltip .ant-tooltip-inner *,
-.ant-popover .ant-popover-inner-content * {
+.ant-popover .ant-popover-title,
+.ant-popover .ant-popover-title *,
+.ant-popover .ant-popover-inner-content,
+.ant-popover .ant-popover-inner-content *,
+.ant-popconfirm .ant-popconfirm-title,
+.ant-popconfirm .ant-popconfirm-title *,
+.ant-popconfirm .ant-popconfirm-description,
+.ant-popconfirm .ant-popconfirm-description * {
     color: #111827 !important;
 }
 

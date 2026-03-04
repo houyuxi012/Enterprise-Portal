@@ -57,8 +57,8 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
         
         # Use LogRepository for unified logging
         try:
-            from services.log_repository import get_log_repository, LogEntry
-            from services.log_forwarder import emit_log_fire_and_forget
+            from modules.admin.services.log_repository import get_log_repository, LogEntry
+            from modules.admin.services.log_forwarder import emit_log_fire_and_forget
             repo = get_log_repository()
             if repo:
                 log_entry = LogEntry(

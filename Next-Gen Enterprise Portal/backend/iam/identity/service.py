@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import Request, Response, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
@@ -102,6 +102,44 @@ class IdentityService:
         )
 
     @staticmethod
+    def _is_mfa_setup_exempt_path(path: str) -> bool:
+        safe_path = (path or "").strip()
+        return (
+            safe_path.startswith("/api/mfa/")
+            or safe_path.startswith("/api/iam/auth/logout")
+            or safe_path.startswith("/api/iam/auth/me")
+        )
+
+    @staticmethod
+    async def _is_system_mfa_forced(db: AsyncSession) -> bool:
+        import modules.models as models
+
+        result = await db.execute(
+            select(models.SystemConfig.value).filter(models.SystemConfig.key == "security_mfa_enabled")
+        )
+        value = result.scalar_one_or_none()
+        return str(value or "").strip().lower() == "true"
+
+    @staticmethod
+    async def _get_enabled_mfa_methods(user, db: AsyncSession) -> list[str]:
+        import modules.models as models
+
+        methods: list[str] = []
+        if bool(getattr(user, "totp_enabled", False)):
+            methods.append("totp")
+        if bool(getattr(user, "email_mfa_enabled", False)) and bool(getattr(user, "email", "")):
+            methods.append("email")
+
+        webauthn_count_result = await db.execute(
+            select(func.count()).select_from(models.WebAuthnCredential).filter(
+                models.WebAuthnCredential.user_id == user.id
+            )
+        )
+        if (webauthn_count_result.scalar() or 0) > 0:
+            methods.append("webauthn")
+        return methods
+
+    @staticmethod
     def _revoked_jti_cache_key(jti: str) -> str:
         return f"{IdentityService.REVOKED_JTI_PREFIX}{jti}"
 
@@ -191,7 +229,7 @@ class IdentityService:
         username = (payload.get("sub") or "").strip()
         if not username:
             return None
-        import models
+        import modules.models as models
 
         result = await db.execute(select(models.User.id).filter(models.User.username == username))
         return result.scalar_one_or_none()
@@ -252,7 +290,7 @@ class IdentityService:
 
     @staticmethod
     async def _list_session_keys_for_audience(audience: str) -> list[str]:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         prefix = f"{IdentityService.SESSION_ZSET_PREFIX}:{audience}:"
         redis_client = cache.redis if cache.is_redis_available and cache.redis else None
@@ -302,7 +340,7 @@ class IdentityService:
         normalized_exp = IdentityService._exp_to_epoch(exp_epoch)
         if not normalized_jti or normalized_exp is None:
             return False
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         ttl = max(1, int(normalized_exp) - int(datetime.now(timezone.utc).timestamp()))
         try:
@@ -324,7 +362,7 @@ class IdentityService:
         audience: str,
         session_timeout_minutes: int,
     ) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         now_epoch = int(datetime.now(timezone.utc).timestamp())
         ttl_seconds = IdentityService._session_key_ttl_seconds(session_timeout_minutes)
@@ -370,7 +408,7 @@ class IdentityService:
         exp_epoch: int | None,
         session_timeout_minutes: int,
     ):
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         normalized_jti = IdentityService._normalize_jti(jti)
         normalized_exp = IdentityService._exp_to_epoch(exp_epoch)
@@ -421,7 +459,7 @@ class IdentityService:
     ):
         if not user_id or not audience or not jti:
             return
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         normalized_jti = IdentityService._normalize_jti(jti)
         normalized_audience = IdentityService._normalize_audience_claim(audience)
@@ -460,7 +498,7 @@ class IdentityService:
 
     @staticmethod
     async def _revoke_all_sessions_for_user(*, user_id: int, audience: str) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
 
         session_key = IdentityService._session_zset_key(audience=audience, user_id=user_id)
         legacy_key = IdentityService._legacy_active_session_key(audience=audience, user_id=user_id)
@@ -618,7 +656,7 @@ class IdentityService:
 
     @staticmethod
     async def _load_session_policy(db: AsyncSession) -> tuple[int, int, int]:
-        import models
+        import modules.models as models
         import utils
 
         config_result = await db.execute(select(models.SystemConfig))
@@ -684,7 +722,7 @@ class IdentityService:
 
     @staticmethod
     async def _get_login_fail_count(*, audience: str, ip: str, username: str) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
         try:
             raw = await cache.get(key, is_json=False)
@@ -694,7 +732,7 @@ class IdentityService:
 
     @staticmethod
     async def _increase_login_fail_count(*, audience: str, ip: str, username: str) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
         count = await IdentityService._get_login_fail_count(audience=audience, ip=ip, username=username)
         count += 1
@@ -711,7 +749,7 @@ class IdentityService:
 
     @staticmethod
     async def _clear_login_fail_count(*, audience: str, ip: str, username: str):
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
         try:
             await cache.delete(key)
@@ -720,7 +758,7 @@ class IdentityService:
 
     @staticmethod
     async def _get_login_fail_ip_count(*, audience: str, ip: str) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
         try:
             raw = await cache.get(key, is_json=False)
@@ -730,7 +768,7 @@ class IdentityService:
 
     @staticmethod
     async def _increase_login_fail_ip_count(*, audience: str, ip: str) -> int:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
         count = await IdentityService._get_login_fail_ip_count(audience=audience, ip=ip)
         count += 1
@@ -747,7 +785,7 @@ class IdentityService:
 
     @staticmethod
     async def _clear_login_fail_ip_count(*, audience: str, ip: str):
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
         try:
             await cache.delete(key)
@@ -756,7 +794,7 @@ class IdentityService:
 
     @staticmethod
     async def _is_ip_locked(*, audience: str, ip: str) -> bool:
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
         try:
             raw = await cache.get(key, is_json=False)
@@ -767,7 +805,7 @@ class IdentityService:
 
     @staticmethod
     async def _set_ip_lock(*, audience: str, ip: str, duration_minutes: int):
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
         ttl_seconds = max(60, int(duration_minutes) * 60)
         lock_until = int(datetime.now(timezone.utc).timestamp()) + ttl_seconds
@@ -778,7 +816,7 @@ class IdentityService:
 
     @staticmethod
     async def _clear_ip_lock(*, audience: str, ip: str):
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
         try:
             await cache.delete(key)
@@ -789,7 +827,7 @@ class IdentityService:
     async def _is_jti_revoked(jti: str | None) -> bool:
         if not jti:
             return True
-        from services.cache_manager import cache
+        from infrastructure.cache_manager import cache
         try:
             revoked = await cache.get(IdentityService._revoked_jti_cache_key(jti), is_json=False)
             return revoked is not None
@@ -820,7 +858,7 @@ class IdentityService:
     async def get_current_user(request: Request, db: AsyncSession, audience: str = None):
         """从 Cookie/Header 解析当前用户"""
         import utils
-        import models
+        import modules.models as models
 
         # Infer audience from route space if caller didn't provide one.
         if audience is None:
@@ -889,6 +927,19 @@ class IdentityService:
         if not user.is_active:
             print(f"IAM Debug: User {username} is inactive")
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
+
+        # Enforce global MFA binding on backend side to prevent client bypass.
+        # Allow only MFA-related and logout/me endpoints before user finishes binding.
+        if await IdentityService._is_system_mfa_forced(db):
+            enabled_methods = await IdentityService._get_enabled_mfa_methods(user, db)
+            if not enabled_methods and not IdentityService._is_mfa_setup_exempt_path(request.url.path):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "code": "MFA_SETUP_REQUIRED",
+                        "message": "系统要求先完成多因素认证绑定后再继续使用。",
+                    },
+                )
         return user
     
     @staticmethod
@@ -903,7 +954,7 @@ class IdentityService:
     ) -> dict:
         """核心登录逻辑"""
         import utils
-        import models
+        import modules.models as models
         from iam.audit.service import IAMAuditService
         
         result = await db.execute(select(models.User).filter(models.User.username == form_data.username).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
@@ -1037,7 +1088,7 @@ class IdentityService:
                     headers={"X-Requires-Captcha": "true"}
                 )
             # Verify captcha
-            from routers.captcha import verify_captcha
+            from modules.iam.routers.captcha import verify_captcha
             is_valid_captcha = await verify_captcha(captcha_id, captcha_code)
             if not is_valid_captcha:
                 # Still increment failure so they get locked eventually
@@ -1193,7 +1244,7 @@ class IdentityService:
 
         # Check password policy compliance
         if user:
-            from services.password_policy import validate_password, is_password_expired
+            from modules.iam.services.password_policy import validate_password, is_password_expired
             policy_violates = False
             try:
                 # Login should only evaluate complexity/user-info/max-age policy.
@@ -1253,6 +1304,63 @@ class IdentityService:
                     detail="Access denied: Admin privileges required.",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+
+        # ── MFA Challenge Gate ──
+        mfa_forced = False
+        try:
+            from modules.iam.routers.mfa import _get_system_mfa_config
+            mfa_forced = await _get_system_mfa_config(db)
+        except Exception:
+            pass
+
+        enabled_mfa_methods = await IdentityService._get_enabled_mfa_methods(user, db)
+
+        if enabled_mfa_methods:
+            # User has at least one MFA factor bound → require MFA challenge
+            if "email" in enabled_mfa_methods:
+                try:
+                    from modules.iam.services.email_service import send_email_otp
+
+                    await send_email_otp(user.email, user.username, db)
+                except Exception as e:
+                    if set(enabled_mfa_methods) == {"email"}:
+                        raise HTTPException(
+                            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail={
+                                "code": "EMAIL_MFA_SEND_FAILED",
+                                "message": f"邮箱验证码发送失败：{e}",
+                            },
+                        )
+                    logger.warning(
+                        "Failed to send email MFA code for user=%s during login challenge: %s",
+                        user.username,
+                        e,
+                    )
+
+            mfa_provider = "admin" if check_admin_access else "local"
+            mfa_token = utils.create_access_token(
+                data={"sub": user.username, "uid": user.id, "provider": mfa_provider},
+                expires_delta=timedelta(minutes=5),
+                audience="mfa_challenge",
+            )
+            # Reset fail counters on valid password
+            if user.failed_attempts > 0 or user.locked_until is not None:
+                user.failed_attempts = 0
+                user.locked_until = None
+                db.add(user)
+            await IdentityService._clear_login_fail_count(
+                audience=audience, ip=ip, username=form_data.username,
+            )
+            await IdentityService._clear_login_fail_ip_count(audience=audience, ip=ip)
+            await db.commit()
+            return {
+                "message": "MFA verification required",
+                "token_type": "bearer",
+                "access_token": "",
+                "mfa_required": True,
+                "mfa_token": mfa_token,
+                "mfa_methods": enabled_mfa_methods,
+            }
 
         username = user.username
         user_id = user.id
@@ -1352,7 +1460,10 @@ class IdentityService:
             path="/"
         )
         
-        return {"message": "Login successful", "token_type": "bearer", "access_token": access_token}
+        result = {"message": "Login successful", "token_type": "bearer", "access_token": access_token}
+        if mfa_forced and not enabled_mfa_methods:
+            result["mfa_setup_required"] = True
+        return result
 
     @staticmethod
     async def login_portal(request: Request, response: Response, form_data: OAuth2PasswordRequestForm, db: AsyncSession):
@@ -1539,8 +1650,8 @@ class IdentityService:
         audience_scope: str = "all",
         keyword: str | None = None,
     ) -> list[dict]:
-        import models
-        from services.cache_manager import cache
+        import modules.models as models
+        from infrastructure.cache_manager import cache
 
         now_epoch = int(datetime.now(timezone.utc).timestamp())
         targets = IdentityService._resolve_audiences(audience_scope)
@@ -1725,7 +1836,7 @@ class IdentityService:
         db: AsyncSession,
     ) -> dict:
         """管理员踢指定用户下线（按 audience/all）。"""
-        import models
+        import modules.models as models
         from iam.audit.service import IAMAuditService
 
         result = await db.execute(select(models.User).filter(models.User.id == target_user_id))

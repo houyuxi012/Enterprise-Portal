@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import { useTranslation } from 'react-i18next';
@@ -217,12 +217,12 @@ const UserList: React.FC = () => {
                 const hide = message.loading(t('userList.batch.resetting'), 0);
                 try {
                     const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
-                    const resettable = selectedEmps.filter(e => userAccounts.has(String(e.account || '').toLowerCase()));
+                    const resettable = selectedEmps.filter(e => (e.auth_source || 'local') === 'local' && userAccounts.has(String(e.account || '').toLowerCase()));
                     const skipped = selectedEmps.length - resettable.length;
 
                     if (resettable.length === 0) {
                         hide();
-                        message.warning(t('userList.batch.noSystemAccountForReset'));
+                        message.warning(t('userList.batch.noResettableAccount'));
                         return;
                     }
 
@@ -244,6 +244,37 @@ const UserList: React.FC = () => {
                 } catch (e) {
                     hide();
                     message.error(t('userList.batch.resetFailed'));
+                }
+            }
+        });
+    };
+
+    const handleBatchResetMfa = () => {
+        if (selectedRowKeys.length === 0) return;
+        const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
+        const mfaUsers = selectedEmps.filter(e => e.totp_enabled);
+
+        modal.confirm({
+            title: t('userList.batch.resetMfaTitle', { count: selectedRowKeys.length }),
+            content: mfaUsers.length > 0
+                ? t('userList.batch.resetMfaContent', { bound: mfaUsers.length })
+                : t('userList.batch.resetMfaNone', '所选用户均未绑定 MFA'),
+            okText: t('userList.batch.confirmResetMfa', '确认重置'),
+            cancelText: t('common.buttons.cancel'),
+            okButtonProps: { danger: true, disabled: mfaUsers.length === 0 },
+            onOk: async () => {
+                if (mfaUsers.length === 0) return;
+                const hide = message.loading(t('userList.batch.resettingMfa', '正在重置 MFA...'), 0);
+                try {
+                    const usernames = mfaUsers.map(e => e.account);
+                    const result = await ApiClient.batchResetMfa(usernames);
+                    hide();
+                    message.success(t('userList.batch.resetMfaDone', { count: result.reset_count }));
+                    setSelectedRowKeys([]);
+                    fetchData();
+                } catch (e) {
+                    hide();
+                    message.error(t('userList.batch.resetMfaFailed', '重置 MFA 失败'));
                 }
             }
         });
@@ -351,23 +382,6 @@ const UserList: React.FC = () => {
         }
     };
 
-    const handleResetPassword = async (account: string) => {
-        if (!userAccounts.has(String(account || '').toLowerCase())) {
-            message.warning(t('userList.messages.resetNoSystemAccount', { account }));
-            return;
-        }
-        try {
-            const result = await ApiClient.resetPassword(account);
-            const resetPassword = result?.new_password;
-            if (resetPassword) {
-                message.success(t('userList.messages.resetWithPassword', { account, password: resetPassword }));
-            } else {
-                message.success(t('userList.messages.resetSuccess', { account }));
-            }
-        } catch (error: any) {
-            message.error(error?.response?.data?.detail || t('userList.messages.resetFailed'));
-        }
-    };
 
     const handleStatusChange = async (emp: Employee, checked: boolean) => {
         const newStatus = checked ? 'Active' : 'Inactive';
@@ -482,6 +496,17 @@ const UserList: React.FC = () => {
             ),
         },
         {
+            title: 'MFA',
+            dataIndex: 'totp_enabled',
+            key: 'totp_enabled',
+            width: 90,
+            render: (enabled: boolean) => (
+                <AppTag status={enabled ? 'success' : 'default'}>
+                    {enabled ? t('userList.mfa.bound', '已绑定') : t('userList.mfa.unbound', '未绑定')}
+                </AppTag>
+            ),
+        },
+        {
             title: t('userList.table.status'),
             dataIndex: 'status',
             key: 'status',
@@ -501,12 +526,11 @@ const UserList: React.FC = () => {
         },
         {
             title: t('userList.table.source'),
-            dataIndex: 'source',
-            key: 'source',
+            dataIndex: 'auth_source',
+            key: 'auth_source',
             width: 110,
-            render: (_: string, record: Employee) => {
-                const rawSource = String((record as Employee & { source?: string }).source || '').trim().toLowerCase();
-                const sourceKey = rawSource || 'local';
+            render: (auth_source: 'local' | 'ldap' | 'ad' | 'oidc') => {
+                const sourceKey = auth_source || 'local';
                 const sourceLabel =
                     sourceKey === 'local'
                         ? t('userList.source.local')
@@ -637,18 +661,18 @@ const UserList: React.FC = () => {
                                     <AppButton
                                         intent="secondary"
                                         size="sm"
-                                        icon={<DisconnectOutlined />}
-                                        onClick={handleBatchKickOffline}
-                                    >
-                                        {t('userList.batch.kickButton')}
-                                    </AppButton>
-                                    <AppButton
-                                        intent="secondary"
-                                        size="sm"
                                         icon={<KeyOutlined />}
                                         onClick={handleBatchResetPassword}
                                     >
                                         {t('userList.batch.resetPwdButton')}
+                                    </AppButton>
+                                    <AppButton
+                                        intent="secondary"
+                                        size="sm"
+                                        icon={<SafetyOutlined />}
+                                        onClick={handleBatchResetMfa}
+                                    >
+                                        {t('userList.batch.resetMfaButton', '重置 MFA')}
                                     </AppButton>
                                     <AppButton
                                         intent="danger"

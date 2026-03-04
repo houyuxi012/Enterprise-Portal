@@ -25,6 +25,7 @@ class UserMeResponse(BaseModel):
     account_type: str = "PORTAL"
     name: Optional[str] = None
     avatar: Optional[str] = None
+    auth_source: Optional[str] = "local"
     is_active: bool = True
     roles: List[RoleOut] = []
     permissions: List[str] = []
@@ -41,6 +42,10 @@ class TokenResponse(BaseModel):
     message: str = "Login successful"
     token_type: str = "bearer"
     access_token: Optional[str] = None
+    mfa_required: bool = False
+    mfa_token: Optional[str] = None
+    mfa_methods: List[str] = []
+    mfa_setup_required: bool = False
 
 
 class LogoutResponse(BaseModel):

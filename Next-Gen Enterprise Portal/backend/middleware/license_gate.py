@@ -6,8 +6,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
-import database
-from services.license_service import LicenseService
+import core.database as database
+from modules.admin.services.license_service import LicenseService
 
 logger = logging.getLogger(__name__)
 

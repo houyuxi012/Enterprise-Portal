@@ -140,7 +140,7 @@ class IAMAuditService:
 
         # 1.5 Forward to external sinks (non-blocking)
         try:
-            from services.log_forwarder import emit_log_fire_and_forget
+            from modules.admin.services.log_forwarder import emit_log_fire_and_forget
             emit_log_fire_and_forget(
                 "IAM",
                 {

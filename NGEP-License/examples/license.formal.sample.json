@@ -16,7 +16,9 @@
       "ai.audit": true,
       "rbac.advanced": true,
       "log.forwarding": true,
-      "session.security": true
+      "session.security": true,
+      "customization.manage": true,
+      "mfa.settings": true
     },
     "limits": {
       "users": 500

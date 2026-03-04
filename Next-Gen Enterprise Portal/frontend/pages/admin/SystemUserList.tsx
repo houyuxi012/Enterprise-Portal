@@ -26,6 +26,7 @@ const SystemUserList: React.FC = () => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [search, setSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [resettingUsernames, setResettingUsernames] = useState<Record<string, boolean>>({});
     const currentLocale = getCurrentLocale();
 
     const [form] = AppForm.useForm();
@@ -64,6 +65,8 @@ const SystemUserList: React.FC = () => {
     };
 
     const handleResetPassword = async (username: string) => {
+        if (resettingUsernames[username]) return;
+        setResettingUsernames((prev) => ({ ...prev, [username]: true }));
         try {
             const result = await ApiClient.resetPassword(username);
             const resetPassword = result?.new_password;
@@ -73,7 +76,14 @@ const SystemUserList: React.FC = () => {
                 message.success(t('systemUserList.messages.resetSuccess', { username }));
             }
         } catch (error: any) {
-            message.error(error?.response?.data?.detail || t('systemUserList.messages.resetFailed'));
+            const detail = error?.response?.data?.detail;
+            const errorMsg =
+                typeof detail === 'string'
+                    ? detail
+                    : detail?.message || t('systemUserList.messages.resetFailed');
+            message.error(errorMsg);
+        } finally {
+            setResettingUsernames((prev) => ({ ...prev, [username]: false }));
         }
     };
 
@@ -110,7 +120,12 @@ const SystemUserList: React.FC = () => {
             setIsEditorOpen(false);
             fetchData();
         } catch (error: any) {
-            message.error(error.response?.data?.detail || t('systemUserList.messages.saveFailed'));
+            const detail = error?.response?.data?.detail;
+            const errorMsg =
+                typeof detail === 'string'
+                    ? detail
+                    : detail?.message || t('systemUserList.messages.saveFailed');
+            message.error(errorMsg);
         } finally {
             setSubmitting(false);
         }
@@ -230,13 +245,23 @@ const SystemUserList: React.FC = () => {
                         onConfirm={() => handleResetPassword(record.username)}
                         okText={t('common.buttons.confirm')}
                         cancelText={t('common.buttons.cancel')}
+                        disabled={['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')}
                     >
                         <AppButton
                             intent="tertiary"
                             iconOnly
                             size="sm"
                             icon={<Key size={15} />}
-                            title={t('systemUserList.actions.resetPassword')}
+                            title={
+                                ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
+                                    ? t('systemUserList.actions.resetPasswordDisabledExternal')
+                                    : t('systemUserList.actions.resetPassword')
+                            }
+                            disabled={
+                                ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
+                                || Boolean(resettingUsernames[record.username])
+                            }
+                            loading={Boolean(resettingUsernames[record.username])}
                         />
                     </Popconfirm>
                     {isProtectedSystemAdmin(record) ? (

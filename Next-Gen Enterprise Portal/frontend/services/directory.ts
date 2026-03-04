@@ -47,8 +47,7 @@ export const getApiErrorDetail = (error: any): ApiErrorDetail => {
 export const isLdapLicenseRequiredError = (error: any): boolean => {
   const detail = getApiErrorDetail(error);
   const code = String(detail.code || '').toUpperCase();
-  const reason = String(detail.reason || '').toUpperCase();
-  return code === 'LICENSE_REQUIRED' && reason.includes('FEATURE');
+  return code === 'LICENSE_REQUIRED';
 };
 
 export interface DirectoryListParams {

@@ -8,9 +8,9 @@ BACKEND_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "Next-Gen Enterpri
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-import models
-from database import SessionLocal
-from services.crypto_keyring import BindPasswordKeyring
+import modules.models as models
+from core.database import SessionLocal
+from modules.iam.services.crypto_keyring import BindPasswordKeyring
 
 def _aad(directory_id: int) -> bytes:
     return b"bind_password:" + str(int(directory_id)).encode("utf-8")

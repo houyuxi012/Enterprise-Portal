@@ -195,6 +195,18 @@
       "enabledFeatures": "Enabled Features",
       "noEnabledFeatures": "No enabled features"
     },
+    "featureLabels": {
+      "ldap": "Directory Service (LDAP/AD)",
+      "sso": "Single Sign-On (SSO)",
+      "ai_audit": "AI Audit",
+      "rbac_advanced": "Advanced RBAC",
+      "kb_manage": "Knowledge Base Management",
+      "log_forwarding": "Log Forwarding",
+      "iam_audit": "IAM Audit",
+      "session_security": "Session Security Policy",
+      "customization_manage": "Customization Management",
+      "mfa_settings": "MFA Settings"
+    },
     "eventsCard": {
       "title": "License Import History",
       "empty": "No license import records",
@@ -401,8 +413,12 @@
       "security": "Security Settings",
       "securityBasic": "Basic Settings",
       "passwordPolicy": "Password Policy",
+      "mfaSettings": "MFA Settings",
+      "mfaSettingsLicenseRequired": "MFA settings license feature is required",
       "system": "System Management",
       "customization": "Customization",
+      "customizationLicenseRequired": "Unlicensed: view default configuration only, editing is disabled",
+      "platformSettings": "Platform Settings",
       "license": "License",
       "aboutUs": "About Us"
     },
@@ -723,6 +739,7 @@
       "update_ai_policy": "Update AI Policy",
       "delete_ai_policy": "Delete AI Policy",
       "update_system_config": "Update System Config",
+      "update_mfa_settings": "Update MFA Settings",
       "create_employee": "Create Employee",
       "update_employee": "Update Employee",
       "delete_employee": "Delete Employee",
@@ -756,7 +773,14 @@
       "read_ai_audit_detail": "Read AI Audit Detail",
       "read_ai_audit_stats": "Read AI Audit Stats",
       "read_system_config": "Read System Config",
+      "read_mfa_settings": "Read MFA Settings",
+      "read_platform_settings": "Read Platform Settings",
+      "read_platform_runtime_status": "Read Platform Runtime Status",
       "optimize_storage": "Optimize Storage",
+      "update_platform_settings": "Update Platform Settings",
+      "test_platform_ntp_connectivity": "Test NTP Connectivity",
+      "apply_platform_settings": "Apply Platform Settings",
+      "apply_platform_settings_failed": "Apply Platform Settings Failed",
       "system_upgrade": "System Upgrade",
       "auto_log_cleanup": "Automatic Log Cleanup",
       "auto_iam_archive": "Automatic IAM Archive",
@@ -764,6 +788,10 @@
       "update_ai_quota": "Update AI Quota",
       "test_ai_provider": "Test AI Provider",
       "admin_test_ai_provider": "Admin Test AI Provider",
+      "test_smtp_service": "Test SMTP Service",
+      "test_telegram_bot": "Test Telegram Bot",
+      "test_sms_service": "Test SMS Gateway",
+      "read_notification_health": "Read Notification Health",
       "authz_denied": "Authorization Denied",
       "http_request": "HTTP Request",
       "mark_notifications_read": "Notification Read",
@@ -827,8 +855,8 @@
       "resetPwdContent": "Passwords will be reset according to current policy.",
       "confirmResetPwd": "Confirm Reset",
       "resetting": "Resetting...",
-      "noSystemAccountForReset": "Selected users have no system account, cannot reset password",
-      "resetSingleSuccess": "Reset successful, default password: {{password}}",
+      "noResettableAccount": "Selected users have no system account or are externally managed via directories, cannot reset password",
+      "resetSingleSuccess": "Reset successful, default password: {{password}} (only this latest reset is valid; previous password is revoked immediately)",
       "resetDone": "Reset done: success {{success}}, skipped {{skipped}}",
       "resetDoneWithFail": "Reset done: success {{success}}, failed {{failed}}, skipped {{skipped}}",
       "resetFailed": "Batch reset failed",
@@ -852,7 +880,7 @@
       "deleteSuccess": "User deleted",
       "deleteFailed": "Delete failed",
       "resetNoSystemAccount": "User {{account}} has no system account, cannot reset password",
-      "resetWithPassword": "User {{account}} password reset to {{password}}",
+      "resetWithPassword": "User {{account}} password reset to {{password}} (only this latest reset is valid; previous password is revoked immediately)",
       "resetSuccess": "User {{account}} password reset successfully",
       "resetFailed": "Password reset failed",
       "statusChanged": "User {{name}} set to {{status}}",
@@ -945,7 +973,7 @@
       "loadFailed": "Failed to load data",
       "deleteSuccess": "User deleted",
       "deleteFailed": "Delete failed",
-      "resetWithPassword": "{{username}} password reset to {{password}}",
+      "resetWithPassword": "{{username}} password reset to {{password}} (only this latest reset is valid; previous password is revoked immediately)",
       "resetSuccess": "{{username}} password reset successfully",
       "resetFailed": "Password reset failed",
       "updateSuccess": "User updated",
@@ -2203,6 +2231,7 @@
       "loadFailed": "Failed to load system settings",
       "saveSuccess": "Settings updated. Refresh page to see changes.",
       "saveFailed": "Failed to update settings",
+      "readonlyByLicense": "Customization is not licensed. You can only view default configuration, and saving is disabled.",
       "uploadSuccess": "Upload successful",
       "uploadFailed": "Upload failed"
     },
@@ -2309,6 +2338,301 @@
       }
     }
   },
+  "platformSettingsPage": {
+    "page": {
+      "title": "Platform Settings",
+      "subtitle": "Configure platform network, certificates, SNMP and NTP",
+      "saveButton": "Save Settings",
+      "applyButton": "Save & Apply"
+    },
+    "sections": {
+      "domain": "Platform Domain & Endpoints",
+      "ssl": "SSL Certificate & Key",
+      "snmp": "SNMP Configuration",
+      "ntp": "NTP Configuration"
+    },
+    "labels": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "certConfigured": "Certificate Configured",
+      "certNotConfigured": "Certificate Not Configured"
+    },
+    "messages": {
+      "loadFailed": "Failed to load platform settings",
+      "saveSuccess": "Platform settings saved",
+      "saveFailed": "Failed to save platform settings",
+      "uploadSuccess": "Certificate file loaded",
+      "uploadFailed": "Failed to load certificate file",
+      "applySuccess": "Platform configuration applied",
+      "applySuccessNeedReload": "Platform configuration applied. Please reload gateway as instructed.",
+      "applyFailed": "Failed to apply platform configuration",
+      "ntpServerRequired": "Please enter the NTP server address first",
+      "ntpTestSuccess": "NTP connectivity test passed (latency {{latency}} ms, stratum {{stratum}})",
+      "ntpTestFailed": "NTP connectivity test failed"
+    },
+    "actions": {
+      "uploadCert": "Upload Certificate File",
+      "uploadKey": "Upload Key File",
+      "testNtp": "Test Connectivity"
+    },
+    "form": {
+      "platformDomain": "Platform Domain",
+      "publicBaseUrl": "Portal Public URL",
+      "adminBaseUrl": "Admin URL",
+      "sslEnabled": "Enable Custom HTTPS Certificate",
+      "sslCertificate": "SSL Certificate (PEM)",
+      "sslPrivateKey": "SSL Private Key (PEM)",
+      "snmpEnabled": "Enable SNMP",
+      "snmpHost": "SNMP Target Host",
+      "snmpPort": "SNMP Port",
+      "snmpVersion": "SNMP Version",
+      "snmpCommunity": "SNMP Community",
+      "snmpCommunityHelp": "Used only for SNMP v2c. Restrict access in production.",
+      "ntpEnabled": "Enable NTP",
+      "ntpServer": "NTP Server",
+      "ntpPort": "NTP Port",
+      "ntpSyncInterval": "Sync Interval (minutes)",
+      "placeholders": {
+        "platformDomain": "portal.example.com",
+        "publicBaseUrl": "https://portal.example.com",
+        "adminBaseUrl": "https://portal.example.com/admin",
+        "sslCertificate": "-----BEGIN CERTIFICATE-----",
+        "sslPrivateKey": "-----BEGIN PRIVATE KEY-----",
+        "snmpHost": "192.168.1.100",
+        "snmpCommunity": "public",
+        "ntpServer": "pool.ntp.org"
+      }
+    },
+    "runtime": {
+      "title": "Runtime Apply Status",
+      "description": "Status: {{status}}; Applied At: {{appliedAt}}; Hook: {{hook}}; Gateway Reload: {{reload}}; Message: {{message}}",
+      "notApplied": "Not applied",
+      "reloadRequired": "Manual reload required",
+      "reloadNotRequired": "Handled automatically"
+    }
+  },
+  "notificationServices": {
+    "title": "Notification Services",
+    "subtitle": "Configure email and SMS services for notifications and security verification",
+    "tabs": {
+      "smtp": "SMTP Email Service",
+      "telegram": "Telegram Bot",
+      "sms": "SMS Gateway"
+    },
+    "labels": {
+      "configured": "Configured",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "comingSoon": "Coming Soon"
+    },
+    "actions": {
+      "save": "Save Configuration",
+      "sendTest": "Send Test"
+    },
+    "messages": {
+      "smtpSaved": "SMTP configuration saved",
+      "telegramSaved": "Telegram Bot configuration saved",
+      "smsSaved": "SMS gateway configuration saved",
+      "saveFailed": "Save failed",
+      "smtpTestSuccess": "Test email sent. Please check your inbox.",
+      "smtpTestFailed": "Failed to send test email",
+      "telegramTestSuccess": "Telegram test message sent successfully",
+      "telegramTestFailed": "Failed to send Telegram test message",
+      "smsTestSuccess": "SMS test sent successfully",
+      "smsTestFailed": "Failed to send SMS test"
+    },
+    "health": {
+      "title": "Notification Health Check",
+      "subtitle": "View configuration health for SMTP, Telegram Bot, and SMS gateway",
+      "overall": "Overall",
+      "channels": {
+        "smtp": "SMTP",
+        "telegram": "Telegram Bot",
+        "sms": "SMS"
+      },
+      "status": {
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "disabled": "Disabled",
+        "misconfigured": "Misconfigured",
+        "not_configured": "Not configured"
+      }
+    },
+    "smtp": {
+      "fields": {
+        "host": "SMTP Host",
+        "port": "Port",
+        "username": "Username / Email",
+        "password": "Password / App Password",
+        "sender": "Sender Address",
+        "tls": "Enable TLS",
+        "testEmail": "Test Email Recipient"
+      },
+      "validation": {
+        "hostRequired": "Please enter SMTP host",
+        "portRequired": "Please enter port",
+        "usernameRequired": "Please enter username",
+        "passwordRequired": "Please enter password",
+        "testEmailRequired": "Please enter test email recipient",
+        "testEmailInvalid": "Please enter a valid email address"
+      },
+      "placeholders": {
+        "host": "e.g. smtp.qq.com or smtp.gmail.com",
+        "username": "Email address for SMTP authentication",
+        "password": "Some providers require app password instead of account password",
+        "testEmail": "Enter email address for testing"
+      },
+      "help": {
+        "sender": "If empty, username is used as sender"
+      }
+    },
+    "telegram": {
+      "fields": {
+        "enabled": "Enable Telegram Bot notifications",
+        "botToken": "Bot Token",
+        "chatId": "Chat ID",
+        "parseMode": "Message format",
+        "disableWebPreview": "Disable link previews",
+        "testMessage": "Test message"
+      },
+      "validation": {
+        "botTokenRequired": "Please enter Bot Token",
+        "chatIdRequired": "Please enter Chat ID",
+        "tokenAndChatRequiredWhenEnabled": "Bot Token and Chat ID are required when Telegram Bot is enabled"
+      },
+      "placeholders": {
+        "botToken": "e.g. 123456789:AAxxxxxxxxxxxxxxxxxxxxxx",
+        "chatId": "e.g. -1001234567890 or 123456789",
+        "testMessage": "Enter test message content (optional)"
+      },
+      "help": {
+        "testMessage": "Default test message will be used if empty"
+      },
+      "options": {
+        "none": "No formatting"
+      },
+      "defaultTestMessage": "[Next-Gen Enterprise Portal] Telegram Bot test message"
+    },
+    "sms": {
+      "selectProviderFirst": "Select an SMS provider first, then fill in provider-specific settings",
+      "fields": {
+        "enabled": "Enable SMS gateway",
+        "provider": "Provider",
+        "testPhone": "Test phone number",
+        "testMessage": "Test message",
+        "aliyunAccessKeyId": "AccessKey ID",
+        "aliyunAccessKeySecret": "AccessKey Secret",
+        "aliyunSignName": "Sign Name",
+        "aliyunTemplateCode": "Template Code",
+        "aliyunTemplateParam": "Template Params JSON",
+        "aliyunRegion": "Region",
+        "tencentSecretId": "SecretId",
+        "tencentSecretKey": "SecretKey",
+        "tencentSdkAppId": "SMS SDK AppID",
+        "tencentSignName": "Sign Name",
+        "tencentTemplateId": "Template ID",
+        "tencentTemplateParams": "Template Params (comma-separated)",
+        "tencentRegion": "Region",
+        "twilioAccountSid": "Account SID",
+        "twilioAuthToken": "Auth Token",
+        "twilioFromNumber": "From Number",
+        "twilioMessagingServiceSid": "Messaging Service SID (optional)"
+      },
+      "providers": {
+        "aliyun": "Aliyun SMS",
+        "tencent": "Tencent Cloud SMS",
+        "twilio": "Twilio"
+      },
+      "validation": {
+        "providerRequired": "Please select an SMS provider",
+        "testPhoneRequired": "Please enter test phone number",
+        "aliyunRequired": "Aliyun config is incomplete (AK/SK/Sign/Template required)",
+        "tencentRequired": "Tencent config is incomplete (Secret/AppID/Sign/Template required)",
+        "twilioRequired": "Twilio config is incomplete (SID/Auth Token/From Number or Messaging Service SID required)"
+      },
+      "placeholders": {
+        "provider": "Please select an SMS provider",
+        "testPhone": "e.g. +8613800138000",
+        "testMessage": "Enter test message (optional)",
+        "aliyunAccessKeyId": "Enter Aliyun AccessKey ID",
+        "aliyunAccessKeySecret": "Enter Aliyun AccessKey Secret",
+        "aliyunSignName": "e.g. CompanySign",
+        "aliyunTemplateCode": "e.g. SMS_123456789",
+        "tencentSecretId": "Enter Tencent SecretId",
+        "tencentSecretKey": "Enter Tencent SecretKey",
+        "tencentSdkAppId": "e.g. 1400XXXXXXX",
+        "tencentSignName": "e.g. CompanySign",
+        "tencentTemplateId": "e.g. 123456",
+        "twilioAccountSid": "e.g. ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "twilioAuthToken": "Enter Twilio Auth Token",
+        "twilioMessagingServiceSid": "e.g. MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "help": {
+        "aliyunTemplateParam": "JSON string, e.g. {\"code\":\"123456\"}",
+        "tencentTemplateParams": "Keep order same as template variables, separated by commas",
+        "twilioFromNumber": "Must be a Twilio verified/purchased number; can be empty when Messaging Service SID is set",
+        "testMessage": "Used by Twilio; Aliyun/Tencent use template parameters"
+      },
+      "defaultTestMessage": "[Next-Gen Enterprise Portal] SMS gateway test message"
+    }
+  },
+  "notificationTemplates": {
+    "title": "Notification Templates",
+    "subtitle": "Manage email and SMS template content for system notifications",
+    "empty": {
+      "title": "Notification Template Management",
+      "description": "Template management is under development. It will support custom templates for email verification, password reset, and system alerts with variable replacement and multilingual support.",
+      "tag": "Coming Soon"
+    }
+  },
+  "thirdPartyNotifications": {
+    "title": "Third-party Notifications",
+    "subtitle": "Integrate notification channels such as WeCom, DingTalk, and Feishu",
+    "empty": {
+      "title": "Third-party Notification Integration",
+      "description": "Third-party notification integration is under development. It will support WeCom bots, DingTalk webhooks, Feishu bots, and other enterprise channels for cross-platform event delivery.",
+      "tag": "Coming Soon"
+    }
+  },
+  "mfaSettingsPage": {
+    "page": {
+      "title": "Multi-Factor Authentication",
+      "subtitle": "MFA CONFIGURATION",
+      "saveButton": "Save Settings"
+    },
+    "messages": {
+      "loadFailed": "Failed to load MFA settings",
+      "saveSuccess": "MFA settings saved successfully",
+      "saveFailed": "Failed to save MFA settings"
+    },
+    "sections": {
+      "globalSwitch": "Global MFA Policy",
+      "methods": "Authentication Methods"
+    },
+    "alert": {
+      "description": "When Force MFA is enabled, all users will be required to complete a second-factor verification during login. It is recommended to notify all users to bind a TOTP app before enabling."
+    },
+    "form": {
+      "forceMfa": "Force MFA",
+      "forceMfaHelp": "When enabled, all users must complete multi-factor authentication on login"
+    },
+    "methods": {
+      "supported": "Supported",
+      "comingSoon": "Coming Soon",
+      "totp": {
+        "title": "TOTP Authenticator",
+        "description": "Generate one-time passwords using Google Authenticator, Microsoft Authenticator, etc."
+      },
+      "email": {
+        "title": "Email Verification",
+        "description": "Receive a one-time verification code via registered email"
+      },
+      "webauthn": {
+        "title": "Hardware Security Key",
+        "description": "FIDO2/WebAuthn compatible hardware keys such as YubiKey"
+      }
+    }
+  },
   "applicationLogsPage": {
     "page": {
       "title": "System Application Logs",
@@ -2372,7 +2696,8 @@
     "messages": {
       "passwordMismatch": "The two new passwords do not match",
       "changeSuccess": "Password changed successfully. Please sign in again with the new password",
-      "changeFailed": "Failed to change password"
+      "changeFailed": "Failed to change password",
+      "managedExternally": "This account is managed by a directory service (AD/LDAP). It cannot be modified locally. To change your password, please visit your enterprise directory service platform."
     },
     "form": {
       "oldPassword": "Current Password",
@@ -2599,6 +2924,17 @@
         "groupNameAttr": "cn",
         "groupDescAttr": "description"
       },
+      "tooltips": {
+        "userFilter": "LDAP search filter used to match user objects",
+        "usernameAttr": "LDAP attribute used to match login usernames",
+        "avatarAttr": "Use thumbnailPhoto for Active Directory and jpegPhoto for OpenLDAP",
+        "orgBaseDn": "If empty, the global Base DN is used as the organization search root",
+        "groupBaseDn": "If empty, the global Base DN is used as the group search root",
+        "syncPageSize": "Maximum entries returned per LDAP query to prevent large-directory timeouts"
+      },
+      "units": {
+        "page": "items/page"
+      },
       "validation": {
         "nameRequired": "Please enter name",
         "typeRequired": "Please select source type",
@@ -2664,8 +3000,9 @@
     },
     "messages": {
       "passwordMismatch": "The two new passwords do not match",
-      "changeSuccess": "Password changed successfully, please sign in again with the new password",
-      "changeFailed": "Failed to change password"
+      "changeSuccess": "Password changed successfully. Please sign in again with the new password",
+      "changeFailed": "Failed to change password",
+      "managedExternally": "This admin account is managed by a directory service (AD/LDAP). For security reasons, resetting or changing the password locally is not supported. Please change your password on the enterprise directory service platform."
     },
     "form": {
       "oldPassword": "Current Password",
@@ -2684,5 +3021,47 @@
       "newPasswordMin": "New password must be at least 6 characters",
       "confirmPasswordRequired": "Please re-enter new password to confirm"
     }
+  },
+  "portalSecurity": {
+    "subtitle": "Manage your account security options",
+    "messages": {
+      "setupFailed": "Setup failed",
+      "actionFailed": "Operation failed",
+      "passwordRequired": "Please enter password",
+      "codeRequired": "Please enter a 6-digit code"
+    },
+    "placeholders": {
+      "code6": "Please enter a 6-digit code"
+    },
+    "emailMfa": {
+      "messages": {
+        "codeSentSuccess": "Verification code has been sent to your email",
+        "sendFailed": "Failed to send verification code",
+        "enabled": "Email verification has been enabled",
+        "invalidCode": "Invalid verification code",
+        "passwordRequired": "Please enter password",
+        "disabled": "Email verification has been disabled"
+      }
+    },
+    "webauthn": {
+      "title": "Hardware Security Key",
+      "subtitle": "Use a FIDO2/WebAuthn compatible hardware security key (e.g. YubiKey) or platform authenticator (Touch ID / Windows Hello)",
+      "addKey": "Add Security Key",
+      "keyCount": "{{count}} key(s) registered",
+      "registerSuccess": "Security key registered successfully",
+      "registerFailed": "Failed to register security key",
+      "cancelled": "Operation cancelled",
+      "deleteSuccess": "Security key deleted successfully",
+      "deleteTitle": "Delete Security Key",
+      "deleteConfirm": "After deletion, this security key cannot be used for login verification. Confirm delete?",
+      "namingTitle": "Name Your Security Key",
+      "namingDesc": "Give your security key a name for easy management",
+      "namePlaceholder": "e.g. My YubiKey"
+    }
+  },
+  "mfa": {
+    "useSecurityKey": "Use Security Key",
+    "orUse": "or use",
+    "webauthnFailed": "Security key verification failed"
   }
 }

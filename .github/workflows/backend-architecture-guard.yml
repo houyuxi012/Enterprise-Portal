@@ -1,0 +1,77 @@
+name: Backend Architecture Guard
+
+on:
+  pull_request:
+    paths:
+      - "Next-Gen Enterprise Portal/backend/**"
+      - "Test_case/**"
+      - "test_db/**"
+      - "scripts/guard_all.sh"
+      - ".github/workflows/backend-architecture-guard.yml"
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "release/**"
+    paths:
+      - "Next-Gen Enterprise Portal/backend/**"
+      - "Test_case/**"
+      - "test_db/**"
+      - "scripts/guard_all.sh"
+      - ".github/workflows/backend-architecture-guard.yml"
+  workflow_dispatch:
+
+jobs:
+  architecture-guard:
+    name: architecture-guard (normal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Architecture Boundary Guard (normal)
+        run: |
+          set +e
+          bash scripts/guard_all.sh \
+            --mode normal \
+            --scope backend \
+            --output json \
+            --report-dir ".ci-reports"
+          code=$?
+          cat .ci-reports/backend-architecture-normal.json
+          exit $code
+
+  architecture-guard-strict:
+    name: architecture-guard (strict)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'master' || startsWith(github.ref_name, 'release/'))) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Architecture Boundary Guard (strict)
+        run: |
+          set +e
+          bash scripts/guard_all.sh \
+            --mode strict \
+            --scope backend \
+            --output json \
+            --report-dir ".ci-reports"
+          code=$?
+          cat .ci-reports/backend-architecture-strict.json
+          exit $code

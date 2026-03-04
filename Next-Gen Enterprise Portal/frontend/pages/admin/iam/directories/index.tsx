@@ -486,7 +486,7 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
           orgs: result.synced_org_count,
           groups: result.synced_group_count,
           failed: result.failed_count,
-        }) || `已拉取: ${result.fetched_count}，同步用户: ${result.synced_user_count}，组织: ${result.synced_org_count}，群组: ${result.synced_group_count}，失败: ${result.failed_count}`,
+        }),
       );
       await fetchRows();
     } catch (error: any) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, message, Upload } from 'antd';
+import { Alert, Form, Input, message, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '../../services/api';
@@ -14,7 +14,15 @@ const SYSTEM_BRANDING_KEYS = [
     'privacy_policy',
 ] as const;
 
-const SystemSettings: React.FC = () => {
+interface SystemSettingsProps {
+    licenseBlocked?: boolean;
+    licenseBlockedMessage?: string;
+}
+
+const SystemSettings: React.FC<SystemSettingsProps> = ({
+    licenseBlocked = false,
+    licenseBlockedMessage = '',
+}) => {
     const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -22,16 +30,20 @@ const SystemSettings: React.FC = () => {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const config = await ApiClient.getSystemConfig();
+                const config = await ApiClient.getCustomizationConfig();
                 form.setFieldsValue(config);
-            } catch (error) {
-                message.error(t('systemSettingsPage.messages.loadFailed'));
+            } catch (error: any) {
+                message.error(error?.response?.data?.detail?.message || t('systemSettingsPage.messages.loadFailed'));
             }
         };
         fetchConfig();
     }, [form, t]);
 
     const handleSave = async (values: any) => {
+        if (licenseBlocked) {
+            message.warning(licenseBlockedMessage || t('systemSettingsPage.messages.readonlyByLicense'));
+            return;
+        }
         setLoading(true);
         try {
             const payload = SYSTEM_BRANDING_KEYS.reduce((acc, key) => {
@@ -40,14 +52,14 @@ const SystemSettings: React.FC = () => {
                 }
                 return acc;
             }, {} as Record<string, any>);
-            await ApiClient.updateSystemConfig(payload);
+            await ApiClient.updateCustomizationConfig(payload);
             message.success(t('systemSettingsPage.messages.saveSuccess'));
             // Update document title immediately for feedback
             if (values.browser_title) {
                 document.title = values.browser_title;
             }
-        } catch (error) {
-            message.error(t('systemSettingsPage.messages.saveFailed'));
+        } catch (error: any) {
+            message.error(error?.response?.data?.detail?.message || t('systemSettingsPage.messages.saveFailed'));
         } finally {
             setLoading(false);
         }
@@ -66,17 +78,27 @@ const SystemSettings: React.FC = () => {
                     icon={<SaveOutlined />}
                     onClick={() => form.submit()}
                     loading={loading}
+                    disabled={licenseBlocked}
                 >
                     {t('systemSettingsPage.page.saveButton')}
                 </AppButton>
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">
+                {licenseBlocked && (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        className="mb-6 rounded-xl"
+                        message={licenseBlockedMessage || t('systemSettingsPage.messages.readonlyByLicense')}
+                    />
+                )}
                 <Form
                     form={form}
                     layout="vertical"
                     onFinish={handleSave}
                     className="space-y-8"
+                    disabled={licenseBlocked}
                 >
                     <div>
                         <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">

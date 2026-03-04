@@ -9,7 +9,8 @@ export enum AppView {
   SETTINGS = 'settings',
   TOOLS = 'tools',
   SEARCH_RESULTS = 'search_results',
-  TODOS = 'todos'
+  TODOS = 'todos',
+  SECURITY = 'security'
 }
 
 export interface NewsItem {
@@ -36,7 +37,8 @@ export interface Employee {
   location: string;
   avatar: string;
   status: string;
-  source?: string;
+  auth_source?: 'local' | 'ldap' | 'ad' | 'oidc';
+  totp_enabled?: boolean;
   portal_initial_password?: string | null;
   portal_account_auto_created?: boolean;
 }
@@ -126,6 +128,7 @@ export interface User {
   account_type?: 'PORTAL' | 'SYSTEM';
   name?: string;
   avatar?: string;
+  auth_source?: 'local' | 'ldap' | 'ad' | 'oidc';
   role?: string; // Deprecated
   roles: Role[];
   is_active: boolean;

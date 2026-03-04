@@ -2,8 +2,8 @@ import logging
 import datetime
 import traceback
 from sqlalchemy.orm import Session
-from database import SessionLocal
-import models
+from core.database import SessionLocal
+import modules.models as models
 import asyncio
 
 class DBHandler(logging.Handler):

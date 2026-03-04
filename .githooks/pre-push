@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+GUARD_MODE="${BACKEND_ARCH_GUARD_MODE:-${FRONTEND_STRUCTURE_GUARD_MODE:-normal}}"
+
+echo "[pre-push] run unified guard chain (mode=$GUARD_MODE)"
+cd "$ROOT"
+bash scripts/guard_all.sh --mode "$GUARD_MODE" --scope all --output plain

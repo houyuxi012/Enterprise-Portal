@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "defaultMode": "normal",
+  "modes": {
+    "normal": {
+      "forbiddenImportPatterns": [
+        "^\\s*from\\s+models\\s+import\\s+",
+        "^\\s*import\\s+models(\\s|$)",
+        "^\\s*from\\s+schemas\\s+import\\s+",
+        "^\\s*import\\s+schemas(\\s|$)",
+        "^\\s*from\\s+database\\s+import\\s+",
+        "^\\s*import\\s+database(\\s|$)",
+        "^\\s*from\\s+dependencies\\s+import\\s+",
+        "^\\s*import\\s+dependencies(\\s|$)",
+        "^\\s*from\\s+services\\.[\\w.]+\\s+import\\s+",
+        "^\\s*import\\s+services(\\s|$)",
+        "^\\s*from\\s+routers\\.[\\w.]+\\s+import\\s+",
+        "^\\s*import\\s+routers(\\s|$)"
+      ],
+      "forbiddenFiles": [
+        "backend/models.py",
+        "backend/schemas.py",
+        "backend/database.py",
+        "backend/dependencies.py",
+        "backend/services"
+      ],
+      "skipDirNames": [
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".git"
+      ]
+    },
+    "strict": {
+      "forbiddenImportPatterns": [
+        "^\\s*from\\s+models\\s+import\\s+",
+        "^\\s*import\\s+models(\\s|$)",
+        "^\\s*from\\s+schemas\\s+import\\s+",
+        "^\\s*import\\s+schemas(\\s|$)",
+        "^\\s*from\\s+database\\s+import\\s+",
+        "^\\s*import\\s+database(\\s|$)",
+        "^\\s*from\\s+dependencies\\s+import\\s+",
+        "^\\s*import\\s+dependencies(\\s|$)",
+        "^\\s*from\\s+services\\.[\\w.]+\\s+import\\s+",
+        "^\\s*import\\s+services(\\s|$)",
+        "^\\s*from\\s+routers\\.[\\w.]+\\s+import\\s+",
+        "^\\s*import\\s+routers(\\s|$)"
+      ],
+      "forbiddenFiles": [
+        "backend/models.py",
+        "backend/schemas.py",
+        "backend/database.py",
+        "backend/dependencies.py",
+        "backend/services",
+        "backend/routers",
+        "backend/tests"
+      ],
+      "skipDirNames": [
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".git"
+      ]
+    }
+  }
+}

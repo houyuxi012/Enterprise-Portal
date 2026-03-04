@@ -8,6 +8,7 @@ from sqlalchemy import delete, insert, select, update
 # Add backend path to sys.path for both old/new repo layouts.
 _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
     os.path.join(_repo_root, "code", "backend"),
     os.path.join(_repo_root, "backend"),
     _repo_root,
@@ -15,8 +16,8 @@ for _candidate in (
     if os.path.isdir(_candidate) and _candidate not in sys.path:
         sys.path.append(_candidate)
 
-from database import Base, SessionLocal, engine
-from models import (
+from core.database import Base, SessionLocal, engine
+from modules.models import (
     AIProvider,
     Announcement,
     Department,
@@ -30,7 +31,7 @@ from models import (
     User,
     user_roles,
 )
-from services.crypto_service import CryptoService
+from infrastructure.crypto_service import CryptoService
 from utils import get_password_hash
 
 # Data

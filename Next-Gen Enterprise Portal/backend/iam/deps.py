@@ -29,7 +29,7 @@ def _infer_request_audience(request: Request) -> str | None:
 
 async def get_db():
     """数据库会话依赖 - 延迟导入避免循环"""
-    from database import get_db as _get_db
+    from core.database import get_db as _get_db
     async for db in _get_db():
         yield db
 
@@ -63,7 +63,7 @@ async def _audit_authz_denied(
     required_code: str,
 ):
     """Best-effort authorization denial audit; must not break normal response path."""
-    from services.audit_service import AuditService
+    from modules.iam.services.audit_service import AuditService
 
     try:
         ip = request.client.host if request.client else "unknown"

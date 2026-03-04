@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from services.cache_manager import CacheManager
+from infrastructure.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class RBACService:
         获取用户权限集（优先从 Redis 读取）
         返回: (roles, permissions_set, perm_version)
         """
-        import models
+        import modules.models as models
         
         version = await cls.get_perm_version(user_id)
         
@@ -137,7 +137,7 @@ class RBACService:
     @classmethod
     async def invalidate_role(cls, role_id: int, db: AsyncSession):
         """使角色相关所有用户的权限缓存失效"""
-        import models
+        import modules.models as models
         
         stmt = select(models.user_roles.c.user_id).where(
             models.user_roles.c.role_id == role_id

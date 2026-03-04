@@ -19,3 +19,11 @@ httpx
 pgvector>=0.3.0
 captcha>=0.6.0
 ldap3>=2.9.1
+pyotp>=2.9.0
+qrcode[pil]>=7.4
+aiosmtplib>=3.0.0
+alibabacloud_dysmsapi20170525>=2.0.25
+alibabacloud_tea_openapi>=0.3.14
+tencentcloud-sdk-python>=3.0.1300
+twilio>=9.2.3
+webauthn>=2.1.0

@@ -8,14 +8,26 @@ import asyncio
 import json
 import random
 import uuid
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from database import DATABASE_URL
-from models import KBDocument, KBChunk, KBQueryLog, User
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
+    os.path.join(_repo_root, "code", "backend"),
+    os.path.join(_repo_root, "backend"),
+    _repo_root,
+):
+    if os.path.isdir(_candidate) and _candidate not in sys.path:
+        sys.path.append(_candidate)
+
+from core.database import DATABASE_URL
+from modules.models import KBDocument, KBChunk, KBQueryLog, User
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { App } from 'antd';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import AuthService, { MfaRequiredError } from '../services/auth';
 import ApiClient from '../services/api';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [captchaId, setCaptchaId] = useState('');
     const [captchaImage, setCaptchaImage] = useState('');
     const [captchaCode, setCaptchaCode] = useState('');
+
+    // MFA state
+    const [mfaStep, setMfaStep] = useState(false);
+    const [mfaToken, setMfaToken] = useState('');
+    const [mfaMethods, setMfaMethods] = useState<string[]>([]);
+    const [mfaMode, setMfaMode] = useState<'totp' | 'email'>('totp');
+    const [totpCode, setTotpCode] = useState('');
+    const [webauthnLoading, setWebauthnLoading] = useState(false);
+    const [emailCodeSending, setEmailCodeSending] = useState(false);
 
     const [appName, setAppName] = useState(() => normalizeConfigValue(localStorage.getItem('sys_app_name') || '') || t('loginPortal.fallbackAppName'));
     const [logoUrl, setLogoUrl] = useState<string>(() => normalizeConfigValue(localStorage.getItem('sys_logo_url') || '') || DEFAULT_LOGO_URL);
@@ -124,6 +134,17 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             message.success(t('loginPortal.messages.loginSuccess'));
             onLoginSuccess();
         } catch (err: any) {
+            // MFA challenge required
+            if (err instanceof MfaRequiredError) {
+                setMfaToken(err.mfaToken);
+                const methods = Array.isArray(err.mfaMethods) ? err.mfaMethods : [];
+                setMfaMethods(methods);
+                setMfaMode(methods.includes('totp') ? 'totp' : (methods.includes('email') ? 'email' : 'totp'));
+                setMfaStep(true);
+                setError('');
+                return;
+            }
+
             // Parse backend error response
             const detailPayload = err?.response?.data?.detail;
             const detail = typeof detailPayload === 'string'
@@ -165,6 +186,235 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             setIsLoading(false);
         }
     };
+
+    const handleMfaSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError('');
+        try {
+            if (mfaMode === 'email' && mfaMethods.includes('email')) {
+                await AuthService.verifyMfaEmail(mfaToken, totpCode);
+            } else if (mfaMethods.includes('totp')) {
+                await AuthService.verifyMfa(mfaToken, totpCode);
+            } else {
+                const msg = t('mfa.useSecurityKey', '使用安全密钥');
+                setError(msg);
+                message.error(msg);
+                return;
+            }
+            if (rememberAccount && username.trim()) {
+                localStorage.setItem(REMEMBERED_PORTAL_USERNAME_KEY, username.trim());
+            }
+            message.success(t('loginPortal.messages.loginSuccess'));
+            // Force auth context to refresh
+            window.location.reload();
+        } catch (err: any) {
+            const detailPayload = err?.response?.data?.detail;
+            const detail = typeof detailPayload === 'string'
+                ? detailPayload
+                : (detailPayload?.message || '');
+            const msg = detail || t('mfa.invalidCode', '验证码错误或已过期');
+            setError(msg);
+            message.error(msg);
+            setTotpCode('');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSendMfaEmailCode = async () => {
+        if (!mfaToken) return;
+        setEmailCodeSending(true);
+        try {
+            await ApiClient.sendEmailMfaCode('portal', mfaToken);
+            message.success(t('portalSecurity.emailMfa.messages.codeSentSuccess'));
+        } catch (err: any) {
+            const detailPayload = err?.response?.data?.detail;
+            const detail = typeof detailPayload === 'string'
+                ? detailPayload
+                : (detailPayload?.message || '');
+            message.error(detail || t('portalSecurity.emailMfa.messages.sendFailed'));
+        } finally {
+            setEmailCodeSending(false);
+        }
+    };
+
+    const handleWebAuthnLogin = async () => {
+        setWebauthnLoading(true);
+        setError('');
+        try {
+            // Get authentication options from server
+            const options = await ApiClient.getWebAuthnAuthOptions(mfaToken, 'portal');
+            // Call browser WebAuthn API
+            const assertion = await navigator.credentials.get({
+                publicKey: {
+                    ...options,
+                    challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+                    allowCredentials: (options.allowCredentials || []).map((c: any) => ({
+                        ...c,
+                        id: Uint8Array.from(atob(c.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+                    })),
+                }
+            }) as PublicKeyCredential | null;
+
+            if (!assertion) {
+                setWebauthnLoading(false);
+                return;
+            }
+
+            const response = assertion.response as AuthenticatorAssertionResponse;
+            const webauthnResponse = {
+                id: assertion.id,
+                rawId: btoa(String.fromCharCode(...new Uint8Array(assertion.rawId))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                type: assertion.type,
+                response: {
+                    authenticatorData: btoa(String.fromCharCode(...new Uint8Array(response.authenticatorData))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                    clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(response.clientDataJSON))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                    signature: btoa(String.fromCharCode(...new Uint8Array(response.signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                    userHandle: response.userHandle ? btoa(String.fromCharCode(...new Uint8Array(response.userHandle))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : null,
+                },
+            };
+
+            await AuthService.verifyMfaWebAuthn(mfaToken, webauthnResponse);
+            if (rememberAccount && username.trim()) {
+                localStorage.setItem(REMEMBERED_PORTAL_USERNAME_KEY, username.trim());
+            }
+            message.success(t('loginPortal.messages.loginSuccess'));
+            window.location.reload();
+        } catch (err: any) {
+            const detailPayload = err?.response?.data?.detail;
+            const detail = typeof detailPayload === 'string'
+                ? detailPayload
+                : (detailPayload?.message || '');
+            if (detail && !detail.includes('NO_WEBAUTHN_CREDENTIALS')) {
+                const msg = detail || t('mfa.webauthnFailed', '安全密钥验证失败');
+                setError(msg);
+                message.error(msg);
+            }
+        } finally {
+            setWebauthnLoading(false);
+        }
+    };
+
+    // MFA verification step UI
+    if (mfaStep) {
+        return (
+            <div className="min-h-screen bg-white relative flex flex-col">
+                <header className="w-full max-w-7xl mx-auto p-6 flex justify-between items-center z-10">
+                    <div className="flex items-center space-x-4">
+                        <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain" />
+                        <span className="text-2xl font-bold text-slate-800 tracking-tight">{appName}</span>
+                    </div>
+                    <LanguageSwitcher />
+                </header>
+
+                <main className="flex-1 flex items-center justify-center -mt-20 px-4">
+                    <div className="max-w-sm w-full space-y-8">
+                        <div className="text-center space-y-3">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 mb-2">
+                                <ShieldCheck size={32} />
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-900">{t('mfa.title', '多因素认证')}</h1>
+                            <p className="text-slate-500 text-sm">
+                                {mfaMode === 'email'
+                                    ? t('portalSecurity.emailMfa.codeSent', '验证码已发送到您的邮箱，请在 5 分钟内输入')
+                                    : t('mfa.subtitle', '请输入您的验证器应用中的 6 位验证码')}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleMfaSubmit} className="space-y-6 pt-4">
+                            <div>
+                                <input
+                                    type="text"
+                                    value={totpCode}
+                                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    className="block w-full px-4 py-4 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-2xl font-bold text-center tracking-[0.5em] placeholder:text-slate-300 placeholder:tracking-[0.3em] placeholder:text-base placeholder:font-medium focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                                    placeholder="000000"
+                                    required
+                                    maxLength={6}
+                                    autoFocus
+                                    autoComplete="one-time-code"
+                                    inputMode="numeric"
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="p-3 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold text-center animate-in fade-in slide-in-from-top-1">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isLoading || totpCode.length !== 6 || (!mfaMethods.includes('totp') && !mfaMethods.includes('email'))}
+                                className="w-full flex items-center justify-center py-3.5 px-6 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                {isLoading ? <Loader2 size={18} className="animate-spin" /> : t('mfa.verify', '验证')}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => { setMfaStep(false); setMfaToken(''); setMfaMethods([]); setMfaMode('totp'); setTotpCode(''); setError(''); }}
+                                className="w-full text-center text-sm text-slate-500 hover:text-slate-700 font-medium"
+                            >
+                                {t('mfa.backToLogin', '返回登录')}
+                            </button>
+
+                            {mfaMethods.includes('email') && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendMfaEmailCode}
+                                    disabled={emailCodeSending}
+                                    className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-60"
+                                >
+                                    {emailCodeSending ? t('common.loading', '加载中...') : t('portalSecurity.emailMfa.sendCode', '发送验证码')}
+                                </button>
+                            )}
+
+                            {mfaMethods.includes('totp') && mfaMethods.includes('email') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setMfaMode((prev) => (prev === 'totp' ? 'email' : 'totp'))}
+                                    className="w-full text-center text-sm text-slate-500 hover:text-slate-700 font-medium"
+                                >
+                                    {mfaMode === 'totp'
+                                        ? t('portalSecurity.emailMfa.title', '邮箱验证')
+                                        : 'TOTP'}
+                                </button>
+                            )}
+
+                            {/* WebAuthn divider and button */}
+                            {mfaMethods.includes('webauthn') && (
+                                <div className="relative py-2">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-slate-200" />
+                                    </div>
+                                    <div className="relative flex justify-center text-xs">
+                                        <span className="bg-white px-3 text-slate-400 font-medium">{t('mfa.orUse', '或使用')}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {mfaMethods.includes('webauthn') && (
+                                <button
+                                    type="button"
+                                    onClick={handleWebAuthnLogin}
+                                    disabled={webauthnLoading}
+                                    className="w-full flex items-center justify-center space-x-2 py-3.5 px-6 border border-purple-200 rounded-xl text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-4 focus:ring-purple-500/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                    {webauthnLoading ? <Loader2 size={18} className="animate-spin" /> : <><Fingerprint size={18} /><span>{t('mfa.useSecurityKey', '使用安全密钥')}</span></>}
+                                </button>
+                            )}
+                        </form>
+                    </div>
+                </main>
+
+                <footer className="py-6 text-center text-xs text-slate-400 font-medium tracking-wide mb-4">
+                    {footerText}
+                </footer>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white relative flex flex-col">

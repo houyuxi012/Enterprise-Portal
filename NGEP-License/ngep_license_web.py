@@ -565,6 +565,8 @@ INDEX_HTML = """<!doctype html>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="log.forwarding"><span id="feat_log_forwarding">日志外发</span></label>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="iam.audit"><span id="feat_iam_audit">IAM 审计模块</span></label>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="session.security"><span id="feat_session_security">会话安全策略</span></label>
+                <label class="feature-item"><input type="checkbox" data-feature="1" value="customization.manage"><span id="feat_customization_manage">客户化管理</span></label>
+                <label class="feature-item"><input type="checkbox" data-feature="1" value="mfa.settings"><span id="feat_mfa_settings">多因素认证设置</span></label>
               </div>
               <label id="lbl_issue_custom_features" style="margin-top:10px;">自定义功能（每行一个，可选）</label>
               <textarea id="issue_custom_features" placeholder="feature.x&#10;module.y"></textarea>
@@ -723,6 +725,8 @@ INDEX_HTML = """<!doctype html>
         feat_log_forwarding: '日志外发',
         feat_iam_audit: 'IAM 审计模块',
         feat_session_security: '会话安全策略',
+        feat_customization_manage: '客户化管理',
+        feat_mfa_settings: '多因素认证设置',
         lbl_issue_custom_features: '自定义功能（每行一个，可选）',
         lbl_issue_extra_limits: '额外 limits JSON（对象）',
         btn_issue: '签发 License',
@@ -827,6 +831,8 @@ INDEX_HTML = """<!doctype html>
         feat_log_forwarding: 'Log Forwarding',
         feat_iam_audit: 'IAM Audit Module',
         feat_session_security: 'Session Security Policy',
+        feat_customization_manage: 'Customization Management',
+        feat_mfa_settings: 'MFA Settings',
         lbl_issue_custom_features: 'Custom Features (one per line, optional)',
         lbl_issue_extra_limits: 'Extra Limits JSON (object)',
         btn_issue: 'Issue License',

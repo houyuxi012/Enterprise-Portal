@@ -492,7 +492,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
             label={t('directory.form.fields.userFilter')}
             name="user_filter"
             rules={[{ required: true, message: t('directory.form.validation.userFilterRequired') }]}
-            tooltip="LDAP 搜索过滤器，用于匹配用户对象"
+            tooltip={t('directory.form.tooltips.userFilter')}
           >
             <Input placeholder={t('directory.form.placeholders.userFilter')} />
           </Form.Item>
@@ -502,7 +502,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
               <Form.Item
                 label={t('directory.form.fields.usernameAttr')}
                 name="username_attr"
-                tooltip="用于匹配登录用户名的 LDAP 属性"
+                tooltip={t('directory.form.tooltips.usernameAttr')}
               >
                 <Input placeholder={t('directory.form.placeholders.usernameAttr')} />
               </Form.Item>
@@ -529,7 +529,7 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
               <Form.Item
                 label={t('directory.form.fields.avatarAttr')}
                 name="avatar_attr"
-                tooltip="AD 使用 thumbnailPhoto，OpenLDAP 使用 jpegPhoto"
+                tooltip={t('directory.form.tooltips.avatarAttr')}
               >
                 <Input placeholder={t('directory.form.placeholders.avatarAttr')} />
               </Form.Item>
@@ -542,22 +542,22 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
 
 
           <Form.Item
-            label={t('directory.form.fields.orgBaseDn', '组织 Base DN（留空默认继承）')}
+            label={t('directory.form.fields.orgBaseDn')}
             name="org_base_dn"
-            tooltip="留空则使用全局 Base DN 作为组织搜索根"
+            tooltip={t('directory.form.tooltips.orgBaseDn')}
           >
-            <Input placeholder={t('directory.form.placeholders.orgBaseDn', 'ou=Departments,dc=example,dc=com')} />
+            <Input placeholder={t('directory.form.placeholders.orgBaseDn')} />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label={t('directory.form.fields.orgFilter', '组织过滤条件')} name="org_filter">
-                <Input placeholder={t('directory.form.placeholders.orgFilter', '(objectClass=organizationalUnit)')} />
+              <Form.Item label={t('directory.form.fields.orgFilter')} name="org_filter">
+                <Input placeholder={t('directory.form.placeholders.orgFilter')} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label={t('directory.form.fields.orgNameAttr', '组织名称属性')} name="org_name_attr">
-                <Input placeholder={t('directory.form.placeholders.orgNameAttr', 'ou')} />
+              <Form.Item label={t('directory.form.fields.orgNameAttr')} name="org_name_attr">
+                <Input placeholder={t('directory.form.placeholders.orgNameAttr')} />
               </Form.Item>
             </Col>
           </Row>
@@ -567,27 +567,27 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
 
 
           <Form.Item
-            label={t('directory.form.fields.groupBaseDn', '群组 Base DN（留空默认继承）')}
+            label={t('directory.form.fields.groupBaseDn')}
             name="group_base_dn"
-            tooltip="留空则使用全局 Base DN 作为群组搜索根"
+            tooltip={t('directory.form.tooltips.groupBaseDn')}
           >
-            <Input placeholder={t('directory.form.placeholders.groupBaseDn', 'ou=Groups,dc=example,dc=com')} />
+            <Input placeholder={t('directory.form.placeholders.groupBaseDn')} />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label={t('directory.form.fields.groupFilter', '群组过滤条件')} name="group_filter">
-                <Input placeholder={t('directory.form.placeholders.groupFilter', '(objectClass=groupOfNames)')} />
+              <Form.Item label={t('directory.form.fields.groupFilter')} name="group_filter">
+                <Input placeholder={t('directory.form.placeholders.groupFilter')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label={t('directory.form.fields.groupNameAttr', '群组名称属性')} name="group_name_attr">
-                <Input placeholder={t('directory.form.placeholders.groupNameAttr', 'cn')} />
+              <Form.Item label={t('directory.form.fields.groupNameAttr')} name="group_name_attr">
+                <Input placeholder={t('directory.form.placeholders.groupNameAttr')} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label={t('directory.form.fields.groupDescAttr', '群组描述属性')} name="group_desc_attr">
-                <Input placeholder={t('directory.form.placeholders.groupDescAttr', 'description')} />
+              <Form.Item label={t('directory.form.fields.groupDescAttr')} name="group_desc_attr">
+                <Input placeholder={t('directory.form.placeholders.groupDescAttr')} />
               </Form.Item>
             </Col>
           </Row>
@@ -638,13 +638,13 @@ const DirectoryDrawer: React.FC<DirectoryDrawerProps> = ({
 
           <Form.Item
             label={
-              <Tooltip title="每次 LDAP 查询返回的最大条目数，防止大目录超时">
-                {t('directory.form.fields.syncPageSize', 'LDAP 分页请求尺寸')}
+              <Tooltip title={t('directory.form.tooltips.syncPageSize')}>
+                {t('directory.form.fields.syncPageSize')}
               </Tooltip>
             }
             name="sync_page_size"
           >
-            <InputNumber min={50} max={10000} style={{ width: 200 }} addonAfter="条/页" />
+            <InputNumber min={50} max={10000} style={{ width: 200 }} addonAfter={t('directory.form.units.page')} />
           </Form.Item>
 
           <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>

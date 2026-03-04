@@ -1,8 +1,8 @@
 
 import asyncio
 from sqlalchemy import select, delete, func
-from database import SessionLocal
-from models import AIAuditLog
+from core.database import SessionLocal
+from modules.models import AIAuditLog
 import datetime
 
 async def cleanup_future_logs():

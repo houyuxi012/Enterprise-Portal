@@ -8,8 +8,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.concurrency import iterate_in_threadpool
 from sqlalchemy.orm import Session
-from database import SessionLocal
-import models
+from core.database import SessionLocal
+import modules.models as models
 import datetime
 import logging
 
@@ -89,7 +89,7 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                     await db.commit()
 
                     try:
-                        from services.log_forwarder import emit_log_fire_and_forget
+                        from modules.admin.services.log_forwarder import emit_log_fire_and_forget
                         emit_log_fire_and_forget(
                             "SYSTEM",
                             {

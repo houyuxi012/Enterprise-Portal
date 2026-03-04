@@ -12,8 +12,18 @@ from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from database import DATABASE_URL
-from models import KBDocument, KBChunk, KBQueryLog
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
+    os.path.join(_repo_root, "code", "backend"),
+    os.path.join(_repo_root, "backend"),
+    _repo_root,
+):
+    if os.path.isdir(_candidate) and _candidate not in sys.path:
+        sys.path.append(_candidate)
+
+from core.database import DATABASE_URL
+from modules.models import KBDocument, KBChunk, KBQueryLog
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -106,7 +116,7 @@ async def test_embedder():
         warn("但 embedder.py 应返回 mock 零向量以支持 ingest")
 
     try:
-        from services.kb.embedder import get_embedding, EMBEDDING_DIMS
+        from modules.portal.services.kb.embedder import get_embedding, EMBEDDING_DIMS
         vec = await get_embedding("测试文本")
         if vec and len(vec) == EMBEDDING_DIMS:
             ok(f"Embedding 生成成功, 维度: {len(vec)}")
@@ -130,7 +140,7 @@ async def test_retriever():
 
     async with AsyncSessionLocal() as session:
         try:
-            from services.kb.retriever import search, classify_hit, STRON_HIT_THRESHOLD, WEAK_HIT_THRESHOLD
+            from modules.portal.services.kb.retriever import search, classify_hit, STRON_HIT_THRESHOLD, WEAK_HIT_THRESHOLD
             
             # 使用 mock 向量测试检索功能
             zero_vec = [0.01] * 768
@@ -166,7 +176,7 @@ async def test_ingest_pipeline():
 
     async with AsyncSessionLocal() as session:
         try:
-            from services.kb.chunker import split_text
+            from modules.portal.services.kb.chunker import split_text
 
             # 测试 chunker
             test_content = """# 第一章 概述

@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "server": "",
+  "port": 123,
+  "sync_interval_minutes": 60,
+  "updated_at": "2026-03-03T12:59:17.904156+00:00"
+}

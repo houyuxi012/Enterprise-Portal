@@ -71,6 +71,7 @@ class UserOut(BaseModel):
     is_active: bool = True
     name: Optional[str] = None
     avatar: Optional[str] = None
+    auth_source: Optional[str] = "local"
     roles: List[RoleOut] = Field(default_factory=list)
 
     class Config:

@@ -1,0 +1,73 @@
+name: Frontend Structure Guard
+
+on:
+  pull_request:
+    paths:
+      - "Next-Gen Enterprise Portal/frontend/**"
+      - "scripts/guard_all.sh"
+      - ".github/workflows/frontend-structure-guard.yml"
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "release/**"
+    paths:
+      - "Next-Gen Enterprise Portal/frontend/**"
+      - "scripts/guard_all.sh"
+      - ".github/workflows/frontend-structure-guard.yml"
+  workflow_dispatch:
+
+jobs:
+  structure-guard:
+    name: structure-guard (normal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Frontend Structure Guard (normal)
+        run: |
+          set +e
+          bash scripts/guard_all.sh \
+            --mode normal \
+            --scope frontend \
+            --output json \
+            --report-dir ".ci-reports"
+          code=$?
+          cat .ci-reports/frontend-structure-normal.json
+          exit $code
+
+  structure-guard-strict:
+    name: structure-guard (strict)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'master' || startsWith(github.ref_name, 'release/'))) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Frontend Structure Guard (strict)
+        run: |
+          set +e
+          bash scripts/guard_all.sh \
+            --mode strict \
+            --scope frontend \
+            --output json \
+            --report-dir ".ci-reports"
+          code=$?
+          cat .ci-reports/frontend-structure-strict.json
+          exit $code

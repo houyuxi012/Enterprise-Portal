@@ -103,6 +103,7 @@ services:
       LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT: "57e66ed76ba225868318c89943a34f92edfb7d542303fa1b0d66c9dc6b644046"
       BIND_PASSWORD_ENC_KEYS: '{"k2025q4":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY","k2026q1":"YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk"}'
       BIND_PASSWORD_ENC_ACTIVE_KID: "k2026q1"
+      PLATFORM_AUTO_RELOAD: "true"
     depends_on:
       - db
       - redis
@@ -110,6 +111,7 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
+      - ./ops/nginx:/app/ops/nginx
       - ./ops/loki:/app/loki # Allow backend to update Loki config
       - ../test_db:/app/test_db # Mount test data scripts
 
@@ -121,12 +123,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     environment:
       VITE_API_BASE_URL: /api
+      PLATFORM_RELOAD_WATCH_INTERVAL_SECONDS: "2"
     depends_on:
       - backend
     volumes:
       - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./ops/nginx/certs:/etc/nginx/certs:ro
 
   loki:

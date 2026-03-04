@@ -9,6 +9,7 @@ from datetime import datetime
 # Add backend path for both old/new repo layouts
 _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
     os.path.join(_repo_root, "code", "backend"),
     os.path.join(_repo_root, "backend"),
     _repo_root,
@@ -21,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text, select, func
 
 # Import models
-from models import AIAuditLog, KBQueryLog
+from modules.models import AIAuditLog, KBQueryLog
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

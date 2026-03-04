@@ -115,7 +115,7 @@ python3 ngep_license_cli.py issue \
   --installation-id "f3c8a7f8-31bf-4d64-bff5-d2ecf23f7f5a" \
   --expires-at "2027-12-31T23:59:59Z" \
   --edition enterprise \
-  --features-json '{"ldap":true,"sso":true,"ai.audit":true}' \
+  --features-json '{"ldap":true,"sso":true,"ai.audit":true,"customization.manage":true,"mfa.settings":true}' \
   --limits-users 500 \
   --rev 1
 ```

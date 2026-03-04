@@ -20,10 +20,16 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 700,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-charts': ['recharts'],
-            'vendor-markdown': ['react-markdown', 'remark-gfm'],
-            'vendor-icons': ['lucide-react'],
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+
+            if (id.includes('node_modules/recharts')) return 'vendor-charts';
+            if (id.includes('node_modules/react-markdown') || id.includes('node_modules/remark-gfm')) {
+              return 'vendor-markdown';
+            }
+            if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+            if (id.includes('node_modules/axios/')) return 'vendor-network';
+            return undefined;
           },
         },
       },

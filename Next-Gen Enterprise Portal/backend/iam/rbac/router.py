@@ -11,10 +11,10 @@ from sqlalchemy.orm import selectinload
 from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from .service import RBACService
 from . import schemas
-import models
-from services.audit_service import AuditService
+import modules.models as models
+from modules.iam.services.audit_service import AuditService
 from iam.audit.service import IAMAuditService
-from services.password_policy import (
+from modules.iam.services.password_policy import (
     validate_password,
     generate_compliant_password,
     get_password_policy_configs,
@@ -402,6 +402,14 @@ async def reset_password(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if getattr(user, "auth_source", "local") != "local":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PASSWORD_MANAGED_EXTERNALLY",
+                "message": "目录同步账号不支持在本地重置密码",
+            },
+        )
 
     configs = await get_password_policy_configs(db)
     provided_password = (payload.new_password or "").strip()

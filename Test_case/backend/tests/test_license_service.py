@@ -16,8 +16,8 @@ for _candidate in (
     if os.path.isdir(_candidate) and _candidate not in sys.path:
         sys.path.append(_candidate)
 
-from services.license_service import LicenseService, LicenseValidationError
-from services.license_settings import settings
+from modules.admin.services.license_service import LicenseService, LicenseValidationError
+from modules.admin.services.license_settings import settings
 
 
 class _NoopPublicKey:

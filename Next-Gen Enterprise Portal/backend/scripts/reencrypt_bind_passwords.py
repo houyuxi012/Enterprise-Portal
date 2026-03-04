@@ -12,10 +12,10 @@ BACKEND_DIR = os.path.dirname(CURRENT_DIR)
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-import models  # noqa: E402
-from database import SessionLocal  # noqa: E402
+import modules.models as models  # noqa: E402
+from core.database import SessionLocal  # noqa: E402
 from iam.audit.service import IAMAuditService  # noqa: E402
-from services.crypto_keyring import BindPasswordKeyring, KeyringConfigError  # noqa: E402
+from modules.iam.services.crypto_keyring import BindPasswordKeyring, KeyringConfigError  # noqa: E402
 
 
 @dataclass

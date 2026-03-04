@@ -477,9 +477,8 @@ const Navbar: React.FC<NavbarProps> = ({
                           onClick={() => {
                             void markAsRead(notification);
                           }}
-                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 ${
-                            !notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'opacity-70'
-                          }`}
+                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'opacity-70'
+                            }`}
                         >
                           <div className="mt-0.5 shrink-0">
                             {getNotificationIcon(notification.type)}
@@ -569,13 +568,13 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      setChangePasswordModalOpen(true);
+                      setView(AppView.SECURITY);
                       setIsProfileOpen(false);
                     }}
                     className="w-full flex items-center space-x-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
                   >
-                    <KeyOutlined size={16} className="text-slate-400" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('navbar.profile.changePassword')}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></svg>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('navbar.profile.security', '安全设置')}</span>
                   </button>
                   <button
                     onClick={() => {

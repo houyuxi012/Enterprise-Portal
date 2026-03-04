@@ -5,14 +5,14 @@ import sys
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "Next-Gen Enterprise Portal", "backend"))
-if not os.path.exists(os.path.join(BACKEND_DIR, "models.py")):
+if not os.path.exists(os.path.join(BACKEND_DIR, "modules", "models.py")):
     BACKEND_DIR = "/app"
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-import models
-from database import SessionLocal
-from services.crypto_keyring import BindPasswordKeyring
+import modules.models as models
+from core.database import SessionLocal
+from modules.iam.services.crypto_keyring import BindPasswordKeyring
 
 def _aad(directory_id: int) -> bytes:
     return b"bind_password:" + str(int(directory_id)).encode("utf-8")

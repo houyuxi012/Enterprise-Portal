@@ -3,6 +3,7 @@ import { Modal, Form, Input, message } from 'antd';
 import ApiClient from '../services/api';
 import { KeyOutlined, LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AdminChangePasswordModalProps {
     open: boolean;
@@ -15,6 +16,10 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
     const { t } = useTranslation();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
+    const { user } = useAuth();
+
+    // Check if the current user profile implies an external AD/LDAP
+    const isManagedExternally = ['ldap', 'ad', 'oidc'].includes(user?.auth_source || 'local');
 
     const handleSubmit = async (values: any) => {
         if (values.newPassword !== values.confirmPassword) {
@@ -32,8 +37,12 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
             form.resetFields();
             onSuccess();
         } catch (error: any) {
-            const detail = error.response?.data?.detail || t('adminChangePassword.messages.changeFailed');
-            message.error(detail);
+            const detail = error?.response?.data?.detail;
+            const errorMsg =
+                typeof detail === 'string'
+                    ? detail
+                    : detail?.message || t('adminChangePassword.messages.changeFailed');
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -66,52 +75,65 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
             cancelText={t('common.buttons.cancel')}
         >
             <div className="pt-4">
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSubmit}
-                    requiredMark={false}
-                >
-                    <Form.Item
-                        label={t('adminChangePassword.form.oldPassword')}
-                        name="oldPassword"
-                        rules={[{ required: true, message: t('adminChangePassword.validation.oldPasswordRequired') }]}
+                {isManagedExternally ? (
+                    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4 flex items-start gap-3">
+                        <div className="bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-400 p-1.5 rounded-full mt-0.5">
+                            <LockOutlined />
+                        </div>
+                        <div className="text-amber-800 dark:text-amber-300 text-sm leading-relaxed">
+                            {t('adminChangePassword.messages.managedExternally', {
+                                defaultValue: '该账户由目录服务管理，请在AD/LDAP中修改密码'
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleSubmit}
+                        requiredMark={false}
                     >
-                        <Input.Password
-                            prefix={<LockOutlined className="text-slate-400 mr-1" />}
-                            placeholder={t('adminChangePassword.form.placeholders.oldPassword')}
-                            size="large"
-                        />
-                    </Form.Item>
+                        <Form.Item
+                            label={t('adminChangePassword.form.oldPassword')}
+                            name="oldPassword"
+                            rules={[{ required: true, message: t('adminChangePassword.validation.oldPasswordRequired') }]}
+                        >
+                            <Input.Password
+                                prefix={<LockOutlined className="text-slate-400 mr-1" />}
+                                placeholder={t('adminChangePassword.form.placeholders.oldPassword')}
+                                size="large"
+                            />
+                        </Form.Item>
 
-                    <Form.Item
-                        label={t('adminChangePassword.form.newPassword')}
-                        name="newPassword"
-                        rules={[
-                            { required: true, message: t('adminChangePassword.validation.newPasswordRequired') },
-                            { min: 6, message: t('adminChangePassword.validation.newPasswordMin') }
-                        ]}
-                        help={t('adminChangePassword.form.newPasswordHelp')}
-                    >
-                        <Input.Password
-                            prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
-                            placeholder={t('adminChangePassword.form.placeholders.newPassword')}
-                            size="large"
-                        />
-                    </Form.Item>
+                        <Form.Item
+                            label={t('adminChangePassword.form.newPassword')}
+                            name="newPassword"
+                            rules={[
+                                { required: true, message: t('adminChangePassword.validation.newPasswordRequired') },
+                                { min: 6, message: t('adminChangePassword.validation.newPasswordMin') }
+                            ]}
+                            help={t('adminChangePassword.form.newPasswordHelp')}
+                        >
+                            <Input.Password
+                                prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
+                                placeholder={t('adminChangePassword.form.placeholders.newPassword')}
+                                size="large"
+                            />
+                        </Form.Item>
 
-                    <Form.Item
-                        label={t('adminChangePassword.form.confirmPassword')}
-                        name="confirmPassword"
-                        rules={[{ required: true, message: t('adminChangePassword.validation.confirmPasswordRequired') }]}
-                    >
-                        <Input.Password
-                            prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
-                            placeholder={t('adminChangePassword.form.placeholders.confirmPassword')}
-                            size="large"
-                        />
-                    </Form.Item>
-                </Form>
+                        <Form.Item
+                            label={t('adminChangePassword.form.confirmPassword')}
+                            name="confirmPassword"
+                            rules={[{ required: true, message: t('adminChangePassword.validation.confirmPasswordRequired') }]}
+                        >
+                            <Input.Password
+                                prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
+                                placeholder={t('adminChangePassword.form.placeholders.confirmPassword')}
+                                size="large"
+                            />
+                        </Form.Item>
+                    </Form>
+                )}
             </div>
         </Modal>
     );

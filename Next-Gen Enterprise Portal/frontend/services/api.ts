@@ -42,7 +42,15 @@ const ensureScopedPath = (url: string): string => {
   if (/^https?:\/\//i.test(url)) return url;
 
   const normalized = url.startsWith('/') ? url : `/${url}`;
-  if (normalized.startsWith('/iam/') || normalized.startsWith('/public/') || normalized.startsWith('/system/')) return normalized;
+  if (
+    normalized.startsWith('/iam/')
+    || normalized.startsWith('/public/')
+    || normalized.startsWith('/system/')
+    || normalized.startsWith('/mfa/')
+    || normalized.startsWith('/portal/')
+  ) {
+    return normalized;
+  }
   if (normalized.startsWith('/admin/') || normalized.startsWith('/app/')) return normalized;
 
   return `${getRuntimeScopePrefix()}${normalized}`;
@@ -417,6 +425,27 @@ export const ApiClient = {
     return response.data;
   },
 
+  getCustomizationConfig: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/admin/system/config', {
+      params: { scope: 'customization' },
+    });
+    return response.data;
+  },
+
+  getMfaSettingsConfig: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/admin/system/config', {
+      params: { scope: 'mfa' },
+    });
+    return response.data;
+  },
+
+  getPlatformConfig: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/admin/system/config', {
+      params: { scope: 'platform' },
+    });
+    return response.data;
+  },
+
   getPublicSystemConfig: async (): Promise<Record<string, string>> => {
     const response = await api.get('/public/config');
     return response.data;
@@ -439,6 +468,51 @@ export const ApiClient = {
   updateSystemConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
 
     const response = await api.post('/admin/system/config', config);
+    return response.data;
+  },
+
+  updateCustomizationConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
+    const response = await api.post('/admin/system/config', config, {
+      params: { scope: 'customization' },
+    });
+    return response.data;
+  },
+
+  updateMfaSettingsConfig: async (config: Record<string, string>): Promise<Record<string, string>> => {
+    const response = await api.post('/admin/system/config', config, {
+      params: { scope: 'mfa' },
+    });
+    return response.data;
+  },
+
+  getPlatformRuntimeStatus: async (): Promise<Record<string, string>> => {
+    const response = await api.get('/admin/system/platform/runtime');
+    return response.data;
+  },
+
+  applyPlatformSettings: async (): Promise<{
+    status: string;
+    message: string;
+    applied_at?: string;
+    hook_status?: string;
+    reload_required?: boolean;
+  }> => {
+    const response = await api.post('/admin/system/platform/apply', {});
+    return response.data;
+  },
+
+  testPlatformNtpConnectivity: async (payload: {
+    platform_ntp_server: string;
+    platform_ntp_port: number;
+  }): Promise<{
+    status: string;
+    message: string;
+    server: string;
+    port: number;
+    latency_ms: number;
+    stratum: number;
+  }> => {
+    const response = await api.post('/admin/system/platform/ntp/test', payload);
     return response.data;
   },
 
@@ -732,9 +806,171 @@ export const ApiClient = {
     return response.data;
   },
 
+  // MFA Management (public/authenticated endpoints, no scope prefix)
+  getMfaStatus: async (audience: 'portal' | 'admin' = 'portal'): Promise<{ totp_enabled: boolean; email_mfa_enabled: boolean; webauthn_enabled: boolean }> => {
+    const response = await api.get('/mfa/status', { params: { audience } });
+    return response.data;
+  },
+
+  setupMfa: async (audience: 'portal' | 'admin' = 'portal'): Promise<{ secret: string; qr_code: string; otpauth_uri: string }> => {
+    const response = await api.post('/mfa/setup', {}, { params: { audience } });
+    return response.data;
+  },
+
+  verifyMfaSetup: async (code: string, audience: 'portal' | 'admin' = 'portal'): Promise<{ message: string }> => {
+    const response = await api.post('/mfa/verify-setup', { code }, { params: { audience } });
+    return response.data;
+  },
+
+  disableMfa: async (
+    password: string,
+    totp_code: string,
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<{ message: string }> => {
+    const response = await api.delete('/mfa/', {
+      data: { password, totp_code },
+      params: { audience },
+    });
+    return response.data;
+  },
+
   // Captcha (public endpoint, no scope prefix)
   getCaptcha: async (): Promise<{ captcha_id: string; captcha_image: string }> => {
     const response = await axios.get(`${API_BASE_URL}/captcha/generate`);
+    return response.data;
+  },
+
+  // Admin: batch reset MFA
+  batchResetMfa: async (usernames: string[]): Promise<{ reset_count: number }> => {
+    const response = await api.post('/mfa/admin/batch-reset', { usernames });
+    return response.data;
+  },
+
+  // Email MFA
+  getEmailMfaStatus: async (
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<{ email_mfa_enabled: boolean; email: string; email_masked?: string; has_email: boolean }> => {
+    const response = await api.get('/mfa/email/status', { params: { audience } });
+    return response.data;
+  },
+
+  enableEmailMfa: async (audience: 'portal' | 'admin' = 'portal'): Promise<{ message: string }> => {
+    const response = await api.post('/mfa/email/enable', {}, { params: { audience } });
+    return response.data;
+  },
+
+  verifyEnableEmailMfa: async (code: string, audience: 'portal' | 'admin' = 'portal'): Promise<{ message: string }> => {
+    const response = await api.post('/mfa/email/verify-enable', { code }, { params: { audience } });
+    return response.data;
+  },
+
+  disableEmailMfa: async (password: string, audience: 'portal' | 'admin' = 'portal'): Promise<{ message: string }> => {
+    const response = await api.delete('/mfa/email', {
+      data: { password, totp_code: '' },
+      params: { audience },
+    });
+    return response.data;
+  },
+
+  sendEmailMfaCode: async (audience: 'portal' | 'admin' = 'portal', mfaToken?: string): Promise<{ message: string }> => {
+    const response = await api.post('/mfa/email/send-code', {}, {
+      params: mfaToken ? { audience, mfa_token: mfaToken } : { audience },
+    });
+    return response.data;
+  },
+
+  // WebAuthn (Hardware Security Key)
+  getWebAuthnStatus: async (audience: 'portal' | 'admin' = 'portal'): Promise<{ credentials: Array<{ id: number; name: string; created_at: string | null; transports: string[] | null }> }> => {
+    const response = await api.get('/mfa/webauthn/status', { params: { audience } });
+    return response.data;
+  },
+
+  getWebAuthnRegisterOptions: async (audience: 'portal' | 'admin' = 'portal'): Promise<any> => {
+    const response = await api.post('/mfa/webauthn/register/options', {}, { params: { audience } });
+    return response.data;
+  },
+
+  verifyWebAuthnRegister: async (credential: any, name: string, audience: 'portal' | 'admin' = 'portal'): Promise<any> => {
+    const response = await api.post('/mfa/webauthn/register/verify', { credential, name }, { params: { audience } });
+    return response.data;
+  },
+
+  getWebAuthnAuthOptions: async (
+    mfaToken?: string,
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<any> => {
+    const params = mfaToken ? { mfa_token: mfaToken, audience } : { audience };
+    const response = await api.post('/mfa/webauthn/authenticate/options', {}, { params });
+    return response.data;
+  },
+
+  deleteWebAuthnCredential: async (
+    credentialId: number,
+    password: string,
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<{ message: string }> => {
+    const response = await api.delete(`/mfa/webauthn/${credentialId}`, {
+      data: { password },
+      params: { audience },
+    });
+    return response.data;
+  },
+
+  // SMTP Test
+  testSmtp: async (toEmail: string): Promise<{ message: string }> => {
+    const response = await api.post('/admin/system/smtp/test', { to_email: toEmail });
+    return response.data;
+  },
+
+  // Telegram Bot Test
+  testTelegramBot: async (payload: {
+    bot_token?: string;
+    chat_id?: string;
+    message?: string;
+    parse_mode?: string;
+    disable_web_page_preview?: boolean;
+  }): Promise<{ message: string }> => {
+    const response = await api.post('/admin/system/telegram/test', payload);
+    return response.data;
+  },
+
+  // SMS Gateway Test
+  testSms: async (payload: {
+    provider?: string;
+    test_phone?: string;
+    test_message?: string;
+    sms_sign_name?: string;
+    sms_template_code?: string;
+    sms_template_param?: string;
+    sms_access_key_id?: string;
+    sms_access_key_secret?: string;
+    sms_region_id?: string;
+    tencent_secret_id?: string;
+    tencent_secret_key?: string;
+    tencent_sdk_app_id?: string;
+    tencent_sign_name?: string;
+    tencent_template_id?: string;
+    tencent_template_params?: string;
+    tencent_region?: string;
+    twilio_account_sid?: string;
+    twilio_auth_token?: string;
+    twilio_from_number?: string;
+    twilio_messaging_service_sid?: string;
+  }): Promise<{ message: string }> => {
+    const response = await api.post('/admin/system/sms/test', payload);
+    return response.data;
+  },
+
+  // Notification Services Health
+  getNotificationHealth: async (): Promise<{
+    overall_status: 'healthy' | 'degraded' | 'disabled' | string;
+    channels: {
+      smtp: { enabled: boolean; configured: boolean; status: string; sender?: string };
+      telegram: { enabled: boolean; configured: boolean; status: string };
+      sms: { enabled: boolean; configured: boolean; status: string; provider?: string };
+    };
+  }> => {
+    const response = await api.get('/admin/system/notification/health');
     return response.data;
   },
 };

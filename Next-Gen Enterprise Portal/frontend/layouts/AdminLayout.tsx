@@ -6,6 +6,7 @@ import {
     TeamOutlined,
     FileTextOutlined,
     NotificationOutlined,
+    BellOutlined,
     LogoutOutlined,
     SafetyCertificateOutlined,
     AppstoreOutlined,
@@ -35,8 +36,8 @@ const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions') => void;
+    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'platform_settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'mfa_settings' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions' | 'notification_templates' | 'notification_services' | 'third_party_notifications';
+    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'platform_settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'mfa_settings' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions' | 'notification_templates' | 'notification_services' | 'third_party_notifications') => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -45,6 +46,10 @@ interface AdminLayoutProps {
     licenseGateMessage?: string;
     directoryLicenseBlocked?: boolean;
     directoryLicenseMessage?: string;
+    customizationLicenseBlocked?: boolean;
+    customizationLicenseMessage?: string;
+    mfaSettingsLicenseBlocked?: boolean;
+    mfaSettingsLicenseMessage?: string;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({
@@ -59,6 +64,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     licenseGateMessage = '',
     directoryLicenseBlocked = false,
     directoryLicenseMessage = '',
+    customizationLicenseBlocked = false,
+    customizationLicenseMessage = '',
+    mfaSettingsLicenseBlocked = false,
+    mfaSettingsLicenseMessage = '',
 }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
@@ -246,6 +255,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     key: 'password_policy',
                     label: t('adminLayout.menu.passwordPolicy'),
                 },
+                {
+                    key: 'mfa_settings',
+                    label: mfaSettingsLicenseBlocked ? (
+                        <Tooltip title={mfaSettingsLicenseMessage || t('adminLayout.menu.mfaSettingsLicenseRequired')}>
+                            <span>{t('adminLayout.menu.mfaSettings')}</span>
+                        </Tooltip>
+                    ) : t('adminLayout.menu.mfaSettings'),
+                    disabled: mfaSettingsLicenseBlocked,
+                },
+            ]
+        },
+        {
+            key: 'sub_notification',
+            label: t('adminLayout.menu.notification', '通知管理'),
+            icon: <BellOutlined />,
+            children: [
+                {
+                    key: 'notification_templates',
+                    label: t('adminLayout.menu.notificationTemplates', '通知模版'),
+                },
+                {
+                    key: 'notification_services',
+                    label: t('adminLayout.menu.notificationServices', '通知服务'),
+                },
+                {
+                    key: 'third_party_notifications',
+                    label: t('adminLayout.menu.thirdPartyNotifications', '三方通知'),
+                },
             ]
         },
         {
@@ -254,12 +291,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             icon: <SettingOutlined />,
             children: [
                 {
-                    key: 'settings',
-                    label: t('adminLayout.menu.customization'),
+                    key: 'platform_settings',
+                    label: t('adminLayout.menu.platformSettings'),
                 },
                 {
                     key: 'license',
                     label: t('adminLayout.menu.license'),
+                },
+                {
+                    key: 'settings',
+                    label: customizationLicenseBlocked ? (
+                        <Tooltip title={customizationLicenseMessage || t('adminLayout.menu.customizationLicenseRequired')}>
+                            <span>{t('adminLayout.menu.customization')}</span>
+                        </Tooltip>
+                    ) : t('adminLayout.menu.customization'),
                 },
                 {
                     key: 'about_us',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, message, Switch, InputNumber, Divider, Select } from 'antd';
-import { SaveOutlined, SafetyCertificateOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
+import { SaveOutlined, SafetyCertificateOutlined, GlobalOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '../../services/api';
 import AppButton from '../../components/AppButton';
@@ -17,7 +17,7 @@ const SecuritySettings: React.FC = () => {
                 // Parse boolean/number values from string storage
                 const formattedConfig = {
                     ...config,
-                    security_mfa_enabled: config.security_mfa_enabled === 'true',
+
                     security_login_max_retries: config.security_login_max_retries ? parseInt(config.security_login_max_retries) : 5,
                     security_lockout_duration: config.security_lockout_duration ? parseInt(config.security_lockout_duration) : 15,
                     security_lockout_scope: ['account', 'ip'].includes((config.security_lockout_scope || '').toLowerCase())
@@ -46,7 +46,7 @@ const SecuritySettings: React.FC = () => {
             // Convert types back to string for storage
             const payload = {
                 ...values,
-                security_mfa_enabled: String(values.security_mfa_enabled),
+
                 security_login_max_retries: String(values.security_login_max_retries),
                 security_lockout_duration: String(values.security_lockout_duration),
                 security_lockout_scope: String(values.security_lockout_scope || 'account'),
@@ -94,7 +94,7 @@ const SecuritySettings: React.FC = () => {
                         security_login_max_retries: 5,
                         security_lockout_duration: 15,
                         security_lockout_scope: 'account',
-                        security_mfa_enabled: false,
+
                         max_concurrent_sessions: 0,
                         login_session_timeout_minutes: 30,
                         login_session_absolute_timeout_minutes: 480,
@@ -102,25 +102,6 @@ const SecuritySettings: React.FC = () => {
                         security_force_change_password_after_reset: false,
                     }}
                 >
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
-
-                            <LockOutlined className="mr-2" /> {t('securitySettingsPage.sections.mfa')}
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <Form.Item
-                                name="security_mfa_enabled"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.forceMfa')}</span>}
-                                valuePropName="checked"
-                            >
-                                <Switch size="small" />
-                            </Form.Item>
-                        </div>
-                    </div>
-
-                    <Divider className="my-2 border-slate-100 dark:border-slate-700" />
-
                     <div>
                         <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
 

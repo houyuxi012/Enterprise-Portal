@@ -21,9 +21,9 @@ from .schemas import (
 from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from iam.rbac.service import RBACService
 from iam.audit.service import IAMAuditService
-from services.license_service import LicenseService
-from services.password_policy import set_user_password
-import models
+from modules.admin.services.license_service import LicenseService
+from modules.iam.services.password_policy import set_user_password
+import modules.models as models
 import utils
 
 router = APIRouter(prefix="/auth", tags=["iam-identity"])
@@ -151,6 +151,7 @@ async def get_me(
         account_type=getattr(user, "account_type", "PORTAL"),
         name=user.name,
         avatar=resolved_avatar,
+        auth_source=getattr(user, "auth_source", "local"),
         is_active=user.is_active,
         password_violates_policy=getattr(user, "password_violates_policy", False),
         password_change_required=getattr(user, "password_change_required", False),
@@ -168,6 +169,14 @@ async def change_my_password(
     db: AsyncSession = Depends(get_db),
 ):
     current_user = await IdentityService.get_current_user(request, db, audience=audience)
+    if getattr(current_user, "auth_source", "local") != "local":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PASSWORD_MANAGED_EXTERNALLY",
+                "message": "该账户由外部目录服务管理，请在目录服务中修改密码",
+            },
+        )
     if not await utils.verify_password(payload.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="原密码不正确")
     if payload.old_password == payload.new_password:

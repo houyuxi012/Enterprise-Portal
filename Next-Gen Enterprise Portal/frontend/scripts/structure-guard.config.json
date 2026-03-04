@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "defaultMode": "normal",
+  "modes": {
+    "normal": {
+      "appFile": "App.tsx",
+      "maxAppLines": 120,
+      "maxAppImports": 12,
+      "forbiddenPatterns": [
+        {
+          "pattern": "from\\s+['\"]\\./pages/",
+          "message": "App.tsx must not import from ./pages/* directly."
+        },
+        {
+          "pattern": "from\\s+['\"]\\./services/",
+          "message": "App.tsx must not import service modules directly."
+        },
+        {
+          "pattern": "from\\s+['\"]\\./layouts/",
+          "message": "App.tsx must not import layout modules directly."
+        },
+        {
+          "pattern": "React\\.lazy\\(",
+          "message": "App.tsx must not own route-level lazy loading. Keep it in router managers."
+        }
+      ]
+    },
+    "strict": {
+      "appFile": "App.tsx",
+      "maxAppLines": 80,
+      "maxAppImports": 8,
+      "forbiddenPatterns": [
+        {
+          "pattern": "from\\s+['\"]\\./pages/",
+          "message": "App.tsx must not import from ./pages/* directly."
+        },
+        {
+          "pattern": "from\\s+['\"]\\./services/",
+          "message": "App.tsx must not import service modules directly."
+        },
+        {
+          "pattern": "from\\s+['\"]\\./layouts/",
+          "message": "App.tsx must not import layout modules directly."
+        },
+        {
+          "pattern": "React\\.lazy\\(",
+          "message": "App.tsx must not own route-level lazy loading. Keep it in router managers."
+        }
+      ]
+    }
+  }
+}

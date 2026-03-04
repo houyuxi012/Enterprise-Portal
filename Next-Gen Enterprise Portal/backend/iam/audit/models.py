@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index, JSON
 from sqlalchemy.sql import func
-from database import Base
+from core.database import Base
 
 
 class IAMAuditLog(Base):

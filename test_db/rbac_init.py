@@ -1,13 +1,26 @@
 import time
 import logging
 import asyncio
+import os
+import sys
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists, update, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.dialects.postgresql import insert
-import models
+
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
+    os.path.join(_repo_root, "code", "backend"),
+    os.path.join(_repo_root, "backend"),
+    _repo_root,
+):
+    if os.path.isdir(_candidate) and _candidate not in sys.path:
+        sys.path.append(_candidate)
+
+import modules.models as models
 import utils
-from services.cache_manager import cache
+from infrastructure.cache_manager import cache
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +387,7 @@ async def init_rbac(db: AsyncSession):
     print("✅ RBAC Initialization Complete.")
 
 if __name__ == "__main__":
-    from database import SessionLocal
+    from core.database import SessionLocal
 
     async def main():
         # Initialize Cache Manager manually since we are outside FastAPI app lifespan

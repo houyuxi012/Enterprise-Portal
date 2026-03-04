@@ -17,17 +17,17 @@ for _candidate in (
     if os.path.isdir(_candidate) and _candidate not in sys.path:
         sys.path.append(_candidate)
 
-import models
-import schemas
-from routers.iam_directories import (
+import modules.models as models
+import modules.schemas as schemas
+from modules.iam.routers.iam_directories import (
     _to_out,
     create_directory_config,
     test_directory_connection_draft,
     test_directory_connection as run_directory_connection_test,
 )
-from services.identity.identity_service import ProviderIdentityService
-from services.identity.providers.ldap import LdapIdentityProvider
-from services.license_service import LicenseService
+from modules.iam.services.identity.identity_service import ProviderIdentityService
+from modules.iam.services.identity.providers.ldap import LdapIdentityProvider
+from modules.admin.services.license_service import LicenseService
 
 
 class _FakeDB:

@@ -1,0 +1,13 @@
+{
+  "tool": "backend-architecture-guard",
+  "status": "pass",
+  "mode": "strict",
+  "configPath": "/Users/houyuxi/办公文件/code/Enterprise Portal/Next-Gen Enterprise Portal/backend/scripts/architecture-guard.config.json",
+  "checkedAt": "2026-03-04T12:57:02.184424+00:00",
+  "roots": [
+    "/Users/houyuxi/办公文件/code/Enterprise Portal/Next-Gen Enterprise Portal/backend",
+    "/Users/houyuxi/办公文件/code/Enterprise Portal/Next-Gen Enterprise Portal/../Test_case",
+    "/Users/houyuxi/办公文件/code/Enterprise Portal/Next-Gen Enterprise Portal/../test_db"
+  ],
+  "violations": []
+}

@@ -168,6 +168,15 @@ const LicenseManagement: React.FC = () => {
         return [];
     }, [claimsData]);
 
+    const featureLabel = useCallback((featureCode: string) => {
+        const normalized = String(featureCode || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        return t(`license.featureLabels.${normalized}`, { defaultValue: featureCode });
+    }, [t]);
+
     const fetchLicenseEvents = useCallback(
         async (page: number, pageSize: number) => {
             const normalizedPage = Math.max(1, page || 1);
@@ -350,7 +359,7 @@ const LicenseManagement: React.FC = () => {
                             <div className="flex flex-wrap gap-2">
                                 {featuresView.length > 0 ? (
                                     featuresView.map((feature) => (
-                                        <Tag key={feature} color="blue">{feature}</Tag>
+                                        <Tag key={feature} color="blue">{featureLabel(feature)}</Tag>
                                     ))
                                 ) : (
                                     <Text type="secondary">{t('license.claimsCard.noEnabledFeatures')}</Text>

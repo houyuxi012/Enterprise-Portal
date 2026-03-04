@@ -1,0 +1,84 @@
+"""
+Platform model export layer.
+
+Use this module as the canonical import entry for SQLAlchemy models.
+"""
+
+from core.database import Base
+from modules.admin.models import (
+    AIAuditLog,
+    AIModelQuota,
+    AIProvider,
+    AISecurityPolicy,
+    BusinessLog,
+    Department,
+    LogForwardingConfig,
+    SystemLog,
+)
+from modules.iam.models import (
+    DirectoryConfig,
+    LicenseEvent,
+    LicenseState,
+    Permission,
+    Role,
+    SyncJob,
+    SystemConfig,
+    User,
+    UserPasswordHistory,
+    WebAuthnCredential,
+)
+from modules.portal.models import (
+    Announcement,
+    AnnouncementRead,
+    CarouselItem,
+    Employee,
+    FileMetadata,
+    KBChunk,
+    KBDocument,
+    KBQueryLog,
+    NewsItem,
+    Notification,
+    NotificationReceipt,
+    QuickTool,
+    Todo,
+)
+from shared.base_models import role_permissions, todo_dept_assignees, todo_user_assignees, user_roles
+
+__all__ = [
+    "Base",
+    "role_permissions",
+    "user_roles",
+    "todo_user_assignees",
+    "todo_dept_assignees",
+    "Permission",
+    "Role",
+    "Employee",
+    "NewsItem",
+    "QuickTool",
+    "Announcement",
+    "User",
+    "WebAuthnCredential",
+    "UserPasswordHistory",
+    "AnnouncementRead",
+    "Notification",
+    "NotificationReceipt",
+    "DirectoryConfig",
+    "SyncJob",
+    "SystemConfig",
+    "LicenseState",
+    "LicenseEvent",
+    "Department",
+    "SystemLog",
+    "BusinessLog",
+    "LogForwardingConfig",
+    "CarouselItem",
+    "FileMetadata",
+    "AIProvider",
+    "AISecurityPolicy",
+    "AIAuditLog",
+    "AIModelQuota",
+    "KBDocument",
+    "KBChunk",
+    "KBQueryLog",
+    "Todo",
+]

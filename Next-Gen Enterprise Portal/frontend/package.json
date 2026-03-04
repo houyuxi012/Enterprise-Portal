@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "structure:check": "node scripts/check-structure-guard.mjs --config scripts/structure-guard.config.json --mode normal",
+    "structure:check:strict": "node scripts/check-structure-guard.mjs --config scripts/structure-guard.config.json --mode strict",
     "i18n:scan": "node scripts/i18n-hardcoded-check.mjs",
     "i18n:baseline": "node scripts/i18n-hardcoded-check.mjs --write-baseline",
     "i18n:check": "node scripts/i18n-hardcoded-check.mjs --check"

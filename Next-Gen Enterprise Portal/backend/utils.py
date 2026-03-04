@@ -49,7 +49,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None, audi
     return encoded_jwt
 
 # --- Logger Helper ---
-import models
+import modules.models as models
 from sqlalchemy.ext.asyncio import AsyncSession
 
 async def log_business_action(

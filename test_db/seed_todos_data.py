@@ -1,10 +1,22 @@
 import asyncio
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 
-from database import SessionLocal
-from models import Todo, User
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (
+    os.path.join(_repo_root, "Next-Gen Enterprise Portal", "backend"),
+    os.path.join(_repo_root, "code", "backend"),
+    os.path.join(_repo_root, "backend"),
+    _repo_root,
+):
+    if os.path.isdir(_candidate) and _candidate not in sys.path:
+        sys.path.append(_candidate)
+
+from core.database import SessionLocal
+from modules.models import Todo, User
 
 SEED_MARKER = "[seed-todo]"
 

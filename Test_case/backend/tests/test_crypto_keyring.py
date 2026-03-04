@@ -14,7 +14,7 @@ for _candidate in (
     if os.path.isdir(_candidate) and _candidate not in sys.path:
         sys.path.append(_candidate)
 
-from services.crypto_keyring import BindPasswordKeyring, KeyringConfigError
+from modules.iam.services.crypto_keyring import BindPasswordKeyring, KeyringConfigError
 
 
 def _b64_key(seed: str) -> str:
