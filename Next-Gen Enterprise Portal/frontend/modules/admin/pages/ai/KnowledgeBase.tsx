@@ -51,6 +51,26 @@ interface KBStats {
     misses: number;
 }
 
+interface KnowledgeBaseFormValues {
+    title: string;
+    content: string;
+    source_type: string;
+    tags?: string;
+    acl?: string;
+}
+
+const extractErrorDetail = (error: unknown): string | null => {
+    if (!error || typeof error !== 'object') {
+        return null;
+    }
+    const response = (error as { response?: { data?: { detail?: unknown } } }).response;
+    const detail = response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    return null;
+};
+
 const sourceTypeMap: Record<string, string> = {
     text: 'text',
     md: 'markdown',
@@ -133,11 +153,12 @@ const KnowledgeBase: React.FC = () => {
     };
 
     // ── CRUD ────────────────────────────────────────────────
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: KnowledgeBaseFormValues) => {
         setSubmitting(true);
         try {
-            const tags = values.tags ? values.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-            const acl = values.acl === '*' ? ['*'] : values.acl.split(',').map((a: string) => a.trim()).filter(Boolean);
+            const tags = (values.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const aclInput = values.acl || '';
+            const acl = aclInput === '*' ? ['*'] : aclInput.split(',').map((entry) => entry.trim()).filter(Boolean);
             const payload = {
                 title: values.title,
                 content: values.content,
@@ -156,9 +177,10 @@ const KnowledgeBase: React.FC = () => {
             resetAndCloseModal();
             fetchDocuments();
             fetchStats();
-        } catch (e: any) {
+        } catch (error: unknown) {
+            const detail = extractErrorDetail(error);
             message.error(
-                e?.response?.data?.detail ||
+                detail ||
                 (editingId ? t('knowledgeBase.messages.updateFailed') : t('knowledgeBase.messages.createFailed'))
             );
         }
@@ -288,7 +310,7 @@ const KnowledgeBase: React.FC = () => {
             title: t('knowledgeBase.table.actions'),
             key: 'action',
             width: 160,
-            render: (_: any, record: KBDocument) => (
+            render: (_: unknown, record: KBDocument) => (
                 <div className="flex gap-1">
                     <Tooltip title={t('knowledgeBase.table.edit')}>
                         <AppButton
