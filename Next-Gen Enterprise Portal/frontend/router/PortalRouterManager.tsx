@@ -7,9 +7,9 @@ import { moduleRouteRegistry } from '../app/router';
 import { getColorClass } from '../utils/colorMap';
 import { getIcon } from '../utils/iconMap';
 import { hasAdminAccess } from '../utils/adminAccess';
-import AvatarWithFallback from '../components/AvatarWithFallback';
+import { AvatarWithFallback } from '../shared/components';
 
-const Dashboard = lazy(() => import('../components/Dashboard'));
+const Dashboard = lazy(() => import('../modules/portal/components/Dashboard'));
 const { todos: TodoList, security: PortalSecurity } = moduleRouteRegistry.portal;
 
 type ThemeMode = 'light' | 'dark' | 'system';

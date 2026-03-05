@@ -4,7 +4,7 @@ import { Lock, Loader2, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient from '@/services/api';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 
 interface LoginProps {

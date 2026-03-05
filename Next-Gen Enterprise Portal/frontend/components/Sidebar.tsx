@@ -1,3 +1,1 @@
-
-// This file is no longer used and replaced by components/Navbar.tsx
-export {};
+export { default } from '@/modules/portal/components/Sidebar';

@@ -17,7 +17,7 @@ const resolveIconTextColorClass = (colorName: string): string => {
 import {
     AppTable,
     AppPageHeader,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 const AppPermissions: React.FC = () => {
     const { t } = useTranslation();

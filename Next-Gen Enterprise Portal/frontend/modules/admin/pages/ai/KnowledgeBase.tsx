@@ -26,7 +26,7 @@ import {
     AppPageHeader,
     AppFilterBar,
     AppTag,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 import type { ColumnsType } from 'antd/es/table';
 
 const { TextArea } = Input;

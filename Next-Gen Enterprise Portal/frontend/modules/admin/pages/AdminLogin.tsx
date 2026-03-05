@@ -5,10 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient from '@/services/api';
 import { hasAdminAccess } from '@/utils/adminAccess';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 
-import { AppModal, AppButton } from '@/components/admin';
+import { AppModal, AppButton } from '@/modules/admin/components/ui';
 
 interface AdminLoginProps {
     onLoginSuccess: () => void;

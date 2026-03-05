@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import PortalRouterManager, { PortalRouterViewModel } from '@/router/PortalRouterManager';
 import AdminRouterManager from '@/router/AdminRouterManager';
-import PortalShell from '@/components/PortalShell';
+import PortalShell from '@/modules/portal/components/PortalShell';
 import { AppLanguage } from '@/i18n';
 import { AppView, Employee, NewsItem, QuickToolDTO } from '@/types';
 import { ThemeMode } from './useAppPreferences';

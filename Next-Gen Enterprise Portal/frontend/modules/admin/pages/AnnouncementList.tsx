@@ -12,7 +12,7 @@ import {
     AppForm,
     AppTag,
     AppPageHeader,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 const { Option } = Select;
 const { TextArea } = Input;

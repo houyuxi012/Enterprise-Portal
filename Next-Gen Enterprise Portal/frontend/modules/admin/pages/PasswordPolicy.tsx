@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Switch, InputNumber, Divider, message } from 'antd';
 import { SaveOutlined, LockOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 import ApiClient from '@/services/api';
 
 const PasswordPolicy: React.FC = () => {

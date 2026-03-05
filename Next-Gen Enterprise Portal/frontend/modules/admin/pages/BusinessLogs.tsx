@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import ApiClient from '@/services/api';
 import { BusinessLog } from '@/types';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 interface LogStats {
   total: number;

@@ -14,7 +14,7 @@ import {
     AppTag,
     AppPageHeader,
     AppFilterBar,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 const { Option } = Select;
 const GENDER_CODES = ['male', 'female'] as const;

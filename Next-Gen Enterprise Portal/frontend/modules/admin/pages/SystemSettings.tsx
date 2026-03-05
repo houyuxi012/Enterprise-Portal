@@ -3,7 +3,7 @@ import { Alert, Form, Input, message, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const SYSTEM_BRANDING_KEYS = [
     'app_name',

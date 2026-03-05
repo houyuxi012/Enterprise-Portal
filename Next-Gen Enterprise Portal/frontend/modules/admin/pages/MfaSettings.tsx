@@ -3,7 +3,7 @@ import { Form, message, Switch, Divider, Alert } from 'antd';
 import { SaveOutlined, LockOutlined, MobileOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const MfaSettings: React.FC = () => {
     const { t } = useTranslation();

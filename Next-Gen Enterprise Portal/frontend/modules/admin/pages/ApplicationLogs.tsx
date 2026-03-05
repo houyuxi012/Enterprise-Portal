@@ -5,7 +5,7 @@ import { ReloadOutlined, BugOutlined, ExclamationCircleOutlined, InfoCircleOutli
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { SystemLog } from '@/types';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const { Option } = Select;
 

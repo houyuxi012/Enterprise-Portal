@@ -28,9 +28,8 @@ import { hasAdminAccess } from '../utils/adminAccess';
 import { useTranslation } from 'react-i18next';
 import { buildUserLanguageScope, normalizeLanguage } from '../i18n';
 
-import VersionModal from '../components/VersionModal';
-import AdminChangePasswordModal from '../components/AdminChangePasswordModal';
-import LanguageSwitcher from '../components/LanguageSwitcher';
+import { VersionModal, AdminChangePasswordModal } from '@/modules/admin/components';
+import { LanguageSwitcher } from '@/shared/components';
 
 const { Header, Sider, Content, Footer } = Layout;
 

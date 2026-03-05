@@ -5,7 +5,7 @@ import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, A
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { LogForwardingConfig } from '@/types';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const LOG_TYPE_OPTIONS = [
     { value: 'BUSINESS', labelKey: 'business', color: 'blue' },

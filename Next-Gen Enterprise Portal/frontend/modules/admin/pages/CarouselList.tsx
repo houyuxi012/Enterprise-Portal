@@ -13,7 +13,7 @@ import {
     AppForm,
     AppTag,
     AppPageHeader,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 const CarouselList: React.FC = () => {
     const { t } = useTranslation();

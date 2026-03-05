@@ -3,7 +3,7 @@ import { Form, Input, message, Switch, InputNumber, Divider, Select } from 'antd
 import { SaveOutlined, SafetyCertificateOutlined, GlobalOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const SecuritySettings: React.FC = () => {
     const { t } = useTranslation();

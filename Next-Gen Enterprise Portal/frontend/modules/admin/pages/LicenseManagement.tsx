@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Col, Descriptions, message, Modal, Row, Space, Table, Tag, Typography, Upload } from 'antd';
 import { UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 import AuthService from '@/services/auth';
 import { LicenseClaimsResponse, LicenseEventItem, LicenseStatus } from '@/types';
 import { useTranslation } from 'react-i18next';

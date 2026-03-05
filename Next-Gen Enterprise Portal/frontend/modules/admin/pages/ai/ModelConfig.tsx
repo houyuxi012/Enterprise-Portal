@@ -4,7 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, ApiOut
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { AIProvider } from '@/types';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 
 const ModelConfig: React.FC = () => {

@@ -13,7 +13,7 @@ import {
     AppForm,
     AppTag,
     AppPageHeader,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;

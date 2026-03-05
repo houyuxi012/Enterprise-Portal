@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { OnlineUserSession } from '@/types';
 import ApiClient from '@/services/api';
-import { AppButton, AppPageHeader, AppTable, AppTag } from '@/components/admin';
+import { AppButton, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
 
 const formatDateTime = (value?: string | null, locale: string = 'en-US'): string => {
   if (!value) return '-';

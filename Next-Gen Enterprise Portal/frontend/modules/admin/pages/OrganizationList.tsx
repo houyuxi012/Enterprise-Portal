@@ -11,7 +11,7 @@ import {
     AppModal,
     AppForm,
     AppPageHeader,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 const { TextArea } = Input;
 

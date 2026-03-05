@@ -15,7 +15,7 @@ import {
     AppForm,
     AppPageHeader,
     AppFilterBar,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 
 type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
 

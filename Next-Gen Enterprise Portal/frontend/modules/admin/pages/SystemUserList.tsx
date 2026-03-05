@@ -13,7 +13,7 @@ import {
     AppTag,
     AppPageHeader,
     AppFilterBar,
-} from '@/components/admin';
+} from '@/modules/admin/components/ui';
 import { getCurrentLocale, getLocalizedRoleMeta } from '@/utils/iamRoleI18n';
 import { hasAdminAccess } from '@/utils/adminAccess';
 

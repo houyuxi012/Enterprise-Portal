@@ -5,7 +5,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { SystemLog } from '@/types';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const SystemLogs: React.FC = () => {
     const { t } = useTranslation();

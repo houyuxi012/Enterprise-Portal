@@ -4,7 +4,7 @@ import { Form, InputNumber, message, Tooltip } from 'antd';
 import { DatabaseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 interface StorageConfig {
     log_retention_system_days: number;

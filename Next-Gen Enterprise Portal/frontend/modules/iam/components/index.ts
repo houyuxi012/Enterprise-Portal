@@ -1,1 +1,1 @@
-export { default as AppButton } from '@/components/AppButton';
+export { default as AppButton } from '@/shared/components/AppButton';

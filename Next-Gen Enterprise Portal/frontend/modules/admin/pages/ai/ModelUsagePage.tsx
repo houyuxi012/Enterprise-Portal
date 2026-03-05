@@ -3,7 +3,7 @@ import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch
 import { EditOutlined, BarChartOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const ModelUsagePage: React.FC = () => {
     const { t } = useTranslation();

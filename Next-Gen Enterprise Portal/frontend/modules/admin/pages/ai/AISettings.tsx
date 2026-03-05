@@ -3,7 +3,7 @@ import { Card, Form, Input, Switch, message, Upload, Select } from 'antd';
 import { SaveOutlined, UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/components/AppButton';
+import AppButton from '@/shared/components/AppButton';
 
 const AISettings: React.FC = () => {
     const { t } = useTranslation();
