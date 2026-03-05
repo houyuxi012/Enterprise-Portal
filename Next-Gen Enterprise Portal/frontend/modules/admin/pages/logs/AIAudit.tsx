@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Button, Tag, DatePicker, Select, Space, Drawer, Descriptions, Statistic, Card, Row, Col, Tooltip } from 'antd';
 import { ReloadOutlined, InfoCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, StopOutlined, ClockCircleOutlined, RobotOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import ApiClient from '@/services/api';
+import ApiClient, { type AIAuditQueryParams } from '@/services/api';
 import dayjs from 'dayjs';
 
 interface AIAuditLog {
@@ -66,7 +66,7 @@ const AIAudit: React.FC = () => {
     const fetchLogs = async () => {
         setLoading(true);
         try {
-            const params: any = {
+            const params: AIAuditQueryParams = {
                 source: sourceFilter,
                 limit: 100
             };
@@ -133,7 +133,7 @@ const AIAudit: React.FC = () => {
             title: t('aiAudit.table.model'),
             key: 'model',
             width: 180,
-            render: (_: any, record: AIAuditLog) => (
+            render: (_: unknown, record: AIAuditLog) => (
                 <div className="flex items-center gap-2">
                     <RobotOutlined className="text-blue-500" />
                     <span className="font-mono text-xs">{record.provider || '-'}</span>
@@ -156,7 +156,7 @@ const AIAudit: React.FC = () => {
             title: t('aiAudit.table.policyCheck'),
             key: 'policy',
             width: 140,
-            render: (_: any, record: AIAuditLog) => (
+            render: (_: unknown, record: AIAuditLog) => (
                 <Space size="small">
                     <Tooltip title={t('aiAudit.table.inputCheck')}>
                         <Tag color={record.input_policy_result === 'BLOCK' ? 'red' : 'blue'} className="text-xs">
@@ -181,7 +181,7 @@ const AIAudit: React.FC = () => {
             title: 'Token',
             key: 'tokens',
             width: 100,
-            render: (_: any, record: AIAuditLog) => (
+            render: (_: unknown, record: AIAuditLog) => (
                 <span className="font-mono text-xs text-slate-500">
                     {record.tokens_in || 0} / {record.tokens_out || 0}
                 </span>
@@ -218,7 +218,7 @@ const AIAudit: React.FC = () => {
             title: t('aiAudit.table.actions'),
             key: 'action',
             width: 80,
-            render: (_: any, record: AIAuditLog) => (
+            render: (_: unknown, record: AIAuditLog) => (
                 <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
                     {t('common.buttons.detail')}
                 </Button>
