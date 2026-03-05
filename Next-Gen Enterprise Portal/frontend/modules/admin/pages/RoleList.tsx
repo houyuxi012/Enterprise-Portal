@@ -16,6 +16,28 @@ import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI1
 
 const RESERVED_ROLE_CODES = new Set(['user', 'portaladmin', 'portal_admin', 'superadmin']);
 
+type RoleFormValues = {
+    code: string;
+    name: string;
+    description?: string;
+    permission_ids: number[];
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: { message?: string } | string;
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+    return fallback;
+};
+
 const RoleList: React.FC = () => {
     const { t } = useTranslation();
     const [roles, setRoles] = useState<Role[]>([]);
@@ -27,7 +49,7 @@ const RoleList: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const currentLocale = getCurrentLocale();
 
-    const [form] = AppForm.useForm();
+    const [form] = AppForm.useForm<RoleFormValues>();
 
     useEffect(() => {
         fetchData();
@@ -60,8 +82,8 @@ const RoleList: React.FC = () => {
             await ApiClient.deleteRole(id);
             fetchData();
             message.success(t('roleList.messages.deleteSuccess'));
-        } catch (e: any) {
-            message.error(e.response?.data?.detail || t('roleList.messages.deleteFailed'));
+        } catch (e: unknown) {
+            message.error(resolveApiErrorMessage(e, t('roleList.messages.deleteFailed')));
         }
     };
 
@@ -82,7 +104,7 @@ const RoleList: React.FC = () => {
         setIsEditorOpen(true);
     };
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: RoleFormValues) => {
         setSubmitting(true);
         try {
             if (editingRole) {
@@ -98,8 +120,8 @@ const RoleList: React.FC = () => {
             }
             setIsEditorOpen(false);
             fetchData();
-        } catch (error: any) {
-            message.error(error.response?.data?.detail || t('roleList.messages.saveFailed'));
+        } catch (error: unknown) {
+            message.error(resolveApiErrorMessage(error, t('roleList.messages.saveFailed')));
         } finally {
             setSubmitting(false);
         }
