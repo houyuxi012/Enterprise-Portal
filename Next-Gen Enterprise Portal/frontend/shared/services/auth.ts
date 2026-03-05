@@ -26,6 +26,30 @@ interface AuthResponse {
     mfa_setup_required?: boolean;
 }
 
+type ErrorCodeDetail = {
+    code?: string;
+};
+
+type ErrorWithDetail = {
+    response?: {
+        data?: {
+            detail?: string | ErrorCodeDetail;
+        };
+    };
+};
+
+export interface WebAuthnAssertionPayload {
+    id: string;
+    rawId: string;
+    type: string;
+    response: {
+        authenticatorData: string;
+        clientDataJSON: string;
+        signature: string;
+        userHandle?: string | null;
+    };
+}
+
 export class MfaRequiredError extends Error {
     mfaToken: string;
     mfaMethods: string[];
@@ -37,8 +61,8 @@ export class MfaRequiredError extends Error {
     }
 }
 
-const resolveErrorCode = (error: any): string => {
-    const detail = error?.response?.data?.detail;
+const resolveErrorCode = (error: unknown): string => {
+    const detail = (error as ErrorWithDetail)?.response?.data?.detail;
     if (detail && typeof detail === 'object' && detail.code) {
         return String(detail.code).toUpperCase();
     }
@@ -70,7 +94,7 @@ class AuthService {
                 withCredentials: true
             });
         } else {
-            const portalProvider = String((import.meta as any).env.VITE_PORTAL_AUTH_PROVIDER || 'ldap')
+            const portalProvider = String(import.meta.env.VITE_PORTAL_AUTH_PROVIDER || 'ldap')
                 .trim()
                 .toLowerCase() || 'ldap';
             const portalParams = new URLSearchParams(params);
@@ -84,7 +108,7 @@ class AuthService {
                     },
                     withCredentials: true
                 });
-            } catch (error: any) {
+            } catch (error: unknown) {
                 const code = resolveErrorCode(error);
                 const canFallbackToLocal = portalProvider !== 'local'
                     && ['DIRECTORY_NOT_CONFIGURED', 'LICENSE_REQUIRED', 'LDAP_RUNTIME_MISSING'].includes(code);
@@ -127,7 +151,7 @@ class AuthService {
         return this.getCurrentUser();
     }
 
-    async verifyMfaWebAuthn(mfaToken: string, webauthnResponse: any): Promise<User> {
+    async verifyMfaWebAuthn(mfaToken: string, webauthnResponse: WebAuthnAssertionPayload): Promise<User> {
         await axios.post(`${API_URL}/mfa/verify`, {
             mfa_token: mfaToken,
             webauthn_response: webauthnResponse,
