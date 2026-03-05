@@ -22,6 +22,23 @@ const PLATFORM_CONFIG_KEYS = [
     'platform_ntp_sync_interval_minutes',
 ] as const;
 
+const MASKED_VALUE = '__MASKED__';
+type PlatformConfigKey = typeof PLATFORM_CONFIG_KEYS[number];
+type PlatformConfigFieldValue = string | number | boolean | null | undefined;
+type PlatformSettingsFormValues = Partial<Record<PlatformConfigKey, PlatformConfigFieldValue>>;
+type PlatformApiError = {
+    response?: {
+        data?: {
+            detail?: {
+                message?: string;
+            } | string;
+        };
+    };
+};
+type FormValidationError = {
+    errorFields?: unknown[];
+};
+
 const normalizeBoolean = (value: unknown, fallback = false): boolean => {
     if (value === undefined || value === null || value === '') return fallback;
     const text = String(value).trim().toLowerCase();
@@ -33,18 +50,31 @@ const normalizeNumber = (value: unknown, fallback: number): number => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const isFormValidationError = (error: unknown): error is FormValidationError =>
+    Boolean(error && typeof error === 'object' && 'errorFields' in error);
+
+const resolveApiDetailMessage = (error: unknown): string | undefined => {
+    const detail = (error as PlatformApiError)?.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    return detail?.message;
+};
+
 const PlatformSettings: React.FC = () => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<PlatformSettingsFormValues>();
     const [applying, setApplying] = useState(false);
     const [ntpTesting, setNtpTesting] = useState(false);
+    const [hasStoredPrivateKey, setHasStoredPrivateKey] = useState(false);
 
     useEffect(() => {
         const fetchConfig = async () => {
             try {
                 const config = await ApiClient.getPlatformConfig();
+                const privateKeyMasked = String(config.platform_ssl_private_key || '').trim() === MASKED_VALUE;
+                setHasStoredPrivateKey(privateKeyMasked || Boolean(config.platform_ssl_private_key));
                 form.setFieldsValue({
                     ...config,
+                    platform_ssl_private_key: privateKeyMasked ? '' : (config.platform_ssl_private_key || ''),
                     platform_ssl_enabled: normalizeBoolean(config.platform_ssl_enabled, false),
                     platform_snmp_enabled: normalizeBoolean(config.platform_snmp_enabled, false),
                     platform_ntp_enabled: normalizeBoolean(config.platform_ntp_enabled, false),
@@ -69,8 +99,8 @@ const PlatformSettings: React.FC = () => {
         }
     };
 
-    const buildPayload = (values: Record<string, any>): Record<string, string> => {
-        return PLATFORM_CONFIG_KEYS.reduce((acc, key) => {
+    const buildPayload = (values: PlatformSettingsFormValues): Record<string, string> => {
+        const payload = PLATFORM_CONFIG_KEYS.reduce((acc, key) => {
             const raw = values[key];
             if (raw === undefined || raw === null) return acc;
             if (typeof raw === 'boolean') {
@@ -80,6 +110,10 @@ const PlatformSettings: React.FC = () => {
             acc[key] = String(raw);
             return acc;
         }, {} as Record<string, string>);
+        if (!String(values.platform_ssl_private_key || '').trim() && hasStoredPrivateKey) {
+            delete payload.platform_ssl_private_key;
+        }
+        return payload;
     };
 
     const handleSaveAndApply = async () => {
@@ -87,16 +121,18 @@ const PlatformSettings: React.FC = () => {
             const values = await form.validateFields();
             setApplying(true);
             await ApiClient.updateSystemConfig(buildPayload(values));
+            if (String(values.platform_ssl_private_key || '').trim()) {
+                setHasStoredPrivateKey(true);
+            }
             const applyResult = await ApiClient.applyPlatformSettings();
             if (applyResult.reload_required) {
                 message.warning(t('platformSettingsPage.messages.applySuccessNeedReload'));
             } else {
                 message.success(t('platformSettingsPage.messages.applySuccess'));
             }
-        } catch (error: any) {
-            if (error?.errorFields) return;
-            const detail = error?.response?.data?.detail;
-            message.error(detail?.message || t('platformSettingsPage.messages.applyFailed'));
+        } catch (error: unknown) {
+            if (isFormValidationError(error)) return;
+            message.error(resolveApiDetailMessage(error) || t('platformSettingsPage.messages.applyFailed'));
         } finally {
             setApplying(false);
         }
@@ -127,10 +163,9 @@ const PlatformSettings: React.FC = () => {
                     stratum: result.stratum,
                 }),
             );
-        } catch (error: any) {
-            if (error?.errorFields) return;
-            const detail = error?.response?.data?.detail;
-            message.error(detail?.message || t('platformSettingsPage.messages.ntpTestFailed'));
+        } catch (error: unknown) {
+            if (isFormValidationError(error)) return;
+            message.error(resolveApiDetailMessage(error) || t('platformSettingsPage.messages.ntpTestFailed'));
         } finally {
             setNtpTesting(false);
         }
