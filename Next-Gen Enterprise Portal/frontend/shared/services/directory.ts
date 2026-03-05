@@ -12,7 +12,7 @@ import type {
   DirectoryUpdatePayload,
 } from '@/modules/admin/pages/iam/directories/types';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -33,18 +33,40 @@ api.interceptors.response.use(
   }
 );
 
-export const getApiErrorDetail = (error: any): ApiErrorDetail => {
-  const detail = error?.response?.data?.detail;
+type ApiErrorLike = {
+  message?: string;
+  response?: {
+    data?: {
+      detail?: unknown;
+    };
+  };
+};
+
+type DirectoryListLike = {
+  total?: unknown;
+  page?: unknown;
+  page_size?: unknown;
+  total_pages?: unknown;
+  items?: unknown;
+};
+
+const toPositiveNumber = (value: unknown, fallback: number): number => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+};
+
+export const getApiErrorDetail = (error: unknown): ApiErrorDetail => {
+  const detail = (error as ApiErrorLike)?.response?.data?.detail;
   if (detail && typeof detail === 'object') {
     return detail as ApiErrorDetail;
   }
   if (typeof detail === 'string') {
     return { message: detail };
   }
-  return { message: error?.message || 'Unknown error' };
+  return { message: (error as ApiErrorLike)?.message || 'Unknown error' };
 };
 
-export const isLdapLicenseRequiredError = (error: any): boolean => {
+export const isLdapLicenseRequiredError = (error: unknown): boolean => {
   const detail = getApiErrorDetail(error);
   const code = String(detail.code || '').toUpperCase();
   return code === 'LICENSE_REQUIRED';
@@ -62,22 +84,25 @@ export interface DirectoryListParams {
 
 const DirectoryService = {
   listDirectories: async (params: DirectoryListParams = {}): Promise<DirectoryListResponse> => {
-    const data: any = await api.get('/iam/admin/directories/', { params });
+    const data: unknown = await api.get('/iam/admin/directories/', { params });
     if (Array.isArray(data)) {
+      const fallbackPage = toPositiveNumber(params.page, 1);
+      const fallbackPageSize = toPositiveNumber(params.page_size, data.length || 10);
       return {
         total: data.length,
-        page: Number(params.page || 1),
-        page_size: Number(params.page_size || data.length || 10),
+        page: fallbackPage,
+        page_size: fallbackPageSize,
         total_pages: 1,
         items: data as DirectoryConfig[],
       };
     }
+    const payload = (data as DirectoryListLike) || {};
     return {
-      total: Number(data?.total || 0),
-      page: Number(data?.page || params.page || 1),
-      page_size: Number(data?.page_size || params.page_size || 10),
-      total_pages: Number(data?.total_pages || 1),
-      items: Array.isArray(data?.items) ? data.items : [],
+      total: Math.max(0, Number(payload.total || 0)),
+      page: toPositiveNumber(payload.page, toPositiveNumber(params.page, 1)),
+      page_size: toPositiveNumber(payload.page_size, toPositiveNumber(params.page_size, 10)),
+      total_pages: toPositiveNumber(payload.total_pages, 1),
+      items: Array.isArray(payload.items) ? payload.items as DirectoryConfig[] : [],
     };
   },
 
