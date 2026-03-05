@@ -3,15 +3,30 @@ import { App, Avatar, Card, Input, Select, Space } from 'antd';
 import { DisconnectOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import { OnlineUserSession } from '@/types';
+import { OnlineUserSession, SessionRevokeResult } from '@/types';
 import ApiClient from '@/services/api';
 import { AppButton, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
+
+type ApiErrorShape = {
+  response?: {
+    data?: {
+      detail?: { message?: string } | string;
+    };
+  };
+};
 
 const formatDateTime = (value?: string | null, locale: string = 'en-US'): string => {
   if (!value) return '-';
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return '-';
   return dt.toLocaleString(locale, { hour12: false });
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+  const detail = (error as ApiErrorShape)?.response?.data?.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+  return fallback;
 };
 
 const OnlineUsers: React.FC = () => {
@@ -66,8 +81,8 @@ const OnlineUsers: React.FC = () => {
           const result = await ApiClient.kickUserSessions(record.user_id, 'all');
           message.success(t('onlineUsers.messages.singleKickSuccess', { count: result.revoked_sessions }));
           await fetchData();
-        } catch (error: any) {
-          message.error(error?.response?.data?.detail || t('onlineUsers.messages.singleKickFailed'));
+        } catch (error: unknown) {
+          message.error(resolveApiErrorMessage(error, t('onlineUsers.messages.singleKickFailed')));
         }
       },
     });
@@ -88,7 +103,7 @@ const OnlineUsers: React.FC = () => {
           const settled = await Promise.allSettled(
             targetRows.map((row) => ApiClient.kickUserSessions(row.user_id, 'all'))
           );
-          const success = settled.filter((item) => item.status === 'fulfilled') as PromiseFulfilledResult<any>[];
+          const success = settled.filter((item) => item.status === 'fulfilled') as PromiseFulfilledResult<SessionRevokeResult>[];
           const failed = settled.length - success.length;
           const revokedTotal = success.reduce(
             (sum, item) => sum + Number(item.value?.revoked_sessions || 0),
