@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosResponse } from 'axios';
 import {
   Employee,
   NewsItem,
@@ -143,6 +144,121 @@ export type DepartmentUpdatePayload = Partial<DepartmentCreatePayload>;
 type ApiMessageResponse = {
   message?: string;
 } & Record<string, unknown>;
+
+export interface AccessLogEntry {
+  id: number;
+  timestamp: string;
+  trace_id?: string;
+  method: string;
+  path: string;
+  status_code: number;
+  ip_address?: string;
+  user_agent?: string;
+  latency_ms?: number;
+}
+
+export interface LogForwardingUpsertPayload {
+  type: 'SYSLOG' | 'WEBHOOK';
+  endpoint: string;
+  port?: number | string;
+  secret_token?: string;
+  enabled?: boolean;
+  log_types?: string[];
+}
+
+export interface AIProviderTestResponse {
+  status: 'success' | 'failed' | string;
+  message?: string;
+}
+
+export interface AIAuditLogEntry {
+  id: number;
+  event_id: string;
+  ts: string;
+  actor_type?: string;
+  actor_id?: number;
+  actor_ip?: string;
+  action?: string;
+  provider?: string;
+  model?: string;
+  input_policy_result?: string;
+  output_policy_result?: string;
+  policy_hits?: string;
+  latency_ms?: number;
+  tokens_in?: number;
+  tokens_out?: number;
+  status: string;
+  error_code?: string;
+  error_reason?: string;
+  prompt_hash?: string;
+  output_hash?: string;
+  prompt_preview?: string;
+  source?: string;
+}
+
+export interface AIAuditQueryParams {
+  start_time?: string;
+  end_time?: string;
+  actor_id?: number;
+  provider?: string;
+  model?: string;
+  status?: string;
+  source?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AIModelUsageItem {
+  model_name: string;
+  is_active: boolean;
+  period_tokens?: number;
+  peak_daily_tokens?: number;
+  current_daily_tokens?: number;
+  daily_token_limit?: number;
+  daily_request_limit?: number;
+}
+
+export interface AIModelQuotaUpdatePayload {
+  model_name: string;
+  daily_token_limit?: number;
+  daily_request_limit?: number;
+}
+
+export interface IAMAuditLogItem {
+  id: number;
+  timestamp: string;
+  user_id?: number;
+  username?: string;
+  action: string;
+  target_type?: string;
+  target_id?: number;
+  target_name?: string;
+  detail?: unknown;
+  ip_address?: string;
+  user_agent?: string;
+  result?: string;
+  reason?: string;
+  trace_id?: string;
+  source?: string;
+}
+
+export interface IAMAuditQueryParams {
+  page?: number;
+  page_size?: number;
+  source?: string;
+  username?: string;
+  action?: string;
+  result?: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface IAMAuditListResponse {
+  total: number;
+  page?: number;
+  page_size?: number;
+  items: IAMAuditLogItem[];
+}
 
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
@@ -558,13 +674,13 @@ export const ApiClient = {
     return response.data;
   },
 
-  installLicense: async (license: { payload: Record<string, any>; signature: string }): Promise<LicenseStatus> => {
+  installLicense: async (license: { payload: Record<string, unknown>; signature: string }): Promise<LicenseStatus> => {
     const response = await api.post<LicenseStatus>('/admin/system/license/install/', license);
     return response.data;
   },
 
   installLicenseRevocations: async (
-    revocation: { payload: Record<string, any> },
+    revocation: { payload: Record<string, unknown> },
   ): Promise<LicenseRevocationInstallResponse> => {
     const response = await api.post<LicenseRevocationInstallResponse>(
       '/admin/system/license/revocations/install/',
@@ -591,22 +707,22 @@ export const ApiClient = {
   },
 
   // Log Management
-  getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<any[]> => {
-    const response = await api.get('/logs/system', { params });
+  getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<SystemLog[]> => {
+    const response = await api.get<SystemLog[]>('/logs/system', { params });
     return response.data;
   },
 
-  getBusinessLogs: async (params?: { operator?: string; action?: string; source?: string; limit?: number; offset?: number }): Promise<any[]> => {
-    const response = await api.get('/logs/business', { params });
+  getBusinessLogs: async (params?: { operator?: string; action?: string; source?: string; limit?: number; offset?: number }): Promise<BusinessLog[]> => {
+    const response = await api.get<BusinessLog[]>('/logs/business', { params });
     return response.data;
   },
 
-  getAccessLogs: async (params?: { path?: string; status_code?: number; limit?: number }): Promise<any[]> => {
-    const response = await api.get('/logs/access', { params });
+  getAccessLogs: async (params?: { path?: string; status_code?: number; limit?: number }): Promise<AccessLogEntry[]> => {
+    const response = await api.get<AccessLogEntry[]>('/logs/access', { params });
     return response.data;
   },
 
-  logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<any> => {
+  logBusinessAction: async (log: { action: string; target?: string; detail?: string; status?: string }): Promise<AxiosResponse<ApiMessageResponse> | null> => {
     try {
       return api.post('/logs/business', {
         action: log.action,
@@ -623,15 +739,15 @@ export const ApiClient = {
 
 
 
-  getLogForwardingConfig: async (): Promise<any[]> => {
+  getLogForwardingConfig: async (): Promise<LogForwardingConfig[]> => {
 
-    const response = await api.get('/logs/config');
+    const response = await api.get<LogForwardingConfig[]>('/logs/config');
     return response.data;
   },
 
-  saveLogForwardingConfig: async (data: any): Promise<any> => {
+  saveLogForwardingConfig: async (data: LogForwardingUpsertPayload): Promise<LogForwardingConfig> => {
 
-    const response = await api.post('/logs/config', data);
+    const response = await api.post<LogForwardingConfig>('/logs/config', data);
     return response.data;
   },
 
@@ -707,8 +823,8 @@ export const ApiClient = {
     await api.delete(`/ai/admin/providers/${id}`);
   },
 
-  testAIProvider: async (data: Partial<AIProvider>): Promise<any> => {
-    const response = await api.post('/ai/admin/providers/test', data);
+  testAIProvider: async (data: Partial<AIProvider>): Promise<AIProviderTestResponse> => {
+    const response = await api.post<AIProviderTestResponse>('/ai/admin/providers/test', data);
     return response.data;
   },
 
@@ -732,23 +848,13 @@ export const ApiClient = {
   },
 
   // AI Audit Logs
-  getAIAuditLogs: async (params?: {
-    start_time?: string;
-    end_time?: string;
-    actor_id?: number;
-    provider?: string;
-    model?: string;
-    status?: string;
-    source?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<any[]> => {
-    const response = await api.get('/logs/ai-audit', { params });
+  getAIAuditLogs: async (params?: AIAuditQueryParams): Promise<AIAuditLogEntry[]> => {
+    const response = await api.get<AIAuditLogEntry[]>('/logs/ai-audit', { params });
     return response.data;
   },
 
-  getAIAuditDetail: async (eventId: string): Promise<any> => {
-    const response = await api.get(`/logs/ai-audit/${eventId}`);
+  getAIAuditDetail: async (eventId: string): Promise<AIAuditLogEntry> => {
+    const response = await api.get<AIAuditLogEntry>(`/logs/ai-audit/${eventId}`);
     return response.data;
   },
 
@@ -783,18 +889,18 @@ export const ApiClient = {
     return response.data;
   },
 
-  getAIModelUsage: async (hours?: number): Promise<any[]> => {
-    const response = await api.get('/ai/admin/usage', { params: { hours } });
+  getAIModelUsage: async (hours?: number): Promise<AIModelUsageItem[]> => {
+    const response = await api.get<AIModelUsageItem[]>('/ai/admin/usage', { params: { hours } });
     return response.data;
   },
 
-  updateAIModelQuota: async (data: any): Promise<any> => {
-    const response = await api.post('/ai/admin/quotas', data);
+  updateAIModelQuota: async (data: AIModelQuotaUpdatePayload): Promise<ApiMessageResponse> => {
+    const response = await api.post<ApiMessageResponse>('/ai/admin/quotas', data);
     return response.data;
   },
 
-  getIamAuditLogs: async (params: any): Promise<any> => {
-    const response = await api.get('/iam/audit/logs', { params });
+  getIamAuditLogs: async (params: IAMAuditQueryParams): Promise<IAMAuditListResponse> => {
+    const response = await api.get<IAMAuditListResponse>('/iam/audit/logs', { params });
     return response.data;
   },
 
