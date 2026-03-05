@@ -14,6 +14,31 @@ const SYSTEM_BRANDING_KEYS = [
     'privacy_policy',
 ] as const;
 
+type BrandingKey = typeof SYSTEM_BRANDING_KEYS[number];
+type BrandingFormValues = Partial<Record<BrandingKey, string>>;
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: unknown;
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail === 'object' && 'message' in detail) {
+        const messageValue = (detail as { message?: unknown }).message;
+        if (typeof messageValue === 'string' && messageValue.trim()) {
+            return messageValue;
+        }
+    }
+    return fallback;
+};
+
 interface SystemSettingsProps {
     licenseBlocked?: boolean;
     licenseBlockedMessage?: string;
@@ -32,14 +57,14 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
             try {
                 const config = await ApiClient.getCustomizationConfig();
                 form.setFieldsValue(config);
-            } catch (error: any) {
-                message.error(error?.response?.data?.detail?.message || t('systemSettingsPage.messages.loadFailed'));
+            } catch (error: unknown) {
+                message.error(resolveApiErrorMessage(error, t('systemSettingsPage.messages.loadFailed')));
             }
         };
         fetchConfig();
     }, [form, t]);
 
-    const handleSave = async (values: any) => {
+    const handleSave = async (values: BrandingFormValues) => {
         if (licenseBlocked) {
             message.warning(licenseBlockedMessage || t('systemSettingsPage.messages.readonlyByLicense'));
             return;
@@ -47,19 +72,20 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
         setLoading(true);
         try {
             const payload = SYSTEM_BRANDING_KEYS.reduce((acc, key) => {
-                if (values[key] !== undefined) {
-                    acc[key] = values[key];
+                const value = values[key];
+                if (typeof value === 'string') {
+                    acc[key] = value;
                 }
                 return acc;
-            }, {} as Record<string, any>);
+            }, {} as Record<string, string>);
             await ApiClient.updateCustomizationConfig(payload);
             message.success(t('systemSettingsPage.messages.saveSuccess'));
             // Update document title immediately for feedback
             if (values.browser_title) {
                 document.title = values.browser_title;
             }
-        } catch (error: any) {
-            message.error(error?.response?.data?.detail?.message || t('systemSettingsPage.messages.saveFailed'));
+        } catch (error: unknown) {
+            message.error(resolveApiErrorMessage(error, t('systemSettingsPage.messages.saveFailed')));
         } finally {
             setLoading(false);
         }
