@@ -23,6 +23,7 @@ const PasswordPolicy: React.FC = () => {
                     security_password_max_age_days: config.security_password_max_age_days ? parseInt(config.security_password_max_age_days) : 90,
                     security_password_prevent_history_reuse: config.security_password_prevent_history_reuse ? parseInt(config.security_password_prevent_history_reuse) : 5,
                     security_password_check_user_info: config.security_password_check_user_info === 'true',
+                    security_force_change_password_after_reset: config.security_force_change_password_after_reset === 'true',
                 };
                 form.setFieldsValue(formattedConfig);
             } catch (error) {
@@ -44,6 +45,7 @@ const PasswordPolicy: React.FC = () => {
                 security_password_max_age_days: String(values.security_password_max_age_days),
                 security_password_prevent_history_reuse: String(values.security_password_prevent_history_reuse),
                 security_password_check_user_info: String(values.security_password_check_user_info),
+                security_force_change_password_after_reset: String(values.security_force_change_password_after_reset),
             };
             await ApiClient.updateSystemConfig(payload);
             message.success(t('passwordPolicyPage.messages.saveSuccess'));
@@ -88,6 +90,7 @@ const PasswordPolicy: React.FC = () => {
                         security_password_max_age_days: 90,
                         security_password_prevent_history_reuse: 5,
                         security_password_check_user_info: true,
+                        security_force_change_password_after_reset: false,
                     }}
                 >
                     <div>
@@ -161,6 +164,15 @@ const PasswordPolicy: React.FC = () => {
                                 help={<span className="text-[10px] text-slate-400">{t('passwordPolicyPage.form.preventHistoryReuseHelp')}</span>}
                             >
                                 <InputNumber min={0} max={24} className="w-full rounded-lg" size="middle" addonAfter={t('passwordPolicyPage.units.times')} />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="security_force_change_password_after_reset"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('passwordPolicyPage.form.forceChangeAfterReset')}</span>}
+                                help={<span className="text-[10px] text-slate-400">{t('passwordPolicyPage.form.forceChangeAfterResetHelp')}</span>}
+                                valuePropName="checked"
+                            >
+                                <Switch size="small" />
                             </Form.Item>
                         </div>
                     </div>

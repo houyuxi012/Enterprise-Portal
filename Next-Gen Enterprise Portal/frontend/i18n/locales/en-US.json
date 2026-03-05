@@ -411,7 +411,7 @@
       "logForwarding": "Log Forwarding",
       "logStorage": "Storage Settings",
       "security": "Security Settings",
-      "securityBasic": "Basic Settings",
+      "securityBasic": "Login Protection",
       "passwordPolicy": "Password Policy",
       "mfaSettings": "MFA Settings",
       "mfaSettingsLicenseRequired": "MFA settings license feature is required",
@@ -2294,12 +2294,14 @@
       "preventHistoryReuse": "Password History Reuse Limit",
       "preventHistoryReuseHelp": "New password cannot match recently used passwords",
       "checkUserInfo": "User Info Check",
-      "checkUserInfoHelp": "When enabled, password cannot include username, phone number, email prefix, or name pinyin"
+      "checkUserInfoHelp": "When enabled, password cannot include username, phone number, email prefix, or name pinyin",
+      "forceChangeAfterReset": "Force Password Change After Reset",
+      "forceChangeAfterResetHelp": "When enabled, users must change their password on first login after an admin-initiated password reset."
     }
   },
   "securitySettingsPage": {
     "page": {
-      "title": "Basic Settings",
+      "title": "Login Protection",
       "subtitle": "Security Basic Configuration",
       "saveButton": "Save Policy"
     },
@@ -2310,8 +2312,8 @@
     },
     "sections": {
       "mfa": "Multi-factor Authentication",
-      "loginProtection": "Login Protection",
-      "sessionCaptcha": "Session & CAPTCHA Policy",
+      "loginProtection": "Retry Policy",
+      "sessionCaptcha": "Session Policy",
       "networkAccess": "Network Access Control"
     },
     "form": {
@@ -2327,9 +2329,10 @@
         "lockByIp": "Lock by IP"
       },
       "maxConcurrentSessions": "Max Concurrent Sessions",
-      "sessionTimeoutMinutes": "Login Session Timeout (minutes)",
+      "sessionTimeoutMinutes": "Portal Login Session Timeout (minutes)",
+      "adminSessionTimeoutMinutes": "Admin Login Session Timeout (minutes)",
       "absoluteTimeoutMinutes": "Absolute Session Timeout (minutes)",
-      "absoluteTimeoutHelp": "Default: 480 minutes (8 hours)",
+      "absoluteTimeoutHelp": "Applies to both Portal and Admin sessions. Default: 480 minutes (8 hours)",
       "captchaThreshold": "CAPTCHA Threshold (times)",
       "ipAllowlist": "IP Allowlist (CIDR)",
       "ipAllowlistHelp": "Leave empty to allow all IPs",

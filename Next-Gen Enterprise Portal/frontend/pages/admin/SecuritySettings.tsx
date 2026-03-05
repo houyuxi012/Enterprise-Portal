@@ -25,11 +25,11 @@ const SecuritySettings: React.FC = () => {
                         : 'account',
                     max_concurrent_sessions: config.max_concurrent_sessions ? parseInt(config.max_concurrent_sessions) : 0,
                     login_session_timeout_minutes: config.login_session_timeout_minutes ? parseInt(config.login_session_timeout_minutes) : 30,
+                    admin_session_timeout_minutes: config.admin_session_timeout_minutes ? parseInt(config.admin_session_timeout_minutes) : 30,
                     login_session_absolute_timeout_minutes: config.login_session_absolute_timeout_minutes
                         ? parseInt(config.login_session_absolute_timeout_minutes)
                         : 480,
                     login_captcha_threshold: config.login_captcha_threshold ? parseInt(config.login_captcha_threshold) : 3,
-                    security_force_change_password_after_reset: config.security_force_change_password_after_reset === 'true',
                 };
 
                 form.setFieldsValue(formattedConfig);
@@ -52,9 +52,9 @@ const SecuritySettings: React.FC = () => {
                 security_lockout_scope: String(values.security_lockout_scope || 'account'),
                 max_concurrent_sessions: String(values.max_concurrent_sessions),
                 login_session_timeout_minutes: String(values.login_session_timeout_minutes),
+                admin_session_timeout_minutes: String(values.admin_session_timeout_minutes),
                 login_session_absolute_timeout_minutes: String(values.login_session_absolute_timeout_minutes),
                 login_captcha_threshold: String(values.login_captcha_threshold),
-                security_force_change_password_after_reset: String(values.security_force_change_password_after_reset),
             };
 
             await ApiClient.updateSystemConfig(payload);
@@ -97,9 +97,9 @@ const SecuritySettings: React.FC = () => {
 
                         max_concurrent_sessions: 0,
                         login_session_timeout_minutes: 30,
+                        admin_session_timeout_minutes: 30,
                         login_session_absolute_timeout_minutes: 480,
                         login_captcha_threshold: 3,
-                        security_force_change_password_after_reset: false,
                     }}
                 >
                     <div>
@@ -138,12 +138,10 @@ const SecuritySettings: React.FC = () => {
                             </Form.Item>
 
                             <Form.Item
-                                name="security_force_change_password_after_reset"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.forceChangeAfterReset')}</span>}
-                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.forceChangeAfterResetHelp')}</span>}
-                                valuePropName="checked"
+                                name="login_captcha_threshold"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.captchaThreshold')}</span>}
                             >
-                                <Switch size="small" />
+                                <InputNumber min={1} max={20} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
                         </div>
                     </div>
@@ -171,6 +169,13 @@ const SecuritySettings: React.FC = () => {
                             </Form.Item>
 
                             <Form.Item
+                                name="admin_session_timeout_minutes"
+                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.adminSessionTimeoutMinutes')}</span>}
+                            >
+                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
+                            </Form.Item>
+
+                            <Form.Item
                                 name="login_session_absolute_timeout_minutes"
                                 label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.absoluteTimeoutMinutes')}</span>}
                                 help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.absoluteTimeoutHelp')}</span>}
@@ -178,12 +183,6 @@ const SecuritySettings: React.FC = () => {
                                 <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
                             </Form.Item>
 
-                            <Form.Item
-                                name="login_captcha_threshold"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.captchaThreshold')}</span>}
-                            >
-                                <InputNumber min={1} max={20} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
                         </div>
                     </div>
 

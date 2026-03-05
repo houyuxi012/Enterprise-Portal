@@ -73,12 +73,6 @@ const MfaSettings: React.FC = () => {
                             <LockOutlined className="mr-2" /> {t('mfaSettingsPage.sections.globalSwitch')}
                         </h3>
 
-                        <Alert
-                            type="info"
-                            showIcon
-                            className="mb-5 rounded-xl"
-                            message={t('mfaSettingsPage.alert.description')}
-                        />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <Form.Item

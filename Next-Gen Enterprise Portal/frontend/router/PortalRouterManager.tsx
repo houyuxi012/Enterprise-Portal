@@ -100,7 +100,7 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
       );
     case AppView.SETTINGS:
       return (
-        <div className="space-y-12 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">
+        <div className="flex flex-col gap-6 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{t('appRoot.settings.title')}</h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">{t('appRoot.settings.subtitle')}</p>

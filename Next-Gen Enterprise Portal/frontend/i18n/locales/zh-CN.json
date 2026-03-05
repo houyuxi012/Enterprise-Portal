@@ -411,7 +411,7 @@
       "logForwarding": "日志外发",
       "logStorage": "存储设置",
       "security": "安全设置",
-      "securityBasic": "基础设置",
+      "securityBasic": "登录防护",
       "passwordPolicy": "密码策略",
       "mfaSettings": "多因素设置",
       "mfaSettingsLicenseRequired": "需要多因素认证功能授权",
@@ -2308,12 +2308,14 @@
       "preventHistoryReuse": "密码历史重复限制",
       "preventHistoryReuseHelp": "新密码不能与最近使用的历史密码相同",
       "checkUserInfo": "用户信息检查",
-      "checkUserInfoHelp": "开启后，密码中将不能包含该用户的用户名、手机号、邮箱前缀和姓名拼音"
+      "checkUserInfoHelp": "开启后，密码中将不能包含该用户的用户名、手机号、邮箱前缀和姓名拼音",
+      "forceChangeAfterReset": "重置密码后首次登录强制修改密码",
+      "forceChangeAfterResetHelp": "开启后，控制台重置密码的用户使用重置密码登录后必须先修改密码。"
     }
   },
   "securitySettingsPage": {
     "page": {
-      "title": "基础设置",
+      "title": "登录防护",
       "subtitle": "Security Basic Configuration",
       "saveButton": "保存策略"
     },
@@ -2324,8 +2326,8 @@
     },
     "sections": {
       "mfa": "多因素认证",
-      "loginProtection": "登录防护",
-      "sessionCaptcha": "会话与验证码策略",
+      "loginProtection": "重试策略",
+      "sessionCaptcha": "会话策略",
       "networkAccess": "网络访问控制"
     },
     "form": {
@@ -2341,9 +2343,10 @@
         "lockByIp": "按 IP 锁定"
       },
       "maxConcurrentSessions": "最大并发会话数",
-      "sessionTimeoutMinutes": "登录会话超时 (分钟)",
+      "sessionTimeoutMinutes": "Portal 登录会话超时 (分钟)",
+      "adminSessionTimeoutMinutes": "管理登录会话超时 (分钟)",
       "absoluteTimeoutMinutes": "会话绝对超时 (分钟)",
-      "absoluteTimeoutHelp": "默认 480 分钟（8小时）",
+      "absoluteTimeoutHelp": "对 Portal 和管理端均生效，默认 480 分钟（8小时）",
       "captchaThreshold": "验证码阈值 (次)",
       "ipAllowlist": "IP 白名单 (CIDR)",
       "ipAllowlistHelp": "留空代表允许所有 IP",
