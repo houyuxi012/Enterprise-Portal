@@ -1,0 +1,99 @@
+name: Backend Migration Guard
+
+on:
+  pull_request:
+    paths:
+      - "Next-Gen Enterprise Portal/backend/db_migrations/**"
+      - "Next-Gen Enterprise Portal/backend/alembic.ini"
+      - "Next-Gen Enterprise Portal/backend/core/database.py"
+      - "Next-Gen Enterprise Portal/backend/core/startup.py"
+      - "Next-Gen Enterprise Portal/backend/core/migrations.py"
+      - "Next-Gen Enterprise Portal/backend/db_migration.py"
+      - "Next-Gen Enterprise Portal/backend/scripts/check_migration_guard.py"
+      - "Next-Gen Enterprise Portal/backend/scripts/check_model_migration_diff_guard.py"
+      - ".github/workflows/backend-migration-guard.yml"
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "release/**"
+    paths:
+      - "Next-Gen Enterprise Portal/backend/db_migrations/**"
+      - "Next-Gen Enterprise Portal/backend/alembic.ini"
+      - "Next-Gen Enterprise Portal/backend/core/database.py"
+      - "Next-Gen Enterprise Portal/backend/core/startup.py"
+      - "Next-Gen Enterprise Portal/backend/core/migrations.py"
+      - "Next-Gen Enterprise Portal/backend/db_migration.py"
+      - "Next-Gen Enterprise Portal/backend/scripts/check_migration_guard.py"
+      - "Next-Gen Enterprise Portal/backend/scripts/check_model_migration_diff_guard.py"
+      - ".github/workflows/backend-migration-guard.yml"
+  workflow_dispatch:
+
+jobs:
+  migration-guard:
+    name: migration-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Migration Guard
+        run: |
+          mkdir -p .ci-reports
+          cd "Next-Gen Enterprise Portal"
+          set +e
+          python3 backend/scripts/check_migration_guard.py \
+            --backend-root backend \
+            --output json \
+            --report-file ../.ci-reports/backend-migration-guard.json
+          code=$?
+          cat ../.ci-reports/backend-migration-guard.json
+          exit $code
+
+      - name: Resolve Diff Range
+        id: diff
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            base="${{ github.event.before }}"
+          else
+            base="$(git rev-list --max-parents=0 HEAD | tail -n1)"
+          fi
+
+          if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; then
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              base="$(git rev-parse HEAD^)"
+            else
+              base="$(git rev-list --max-parents=0 HEAD | tail -n1)"
+            fi
+          fi
+
+          head="${GITHUB_SHA}"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+
+      - name: Run Model/Migration Diff Guard
+        run: |
+          mkdir -p .ci-reports
+          set +e
+          python3 "Next-Gen Enterprise Portal/backend/scripts/check_model_migration_diff_guard.py" \
+            --repo-root . \
+            --base "${{ steps.diff.outputs.base }}" \
+            --head "${{ steps.diff.outputs.head }}" \
+            --output json \
+            --report-file ".ci-reports/backend-model-migration-diff-guard.json"
+          code=$?
+          cat .ci-reports/backend-model-migration-diff-guard.json
+          exit $code

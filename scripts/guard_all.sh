@@ -59,6 +59,7 @@ fi
 
 BACKEND_REPORT=""
 FRONTEND_REPORT=""
+MIGRATION_REPORT=""
 if [[ -n "$REPORT_DIR" ]]; then
   if [[ "$REPORT_DIR" = /* ]]; then
     REPORT_DIR_ABS="$REPORT_DIR"
@@ -68,6 +69,7 @@ if [[ -n "$REPORT_DIR" ]]; then
   mkdir -p "$REPORT_DIR_ABS"
   BACKEND_REPORT="$REPORT_DIR_ABS/backend-architecture-${MODE}.json"
   FRONTEND_REPORT="$REPORT_DIR_ABS/frontend-structure-${MODE}.json"
+  MIGRATION_REPORT="$REPORT_DIR_ABS/backend-migration-${MODE}.json"
 fi
 
 run_backend() {
@@ -94,6 +96,18 @@ run_backend() {
 
   echo "[guard_all] backend compile check"
   python3 -m compileall backend ../Test_case ../test_db >/dev/null
+
+  echo "[guard_all] backend migration guard"
+  if [[ -n "$MIGRATION_REPORT" ]]; then
+    python3 backend/scripts/check_migration_guard.py \
+      --backend-root backend \
+      --output "$OUTPUT" \
+      --report-file "$MIGRATION_REPORT"
+  else
+    python3 backend/scripts/check_migration_guard.py \
+      --backend-root backend \
+      --output "$OUTPUT"
+  fi
 }
 
 run_frontend() {

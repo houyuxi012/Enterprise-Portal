@@ -73,6 +73,34 @@ cd "Next-Gen Enterprise Portal"
 
 ---
 
+## 🗄️ 数据库迁移（Alembic）
+
+后端已从“启动时内联 SQL 迁移”切换为 **Alembic 版本化迁移**。  
+禁止再在 `backend/core/database.py` 中新增 `ALTER TABLE/CREATE TABLE` 启动迁移逻辑。
+
+### 常用命令
+
+```bash
+# 升级到最新版本
+docker compose exec -T backend sh -lc "cd /app && alembic -c alembic.ini upgrade head"
+
+# 查看当前版本
+docker compose exec -T backend sh -lc "cd /app && alembic -c alembic.ini current"
+
+# 新建迁移（手动编辑 upgrade/downgrade）
+docker compose exec -T backend sh -lc "cd /app && alembic -c alembic.ini revision -m 'your_change_name'"
+```
+
+### 迁移规范
+
+- 所有 schema 变更必须提交到 `backend/db_migrations/versions/*.py`
+- 生产启动流程只执行 `alembic upgrade head`
+- `alembic_version` 表用于追踪已执行版本
+- CI 已接入迁移守卫：`/.github/workflows/backend-migration-guard.yml`
+- CI 同时校验：若改动 `backend/**/models.py` 或 `backend/shared/base_models.py`，必须同时改动 migration revision 文件
+
+---
+
 ## 🔒 安全特性
 
 - **统一入口**: 所有流量通过 HTTPS 443 端口

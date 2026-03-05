@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, UploadFile, File, HTTPException, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 import modules.models as models
@@ -8,9 +9,8 @@ import io
 import filetype
 import logging
 from datetime import datetime, timezone
-from infrastructure.storage import storage
+from application.portal_app import AuditService, resolve_file_token, storage
 from modules.iam.routers.auth import get_current_user
-from modules.iam.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ async def upload_image(
             await storage.delete(stored_path)
             raise db_err
 
-        # 7. Return URL (Stable Public URL for Images)
+        # 7. Return URL (proxied via backend, no direct MinIO exposure)
         url = storage.get_url(stored_path, is_public=True)
         ip = request.client.host if request.client else "unknown"
         AuditService.schedule_business_action(
@@ -95,7 +95,62 @@ async def upload_image(
         logger.exception("Upload failed unexpectedly")
         raise HTTPException(status_code=500, detail="Image upload failed")
 
-from fastapi.responses import FileResponse, RedirectResponse
+
+# ── Proxy file download (replaces both direct MinIO access and presigned URLs) ──
+
+_FILE_ROUTER = APIRouter(tags=["files"])
+
+
+def _iter_stream(response, chunk_size: int = 64 * 1024):
+    """Yield chunks from a MinIO/urllib3 response, then close it."""
+    try:
+        while True:
+            data = response.read(chunk_size)
+            if not data:
+                break
+            yield data
+    finally:
+        response.close()
+        response.release_conn()
+
+
+@_FILE_ROUTER.get("/files/{token}")
+async def proxy_file_download(
+    token: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Authenticated proxy download.
+
+    The *token* is an HMAC-signed, opaque identifier produced by
+    ``storage.get_url()``.  It hides the real object key from the
+    client and cannot be forged.
+    """
+    real_filename = resolve_file_token(token)
+    if not real_filename:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    stream, content_type, content_length = storage.get_object_stream(real_filename)
+    if stream is None:
+        raise HTTPException(status_code=404, detail="File not found in storage")
+
+    headers = {}
+    if content_length:
+        headers["Content-Length"] = str(content_length)
+
+    # Determine safe display name (use basename only, strip internal path)
+    display_name = os.path.basename(real_filename)
+    headers["Content-Disposition"] = f'inline; filename="{display_name}"'
+    # Aggressive caching for immutable file-hash URLs
+    headers["Cache-Control"] = "private, max-age=86400, immutable"
+
+    return StreamingResponse(
+        _iter_stream(stream),
+        media_type=content_type,
+        headers=headers,
+    )
+
 
 @router.get("/files/{filename}/view")
 async def view_file(
@@ -106,55 +161,42 @@ async def view_file(
     user: models.User = Depends(get_current_user)
 ):
     """
-    Authenticated endpoint to view files.
+    Authenticated endpoint to view files (legacy path, kept for backward compat).
     """
-    # 1. Check if file exists in DB (Optional, but good for auditing/acl)
-    # result = await db.execute(select(models.FileMetadata).filter(models.FileMetadata.stored_name == filename))
-    # db_file = result.scalars().first()
-    # if not db_file:
-    #    # Fallback: check storage directly or 404
-    #    pass
-
     ip = request.client.host if request.client else "unknown"
-    # 2. Get Signed URL or File Path
-    if os.getenv("STORAGE_TYPE") == "minio":
-        # Redirect to Presigned URL
-        url = storage.get_url(filename, is_public=False) # Helper handles presigned
+
+    stream, content_type, content_length = storage.get_object_stream(filename)
+    if stream is None:
         AuditService.schedule_business_action(
             background_tasks=background_tasks,
             user_id=user.id,
             username=user.username,
             action="VIEW_FILE",
             target=filename,
-            detail="mode=minio_redirect",
+            status="FAIL",
+            detail="file_not_found",
             ip_address=ip,
             domain="BUSINESS",
         )
-        return RedirectResponse(url)
-    else:
-        # Local Storage - Serve File
-        file_path = os.path.join("uploads", filename)
-        if not os.path.exists(file_path):
-             AuditService.schedule_business_action(
-                 background_tasks=background_tasks,
-                 user_id=user.id,
-                 username=user.username,
-                 action="VIEW_FILE",
-                 target=filename,
-                 status="FAIL",
-                 detail="file_not_found",
-                 ip_address=ip,
-                 domain="BUSINESS",
-             )
-             raise HTTPException(status_code=404, detail="File not found")
-        AuditService.schedule_business_action(
-            background_tasks=background_tasks,
-            user_id=user.id,
-            username=user.username,
-            action="VIEW_FILE",
-            target=filename,
-            detail="mode=local_file",
-            ip_address=ip,
-            domain="BUSINESS",
-        )
-        return FileResponse(file_path)
+        raise HTTPException(status_code=404, detail="File not found")
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=user.id,
+        username=user.username,
+        action="VIEW_FILE",
+        target=filename,
+        detail="mode=proxy_stream",
+        ip_address=ip,
+        domain="BUSINESS",
+    )
+
+    headers = {}
+    if content_length:
+        headers["Content-Length"] = str(content_length)
+
+    return StreamingResponse(
+        _iter_stream(stream),
+        media_type=content_type,
+        headers=headers,
+    )

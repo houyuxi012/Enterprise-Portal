@@ -6,11 +6,11 @@ import os
 import uuid
 from datetime import datetime
 
-import modules.models as models
 from fastapi import FastAPI
 from sqlalchemy import text
 
 import core.database as database
+from core.migrations import run_db_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -126,24 +126,7 @@ async def _run_shared_startup_initialization() -> None:
     from test_db.rbac_init import init_rbac
 
     await database.init_pgvector()
-    async with database.engine.begin() as conn:
-        await conn.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS system_startup_status (
-                    boot_id TEXT PRIMARY KEY,
-                    instance_id TEXT,
-                    status TEXT,
-                    started_at TIMESTAMP,
-                    finished_at TIMESTAMP,
-                    error TEXT
-                )
-                """
-            )
-        )
-        await conn.run_sync(models.Base.metadata.create_all)
-
-    await database.apply_startup_migrations()
+    await run_db_migrations()
 
     async with database.SessionLocal() as session:
         await init_rbac(session)
