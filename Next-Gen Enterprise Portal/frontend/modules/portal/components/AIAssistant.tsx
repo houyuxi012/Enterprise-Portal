@@ -18,6 +18,21 @@ interface Message {
   imageUrl?: string;
 }
 
+type ApiValidationDetailItem = {
+  loc?: unknown;
+  msg?: unknown;
+};
+
+type ApiErrorShape = {
+  message?: unknown;
+  response?: {
+    data?: {
+      detail?: unknown;
+      message?: unknown;
+    };
+  };
+};
+
 const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPrompt }) => {
   const { t } = useTranslation();
   const defaultAssistantName = t('aiAssistantWidget.defaults.assistantName');
@@ -76,7 +91,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extractApiErrorMessage = (error: unknown): string => {
-    const data = (error as any)?.response?.data;
+    const data = (error as ApiErrorShape)?.response?.data;
     const detail = data?.detail;
 
     if (typeof detail === 'string' && detail.trim()) {
@@ -85,7 +100,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
 
     if (Array.isArray(detail) && detail.length > 0) {
       const formatted = detail
-        .map((item: any) => {
+        .map((item: ApiValidationDetailItem | string | null | undefined) => {
           if (!item) return '';
           if (typeof item === 'string') return item;
           const loc = Array.isArray(item.loc) ? item.loc.join('.') : '';
@@ -101,7 +116,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, setIsOpen, initialPro
       return data.message;
     }
 
-    const genericMessage = (error as any)?.message;
+    const genericMessage = (error as ApiErrorShape)?.message;
     if (typeof genericMessage === 'string' && genericMessage.trim()) {
       return genericMessage;
     }
