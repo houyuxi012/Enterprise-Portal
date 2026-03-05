@@ -3,7 +3,7 @@ import { Input, Select, Popconfirm, message, Switch, AutoComplete, Tooltip, Card
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Announcement } from '@/types';
-import ApiClient from '@/services/api';
+import ApiClient, { type AnnouncementUpsertPayload } from '@/services/api';
 import type { ColumnsType } from 'antd/es/table';
 import {
     AppButton,
@@ -18,6 +18,23 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const TAG_CODES = ['announcement', 'maintenance', 'warning', 'update', 'activity', 'recruitment'] as const;
+
+const resolveErrorMessage = (error: unknown, fallback: string): string => {
+    if (
+        error
+        && typeof error === 'object'
+        && 'response' in error
+        && typeof (error as { response?: unknown }).response === 'object'
+        && (error as { response?: { data?: unknown } }).response
+        && 'data' in (error as { response: { data?: unknown } }).response
+    ) {
+        const data = (error as { response: { data?: { detail?: unknown } } }).response.data;
+        const detail = data?.detail;
+        if (typeof detail === 'string' && detail.trim()) return detail;
+    }
+    if (error instanceof Error && error.message.trim()) return error.message;
+    return fallback;
+};
 
 const AnnouncementList: React.FC = () => {
     const { t, i18n } = useTranslation();
@@ -74,9 +91,9 @@ const AnnouncementList: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: any) => {
+    const handleDelete = async (id: string) => {
         try {
-            await ApiClient.deleteAnnouncement(id);
+            await ApiClient.deleteAnnouncement(Number(id));
             message.success(t('announcementList.messages.deleteSuccess'));
             fetchData();
         } catch (error) {
@@ -101,7 +118,7 @@ const AnnouncementList: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: AnnouncementUpsertPayload) => {
         try {
             setSubmitLoading(true);
             const payload = {
@@ -117,8 +134,8 @@ const AnnouncementList: React.FC = () => {
             }
             setIsModalOpen(false);
             fetchData();
-        } catch (error: any) {
-            const errorMsg = error.response?.data?.detail || error.message || t('announcementList.messages.unknownError');
+        } catch (error: unknown) {
+            const errorMsg = resolveErrorMessage(error, t('announcementList.messages.unknownError'));
             message.error(t('announcementList.messages.actionFailed', { reason: errorMsg }));
         } finally {
             setSubmitLoading(false);
@@ -147,7 +164,7 @@ const AnnouncementList: React.FC = () => {
             title: t('announcementList.table.tag'),
             key: 'tag',
             width: 100,
-            render: (_: any, record: Announcement) => (
+            render: (_: unknown, record: Announcement) => (
                 <AppTag status="info">{t(`announcementList.tags.${normalizeTag(record.tag)}`, { defaultValue: record.tag })}</AppTag>
             ),
         },
@@ -177,7 +194,7 @@ const AnnouncementList: React.FC = () => {
             title: t('announcementList.table.actions'),
             key: 'action',
             width: 160,
-            render: (_: any, record: Announcement) => (
+            render: (_: unknown, record: Announcement) => (
                 <div className="flex gap-2">
                     <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)}>{t('common.buttons.edit')}</AppButton>
                     <Popconfirm title={t('announcementList.confirm.deleteTitle')} onConfirm={() => handleDelete(record.id)}>

@@ -4,7 +4,7 @@ import type { GetProp, UploadFile, UploadProps } from 'antd';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { QuickToolDTO } from '@/services/api';
+import type { QuickToolDTO, QuickToolUpsertPayload } from '@/services/api';
 import ApiClient from '@/services/api';
 import { getIcon } from '@/shared/utils/iconMap';
 import { getColorClass } from '@/shared/utils/colorMap';
@@ -171,7 +171,7 @@ const ToolList: React.FC = () => {
     const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) =>
         setFileList(newFileList);
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: QuickToolUpsertPayload) => {
         try {
             setSubmitLoading(true);
             if (editingTool) {
