@@ -60,6 +60,7 @@ fi
 BACKEND_REPORT=""
 FRONTEND_REPORT=""
 MIGRATION_REPORT=""
+LICENSE_ROUTE_REPORT=""
 if [[ -n "$REPORT_DIR" ]]; then
   if [[ "$REPORT_DIR" = /* ]]; then
     REPORT_DIR_ABS="$REPORT_DIR"
@@ -70,6 +71,7 @@ if [[ -n "$REPORT_DIR" ]]; then
   BACKEND_REPORT="$REPORT_DIR_ABS/backend-architecture-${MODE}.json"
   FRONTEND_REPORT="$REPORT_DIR_ABS/frontend-structure-${MODE}.json"
   MIGRATION_REPORT="$REPORT_DIR_ABS/backend-migration-${MODE}.json"
+  LICENSE_ROUTE_REPORT="$REPORT_DIR_ABS/backend-license-route-${MODE}.json"
 fi
 
 run_backend() {
@@ -105,6 +107,18 @@ run_backend() {
       --report-file "$MIGRATION_REPORT"
   else
     python3 backend/scripts/check_migration_guard.py \
+      --backend-root backend \
+      --output "$OUTPUT"
+  fi
+
+  echo "[guard_all] backend license route guard"
+  if [[ -n "$LICENSE_ROUTE_REPORT" ]]; then
+    python3 backend/scripts/check_license_route_guard.py \
+      --backend-root backend \
+      --output "$OUTPUT" \
+      --report-file "$LICENSE_ROUTE_REPORT"
+  else
+    python3 backend/scripts/check_license_route_guard.py \
       --backend-root backend \
       --output "$OUTPUT"
   fi
