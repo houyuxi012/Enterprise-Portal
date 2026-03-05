@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Modal, TreeSelect, Tag, Tooltip, Space, Row, Col, Card, Tree, Empty, Switch, App } from 'antd';
 import type { DataNode } from 'antd/es/tree';
+import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import ApiClient, { QuickToolDTO } from '@/services/api';
+import ApiClient, { type QuickToolDTO, type QuickToolUpsertPayload } from '@/services/api';
+import type { Department } from '@/types';
 import { getIcon } from '@/shared/utils/iconMap';
 import { getColorClass } from '@/shared/utils/colorMap';
 
@@ -19,12 +21,52 @@ import {
     AppPageHeader,
 } from '@/modules/admin/components/ui';
 
+type DepartmentSelectNode = {
+    title: string;
+    value: string;
+    key: number;
+    children: DepartmentSelectNode[];
+};
+
+const parseVisibleDepartments = (raw?: string | null): { parsed: boolean; list: string[] } => {
+    if (!raw) {
+        return { parsed: true, list: [] };
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+            return { parsed: false, list: [] };
+        }
+        return {
+            parsed: true,
+            list: parsed.filter((item): item is string => typeof item === 'string'),
+        };
+    } catch {
+        return { parsed: false, list: [] };
+    }
+};
+
+const buildToolUpdatePayload = (
+    tool: QuickToolDTO,
+    visibleToDepartments: string | null,
+): QuickToolUpsertPayload => ({
+    name: tool.name,
+    icon_name: tool.icon_name,
+    url: tool.url,
+    color: tool.color,
+    category: tool.category,
+    description: tool.description,
+    image: tool.image,
+    sort_order: tool.sort_order,
+    visible_to_departments: visibleToDepartments,
+});
+
 const AppPermissions: React.FC = () => {
     const { t } = useTranslation();
     const { message: antdMessage } = App.useApp();
     const [tools, setTools] = useState<QuickToolDTO[]>([]);
     const [loading, setLoading] = useState(false);
-    const [departments, setDepartments] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [deptTreeData, setDeptTreeData] = useState<DataNode[]>([]);
     const [selectedDeptName, setSelectedDeptName] = useState<string | null>(null);
 
@@ -35,7 +77,7 @@ const AppPermissions: React.FC = () => {
     const [saving, setSaving] = useState(false);
 
     // Transform departments to Tree data (Sidebar)
-    const buildTreeData = (depts: any[]): DataNode[] => {
+    const buildTreeData = (depts: Department[]): DataNode[] => {
         return depts.map(dept => ({
             title: (
                 <div className="flex items-center gap-2 py-1">
@@ -48,7 +90,7 @@ const AppPermissions: React.FC = () => {
     };
 
     // Transform for TreeSelect (Modal)
-    const transformDeptsToSelect = (depts: any[]) => {
+    const transformDeptsToSelect = (depts: Department[]): DepartmentSelectNode[] => {
         return depts.map(dept => ({
             title: dept.name,
             value: dept.name, // Use name as value
@@ -83,14 +125,7 @@ const AppPermissions: React.FC = () => {
         if (!selectedDeptName) return;
 
         const isPublic = !tool.visible_to_departments;
-        let currentList: string[] = [];
-        try {
-            if (tool.visible_to_departments) {
-                currentList = JSON.parse(tool.visible_to_departments);
-            }
-        } catch (e) {
-            currentList = [];
-        }
+        const currentList = parseVisibleDepartments(tool.visible_to_departments).list;
 
         // Logic check
         if (isPublic) {
@@ -112,37 +147,13 @@ const AppPermissions: React.FC = () => {
 
         // Optimistic Update (optional) or just call API
         try {
-            const payloadVal = newList.length > 0 ? JSON.stringify(newList) : "";
-            // Empty string or empty list? Backend logic: if not visible_to_departments (null or empty string).
-            // My backend logic: `if not tool.visible_to_departments`.
-            // If I send "", it depends on how Pydantic handles it. 
-            // Better strictly: 
-            // If empty list -> JSON "[]". Backend parses "[]" -> Empty list -> Hidden?
-            // Yes, backend: `if not allowed_depts` (empty list) -> continue (Hidden).
-            // So JSON "[]" is correct for hidden.
-            // But if I pass null, it becomes Public.
-            // If list empty, user usually intends Hidden.
-
-            await ApiClient.updateTool(tool.id, {
-                // We need to send other fields too? ApiClient.updateTool is PATCH or PUT?
-                // Usually PATCH in FastAPI if using exclude_unset=True.
-                // Let's assume partial update is supported by my ApiClient / Backend?
-                // Backend `update_tool` uses `tool.dict(exclude_unset=True)`.
-                // So I need to send ONLY `visible_to_departments`?
-                // Let's check `ApiClient` implementation or `updateTool` signature.
-                // `updateTool` takes `tool: QuickToolCreate` usually.
-                // React `ApiClient.updateTool(id, data)`.
-                // Pass all fields to be safe if unsure.
-                name: tool.name,
-                icon_name: tool.icon_name,
-                url: tool.url,
-                color: tool.color,
-                category: tool.category,
-                description: tool.description,
-                image: tool.image,
-                sort_order: (tool as any).sort_order,
-                visible_to_departments: newList.length > 0 ? JSON.stringify(newList) : "[]"
-            });
+            await ApiClient.updateTool(
+                tool.id,
+                buildToolUpdatePayload(
+                    tool,
+                    newList.length > 0 ? JSON.stringify(newList) : '[]',
+                ),
+            );
 
             antdMessage.success(t('appPermissions.messages.permissionUpdated'));
             fetchData(); // Refresh to be sure
@@ -154,15 +165,7 @@ const AppPermissions: React.FC = () => {
     // Modal Handlers
     const handleEdit = (tool: QuickToolDTO) => {
         setCurrentTool(tool);
-        let initDepts: string[] = [];
-        if ((tool as any).visible_to_departments) {
-            try {
-                initDepts = JSON.parse((tool as any).visible_to_departments);
-            } catch (e) {
-                initDepts = [];
-            }
-        }
-        setSelectedDepts(initDepts);
+        setSelectedDepts(parseVisibleDepartments(tool.visible_to_departments).list);
         setIsModalOpen(true);
     };
 
@@ -177,17 +180,10 @@ const AppPermissions: React.FC = () => {
                 payloadVal = null; // UI "Empty" -> Public
             }
 
-            await ApiClient.updateTool(currentTool.id, {
-                name: currentTool.name,
-                icon_name: currentTool.icon_name,
-                url: currentTool.url,
-                color: currentTool.color,
-                category: currentTool.category,
-                description: currentTool.description,
-                image: currentTool.image,
-                sort_order: (currentTool as any).sort_order,
-                visible_to_departments: payloadVal
-            });
+            await ApiClient.updateTool(
+                currentTool.id,
+                buildToolUpdatePayload(currentTool, payloadVal),
+            );
 
             antdMessage.success(t('appPermissions.messages.permissionUpdateSuccess'));
             setIsModalOpen(false);
@@ -200,7 +196,8 @@ const AppPermissions: React.FC = () => {
     };
 
     // Table Columns
-    const columns = [
+    const selectedDept = selectedDeptName;
+    const columns: ColumnsType<QuickToolDTO> = [
         {
             title: (
                 <Space>
@@ -232,29 +229,26 @@ const AppPermissions: React.FC = () => {
             title: t('appPermissions.table.scope'),
             key: 'scope',
             width: 120,
-            render: (_: any, record: QuickToolDTO) => {
-                const raw = (record as any).visible_to_departments;
+            render: (_: unknown, record: QuickToolDTO) => {
+                const raw = record.visible_to_departments;
                 if (!raw) return <Tag icon={<GlobalOutlined />} color="green">{t('appPermissions.scope.all')}</Tag>;
-                try {
-                    const list = JSON.parse(raw);
-                    if (list.length === 0) return <Tag icon={<LockOutlined />} color="red">{t('appPermissions.scope.hidden')}</Tag>;
-                    return <Tag color="blue">{t('appPermissions.scope.selectedDepartments')}</Tag>;
-                } catch {
+                const { parsed, list } = parseVisibleDepartments(raw);
+                if (!parsed) {
                     return <Tag>{t('appPermissions.scope.error')}</Tag>;
                 }
+                if (list.length === 0) return <Tag icon={<LockOutlined />} color="red">{t('appPermissions.scope.hidden')}</Tag>;
+                return <Tag color="blue">{t('appPermissions.scope.selectedDepartments')}</Tag>;
             }
         },
         // Dynamic Column for Selected Dept
-        ...(selectedDeptName ? [{
-            title: t('appPermissions.table.departmentAccess', { dept: selectedDeptName }),
+        ...(selectedDept ? [{
+            title: t('appPermissions.table.departmentAccess', { dept: selectedDept }),
             key: 'access',
-            render: (_: any, record: QuickToolDTO) => {
-                const isPublic = !(record as any).visible_to_departments;
+            render: (_: unknown, record: QuickToolDTO) => {
+                const isPublic = !record.visible_to_departments;
                 let hasAccess = isPublic;
-                let list: string[] = [];
                 if (!isPublic) {
-                    try { list = JSON.parse((record as any).visible_to_departments); } catch { }
-                    hasAccess = list.includes(selectedDeptName);
+                    hasAccess = parseVisibleDepartments(record.visible_to_departments).list.includes(selectedDept);
                 }
 
                 return (
@@ -274,7 +268,7 @@ const AppPermissions: React.FC = () => {
             title: t('appPermissions.table.actions'),
             key: 'action',
             width: 100,
-            render: (_: any, record: QuickToolDTO) => (
+            render: (_: unknown, record: QuickToolDTO) => (
                 <Button
                     type="link"
                     icon={<EditOutlined />}
