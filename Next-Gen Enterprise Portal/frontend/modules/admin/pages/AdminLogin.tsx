@@ -3,7 +3,7 @@ import { App } from 'antd';
 import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
-import ApiClient from '@/services/api';
+import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,36 @@ import { AppModal, AppButton } from '@/modules/admin/components/ui';
 interface AdminLoginProps {
     onLoginSuccess: () => void;
 }
+
+type ErrorDetailPayload = string | { message?: string; code?: string };
+type ErrorShape = {
+    message?: string;
+    response?: {
+        status?: number;
+        headers?: Record<string, string | undefined>;
+        data?: {
+            detail?: ErrorDetailPayload;
+        };
+    };
+};
+
+const parseError = (error: unknown) => {
+    const normalized = (error as ErrorShape) || {};
+    const detailPayload = normalized.response?.data?.detail;
+    const detail = typeof detailPayload === 'string'
+        ? detailPayload
+        : (detailPayload?.message || '');
+    const detailCode = typeof detailPayload === 'object' && detailPayload?.code
+        ? String(detailPayload.code)
+        : '';
+    return {
+        detail,
+        detailCode,
+        status: normalized.response?.status,
+        requiresCaptchaHeader: normalized.response?.headers?.['x-requires-captcha'] === 'true',
+        message: normalized.message || '',
+    };
+};
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const { t } = useTranslation();
@@ -68,7 +98,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const headers: any = {};
+            const headers: Record<string, string> = {};
             if (requiresCaptcha) {
                 const normalizedCaptcha = captchaCode.trim();
                 if (!captchaId) {
@@ -92,7 +122,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             }
             message.success(t('loginAdmin.messages.loginSuccess'));
             onLoginSuccess();
-        } catch (err: any) {
+        } catch (err: unknown) {
             // MFA challenge required
             if (err instanceof MfaRequiredError) {
                 setMfaToken(err.mfaToken);
@@ -105,17 +135,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             }
 
             // Parse backend error response
-            const detailPayload = err?.response?.data?.detail;
-            const detail = typeof detailPayload === 'string'
-                ? detailPayload
-                : (detailPayload?.message || '');
-            const detailCode = typeof detailPayload === 'object' && detailPayload?.code
-                ? String(detailPayload.code)
-                : '';
-            let msg = err?.message || t('loginAdmin.messages.loginFailedNetwork');
+            const { detail, detailCode, status, requiresCaptchaHeader, message: errMessage } = parseError(err);
+            let msg = errMessage || t('loginAdmin.messages.loginFailedNetwork');
             const shouldShowCaptcha =
-                err?.response?.status === 428 ||
-                err?.response?.headers?.['x-requires-captcha'] === 'true' ||
+                status === 428 ||
+                requiresCaptchaHeader ||
                 /captcha/i.test(`${detail} ${detailCode}`);
 
             if (shouldShowCaptcha) {
@@ -133,9 +157,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 msg = t('loginAdmin.messages.accountLocked');
             } else if (detail.includes('IP')) {
                 msg = t('loginAdmin.messages.ipForbidden');
-            } else if (err?.response?.status === 403 && (/concurrent|session limit/i.test(String(detail)))) {
+            } else if (status === 403 && (/concurrent|session limit/i.test(String(detail)))) {
                 msg = t('loginAdmin.messages.concurrentExceeded');
-            } else if (err?.response?.status === 401) {
+            } else if (status === 401) {
                 msg = t('loginAdmin.messages.invalidCredentials');
             }
 
@@ -163,11 +187,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             }
             message.success(t('loginAdmin.messages.loginSuccess'));
             window.location.reload();
-        } catch (err: any) {
-            const detailPayload = err?.response?.data?.detail;
-            const detail = typeof detailPayload === 'string'
-                ? detailPayload
-                : (detailPayload?.message || '');
+        } catch (err: unknown) {
+            const { detail } = parseError(err);
             const msg = detail || t('mfa.invalidCode', '验证码错误或已过期');
             setError(msg);
             message.error(msg);
@@ -183,11 +204,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         try {
             await ApiClient.sendEmailMfaCode('admin', mfaToken);
             message.success(t('portalSecurity.emailMfa.messages.codeSentSuccess'));
-        } catch (err: any) {
-            const detailPayload = err?.response?.data?.detail;
-            const detail = typeof detailPayload === 'string'
-                ? detailPayload
-                : (detailPayload?.message || '');
+        } catch (err: unknown) {
+            const { detail } = parseError(err);
             message.error(detail || t('portalSecurity.emailMfa.messages.sendFailed'));
         } finally {
             setEmailCodeSending(false);
@@ -203,9 +221,12 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 publicKey: {
                     ...options,
                     challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
-                    allowCredentials: (options.allowCredentials || []).map((c: any) => ({
-                        ...c,
-                        id: Uint8Array.from(atob(c.id.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0)),
+                    allowCredentials: (options.allowCredentials || []).map((credential: WebAuthnCredentialDescriptor) => ({
+                        ...credential,
+                        id: Uint8Array.from(
+                            atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')),
+                            (char) => char.charCodeAt(0),
+                        ),
                     })),
                 }
             }) as PublicKeyCredential | null;
@@ -230,11 +251,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             await AuthService.verifyMfaWebAuthn(mfaToken, webauthnResponse);
             message.success(t('loginAdmin.messages.loginSuccess'));
             window.location.reload();
-        } catch (err: any) {
-            const detailPayload = err?.response?.data?.detail;
-            const detail = typeof detailPayload === 'string'
-                ? detailPayload
-                : (detailPayload?.message || '');
+        } catch (err: unknown) {
+            const { detail } = parseError(err);
             const msg = detail || t('mfa.webauthnFailed', '安全密钥验证失败');
             setError(msg);
             message.error(msg);
