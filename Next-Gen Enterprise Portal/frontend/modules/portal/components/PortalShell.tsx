@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { Spin } from 'antd';
 import { AppView } from '@/modules/portal/types/views';
 import { Employee, NewsItem, QuickToolDTO } from '@/types';
+import type { User as AuthUser } from '@/shared/services/auth';
 
 const Navbar = lazy(() => import('./Navbar'));
 const AIAssistant = lazy(() => import('./AIAssistant'));
@@ -21,7 +22,7 @@ interface PortalShellProps {
   tools: QuickToolDTO[];
   newsList: NewsItem[];
   employees: Employee[];
-  currentUser: any;
+  currentUser: AuthUser | null;
   systemConfig: Record<string, string>;
   footerDefaultText: string;
   renderView: () => React.ReactNode;

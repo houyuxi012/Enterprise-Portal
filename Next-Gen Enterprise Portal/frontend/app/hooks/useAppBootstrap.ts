@@ -3,6 +3,7 @@ import { Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
 import ApiClient from '@/shared/services/api';
 import TodoService from '@/shared/services/todos';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
+import type { User as AuthUser } from '@/shared/services/auth';
 
 export type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
@@ -68,7 +69,7 @@ const isLicenseFeatureEnabled = (features: any, featureName: string): boolean =>
 
 interface UseAppBootstrapOptions {
   isAuthenticated: boolean;
-  currentUser: any;
+  currentUser: AuthUser | null;
   t: TranslateFn;
   emptyTodoPage: { items: never[]; total: number; page: number; page_size: number; total_pages: number };
   onEnableAdminMode: () => void;

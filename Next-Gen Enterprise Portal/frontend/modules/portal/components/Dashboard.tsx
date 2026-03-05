@@ -8,6 +8,7 @@ import {
 import TodoService from '@/shared/services/todos';
 import ApiClient, { QuickToolDTO } from '@/shared/services/api';
 import { NewsItem, Announcement, CarouselItem, Employee } from '@/types';
+import type { User as AuthUser } from '@/shared/services/auth';
 import { getIcon } from '@/shared/utils/iconMap';
 import { getColorClass } from '@/shared/utils/colorMap';
 import { DAILY_QUOTES } from '@/shared/utils/constants';
@@ -17,7 +18,7 @@ interface DashboardProps {
   onNavigateToDirectory?: () => void;
   onNavigateToTodos?: () => void;
   employees?: Employee[];
-  currentUser?: any;
+  currentUser?: AuthUser | null;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, onNavigateToTodos, employees = [], currentUser }) => {

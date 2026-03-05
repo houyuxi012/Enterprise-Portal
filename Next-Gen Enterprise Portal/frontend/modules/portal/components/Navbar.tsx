@@ -9,6 +9,7 @@ import { KeyOutlined } from '@ant-design/icons';
 import { AppView, type PortalPrimaryNavView } from '@/modules/portal/types/views';
 import { Employee, NewsItem, Notification, QuickToolDTO } from '@/types';
 import ApiClient from '@/shared/services/api';
+import type { User as AuthUser } from '@/shared/services/auth';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import ChangePasswordModal from '@/shared/components/ChangePasswordModal';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,7 @@ interface NavbarProps {
   tools: QuickToolDTO[];
   news: NewsItem[];
   employees: Employee[];
-  currentUser: any;
+  currentUser: AuthUser | null;
   systemConfig?: Record<string, string>;
 }
 

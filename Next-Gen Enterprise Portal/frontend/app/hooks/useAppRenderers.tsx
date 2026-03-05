@@ -6,6 +6,7 @@ import { AppLanguage } from '@/i18n';
 import { AppView } from '@/modules/portal/types/views';
 import { Employee, NewsItem, QuickToolDTO } from '@/types';
 import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
+import type { User as AuthUser } from '@/shared/services/auth';
 import { ThemeMode } from './useAppPreferences';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
@@ -14,7 +15,7 @@ type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 interface UseAppRenderersOptions {
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
-  currentUser: any;
+  currentUser: AuthUser | null;
   t: TranslateFn;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;

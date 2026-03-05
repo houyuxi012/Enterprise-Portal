@@ -4,6 +4,7 @@ import { AppLanguage } from '../i18n';
 import { AppView } from '../modules/portal/types/views';
 import { Employee, NewsItem, QuickToolDTO, Todo } from '../types';
 import ApiClient from '../services/api';
+import type { User as AuthUser } from '../shared/services/auth';
 import { moduleRouteRegistry } from '../app/router';
 import { getColorClass } from '@/shared/utils/colorMap';
 import { getIcon } from '@/shared/utils/iconMap';
@@ -43,7 +44,7 @@ export interface PortalRouterViewModel {
 interface PortalRouterManagerProps {
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
-  currentUser: any;
+  currentUser: AuthUser | null;
   t: (key: string, options?: Record<string, any>) => string;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
