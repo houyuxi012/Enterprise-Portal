@@ -4,7 +4,7 @@ import AdminRouterManager from '@/router/AdminRouterManager';
 import PortalShell from '@/modules/portal/components/PortalShell';
 import { AppLanguage } from '@/i18n';
 import { AppView, Employee, NewsItem, QuickToolDTO } from '@/types';
-import type { AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
+import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
 import { ThemeMode } from './useAppPreferences';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;

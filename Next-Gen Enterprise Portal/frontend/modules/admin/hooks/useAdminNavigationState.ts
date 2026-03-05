@@ -1,86 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-
-export type AdminTabKey =
-  | 'dashboard'
-  | 'news'
-  | 'announcements'
-  | 'employees'
-  | 'users'
-  | 'online_users'
-  | 'directories'
-  | 'tools'
-  | 'app_permissions'
-  | 'settings'
-  | 'platform_settings'
-  | 'license'
-  | 'about_us'
-  | 'org'
-  | 'roles'
-  | 'system_logs'
-  | 'business_logs'
-  | 'access_logs'
-  | 'ai_audit'
-  | 'log_forwarding'
-  | 'log_storage'
-  | 'carousel'
-  | 'security'
-  | 'password_policy'
-  | 'mfa_settings'
-  | 'ai_models'
-  | 'ai_security'
-  | 'ai_settings'
-  | 'ai_usage'
-  | 'iam_audit_logs'
-  | 'kb_manage'
-  | 'todos'
-  | 'notification_templates'
-  | 'notification_services'
-  | 'third_party_notifications';
+import {
+  ADMIN_DEFAULT_TAB,
+  ADMIN_DIRECTORY_TAB,
+  isAdminTabKey,
+  type AdminTabKey,
+} from '../types/tabKeys';
 
 const ACTIVE_TAB_STORAGE_KEY = 'activeAdminTab';
-const ADMIN_DEFAULT_TAB: AdminTabKey = 'dashboard';
-const ADMIN_DIRECTORY_TAB: AdminTabKey = 'directories';
-
-const ADMIN_TABS: AdminTabKey[] = [
-  'dashboard',
-  'news',
-  'announcements',
-  'employees',
-  'users',
-  'online_users',
-  'directories',
-  'tools',
-  'app_permissions',
-  'settings',
-  'platform_settings',
-  'license',
-  'about_us',
-  'org',
-  'roles',
-  'system_logs',
-  'business_logs',
-  'access_logs',
-  'ai_audit',
-  'log_forwarding',
-  'log_storage',
-  'carousel',
-  'security',
-  'password_policy',
-  'mfa_settings',
-  'ai_models',
-  'ai_security',
-  'ai_settings',
-  'ai_usage',
-  'iam_audit_logs',
-  'kb_manage',
-  'todos',
-  'notification_templates',
-  'notification_services',
-  'third_party_notifications',
-];
-
-const isAdminTabKey = (value: string | null): value is AdminTabKey =>
-  !!value && ADMIN_TABS.includes(value as AdminTabKey);
 
 const resolveInitialTab = (): AdminTabKey => {
   if (typeof window === 'undefined') return ADMIN_DEFAULT_TAB;

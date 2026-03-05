@@ -29,14 +29,15 @@ import { useTranslation } from 'react-i18next';
 import { buildUserLanguageScope, normalizeLanguage } from '../i18n';
 
 import { VersionModal, AdminChangePasswordModal } from '@/modules/admin/components';
+import { isAdminTabKey, type AdminTabKey } from '@/modules/admin/types/tabKeys';
 import { LanguageSwitcher } from '@/shared/components';
 
 const { Header, Sider, Content, Footer } = Layout;
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'platform_settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'mfa_settings' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions' | 'notification_templates' | 'notification_services' | 'third_party_notifications';
-    onTabChange: (tab: 'dashboard' | 'news' | 'announcements' | 'employees' | 'users' | 'online_users' | 'directories' | 'tools' | 'settings' | 'platform_settings' | 'about_us' | 'org' | 'roles' | 'system_logs' | 'business_logs' | 'access_logs' | 'log_forwarding' | 'log_storage' | 'system_logs_internal' | 'carousel' | 'security' | 'password_policy' | 'mfa_settings' | 'ai_models' | 'ai_security' | 'ai_settings' | 'ai_usage' | 'ai_audit' | 'iam_audit_logs' | 'kb_manage' | 'todos' | 'license' | 'app_permissions' | 'notification_templates' | 'notification_services' | 'third_party_notifications') => void;
+    activeTab: AdminTabKey;
+    onTabChange: (tab: AdminTabKey) => void;
     onExit: () => void;
     footerText?: string;
     logoUrl?: string; // New prop for Logo URL
@@ -93,7 +94,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         if (licenseGateMode === 'blocked' && e.key !== 'license') {
             return;
         }
-        onTabChange(e.key as any);
+        if (!isAdminTabKey(e.key)) {
+            return;
+        }
+        onTabChange(e.key);
     };
 
     const handleUserMenuClick = (e: { key: string }) => {

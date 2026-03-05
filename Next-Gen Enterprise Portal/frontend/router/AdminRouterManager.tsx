@@ -1,6 +1,6 @@
 import React, { lazy } from 'react';
 import { moduleRouteRegistry } from '../app/router';
-import type { AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
+import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
 
 const AdminLayout = lazy(() => import('../layouts/AdminLayout'));
 const {

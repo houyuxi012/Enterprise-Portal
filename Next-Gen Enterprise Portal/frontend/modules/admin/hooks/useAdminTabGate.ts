@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { LicenseGateMode } from '@/app/hooks/useAppBootstrap';
-import { AdminTabKey } from './useAdminNavigationState';
+import type { AdminTabKey } from '../types/tabKeys';
 
 interface UseAdminTabGateOptions {
   activeAdminTab: AdminTabKey;

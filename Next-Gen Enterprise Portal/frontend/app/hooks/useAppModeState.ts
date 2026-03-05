@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useAdminNavigationState, type AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
+import { useAdminNavigationState } from '@/modules/admin/hooks/useAdminNavigationState';
+import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
 
 interface UseAppModeStateResult {
   isAdminMode: boolean;
