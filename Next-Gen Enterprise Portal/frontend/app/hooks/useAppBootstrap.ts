@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
+import { Employee, NewsItem, QuickToolDTO, Todo, LicenseClaimsResponse, LicenseStatus } from '@/types';
 import ApiClient from '@/shared/services/api';
 import TodoService from '@/shared/services/todos';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
@@ -7,8 +7,10 @@ import type { User as AuthUser } from '@/shared/services/auth';
 
 export type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+type LicenseErrorDetail = { code?: string; message?: string; mode?: string };
+type LicenseFeatures = string[] | Record<string, unknown> | undefined;
 
-const resolveLicenseGateState = (status: any, t: TranslateFn): { mode: LicenseGateMode; message: string } => {
+const resolveLicenseGateState = (status: LicenseStatus | null | undefined, t: TranslateFn): { mode: LicenseGateMode; message: string } => {
   const installed = Boolean(status?.installed);
   const currentStatus = String(status?.status || '').toLowerCase();
   const reason = String(status?.reason || '').toUpperCase();
@@ -30,19 +32,24 @@ const resolveLicenseGateState = (status: any, t: TranslateFn): { mode: LicenseGa
   return { mode: 'full', message: '' };
 };
 
-const extractLicenseErrorDetail = (error: any): { code?: string; message?: string; mode?: string } => {
-  const detail = error?.response?.data?.detail;
+const extractLicenseErrorDetail = (error: unknown): LicenseErrorDetail => {
+  if (!error || typeof error !== 'object') return {};
+  const response = (error as { response?: unknown }).response;
+  if (!response || typeof response !== 'object') return {};
+  const data = (response as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return {};
+  const detail = (data as { detail?: unknown }).detail;
   if (detail && typeof detail === 'object') {
     return {
-      code: typeof detail.code === 'string' ? detail.code : undefined,
-      message: typeof detail.message === 'string' ? detail.message : undefined,
-      mode: typeof detail.mode === 'string' ? detail.mode : undefined,
+      code: typeof (detail as { code?: unknown }).code === 'string' ? (detail as { code?: string }).code : undefined,
+      message: typeof (detail as { message?: unknown }).message === 'string' ? (detail as { message?: string }).message : undefined,
+      mode: typeof (detail as { mode?: unknown }).mode === 'string' ? (detail as { mode?: string }).mode : undefined,
     };
   }
   return {};
 };
 
-const isLicenseGateBlockedError = (error: any): boolean => {
+const isLicenseGateBlockedError = (error: unknown): boolean => {
   const detail = extractLicenseErrorDetail(error);
   return (
     detail.code === 'LICENSE_REQUIRED' ||
@@ -50,7 +57,16 @@ const isLicenseGateBlockedError = (error: any): boolean => {
   );
 };
 
-const isLicenseFeatureEnabled = (features: any, featureName: string): boolean => {
+const resolveLicenseFeatures = (claimsResponse: LicenseClaimsResponse | null | undefined): LicenseFeatures => {
+  const claims = claimsResponse?.claims;
+  if (!claims || typeof claims !== 'object') return undefined;
+  const features = (claims as { features?: unknown }).features;
+  if (Array.isArray(features)) return features;
+  if (features && typeof features === 'object') return features as Record<string, unknown>;
+  return undefined;
+};
+
+const isLicenseFeatureEnabled = (features: LicenseFeatures, featureName: string): boolean => {
   const feature = String(featureName || '').trim().toLowerCase();
   if (!feature) return false;
 
@@ -58,7 +74,7 @@ const isLicenseFeatureEnabled = (features: any, featureName: string): boolean =>
     return features.some((item) => String(item || '').trim().toLowerCase() === feature);
   }
   if (features && typeof features === 'object') {
-    const value = (features as Record<string, any>)[feature];
+    const value = (features as Record<string, unknown>)[feature];
     if (typeof value === 'boolean') return value;
     if (typeof value === 'number') return value > 0;
     if (typeof value === 'string') return ['1', 'true', 'yes', 'on', 'enabled'].includes(value.toLowerCase());
@@ -192,7 +208,7 @@ export const useAppBootstrap = ({
           if (currentAdminGateMode !== 'blocked') {
             try {
               const claims = await ApiClient.getLicenseClaims();
-              const features = claims?.claims?.features;
+              const features = resolveLicenseFeatures(claims);
               const ldapEnabled = isLicenseFeatureEnabled(features, 'ldap');
               const customizationEnabled = isLicenseFeatureEnabled(features, 'customization.manage');
               const mfaSettingsEnabled = isLicenseFeatureEnabled(features, 'mfa.settings');
@@ -206,7 +222,7 @@ export const useAppBootstrap = ({
               console.error('Failed to fetch license claims', claimsError);
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           const detail = extractLicenseErrorDetail(error);
           currentAdminGateMode = 'blocked';
           currentAdminGateMessage = detail.message || t('appRoot.license.readFailed');
