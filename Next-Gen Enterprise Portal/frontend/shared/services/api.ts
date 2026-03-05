@@ -27,7 +27,7 @@ import {
 } from '@/types';
 import { triggerSessionInvalid } from './sessionGuard';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -92,7 +92,28 @@ export interface QuickToolDTO {
   category: string;
   description: string;
   image?: string;
+  sort_order?: number;
   visible_to_departments?: string;
+}
+
+export interface QuickToolUpsertPayload {
+  name: string;
+  icon_name: string;
+  url: string;
+  color: string;
+  category?: string;
+  description?: string;
+  image?: string;
+  sort_order?: number;
+  visible_to_departments?: string | null;
+}
+
+export interface AnnouncementUpsertPayload {
+  tag: string;
+  title: string;
+  content: string;
+  color: string;
+  is_urgent?: boolean;
 }
 
 export interface ResetPasswordResponse {
@@ -396,15 +417,15 @@ export const ApiClient = {
     return response.data;
   },
 
-  createTool: async (data: any): Promise<QuickToolDTO> => {
+  createTool: async (data: QuickToolUpsertPayload): Promise<QuickToolDTO> => {
 
-    const response = await api.post('/tools/', data);
+    const response = await api.post<QuickToolDTO>('/tools/', data);
     return response.data;
   },
 
-  updateTool: async (id: number, data: any): Promise<QuickToolDTO> => {
+  updateTool: async (id: number, data: QuickToolUpsertPayload): Promise<QuickToolDTO> => {
 
-    const response = await api.put(`/tools/${id}`, data);
+    const response = await api.put<QuickToolDTO>(`/tools/${id}`, data);
     return response.data;
   },
 
@@ -477,15 +498,15 @@ export const ApiClient = {
     return response.data;
   },
 
-  createAnnouncement: async (data: any): Promise<Announcement> => {
+  createAnnouncement: async (data: AnnouncementUpsertPayload): Promise<Announcement> => {
 
-    const response = await api.post('/announcements/', data);
+    const response = await api.post<Announcement>('/announcements/', data);
     return { ...response.data, id: String(response.data.id) };
   },
 
-  updateAnnouncement: async (id: number, data: any): Promise<Announcement> => {
+  updateAnnouncement: async (id: number, data: AnnouncementUpsertPayload): Promise<Announcement> => {
 
-    const response = await api.put(`/announcements/${id}`, data);
+    const response = await api.put<Announcement>(`/announcements/${id}`, data);
     return { ...response.data, id: String(response.data.id) };
   },
 
