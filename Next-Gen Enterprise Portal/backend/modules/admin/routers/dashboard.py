@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
+from application.admin_app import cache
 from core.dependencies import PermissionChecker
 
 router = APIRouter(
@@ -18,7 +19,6 @@ async def get_dashboard_stats(
     _: models.User = Depends(PermissionChecker("sys:user:view"))
 ):
     # Try Cache First
-    from infrastructure.cache_manager import cache
     cache_key = "dashboard_stats"
     cached_data = await cache.get(cache_key)
     if cached_data:

@@ -16,18 +16,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
-from core.dependencies import PermissionChecker
-from modules.iam.services.audit_service import AuditService
-from infrastructure.cache_manager import cache
-from modules.admin.services.license_service import LicenseService
-from modules.admin.services.license_settings import settings as license_settings
-from modules.admin.services.loki_config import update_loki_retention
-from modules.admin.services.platform_runtime import (
+from application.admin_app import (
+    AuditService,
+    LicenseService,
     PlatformRuntimeApplyError,
     apply_platform_runtime,
+    cache,
+    cleanup_logs,
+    license_settings,
+    optimize_database,
+    send_email_otp,
+    storage,
     test_ntp_connectivity,
+    update_loki_retention,
 )
-from infrastructure.storage import storage
+from core.dependencies import PermissionChecker
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,7 @@ NUMERIC_SECURITY_CONFIG_RULES: dict[str, tuple[int, int]] = {
     "security_login_max_retries": (1, 50),
     "security_lockout_duration": (1, 1440),
     "login_session_timeout_minutes": (5, 43200),
+    "admin_session_timeout_minutes": (5, 43200),
     "login_session_absolute_timeout_minutes": (5, 43200),
     "login_session_refresh_window_minutes": (1, 120),
     "max_concurrent_sessions": (0, 100),
@@ -82,6 +86,7 @@ LOGIN_RUNTIME_POLICY_KEYS = {
     "security_lockout_duration",
     "security_lockout_scope",
     "login_session_timeout_minutes",
+    "admin_session_timeout_minutes",
     "login_session_absolute_timeout_minutes",
     "login_session_refresh_window_minutes",
     "max_concurrent_sessions",
@@ -269,9 +274,6 @@ async def check_version_upgrade(session_factory):
     Check if the system version has changed since the last run.
     If changed, log a system audit event.
     """
-    # Local import to avoid circular dependency with AuditService which might import other routers
-    from modules.iam.services.audit_service import AuditService
-
     version_info = _load_version_info()
     current_version = version_info.get("version", "unknown")
     current_build = version_info.get("build_id", "unknown")
@@ -803,7 +805,6 @@ async def test_smtp(
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
     """Send a test email using current SMTP configuration."""
-    from modules.iam.services.email_service import send_email_otp
     # Determine recipient: request body or current user email or smtp_sender
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
     to_email = body.get("to_email", "")
@@ -1824,8 +1825,6 @@ async def optimize_storage(
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
     """Trigger immediate log cleanup + database optimization."""
-    from modules.admin.services.log_storage import cleanup_logs, optimize_database
-
     await cleanup_logs(database.SessionLocal)
     optimize_ok = await optimize_database(database.SessionLocal, database.engine)
 

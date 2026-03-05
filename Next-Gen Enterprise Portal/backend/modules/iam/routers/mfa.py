@@ -17,10 +17,17 @@ import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.iam_app import (
+    IAMAuditService,
+    IdentityProviderError,
+    IdentityService as IAMIdentityService,
+    ProviderIdentityService,
+    send_email_otp,
+    verify_email_otp,
+)
 import modules.models as models
 import modules.schemas as schemas
 import utils
-from iam.audit.service import IAMAuditService
 from iam.deps import get_db, get_current_identity, verify_admin_aud
 
 logger = logging.getLogger(__name__)
@@ -126,9 +133,6 @@ async def _verify_sensitive_action_password(
         return False
 
     try:
-        from modules.iam.services.identity.identity_service import ProviderIdentityService
-        from modules.iam.services.identity.providers.base import IdentityProviderError
-
         provider = "ad" if auth_source == "ad" else "ldap"
         provider_impl = ProviderIdentityService._providers.get(provider)
         if provider_impl is None:
@@ -434,7 +438,6 @@ async def verify_mfa_challenge(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "MFA_METHOD_NOT_ENABLED", "message": "Email MFA is not enabled for this user."},
             )
-        from modules.iam.services.email_service import verify_email_otp
 
         if not await verify_email_otp(user.username, payload.email_code):
             raise HTTPException(
@@ -455,17 +458,20 @@ async def verify_mfa_challenge(
     audience = "admin" if provider == "admin" else "portal"
     cookie_name = "admin_session" if audience == "admin" else "portal_session"
 
-    # Read session_timeout from system config
+    # Portal uses login_session_timeout_minutes, Admin uses admin_session_timeout_minutes.
+    if audience == "admin":
+        config_key = "admin_session_timeout_minutes"
+    else:
+        config_key = "login_session_timeout_minutes"
     configs_result = await db.execute(select(models.SystemConfig))
     configs = {c.key: c.value for c in configs_result.scalars().all()}
-    session_timeout = int(configs.get("login_session_timeout_minutes", str(utils.ACCESS_TOKEN_EXPIRE_MINUTES)))
+    session_timeout = int(configs.get(config_key, str(utils.ACCESS_TOKEN_EXPIRE_MINUTES)))
     session_timeout = max(5, min(session_timeout, 43200))
     session_timeout_seconds = session_timeout * 60
 
     # Revoke previous token if exists
     previous_token = request.cookies.get(cookie_name)
     if previous_token:
-        from iam.identity.service import IdentityService as IAMIdentityService
         await IAMIdentityService._revoke_token(previous_token, db=db)
 
     # Issue real session token
@@ -479,7 +485,6 @@ async def verify_mfa_challenge(
 
     # Track active session
     try:
-        from iam.identity.service import IdentityService as IAMIdentityService
         _, token_audience, new_jti, new_exp = await IAMIdentityService._extract_token_session_meta(
             access_token, db=db,
         )
@@ -615,7 +620,6 @@ async def enable_email_mfa(
             detail={"code": "NO_EMAIL", "message": "账户未设置邮箱，请先绑定邮箱。"},
         )
     # Send a verification code first
-    from modules.iam.services.email_service import send_email_otp
     try:
         await send_email_otp(user.email, user.username, db)
     except ValueError as e:
@@ -649,7 +653,6 @@ async def verify_enable_email_mfa(
 ):
     """Verify email OTP and enable email MFA."""
     user = await get_current_identity(request, db)
-    from modules.iam.services.email_service import verify_email_otp
     if not await verify_email_otp(user.username, payload.code):
         await _audit_mfa_action(
             db=db,
@@ -767,7 +770,6 @@ async def send_email_mfa_code(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "EMAIL_MFA_NOT_ENABLED", "message": "邮箱验证未启用"},
         )
-    from modules.iam.services.email_service import send_email_otp
     try:
         await send_email_otp(user.email, user.username, db)
     except ValueError as e:
@@ -842,7 +844,7 @@ async def _verify_webauthn_for_login(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "WEBAUTHN_NOT_AVAILABLE", "message": "WebAuthn 服务不可用"},
         ) from exc
-    from infrastructure.cache_manager import cache
+    from application.iam_app import cache
 
     # Retrieve stored challenge
     cache_key = f"webauthn:auth_challenge:{user.id}"
@@ -948,7 +950,7 @@ async def webauthn_register_options(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "WEBAUTHN_NOT_AVAILABLE", "message": "WebAuthn 服务不可用"},
         ) from exc
-    from infrastructure.cache_manager import cache
+    from application.iam_app import cache
 
     user = await get_current_identity(request, db)
     rp_id, rp_name, origin = await _get_webauthn_rp(db)
@@ -1035,7 +1037,7 @@ async def webauthn_register_verify(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "WEBAUTHN_NOT_AVAILABLE", "message": "WebAuthn 服务不可用"},
         ) from exc
-    from infrastructure.cache_manager import cache
+    from application.iam_app import cache
 
     user = await get_current_identity(request, db)
 
@@ -1134,7 +1136,7 @@ async def webauthn_authenticate_options(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "WEBAUTHN_NOT_AVAILABLE", "message": "WebAuthn 服务不可用"},
         ) from exc
-    from infrastructure.cache_manager import cache
+    from application.iam_app import cache
     from sqlalchemy import select
 
     rp_id, rp_name, origin = await _get_webauthn_rp(db)

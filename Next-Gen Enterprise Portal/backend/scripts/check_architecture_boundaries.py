@@ -224,14 +224,81 @@ def _check_file(path: Path, forbidden_import_patterns: list[re.Pattern[str]]) ->
                     "message": f"forbidden import: {snippet}",
                 }
             )
+    violations.extend(_check_service_to_router_imports(path, content))
+    violations.extend(_check_repository_to_service_imports(path, content))
     violations.extend(_check_cross_module_model_imports(path, content))
+    violations.extend(_check_router_application_boundary(path, content))
+    violations.extend(_check_main_application_boundary(path, content))
     return violations
 
 
 _CROSS_MODEL_IMPORT_RE = re.compile(
-    r"^\s*(?:from\s+modules\.(admin|iam|portal)\.models\s+import\s+|import\s+modules\.(admin|iam|portal)\.models(?:\s|$))",
+    r"^\s*(?:from\s+modules\.([a-zA-Z_][\w]*)\.models\s+import\s+|import\s+modules\.([a-zA-Z_][\w]*)\.models(?:\s|$))",
     re.MULTILINE,
 )
+_IMPORT_MODULE_RE = re.compile(r"^\s*(?:from|import)\s+([a-zA-Z_][\w.]*)", re.MULTILINE)
+
+
+def _line_number(content: str, index: int) -> int:
+    return content.count("\n", 0, index) + 1
+
+
+def _module_segments(module: str) -> list[str]:
+    return [seg for seg in module.split(".") if seg]
+
+
+def _is_service_file(path: Path) -> bool:
+    filename = path.name
+    if filename == "service.py":
+        return True
+    return "services" in path.parts
+
+
+def _is_repository_file(path: Path) -> bool:
+    filename = path.name
+    if filename == "repository.py":
+        return True
+    return "repositories" in path.parts
+
+
+def _check_service_to_router_imports(path: Path, content: str) -> list[dict]:
+    if not _is_service_file(path):
+        return []
+    violations: list[dict] = []
+    for match in _IMPORT_MODULE_RE.finditer(content):
+        module = match.group(1)
+        segments = _module_segments(module)
+        if "router" not in segments and "routers" not in segments:
+            continue
+        violations.append(
+            {
+                "type": "service_to_router_import",
+                "file": str(path),
+                "line": _line_number(content, match.start()),
+                "message": f"service must not import router: {module}",
+            }
+        )
+    return violations
+
+
+def _check_repository_to_service_imports(path: Path, content: str) -> list[dict]:
+    if not _is_repository_file(path):
+        return []
+    violations: list[dict] = []
+    for match in _IMPORT_MODULE_RE.finditer(content):
+        module = match.group(1)
+        segments = _module_segments(module)
+        if "service" not in segments and "services" not in segments:
+            continue
+        violations.append(
+            {
+                "type": "repository_to_service_import",
+                "file": str(path),
+                "line": _line_number(content, match.start()),
+                "message": f"repository must not import service: {module}",
+            }
+        )
+    return violations
 
 
 def _check_cross_module_model_imports(path: Path, content: str) -> list[dict]:
@@ -243,7 +310,7 @@ def _check_cross_module_model_imports(path: Path, content: str) -> list[dict]:
     parts = path.parts
     if "modules" in parts:
         idx = parts.index("modules")
-        if idx + 1 < len(parts) and parts[idx + 1] in {"admin", "iam", "portal"}:
+        if idx + 1 < len(parts):
             owner = parts[idx + 1]
 
     violations: list[dict] = []
@@ -252,7 +319,7 @@ def _check_cross_module_model_imports(path: Path, content: str) -> list[dict]:
         # Same-domain model import is allowed.
         if owner and imported_domain == owner:
             continue
-        line_no = content.count("\n", 0, match.start()) + 1
+        line_no = _line_number(content, match.start())
         snippet = match.group(0).strip()
         violations.append(
             {
@@ -260,6 +327,77 @@ def _check_cross_module_model_imports(path: Path, content: str) -> list[dict]:
                 "file": str(path),
                 "line": line_no,
                 "message": f"cross-module model import forbidden: {snippet}",
+            }
+        )
+    return violations
+
+
+def _check_router_application_boundary(path: Path, content: str) -> list[dict]:
+    parts = path.parts
+    if "modules" not in parts or "routers" not in parts:
+        return []
+    midx = parts.index("modules")
+    if midx + 1 >= len(parts):
+        return []
+    owner = parts[midx + 1]
+    if owner not in {"iam", "portal", "admin"}:
+        return []
+
+    violations: list[dict] = []
+    for match in _IMPORT_MODULE_RE.finditer(content):
+        module = match.group(1)
+        if module.startswith("application."):
+            continue
+        if module.startswith("modules.") and ".services." in module:
+            violations.append(
+                {
+                    "type": "router_direct_service_import",
+                    "file": str(path),
+                    "line": _line_number(content, match.start()),
+                    "message": f"router must call application layer, not service module: {module}",
+                }
+            )
+            continue
+        if module.startswith("iam.") and ".service" in module:
+            violations.append(
+                {
+                    "type": "router_direct_service_import",
+                    "file": str(path),
+                    "line": _line_number(content, match.start()),
+                    "message": f"router must call application layer, not legacy service module: {module}",
+                }
+            )
+            continue
+        if module.startswith("infrastructure."):
+            violations.append(
+                {
+                    "type": "router_direct_infra_import",
+                    "file": str(path),
+                    "line": _line_number(content, match.start()),
+                    "message": f"router must call application layer, not infrastructure directly: {module}",
+                }
+            )
+    return violations
+
+
+def _check_main_application_boundary(path: Path, content: str) -> list[dict]:
+    if not path.as_posix().endswith("backend/main.py"):
+        return []
+
+    violations: list[dict] = []
+    for match in _IMPORT_MODULE_RE.finditer(content):
+        module = match.group(1)
+        if not module.startswith("modules."):
+            continue
+        segments = _module_segments(module)
+        if "router" not in segments and "routers" not in segments:
+            continue
+        violations.append(
+            {
+                "type": "main_direct_module_router_import",
+                "file": str(path),
+                "line": _line_number(content, match.start()),
+                "message": f"main must include routers through application layer: {module}",
             }
         )
     return violations

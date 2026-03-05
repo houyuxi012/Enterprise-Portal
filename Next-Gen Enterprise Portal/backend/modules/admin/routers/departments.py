@@ -6,7 +6,7 @@ import modules.models as models
 import modules.schemas as schemas
 from core.database import get_db
 from fastapi import Request
-from modules.iam.services.audit_service import AuditService
+from application.admin_app import AuditService
 from core.dependencies import PermissionChecker, get_current_user
 
 router = APIRouter(

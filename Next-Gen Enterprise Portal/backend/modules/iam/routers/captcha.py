@@ -5,7 +5,7 @@ import uuid
 from typing import Dict
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from captcha.image import ImageCaptcha
-from infrastructure.cache_manager import cache
+from application.iam_app import cache
 
 router = APIRouter(
     prefix="/captcha",

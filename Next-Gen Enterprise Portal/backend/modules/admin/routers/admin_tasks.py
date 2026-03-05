@@ -9,7 +9,7 @@ from core.database import get_db
 import modules.models as models
 import modules.schemas as schemas
 from core.dependencies import PermissionChecker, get_current_user
-from modules.iam.services.audit_service import AuditService
+from application.admin_app import AuditService
 
 router = APIRouter(
     prefix="/tasks",

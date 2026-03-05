@@ -429,6 +429,7 @@ class ProviderIdentityService:
     ) -> dict[str, Any]:
         config_result = await db.execute(select(models.SystemConfig))
         configs = {c.key: c.value for c in config_result.scalars().all()}
+        # This method is called for Portal audience only (see audience="portal" below).
         session_timeout = IdentityService._parse_int_config(
             configs,
             "login_session_timeout_minutes",
@@ -545,8 +546,8 @@ class ProviderIdentityService:
             # ── MFA Challenge Gate ──
             mfa_forced = False
             try:
-                from modules.iam.routers.mfa import _get_system_mfa_config
-                mfa_forced = await _get_system_mfa_config(db)
+                from modules.iam.services.auth_helpers import get_system_mfa_config
+                mfa_forced = await get_system_mfa_config(db)
             except Exception:
                 pass
 
@@ -574,8 +575,8 @@ class ProviderIdentityService:
                             e,
                         )
 
-                from modules.iam.routers.mfa import _create_mfa_token
-                mfa_token = _create_mfa_token(user, provider=normalized_provider)
+                from modules.iam.services.auth_helpers import create_mfa_token
+                mfa_token = create_mfa_token(user, provider=normalized_provider)
                 await db.commit()
                 return {
                     "message": "MFA verification required",
@@ -654,9 +655,9 @@ class ProviderIdentityService:
                                             "message": f"邮箱验证码发送失败：{email_exc}",
                                         },
                                     )
-                        from modules.iam.routers.mfa import _create_mfa_token
+                        from modules.iam.services.auth_helpers import create_mfa_token
 
-                        mfa_token = _create_mfa_token(user, provider="local")
+                        mfa_token = create_mfa_token(user, provider="local")
                         await db.commit()
                         return {
                             "message": "MFA verification required",

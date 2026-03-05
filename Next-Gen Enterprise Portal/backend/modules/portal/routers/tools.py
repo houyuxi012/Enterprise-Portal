@@ -3,7 +3,7 @@ from core.dependencies import PermissionChecker
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from core.database import get_db
-from modules.iam.services.audit_service import AuditService
+from application.portal_app import AuditService
 from modules.iam.routers.auth import get_current_user
 import modules.models as models
 import modules.schemas as schemas

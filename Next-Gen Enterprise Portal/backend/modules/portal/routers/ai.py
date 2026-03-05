@@ -11,9 +11,16 @@ from core.database import get_db
 from core.dependencies import PermissionChecker
 from modules.iam.routers.auth import get_current_user
 from modules.models import Employee, NewsItem, QuickTool, AIProvider, User
-from modules.portal.services.ai_engine import AIEngine
+from application.portal_app import (
+    AIAuditEntry,
+    AIEngine,
+    AuditService,
+    get_embedding,
+    kb_classify_hit,
+    kb_search,
+    log_ai_audit,
+)
 from middleware.trace_context import get_trace_id
-from modules.iam.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -196,11 +203,7 @@ async def chat(
             rag_meta["context_sources"].append("image_input")
         
         try:
-            from modules.portal.services.kb.embedder import get_embedding
-            from modules.portal.services.kb.retriever import search as kb_search, classify_hit
             from modules.models import KBQueryLog, SystemConfig
-            # Ensure correct import for audit log
-            from modules.portal.services.ai_audit_writer import AIAuditEntry, log_ai_audit
             from datetime import datetime, timezone
             import json
 
@@ -230,7 +233,7 @@ async def chat(
 
                 kb_chunks = await kb_search(db, query_vec, top_k=5, acl_filter=acl_filter)
                 top_score = kb_chunks[0].score if kb_chunks else 0.0
-                kb_hit_level = classify_hit(top_score)
+                kb_hit_level = kb_classify_hit(top_score)
                 
                 # Update Meta Info
                 rag_meta["hit_level"] = kb_hit_level

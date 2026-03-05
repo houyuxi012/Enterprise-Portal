@@ -22,7 +22,10 @@
         "backend/schemas.py",
         "backend/database.py",
         "backend/dependencies.py",
-        "backend/services"
+        "backend/services",
+        "backend/modules/iam/router.py",
+        "backend/modules/portal/router.py",
+        "backend/modules/admin/router.py"
       ],
       "skipDirNames": [
         "__pycache__",
@@ -53,6 +56,9 @@
         "backend/database.py",
         "backend/dependencies.py",
         "backend/services",
+        "backend/modules/iam/router.py",
+        "backend/modules/portal/router.py",
+        "backend/modules/admin/router.py",
         "backend/routers",
         "backend/tests"
       ],

@@ -17,8 +17,16 @@ from modules.models import KBDocument, KBChunk, KBQueryLog, User
 from middleware.trace_context import get_trace_id
 from modules.iam.routers.auth import get_current_user
 from fastapi import Request
-from modules.iam.services.audit_service import AuditService
-from modules.admin.services.license_service import LicenseService
+from application.portal_app import (
+    AuditService,
+    LicenseService,
+    get_embedding,
+    ingest_document,
+    kb_classify_hit,
+    kb_search,
+    reindex_document as do_reindex,
+    update_document as do_update,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +101,6 @@ async def create_document(
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """入库文档"""
-    from modules.portal.services.kb.ingest import ingest_document
 
     doc_id = await ingest_document(
         db=db,
@@ -244,8 +251,7 @@ async def update_document(
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """更新文档 (全量替换)"""
-    from modules.portal.services.kb.ingest import update_document as do_update
-    
+
     success = await do_update(
         db=db,
         doc_id=doc_id,
@@ -300,8 +306,6 @@ async def reindex_document(
     current_user: User = Depends(PermissionChecker("kb:manage")),
 ):
     """重建文档索引"""
-    from modules.portal.services.kb.ingest import reindex_document as do_reindex
-
     success = await do_reindex(db, doc_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found or empty")
@@ -366,8 +370,6 @@ async def query_kb(
     current_user: User = Depends(PermissionChecker("kb:query")),
 ):
     """向量检索 topK"""
-    from modules.portal.services.kb.embedder import get_embedding
-    from modules.portal.services.kb.retriever import search, classify_hit
 
     # 1. 生成 query embedding
     query_vec = await get_embedding(req.query)
@@ -381,10 +383,10 @@ async def query_kb(
     acl_filter.append(f"user:{current_user.id}")
 
     # 3. 检索
-    chunks = await search(db, query_vec, top_k=req.top_k, acl_filter=acl_filter)
+    chunks = await kb_search(db, query_vec, top_k=req.top_k, acl_filter=acl_filter)
 
     top_score = chunks[0].score if chunks else 0.0
-    hit_level = classify_hit(top_score)
+    hit_level = kb_classify_hit(top_score)
 
     # 4. 审计日志
     log = KBQueryLog(

@@ -11,9 +11,7 @@ import modules.models as models
 import modules.schemas as schemas
 from core.dependencies import PermissionChecker
 from fastapi import Request
-from modules.iam.services.audit_service import AuditService
-from infrastructure.crypto_service import CryptoService
-from modules.portal.services.ai_engine import AIEngine
+from application.admin_app import AIEngine, AuditService, CryptoService
 
 logger = logging.getLogger(__name__)
 

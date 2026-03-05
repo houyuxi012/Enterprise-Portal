@@ -317,10 +317,23 @@ class AIEngine:
                 rewritten = f"{rewritten}?{query}"
             return rewritten
 
-        # Relative path: only allow internal upload/minio gateway path
+        # Relative path: only allow internal upload/minio gateway path and proxy URLs
         if not parsed.netloc:
             if not raw.startswith("/"):
                 raise ValueError("Image URL must be absolute or start with '/'")
+
+            # Handle new proxy file URLs: /api/files/{token}
+            proxy_prefixes = ("/api/files/", "/api/app/files/", "/api/admin/files/")
+            for prefix in proxy_prefixes:
+                if raw.startswith(prefix):
+                    token = raw[len(prefix):].split("?")[0]
+                    from infrastructure.storage import resolve_file_token
+                    real_filename = resolve_file_token(token)
+                    if real_filename:
+                        # Return special internal:// URI for direct MinIO access
+                        return f"internal://minio/{real_filename}"
+                    raise ValueError("Invalid file token")
+
             if not (raw.startswith("/api/upload/files/") or raw.startswith("/minio/")):
                 raise ValueError("Image URL path is not allowed")
 
@@ -386,6 +399,32 @@ class AIEngine:
         validated_url = self._resolve_and_validate_image_url(url, allowed_hosts)
         max_bytes = int(os.getenv("AI_MAX_IMAGE_DOWNLOAD_BYTES", str(5 * 1024 * 1024)))
         timeout_seconds = float(os.getenv("AI_IMAGE_DOWNLOAD_TIMEOUT_SECONDS", "10"))
+
+        # Direct internal MinIO access (bypass HTTP for proxy token URLs)
+        if validated_url.startswith("internal://minio/"):
+            real_filename = validated_url[len("internal://minio/"):]
+            try:
+                from infrastructure.storage import storage as _storage
+                stream, content_type, content_length = _storage.get_object_stream(real_filename)
+                if stream is None:
+                    raise ValueError("File not found in storage")
+                try:
+                    content = stream.read(max_bytes + 1)
+                    if len(content) > max_bytes:
+                        raise ValueError(f"Image exceeds max allowed size ({max_bytes} bytes)")
+                    ct = (content_type or "").split(";")[0].strip().lower()
+                    if not ct.startswith("image/"):
+                        raise ValueError("Downloaded resource is not an image")
+                    return bytes(content), ct
+                finally:
+                    stream.close()
+                    if hasattr(stream, 'release_conn'):
+                        stream.release_conn()
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.error(f"Failed to read internal MinIO object {real_filename}: {e}")
+                raise ValueError("Image download failed")
 
         try:
             async with httpx.AsyncClient(follow_redirects=False) as client:

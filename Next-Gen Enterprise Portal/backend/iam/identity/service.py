@@ -655,15 +655,21 @@ class IdentityService:
         return raw
 
     @staticmethod
-    async def _load_session_policy(db: AsyncSession) -> tuple[int, int, int]:
+    async def _load_session_policy(db: AsyncSession, *, audience: str | None = None) -> tuple[int, int, int]:
         import modules.models as models
         import utils
 
         config_result = await db.execute(select(models.SystemConfig))
         configs = {c.key: c.value for c in config_result.scalars().all()}
+
+        # Portal uses login_session_timeout_minutes, Admin uses admin_session_timeout_minutes.
+        if audience == "admin":
+            config_key = "admin_session_timeout_minutes"
+        else:
+            config_key = "login_session_timeout_minutes"
         session_timeout_minutes = IdentityService._parse_int_config(
             configs,
-            "login_session_timeout_minutes",
+            config_key,
             utils.ACCESS_TOKEN_EXPIRE_MINUTES,
             min_value=5,
             max_value=43200,
@@ -1001,20 +1007,25 @@ class IdentityService:
             min_value=0,
             max_value=100,
         )
+        # Portal uses login_session_timeout_minutes, Admin uses admin_session_timeout_minutes.
+        if audience == "admin":
+            config_key = "admin_session_timeout_minutes"
+        else:
+            config_key = "login_session_timeout_minutes"
         session_timeout = IdentityService._parse_int_config(
             configs,
-            "login_session_timeout_minutes",
+            config_key,
             utils.ACCESS_TOKEN_EXPIRE_MINUTES,
             min_value=5,
             max_value=43200,
         )
         logger.info(
-            "Login session_timeout=%s min (db_value=%r, env_default=%s) for user=%s audience=%s",
+            "Login session_timeout=%s min (audience=%s, db_value=%r, env_default=%s) for user=%s",
             session_timeout,
+            audience,
             configs.get("login_session_timeout_minutes"),
             utils.ACCESS_TOKEN_EXPIRE_MINUTES,
             form_data.username,
-            audience,
         )
         
         # IP Allowlist Check
@@ -1088,7 +1099,7 @@ class IdentityService:
                     headers={"X-Requires-Captcha": "true"}
                 )
             # Verify captcha
-            from modules.iam.routers.captcha import verify_captcha
+            from modules.iam.services.auth_helpers import verify_captcha
             is_valid_captcha = await verify_captcha(captcha_id, captcha_code)
             if not is_valid_captcha:
                 # Still increment failure so they get locked eventually
@@ -1308,8 +1319,8 @@ class IdentityService:
         # ── MFA Challenge Gate ──
         mfa_forced = False
         try:
-            from modules.iam.routers.mfa import _get_system_mfa_config
-            mfa_forced = await _get_system_mfa_config(db)
+            from modules.iam.services.auth_helpers import get_system_mfa_config
+            mfa_forced = await get_system_mfa_config(db)
         except Exception:
             pass
 
@@ -1507,7 +1518,7 @@ class IdentityService:
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
 
             user = await IdentityService.get_current_user(request, db, audience=resolved_audience)
-            session_timeout_minutes, refresh_window_minutes, absolute_timeout_minutes = await IdentityService._load_session_policy(db)
+            session_timeout_minutes, refresh_window_minutes, absolute_timeout_minutes = await IdentityService._load_session_policy(db, audience=resolved_audience)
 
             payload = IdentityService._decode_token_payload(token)
             if not payload:

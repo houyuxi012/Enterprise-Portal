@@ -8,14 +8,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import delete as sa_delete, desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.iam_app import (
+    BindPasswordKeyring,
+    IAMAuditService,
+    IdentityProviderError,
+    KeyringConfigError,
+    LdapIdentityProvider,
+    LicenseService,
+    ProviderIdentityService,
+    identity_sync_errors,
+)
 import modules.models as models
 import modules.schemas as schemas
-from iam.audit.service import IAMAuditService
 from iam.deps import PermissionChecker, get_db, verify_admin_aud
-from modules.iam.services.crypto_keyring import BindPasswordKeyring, KeyringConfigError
-from modules.iam.services.identity.identity_service import ProviderIdentityService
-from modules.iam.services.identity.providers import IdentityProviderError, LdapIdentityProvider
-from modules.admin.services.license_service import LicenseService
 
 logger = logging.getLogger(__name__)
 
@@ -654,14 +659,21 @@ async def sync_directory_now(
     import json as _json
     import time as _time
 
-    from modules.iam.services.identity.sync_errors import (
-        SYNC_CURSOR_REGRESSION, SYNC_CURSOR_JUMP_ALERT, SYNC_CURSOR_COMMITTED,
-        SYNC_DELETE_GRACE_MARKED, SYNC_DELETE_GRACE_EXPIRED, SYNC_DELETE_WHITELIST_SKIP,
-        SYNC_DELETE_EXECUTED, SYNC_RECONCILE_DEPT_MISSING, SYNC_RECONCILE_UPDATED,
-        SYNC_STAGE_ORGS, SYNC_STAGE_GROUPS, SYNC_STAGE_USERS,
-        SYNC_STAGE_RECONCILE, SYNC_STAGE_DELETE,
-        DEFAULT_CURSOR_JUMP_THRESHOLD,
-    )
+    SYNC_CURSOR_REGRESSION = identity_sync_errors.SYNC_CURSOR_REGRESSION
+    SYNC_CURSOR_JUMP_ALERT = identity_sync_errors.SYNC_CURSOR_JUMP_ALERT
+    SYNC_CURSOR_COMMITTED = identity_sync_errors.SYNC_CURSOR_COMMITTED
+    SYNC_DELETE_GRACE_MARKED = identity_sync_errors.SYNC_DELETE_GRACE_MARKED
+    SYNC_DELETE_GRACE_EXPIRED = identity_sync_errors.SYNC_DELETE_GRACE_EXPIRED
+    SYNC_DELETE_WHITELIST_SKIP = identity_sync_errors.SYNC_DELETE_WHITELIST_SKIP
+    SYNC_DELETE_EXECUTED = identity_sync_errors.SYNC_DELETE_EXECUTED
+    SYNC_RECONCILE_DEPT_MISSING = identity_sync_errors.SYNC_RECONCILE_DEPT_MISSING
+    SYNC_RECONCILE_UPDATED = identity_sync_errors.SYNC_RECONCILE_UPDATED
+    SYNC_STAGE_ORGS = identity_sync_errors.SYNC_STAGE_ORGS
+    SYNC_STAGE_GROUPS = identity_sync_errors.SYNC_STAGE_GROUPS
+    SYNC_STAGE_USERS = identity_sync_errors.SYNC_STAGE_USERS
+    SYNC_STAGE_RECONCILE = identity_sync_errors.SYNC_STAGE_RECONCILE
+    SYNC_STAGE_DELETE = identity_sync_errors.SYNC_STAGE_DELETE
+    DEFAULT_CURSOR_JUMP_THRESHOLD = identity_sync_errors.DEFAULT_CURSOR_JUMP_THRESHOLD
 
     await LicenseService.require_feature(db, "ldap")
     config = await db.get(models.DirectoryConfig, directory_id)

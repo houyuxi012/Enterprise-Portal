@@ -8,8 +8,7 @@ import modules.schemas as schemas
 from sqlalchemy import select
 from datetime import timedelta
 from jose import JWTError, jwt
-from modules.iam.services.audit_service import AuditService
-from infrastructure.crypto_service import CryptoService
+from application.iam_app import AuditService, CryptoService, IdentityService
 
 router = APIRouter(prefix="/auth", tags=["auth"], deprecated=True)
 
@@ -23,7 +22,6 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: AsyncSession = Depends(get_db)
 ):
-    from iam.identity.service import IdentityService
     # Delegate to unified IAM service
     return await IdentityService.login(request, response, form_data, db)
 
@@ -33,7 +31,6 @@ async def logout(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    from iam.identity.service import IdentityService
     return await IdentityService.logout(response, request=request, db=db)
 
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):

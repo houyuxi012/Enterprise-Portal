@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.iam_app import ProviderIdentityService
 import modules.schemas as schemas
 from iam.deps import get_db
-from modules.iam.services.identity.identity_service import ProviderIdentityService
 
 router = APIRouter(prefix="/portal/auth", tags=["portal-auth"])
 

@@ -6,15 +6,15 @@ import modules.models as models
 import modules.schemas as schemas
 from sqlalchemy import select, delete as sa_delete
 from fastapi import Request
-from modules.iam.services.audit_service import AuditService
-from core.dependencies import PermissionChecker
-from modules.iam.routers.auth import get_current_user
-from modules.iam.services.password_policy import (
+from application.admin_app import (
+    AuditService,
     generate_compliant_password,
     get_password_policy_configs,
     set_user_password,
     validate_password,
 )
+from core.dependencies import PermissionChecker
+from modules.iam.routers.auth import get_current_user
 
 router = APIRouter(
     prefix="/employees",

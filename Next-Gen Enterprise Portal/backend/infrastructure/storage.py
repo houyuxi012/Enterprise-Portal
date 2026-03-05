@@ -1,13 +1,63 @@
 
 import os
+import hmac
+import hashlib
+import base64
 import shutil
 from abc import ABC, abstractmethod
-from typing import Optional, BinaryIO, Dict, Any
+from typing import Optional, BinaryIO, Dict, Any, Generator
 from minio import Minio
-from datetime import timedelta
 import logging
 
 logger = logging.getLogger(__name__)
+
+# ── File Token helpers (HMAC-SHA256 signed, URL-safe) ────────────────────
+
+def _get_token_secret() -> bytes:
+    """Return the HMAC signing key for file tokens."""
+    raw = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
+    return raw.encode("utf-8")
+
+
+def generate_file_token(filename: str) -> str:
+    """Generate an opaque, non-guessable token for a stored filename.
+
+    Format: ``{filename_b64url}.{hmac_b64url}``
+
+    * The caller never sees the raw object key in the URL.
+    * The HMAC prevents forgery (can't just base64-encode an arbitrary key).
+    """
+    name_bytes = filename.encode("utf-8")
+    name_b64 = base64.urlsafe_b64encode(name_bytes).decode("ascii").rstrip("=")
+    sig = hmac.new(_get_token_secret(), name_bytes, hashlib.sha256).digest()
+    sig_b64 = base64.urlsafe_b64encode(sig).decode("ascii").rstrip("=")
+    return f"{name_b64}.{sig_b64}"
+
+
+def resolve_file_token(token: str) -> Optional[str]:
+    """Verify an opaque file token and return the real filename, or *None*."""
+    parts = token.split(".", 1)
+    if len(parts) != 2:
+        return None
+    name_b64, sig_b64 = parts
+
+    # Restore base64 padding
+    name_b64_padded = name_b64 + "=" * (-len(name_b64) % 4)
+    sig_b64_padded = sig_b64 + "=" * (-len(sig_b64) % 4)
+
+    try:
+        name_bytes = base64.urlsafe_b64decode(name_b64_padded)
+        sig_bytes = base64.urlsafe_b64decode(sig_b64_padded)
+    except Exception:
+        return None
+
+    expected = hmac.new(_get_token_secret(), name_bytes, hashlib.sha256).digest()
+    if not hmac.compare_digest(sig_bytes, expected):
+        return None
+    return name_bytes.decode("utf-8")
+
+
+# ── Storage Providers ────────────────────────────────────────────────────
 
 class StorageProvider(ABC):
     @abstractmethod
@@ -17,13 +67,20 @@ class StorageProvider(ABC):
 
     @abstractmethod
     def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
-        """Get accessible URL. expires_in in seconds for presigned."""
+        """Get an accessible proxy URL for a file."""
         pass
 
     @abstractmethod
     async def delete(self, filename: str):
         """Delete file"""
         pass
+
+    def get_object_stream(self, filename: str):
+        """Return a (data_stream, content_type, content_length) tuple for proxy download.
+
+        The stream must be closed by the caller (or used inside a ``with`` block).
+        """
+        raise NotImplementedError
 
     def get_stats(self) -> Dict[str, Any]:
         """Get storage statistics (used, total, percent)"""
@@ -33,8 +90,6 @@ class LocalStorageProvider(StorageProvider):
     def __init__(self, upload_dir: str = "uploads"):
         self.upload_dir = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
-        # Base URL for local files (served via Nginx/Static)
-        self.base_url = "/uploads"
 
     async def upload(self, file_data: BinaryIO, filename: str, content_type: str, length: int) -> str:
         file_path = os.path.join(self.upload_dir, filename)
@@ -43,13 +98,24 @@ class LocalStorageProvider(StorageProvider):
         return filename
 
     def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
-        # Local static files don't support expiration naturally
-        return f"{self.base_url}/{filename}"
+        # Local storage: return proxy download URL (same as MinIO path)
+        token = generate_file_token(filename)
+        return f"/api/files/{token}"
 
     async def delete(self, filename: str):
         file_path = os.path.join(self.upload_dir, filename)
         if os.path.exists(file_path):
             os.remove(file_path)
+
+    def get_object_stream(self, filename: str):
+        """Return local file as stream."""
+        import mimetypes
+        file_path = os.path.join(self.upload_dir, filename)
+        if not os.path.exists(file_path):
+            return None, None, 0
+        content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+        size = os.path.getsize(file_path)
+        return open(file_path, "rb"), content_type, size
 
     def get_stats(self) -> Dict[str, Any]:
         """Get local storage stats by scanning upload directory"""
@@ -78,7 +144,6 @@ class MinioStorageProvider(StorageProvider):
         self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
         self.bucket = os.getenv("MINIO_BUCKET_NAME", "shiku-portal")
         self.secure = os.getenv("MINIO_SECURE", "False").lower() == "true"
-        self.external_endpoint = os.getenv("MINIO_EXTERNAL_ENDPOINT")
         
         # Initialize MinIO Client
         self.client = Minio(
@@ -107,47 +172,30 @@ class MinioStorageProvider(StorageProvider):
         return filename
 
     def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
-        if is_public:
-            # Use PUBLIC_BASE_URL if set (Strict Single Origin)
-            public_base = os.getenv("PUBLIC_BASE_URL")
-            if public_base:
-                # Format: {PUBLIC_BASE_URL}/minio/{bucket}/{filename}
-                # Remove trailing slash from base if present
-                public_base = public_base.rstrip("/")
-                return f"{public_base}/minio/{self.bucket}/{filename}"
+        """Return backend proxy URL — no external MinIO exposure.
 
-            # Return stable public URL (http://endpoint/bucket/filename)
-            # Use external endpoint if available, otherwise internal
-            base_endpoint = self.external_endpoint if self.external_endpoint else self.endpoint
-            
-            # Determine protocol for external access
-            external_proto = os.getenv("MINIO_EXTERNAL_PROTOCOL")
-            if external_proto:
-                protocol = external_proto
-            else:
-                protocol = "https" if self.secure else "http"
-            
-            return f"{protocol}://{base_endpoint}/{self.bucket}/{filename}"
+        All callers (public images, view_file, avatar, etc.) receive
+        ``/api/files/{token}`` which is served by the authenticated
+        proxy endpoint.
+        """
+        token = generate_file_token(filename)
+        return f"/api/files/{token}"
 
-        # Return Presigned URL
+    def get_object_stream(self, filename: str):
+        """Stream an object from MinIO for proxy download.
+
+        Returns ``(response, content_type, content_length)``.
+        The caller MUST call ``response.close()`` / ``response.release_conn()``
+        when finished.
+        """
         try:
-             url = self.client.get_presigned_url(
-                 "GET",
-                 self.bucket,
-                 filename,
-                 expires=timedelta(seconds=expires_in)
-             )
-             
-             if self.external_endpoint:
-                 # Replace internal endpoint with external endpoint in the URL
-                 # internal self.endpoint might be 'minio:9000', url might be 'http://minio:9000/...'
-                 if self.endpoint in url:
-                     url = url.replace(self.endpoint, self.external_endpoint)
-                     
-             return url
+            response = self.client.get_object(self.bucket, filename)
+            content_type = response.headers.get("Content-Type", "application/octet-stream")
+            content_length = int(response.headers.get("Content-Length", 0))
+            return response, content_type, content_length
         except Exception as e:
-            logger.error(f"Failed to generate presigned URL: {e}")
-            return ""
+            logger.error(f"Failed to stream object {filename}: {e}")
+            return None, None, 0
 
     async def delete(self, filename: str):
         self.client.remove_object(self.bucket, filename)
@@ -173,12 +221,6 @@ class MinioStorageProvider(StorageProvider):
             # Try to get real disk capacity from MinIO Admin API
             total_bytes = 0
             try:
-                # MinIO Prometheus metrics endpoint for disk info
-                # This requires MINIO_PROMETHEUS_AUTH_TYPE=public or we use internal API
-                admin_endpoint = f"http://{self.endpoint}/minio/admin/v3/info"
-                
-                # Build signed request using AWS Signature V4
-                # For simplicity, we'll try the Prometheus metrics endpoint first
                 metrics_url = f"http://{self.endpoint}/minio/v2/metrics/cluster"
                 
                 req = urllib.request.Request(metrics_url)
@@ -186,10 +228,8 @@ class MinioStorageProvider(StorageProvider):
                 
                 with urllib.request.urlopen(req, timeout=5) as response:
                     metrics_text = response.read().decode('utf-8')
-                    # Parse Prometheus metrics for disk capacity
                     for line in metrics_text.split('\n'):
                         if line.startswith('minio_cluster_capacity_raw_total_bytes'):
-                            # Format: minio_cluster_capacity_raw_total_bytes{...} 123456789
                             parts = line.split()
                             if len(parts) >= 2:
                                 total_bytes = int(float(parts[-1]))
@@ -197,7 +237,6 @@ class MinioStorageProvider(StorageProvider):
                 
             except Exception as admin_err:
                 logger.warning(f"Failed to get MinIO admin stats, using fallback: {admin_err}")
-                # Fallback to env var
                 total_bytes = int(os.getenv("MINIO_BUCKET_QUOTA_BYTES", str(10 * 1024 * 1024 * 1024)))
             
             if total_bytes == 0:

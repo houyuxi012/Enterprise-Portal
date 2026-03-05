@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.iam_app import IdentityService, LicenseService
 from core.database import get_db
 from iam.identity.schemas import SessionPingResponse
-from iam.identity.service import IdentityService
-from modules.admin.services.license_service import LicenseService
 
 router = APIRouter(
     prefix="/system/session",

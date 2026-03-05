@@ -14,8 +14,13 @@ import json
 import os
 import logging
 import re
-from modules.iam.services.audit_service import AuditService
-from modules.admin.services.license_service import LicenseService
+from application.admin_app import (
+    AuditService,
+    LicenseService,
+    LogQuery,
+    get_log_repository,
+    invalidate_forwarding_cache,
+)
 from pydantic import BaseModel, Field
 
 router = APIRouter(
@@ -472,8 +477,6 @@ async def create_log_config(
     _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
-    from modules.admin.services.log_forwarder import invalidate_forwarding_cache
-
     normalized_log_types = _parse_log_types_field(config.log_types)
     payload = config.dict()
     payload["log_types"] = json.dumps(
@@ -515,8 +518,6 @@ async def delete_log_config(
     _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
-    from modules.admin.services.log_forwarder import invalidate_forwarding_cache
-
     result = await db.execute(select(models.LogForwardingConfig).filter(models.LogForwardingConfig.id == config_id))
     db_config = result.scalars().first()
     if not db_config:
@@ -560,8 +561,6 @@ async def read_access_logs(
     Access logs are NOT stored in the database.
     Uses LogRepository for unified abstraction.
     """
-    from modules.admin.services.log_repository import get_log_repository, LogQuery
-    
     repo = get_log_repository()
     if not repo:
         await _record_log_query_audit(
