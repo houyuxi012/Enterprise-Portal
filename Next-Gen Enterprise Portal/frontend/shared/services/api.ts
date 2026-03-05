@@ -5,6 +5,12 @@ import {
   QuickTool,
   Announcement,
   CarouselItem,
+  User,
+  Role,
+  Permission,
+  Department,
+  RoleCreate,
+  RoleUpdate,
   AIProvider,
   AISecurityPolicy,
   AIModelOption,
@@ -104,14 +110,49 @@ export interface UserNotificationDTO {
   read_at?: string | null;
 }
 
+export interface UserCreatePayload {
+  username: string;
+  password: string;
+  email: string;
+  role_ids?: number[];
+  name?: string;
+  is_active?: boolean;
+}
+
+export interface UserUpdatePayload {
+  email?: string;
+  role_ids?: number[];
+  is_active?: boolean;
+  name?: string;
+}
+
+export interface ChangePasswordPayload {
+  old_password: string;
+  new_password: string;
+}
+
+export interface DepartmentCreatePayload {
+  name: string;
+  parent_id?: number | null;
+  manager?: string;
+  description?: string;
+}
+
+export type DepartmentUpdatePayload = Partial<DepartmentCreatePayload>;
+
+type ApiMessageResponse = {
+  message?: string;
+} & Record<string, unknown>;
+
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
     const response = await api.get<Employee[]>('/employees/?limit=1000');
     // Safety & Debug Check
     if (!Array.isArray(response.data)) {
       console.error("API Error [getEmployees]: Expected array, got:", response.data);
-      if ((response.data as any)?.detail) {
-        console.error("Auth/Server Error Details:", (response.data as any).detail);
+      const detail = (response.data as { detail?: unknown } | null | undefined)?.detail;
+      if (detail) {
+        console.error("Auth/Server Error Details:", detail);
       }
       return []; // Fallback to prevent crash
     }
@@ -300,8 +341,8 @@ export const ApiClient = {
   },
 
   // Admin - Users
-  getUsers: async (): Promise<any[]> => {
-    const response = await api.get('/iam/admin/users');
+  getUsers: async (): Promise<User[]> => {
+    const response = await api.get<User[]>('/iam/admin/users');
     return response.data;
   },
 
@@ -310,15 +351,13 @@ export const ApiClient = {
     return response.data;
   },
 
-  createUser: async (data: any): Promise<any> => {
-
-    const response = await api.post('/iam/admin/users', data);
+  createUser: async (data: UserCreatePayload): Promise<User> => {
+    const response = await api.post<User>('/iam/admin/users', data);
     return response.data;
   },
 
-  updateUser: async (id: number, data: any): Promise<any> => {
-
-    const response = await api.put(`/iam/admin/users/${id}`, data);
+  updateUser: async (id: number, data: UserUpdatePayload): Promise<User> => {
+    const response = await api.put<User>(`/iam/admin/users/${id}`, data);
     return response.data;
   },
 
@@ -332,21 +371,21 @@ export const ApiClient = {
     return response.data;
   },
 
-  changeMyPassword: async (data: any): Promise<any> => {
+  changeMyPassword: async (data: ChangePasswordPayload): Promise<ApiMessageResponse> => {
     const audience = getRuntimeScopePrefix() === '/admin' ? 'admin' : 'portal';
-    const response = await api.put('/iam/users/me/password', data, {
+    const response = await api.put<ApiMessageResponse>('/iam/users/me/password', data, {
       params: { audience },
     });
     return response.data;
   },
 
-  grantPortalAdmin: async (id: number): Promise<any> => {
-    const response = await api.post(`/iam/admin/users/${id}/portal-admin/grant`);
+  grantPortalAdmin: async (id: number): Promise<ApiMessageResponse> => {
+    const response = await api.post<ApiMessageResponse>(`/iam/admin/users/${id}/portal-admin/grant`);
     return response.data;
   },
 
-  revokePortalAdmin: async (id: number): Promise<any> => {
-    const response = await api.post(`/iam/admin/users/${id}/portal-admin/revoke`);
+  revokePortalAdmin: async (id: number): Promise<ApiMessageResponse> => {
+    const response = await api.post<ApiMessageResponse>(`/iam/admin/users/${id}/portal-admin/revoke`);
     return response.data;
   },
 
@@ -368,21 +407,18 @@ export const ApiClient = {
     return response.data;
   },
 
-  getRoles: async (): Promise<any[]> => {
-
-    const response = await api.get('/iam/admin/roles');
+  getRoles: async (): Promise<Role[]> => {
+    const response = await api.get<Role[]>('/iam/admin/roles');
     return response.data;
   },
 
-  createRole: async (data: any): Promise<any> => {
-
-    const response = await api.post('/iam/admin/roles', data);
+  createRole: async (data: RoleCreate): Promise<Role> => {
+    const response = await api.post<Role>('/iam/admin/roles', data);
     return response.data;
   },
 
-  updateRole: async (id: number, data: any): Promise<any> => {
-
-    const response = await api.put(`/iam/admin/roles/${id}`, data);
+  updateRole: async (id: number, data: RoleUpdate): Promise<Role> => {
+    const response = await api.put<Role>(`/iam/admin/roles/${id}`, data);
     return response.data;
   },
 
@@ -391,27 +427,23 @@ export const ApiClient = {
     await api.delete(`/iam/admin/roles/${id}`);
   },
 
-  getPermissions: async (): Promise<any[]> => {
-
-    const response = await api.get('/iam/admin/permissions');
+  getPermissions: async (): Promise<Permission[]> => {
+    const response = await api.get<Permission[]>('/iam/admin/permissions');
     return response.data;
   },
 
-  getDepartments: async (): Promise<any[]> => {
-
-    const response = await api.get('/departments/');
+  getDepartments: async (): Promise<Department[]> => {
+    const response = await api.get<Department[]>('/departments/');
     return response.data;
   },
 
-  createDepartment: async (data: any): Promise<any> => {
-
-    const response = await api.post('/departments/', data);
+  createDepartment: async (data: DepartmentCreatePayload): Promise<Department> => {
+    const response = await api.post<Department>('/departments/', data);
     return response.data;
   },
 
-  updateDepartment: async (id: number, data: any): Promise<any> => {
-
-    const response = await api.put(`/departments/${id}`, data);
+  updateDepartment: async (id: number, data: DepartmentUpdatePayload): Promise<Department> => {
+    const response = await api.put<Department>(`/departments/${id}`, data);
     return response.data;
   },
 
