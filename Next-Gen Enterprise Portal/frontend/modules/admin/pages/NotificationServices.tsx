@@ -57,6 +57,40 @@ interface NotificationHealthState {
     };
 }
 
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: unknown;
+        };
+    };
+};
+
+type FormValidationErrorShape = {
+    errorFields?: unknown;
+};
+
+const hasFormValidationErrors = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+    const errorFields = (error as FormValidationErrorShape).errorFields;
+    return Array.isArray(errorFields) && errorFields.length > 0;
+};
+
+const resolveErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail === 'object' && 'message' in detail) {
+        const messageValue = (detail as { message?: unknown }).message;
+        if (typeof messageValue === 'string' && messageValue.trim()) {
+            return messageValue;
+        }
+    }
+    return fallback;
+};
+
 const NotificationServices: React.FC = () => {
     const { t } = useTranslation();
     const [smtpForm] = Form.useForm();
@@ -81,7 +115,7 @@ const NotificationServices: React.FC = () => {
     const loadNotificationConfig = async () => {
         try {
             const data = await ApiClient.getSystemConfig();
-            const config = data as Record<string, string>;
+            const config = data;
             const host = config['smtp_host'] || '';
             const telegramToken = config['telegram_bot_token'] || '';
             const telegramChatId = config['telegram_chat_id'] || '';
@@ -143,7 +177,7 @@ const NotificationServices: React.FC = () => {
         setHealthLoading(true);
         try {
             const data = await ApiClient.getNotificationHealth();
-            setHealth(data as NotificationHealthState);
+            setHealth(data);
         } catch {
             // ignore
         } finally {
@@ -169,8 +203,8 @@ const NotificationServices: React.FC = () => {
             message.success(t('notificationServices.messages.smtpSaved'));
             setSmtpConfigured(true);
             await loadNotificationHealth();
-        } catch (err: any) {
-            if (err?.errorFields) return; // form validation
+        } catch (err: unknown) {
+            if (hasFormValidationErrors(err)) return; // form validation
             message.error(t('notificationServices.messages.saveFailed'));
         } finally {
             setSmtpSaving(false);
@@ -194,9 +228,8 @@ const NotificationServices: React.FC = () => {
             }
             await ApiClient.testSmtp(toEmail);
             message.success(t('notificationServices.messages.smtpTestSuccess'));
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
-            message.error(detail?.message || detail || t('notificationServices.messages.smtpTestFailed'));
+        } catch (err: unknown) {
+            message.error(resolveErrorMessage(err, t('notificationServices.messages.smtpTestFailed')));
         } finally {
             setSmtpTesting(false);
         }
@@ -221,8 +254,8 @@ const NotificationServices: React.FC = () => {
             setTelegramConfigured(Boolean(values.telegram_bot_token && values.telegram_chat_id));
             message.success(t('notificationServices.messages.telegramSaved'));
             await loadNotificationHealth();
-        } catch (err: any) {
-            if (err?.errorFields) return;
+        } catch (err: unknown) {
+            if (hasFormValidationErrors(err)) return;
             message.error(t('notificationServices.messages.saveFailed'));
         } finally {
             setTelegramSaving(false);
@@ -241,9 +274,8 @@ const NotificationServices: React.FC = () => {
                 message: values.telegram_test_message || t('notificationServices.telegram.defaultTestMessage'),
             });
             message.success(t('notificationServices.messages.telegramTestSuccess'));
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
-            message.error(detail?.message || detail || t('notificationServices.messages.telegramTestFailed'));
+        } catch (err: unknown) {
+            message.error(resolveErrorMessage(err, t('notificationServices.messages.telegramTestFailed')));
         } finally {
             setTelegramTesting(false);
         }
@@ -307,8 +339,8 @@ const NotificationServices: React.FC = () => {
             setSmsConfigured(true);
             message.success(t('notificationServices.messages.smsSaved'));
             await loadNotificationHealth();
-        } catch (err: any) {
-            if (err?.errorFields) return;
+        } catch (err: unknown) {
+            if (hasFormValidationErrors(err)) return;
             message.error(t('notificationServices.messages.saveFailed'));
         } finally {
             setSmsSaving(false);
@@ -351,9 +383,8 @@ const NotificationServices: React.FC = () => {
                 twilio_messaging_service_sid: values.twilio_messaging_service_sid || undefined,
             });
             message.success(t('notificationServices.messages.smsTestSuccess'));
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
-            message.error(detail?.message || detail || t('notificationServices.messages.smsTestFailed'));
+        } catch (err: unknown) {
+            message.error(resolveErrorMessage(err, t('notificationServices.messages.smsTestFailed')));
         } finally {
             setSmsTesting(false);
         }
