@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Todo, PaginatedTodoResponse } from '@/types';
 import { triggerSessionInvalid } from './sessionGuard';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
