@@ -5,9 +5,23 @@ import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import AppButton from '@/shared/components/AppButton';
 
+type LockoutScope = 'account' | 'ip';
+
+type SecuritySettingsFormValues = {
+    security_login_max_retries: number;
+    security_lockout_duration: number;
+    security_lockout_scope: LockoutScope;
+    max_concurrent_sessions: number;
+    login_session_timeout_minutes: number;
+    admin_session_timeout_minutes: number;
+    login_session_absolute_timeout_minutes: number;
+    login_captcha_threshold: number;
+    security_ip_allowlist?: string;
+};
+
 const SecuritySettings: React.FC = () => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<SecuritySettingsFormValues>();
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -40,7 +54,7 @@ const SecuritySettings: React.FC = () => {
         fetchConfig();
     }, [form, t]);
 
-    const handleSave = async (values: any) => {
+    const handleSave = async (values: SecuritySettingsFormValues) => {
         setLoading(true);
         try {
             // Convert types back to string for storage
