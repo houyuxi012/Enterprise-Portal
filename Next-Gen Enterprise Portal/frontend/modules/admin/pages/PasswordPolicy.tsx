@@ -5,9 +5,21 @@ import { useTranslation } from 'react-i18next';
 import AppButton from '@/shared/components/AppButton';
 import ApiClient from '@/services/api';
 
+type PasswordPolicyFormValues = {
+    security_password_min_length: number;
+    security_password_require_uppercase: boolean;
+    security_password_require_lowercase: boolean;
+    security_password_require_numbers: boolean;
+    security_password_require_symbols: boolean;
+    security_password_max_age_days: number;
+    security_password_prevent_history_reuse: number;
+    security_password_check_user_info: boolean;
+    security_force_change_password_after_reset: boolean;
+};
+
 const PasswordPolicy: React.FC = () => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<PasswordPolicyFormValues>();
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -33,7 +45,7 @@ const PasswordPolicy: React.FC = () => {
         fetchConfig();
     }, [form, t]);
 
-    const handleSave = async (values: any) => {
+    const handleSave = async (values: PasswordPolicyFormValues) => {
         setLoading(true);
         try {
             const payload = {
