@@ -260,6 +260,111 @@ export interface IAMAuditListResponse {
   items: IAMAuditLogItem[];
 }
 
+export interface KBDocumentSummary {
+  id: number;
+  title: string;
+  source_type: string;
+  tags?: string[];
+  acl?: string[];
+  status: string;
+  chunk_count: number;
+  created_at: string | null;
+}
+
+export interface KBDocumentUpsertPayload {
+  title: string;
+  content: string;
+  source_type: string;
+  tags?: string[];
+  acl?: string[];
+}
+
+export interface KBStatsResponse {
+  total_documents: number;
+  total_chunks: number;
+  total_queries: number;
+  strong_hits: number;
+  weak_hits: number;
+  misses: number;
+}
+
+export interface KBReindexResponse {
+  message: string;
+  id: number;
+}
+
+export interface KBQueryChunk {
+  chunk_id: number;
+  doc_id: number;
+  doc_title: string;
+  section: string;
+  content: string;
+  score: number;
+}
+
+export interface KBQueryResponse {
+  hit_level: 'strong' | 'weak' | 'miss' | string;
+  top_score: number;
+  chunks: KBQueryChunk[];
+}
+
+export interface WebAuthnCredentialDescriptor {
+  type: string;
+  id: string;
+  transports?: string[];
+}
+
+export interface WebAuthnRegisterOptions {
+  challenge: string;
+  rp?: {
+    id?: string;
+    name?: string;
+  };
+  user: {
+    id: string;
+    name: string;
+    displayName?: string;
+  };
+  pubKeyCredParams?: Array<{
+    type: string;
+    alg: number;
+  }>;
+  timeout?: number;
+  excludeCredentials?: WebAuthnCredentialDescriptor[];
+  authenticatorSelection?: Record<string, unknown>;
+  attestation?: string;
+  extensions?: Record<string, unknown>;
+}
+
+export interface WebAuthnRegisterCredentialPayload {
+  id: string;
+  rawId: string;
+  type: string;
+  response: {
+    attestationObject: string;
+    clientDataJSON: string;
+    transports?: string[];
+  };
+}
+
+export interface WebAuthnRegisterVerifyResponse {
+  message: string;
+  credential: {
+    id: number;
+    name: string;
+    created_at: string | null;
+  };
+}
+
+export interface WebAuthnAuthOptions {
+  challenge: string;
+  timeout?: number;
+  rpId?: string;
+  allowCredentials?: WebAuthnCredentialDescriptor[];
+  userVerification?: string;
+  extensions?: Record<string, unknown>;
+}
+
 export const ApiClient = {
   getEmployees: async (): Promise<Employee[]> => {
     const response = await api.get<Employee[]>('/employees/?limit=1000');
@@ -905,28 +1010,28 @@ export const ApiClient = {
   },
 
   // Knowledge Base
-  getKBDocuments: async (): Promise<any[]> => {
-    const response = await api.get('/kb/documents');
+  getKBDocuments: async (): Promise<KBDocumentSummary[]> => {
+    const response = await api.get<KBDocumentSummary[]>('/kb/documents');
     return response.data;
   },
 
-  getKBDocumentDetail: async (id: number): Promise<any> => {
-    const response = await api.get(`/kb/documents/${id}`);
+  getKBDocumentDetail: async (id: number): Promise<KBDocumentUpsertPayload> => {
+    const response = await api.get<KBDocumentUpsertPayload>(`/kb/documents/${id}`);
     return response.data;
   },
 
-  getKBStats: async (): Promise<any> => {
-    const response = await api.get('/kb/stats');
+  getKBStats: async (): Promise<KBStatsResponse> => {
+    const response = await api.get<KBStatsResponse>('/kb/stats');
     return response.data;
   },
 
-  createKBDocument: async (data: any): Promise<any> => {
-    const response = await api.post('/kb/documents', data);
+  createKBDocument: async (data: KBDocumentUpsertPayload): Promise<KBDocumentSummary> => {
+    const response = await api.post<KBDocumentSummary>('/kb/documents', data);
     return response.data;
   },
 
-  updateKBDocument: async (id: number, data: any): Promise<any> => {
-    const response = await api.put(`/kb/documents/${id}`, data);
+  updateKBDocument: async (id: number, data: KBDocumentUpsertPayload): Promise<KBDocumentSummary> => {
+    const response = await api.put<KBDocumentSummary>(`/kb/documents/${id}`, data);
     return response.data;
   },
 
@@ -934,13 +1039,13 @@ export const ApiClient = {
     await api.delete(`/kb/documents/${id}`);
   },
 
-  reindexKBDocument: async (id: number): Promise<any> => {
-    const response = await api.post(`/kb/documents/${id}/reindex`);
+  reindexKBDocument: async (id: number): Promise<KBReindexResponse> => {
+    const response = await api.post<KBReindexResponse>(`/kb/documents/${id}/reindex`);
     return response.data;
   },
 
-  queryKB: async (query: string, topK: number = 5): Promise<any> => {
-    const response = await api.post('/kb/query', { query, top_k: topK });
+  queryKB: async (query: string, topK: number = 5): Promise<KBQueryResponse> => {
+    const response = await api.post<KBQueryResponse>('/kb/query', { query, top_k: topK });
     return response.data;
   },
 
@@ -1023,22 +1128,26 @@ export const ApiClient = {
     return response.data;
   },
 
-  getWebAuthnRegisterOptions: async (audience: 'portal' | 'admin' = 'portal'): Promise<any> => {
-    const response = await api.post('/mfa/webauthn/register/options', {}, { params: { audience } });
+  getWebAuthnRegisterOptions: async (audience: 'portal' | 'admin' = 'portal'): Promise<WebAuthnRegisterOptions> => {
+    const response = await api.post<WebAuthnRegisterOptions>('/mfa/webauthn/register/options', {}, { params: { audience } });
     return response.data;
   },
 
-  verifyWebAuthnRegister: async (credential: any, name: string, audience: 'portal' | 'admin' = 'portal'): Promise<any> => {
-    const response = await api.post('/mfa/webauthn/register/verify', { credential, name }, { params: { audience } });
+  verifyWebAuthnRegister: async (
+    credential: WebAuthnRegisterCredentialPayload,
+    name: string,
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<WebAuthnRegisterVerifyResponse> => {
+    const response = await api.post<WebAuthnRegisterVerifyResponse>('/mfa/webauthn/register/verify', { credential, name }, { params: { audience } });
     return response.data;
   },
 
   getWebAuthnAuthOptions: async (
     mfaToken?: string,
     audience: 'portal' | 'admin' = 'portal',
-  ): Promise<any> => {
+  ): Promise<WebAuthnAuthOptions> => {
     const params = mfaToken ? { mfa_token: mfaToken, audience } : { audience };
-    const response = await api.post('/mfa/webauthn/authenticate/options', {}, { params });
+    const response = await api.post<WebAuthnAuthOptions>('/mfa/webauthn/authenticate/options', {}, { params });
     return response.data;
   },
 
