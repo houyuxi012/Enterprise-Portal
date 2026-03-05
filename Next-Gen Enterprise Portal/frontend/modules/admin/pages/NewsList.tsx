@@ -6,7 +6,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { NewsItem } from '@/types';
 import ApiClient from '@/services/api';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
     AppButton,
@@ -32,13 +32,43 @@ const { TextArea } = Input;
 
 const CATEGORY_CODES = ['announcement', 'activity', 'policy', 'culture'] as const;
 
+type NewsFormValues = {
+    title: string;
+    summary: string;
+    category: string;
+    date: Dayjs;
+    author: string;
+    image: string;
+    is_top?: boolean;
+};
+
+type ApiErrorShape = {
+    message?: string;
+    response?: {
+        data?: {
+            detail?: unknown;
+        };
+    };
+};
+
+const resolveErrorMessage = (error: unknown, fallback: string): string => {
+    const normalized = (error as ApiErrorShape) || {};
+    const detail = normalized.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (detail && typeof detail === 'object') {
+        return JSON.stringify(detail);
+    }
+    if (normalized.message && normalized.message.trim()) return normalized.message;
+    return fallback;
+};
+
 const NewsList: React.FC = () => {
     const { t, i18n } = useTranslation();
     const [news, setNews] = useState<NewsItem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
     const [textSearch, setTextSearch] = useState('');
-    const [form] = AppForm.useForm();
+    const [form] = AppForm.useForm<NewsFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const categoryAliases = React.useMemo(() => {
@@ -80,9 +110,9 @@ const NewsList: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: any) => {
+    const handleDelete = async (id: number | string) => {
         try {
-            await ApiClient.deleteNews(id);
+            await ApiClient.deleteNews(Number(id));
             message.success(t('newsList.messages.deleteSuccess'));
             fetchNews();
         } catch (error) {
@@ -140,7 +170,7 @@ const NewsList: React.FC = () => {
     const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) =>
         setFileList(newFileList);
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: NewsFormValues) => {
         try {
             setSubmitLoading(true);
             const payload = {
@@ -149,17 +179,16 @@ const NewsList: React.FC = () => {
             };
 
             if (editingNews) {
-                await ApiClient.updateNews(Number(editingNews.id), payload);
+                await ApiClient.updateNews(Number(editingNews.id), payload as Partial<NewsItem>);
                 message.success(t('newsList.messages.updateSuccess'));
             } else {
-                await ApiClient.createNews(payload);
+                await ApiClient.createNews(payload as Partial<NewsItem>);
                 message.success(t('newsList.messages.createSuccess'));
             }
             setIsModalOpen(false);
             fetchNews();
-        } catch (error: any) {
-            const errorDetail = error?.response?.data?.detail || error?.message || t('newsList.messages.unknownError');
-            const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
+        } catch (error: unknown) {
+            const errorMsg = resolveErrorMessage(error, t('newsList.messages.unknownError'));
             message.error(t('newsList.messages.actionFailed', { reason: errorMsg }));
         } finally {
             setSubmitLoading(false);
@@ -221,7 +250,7 @@ const NewsList: React.FC = () => {
             title: t('newsList.table.actions'),
             key: 'action',
             width: 160,
-            render: (_: any, record: NewsItem) => (
+            render: (_: unknown, record: NewsItem) => (
                 <div className="flex gap-2">
                     <AppButton
                         intent="tertiary"
