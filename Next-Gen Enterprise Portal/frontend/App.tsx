@@ -1,5 +1,5 @@
 import AppRouteGuards from './router/AppRouteGuards';
-import { useAppController } from './hooks/useAppController';
+import { useAppController } from './app/hooks/useAppController';
 
 const App = () => {
   const guardProps = useAppController();
