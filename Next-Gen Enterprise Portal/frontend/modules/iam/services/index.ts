@@ -1,2 +1,2 @@
-export { default as ApiClient } from '@/services/api';
-export { default as DirectoryService } from '@/services/directory';
+export { default as ApiClient } from '@/shared/services/api';
+export { default as DirectoryService } from '@/shared/services/directory';

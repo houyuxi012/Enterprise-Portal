@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ApiClient from '@/services/api';
+import ApiClient from '@/shared/services/api';
 import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;

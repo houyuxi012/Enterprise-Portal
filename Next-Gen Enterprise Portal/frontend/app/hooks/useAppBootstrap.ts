@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
-import ApiClient from '@/services/api';
-import TodoService from '@/services/todos';
+import ApiClient from '@/shared/services/api';
+import TodoService from '@/shared/services/todos';
 import { hasAdminAccess } from '@/utils/adminAccess';
 
 export type LicenseGateMode = 'full' | 'blocked' | 'read_only';
