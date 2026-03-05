@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Key } from 'lucide-react';
 import { User, Role } from '@/types';
-import ApiClient from '@/services/api';
+import ApiClient, { type UserCreatePayload, type UserUpdatePayload } from '@/services/api';
 import { message, Select, Switch, Input, Popconfirm, Card } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,32 @@ import {
 import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI18n';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 
+type SystemUserFormValues = {
+    username: string;
+    password?: string;
+    email: string;
+    role_ids: number[];
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: { message?: string } | string;
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail.message === 'string' && detail.message.trim()) {
+        return detail.message;
+    }
+    return fallback;
+};
+
 const SystemUserList: React.FC = () => {
     const { t } = useTranslation();
     const [users, setUsers] = useState<User[]>([]);
@@ -29,7 +55,7 @@ const SystemUserList: React.FC = () => {
     const [resettingUsernames, setResettingUsernames] = useState<Record<string, boolean>>({});
     const currentLocale = getCurrentLocale();
 
-    const [form] = AppForm.useForm();
+    const [form] = AppForm.useForm<SystemUserFormValues>();
 
     useEffect(() => {
         fetchData();
@@ -75,13 +101,8 @@ const SystemUserList: React.FC = () => {
             } else {
                 message.success(t('systemUserList.messages.resetSuccess', { username }));
             }
-        } catch (error: any) {
-            const detail = error?.response?.data?.detail;
-            const errorMsg =
-                typeof detail === 'string'
-                    ? detail
-                    : detail?.message || t('systemUserList.messages.resetFailed');
-            message.error(errorMsg);
+        } catch (error: unknown) {
+            message.error(resolveApiErrorMessage(error, t('systemUserList.messages.resetFailed')));
         } finally {
             setResettingUsernames((prev) => ({ ...prev, [username]: false }));
         }
@@ -104,28 +125,30 @@ const SystemUserList: React.FC = () => {
         setIsEditorOpen(true);
     };
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: SystemUserFormValues) => {
         setSubmitting(true);
         try {
             if (editingUser) {
-                await ApiClient.updateUser(editingUser.id, {
+                const payload: UserUpdatePayload = {
                     email: values.email,
-                    role_ids: values.role_ids
-                });
+                    role_ids: values.role_ids,
+                };
+                await ApiClient.updateUser(editingUser.id, payload);
                 message.success(t('systemUserList.messages.updateSuccess'));
             } else {
-                await ApiClient.createUser(values);
+                const payload: UserCreatePayload = {
+                    username: values.username,
+                    password: values.password ?? '',
+                    email: values.email,
+                    role_ids: values.role_ids,
+                };
+                await ApiClient.createUser(payload);
                 message.success(t('systemUserList.messages.createSuccess'));
             }
             setIsEditorOpen(false);
             fetchData();
-        } catch (error: any) {
-            const detail = error?.response?.data?.detail;
-            const errorMsg =
-                typeof detail === 'string'
-                    ? detail
-                    : detail?.message || t('systemUserList.messages.saveFailed');
-            message.error(errorMsg);
+        } catch (error: unknown) {
+            message.error(resolveApiErrorMessage(error, t('systemUserList.messages.saveFailed')));
         } finally {
             setSubmitting(false);
         }
@@ -163,7 +186,7 @@ const SystemUserList: React.FC = () => {
             render: (text: string, record: User) => (
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-medium text-slate-600 dark:text-slate-300 text-sm overflow-hidden">
-                        {hasAdminAccess(record as any) ? (
+                        {hasAdminAccess(record) ? (
                             <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
                         ) : (
                             record.avatar ? (
@@ -229,7 +252,7 @@ const SystemUserList: React.FC = () => {
             key: 'action',
             width: 140,
             align: 'right',
-            render: (_: any, record: User) => (
+            render: (_: unknown, record: User) => (
                 <div className="flex justify-end gap-1">
                     <AppButton
                         intent="tertiary"
