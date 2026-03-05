@@ -1,8 +1,9 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Spin } from 'antd';
+import { moduleRouteRegistry } from '../app/router';
 
-const Login = lazy(() => import('../pages/Login'));
-const AdminLogin = lazy(() => import('../pages/admin/AdminLogin'));
+const { login: Login } = moduleRouteRegistry.portal;
+const { login: AdminLogin } = moduleRouteRegistry.admin;
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 

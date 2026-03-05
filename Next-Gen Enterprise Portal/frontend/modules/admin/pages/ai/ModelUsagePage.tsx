@@ -1,0 +1,206 @@
+import React, { useState, useEffect } from 'react';
+import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch, Card } from 'antd';
+import { EditOutlined, BarChartOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import ApiClient from '@/services/api';
+import AppButton from '@/components/AppButton';
+
+const ModelUsagePage: React.FC = () => {
+    const { t } = useTranslation();
+    const [data, setData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [timeRange, setTimeRange] = useState<number>(30 * 24); // Default 30 Days
+    const [showAllModels, setShowAllModels] = useState(false); // Default: Only Active
+
+    // Edit Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingModel, setEditingModel] = useState<any>(null);
+    const [form] = Form.useForm();
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const res = await ApiClient.getAIModelUsage(timeRange);
+            setData(res);
+        } catch (error) {
+            console.error(error);
+            message.error(t('modelUsagePage.messages.loadFailed'));
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [timeRange]);
+
+    const handleEdit = (record: any) => {
+        setEditingModel(record);
+        form.setFieldsValue({
+            daily_token_limit: record.daily_token_limit,
+            daily_request_limit: record.daily_request_limit
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            const values = await form.validateFields();
+            await ApiClient.updateAIModelQuota({
+                model_name: editingModel.model_name,
+                ...values
+            });
+            message.success(t('modelUsagePage.messages.updateSuccess'));
+            setIsModalOpen(false);
+            fetchData();
+        } catch (error) {
+            message.error(t('modelUsagePage.messages.updateFailed'));
+        }
+    };
+
+    const columns = [
+        {
+            title: t('modelUsagePage.table.modelName'),
+            dataIndex: 'model_name',
+            key: 'model_name',
+            render: (text: string, record: any) => (
+                <div className="flex items-center space-x-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
+                    {!record.is_active && (
+                        <Tag color="default" variant="filled" className="text-xs">{t('modelUsagePage.status.history')}</Tag>
+                    )}
+                    {record.is_active && (
+                        <Tag color="blue" variant="filled" className="text-xs">{t('modelUsagePage.status.configured')}</Tag>
+                    )}
+                </div>
+            )
+        },
+        {
+            title: t('modelUsagePage.table.periodTokens'),
+            dataIndex: 'period_tokens',
+            key: 'period_tokens',
+            width: 150,
+            render: (val: number) => <span className="font-black text-slate-800 dark:text-white">{val?.toLocaleString() || 0}</span>,
+            sorter: (a: any, b: any) => (a.period_tokens || 0) - (b.period_tokens || 0),
+        },
+        {
+            title: t('modelUsagePage.table.peakDailyTokens'),
+            dataIndex: 'peak_daily_tokens',
+            key: 'peak_daily_tokens',
+            render: (val: number) => <span className="font-medium">{val?.toLocaleString() || 0}</span>,
+            sorter: (a: any, b: any) => (a.peak_daily_tokens || 0) - (b.peak_daily_tokens || 0),
+        },
+        {
+            title: t('modelUsagePage.table.dailyTokenLimit'),
+            dataIndex: 'daily_token_limit',
+            key: 'daily_token_limit',
+            width: 300,
+            render: (val: number, record: any) => {
+                if (!val || val === 0) return <Tag color="green">{t('modelUsagePage.status.unlimited')}</Tag>;
+
+                const peak = record.peak_daily_tokens || 0;
+                const percent = Math.min((peak / val) * 100, 100);
+                let color = 'success';
+                if (percent > 80) color = 'warning';
+
+                return (
+                    <div className="w-full">
+                        <div className="flex justify-between text-xs mb-1 text-slate-500 dark:text-slate-400">
+                            <span>{val.toLocaleString()}</span>
+                            <span className={percent >= 100 ? 'text-rose-500 font-bold' : ''}>
+                                {t('modelUsagePage.table.peakRatio', { percent: percent.toFixed(1) })}
+                            </span>
+                        </div>
+                        <Progress percent={percent} size="small" status={percent >= 100 ? 'exception' : 'active'} strokeColor={percent >= 100 ? '#f43f5e' : (percent > 80 ? '#f59e0b' : '#10b981')} showInfo={false} />
+                    </div>
+                );
+            }
+        },
+        {
+            title: t('modelUsagePage.table.todayTokens'),
+            dataIndex: 'current_daily_tokens',
+            key: 'current_daily_tokens',
+            render: (val: number) => <span className="font-medium text-blue-600 dark:text-blue-400">{val?.toLocaleString() || 0}</span>
+        },
+        {
+            title: t('modelUsagePage.table.actions'),
+            key: 'action',
+            render: (_: any, record: any) => (
+                <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>{t('modelUsagePage.actions.setQuota')}</AppButton>
+            )
+        }
+    ];
+
+    const filteredData = showAllModels ? data : data.filter(item => item.is_active);
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+                        <BarChartOutlined className="text-blue-600" />
+                        {t('modelUsagePage.page.title')}
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('modelUsagePage.page.subtitle')}</p>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <Select
+                        value={timeRange}
+                        onChange={setTimeRange}
+                        style={{ width: 140 }}
+                        className="font-bold"
+                        options={[
+                            { label: t('modelUsagePage.filters.last1h'), value: 1 },
+                            { label: t('modelUsagePage.filters.last24h'), value: 24 },
+                            { label: t('modelUsagePage.filters.last7d'), value: 7 * 24 },
+                            { label: t('modelUsagePage.filters.last30d'), value: 30 * 24 },
+                            { label: t('modelUsagePage.filters.last90d'), value: 90 * 24 },
+                        ]}
+                    />
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{t('modelUsagePage.filters.showHistory')}</span>
+                        <Switch checked={showAllModels} onChange={setShowAllModels} />
+                    </div>
+                </div>
+            </div>
+
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                <Table
+                    columns={columns}
+                    dataSource={filteredData}
+                    rowKey="model_name"
+                    loading={loading}
+                    pagination={false}
+                    locale={{ emptyText: t('modelUsagePage.table.empty') }}
+                    className="align-middle"
+                />
+            </Card>
+
+            <Modal
+                title={t('modelUsagePage.modal.title', { modelName: editingModel?.model_name || '-' })}
+                open={isModalOpen}
+                onOk={handleSave}
+                onCancel={() => setIsModalOpen(false)}
+                className="mica-modal"
+            >
+                <Form form={form} layout="vertical" className="mt-4">
+                    <Form.Item
+                        label={t('modelUsagePage.modal.dailyTokenLimit')}
+                        name="daily_token_limit"
+                        extra={t('modelUsagePage.modal.dailyTokenLimitExtra')}
+                    >
+                        <InputNumber style={{ width: '100%' }} min={0} size="large" />
+                    </Form.Item>
+                    <Form.Item
+                        label={t('modelUsagePage.modal.dailyRequestLimit')}
+                        name="daily_request_limit"
+                        extra={t('modelUsagePage.modal.dailyRequestLimitExtra')}
+                    >
+                        <InputNumber style={{ width: '100%' }} min={0} size="large" />
+                    </Form.Item>
+                </Form>
+            </Modal>
+        </div>
+    );
+};
+
+export default ModelUsagePage;

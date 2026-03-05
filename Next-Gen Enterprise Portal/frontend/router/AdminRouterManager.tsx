@@ -1,44 +1,47 @@
 import React, { lazy } from 'react';
+import { moduleRouteRegistry } from '../app/router';
 
 const AdminLayout = lazy(() => import('../layouts/AdminLayout'));
-const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
-const NewsList = lazy(() => import('../pages/admin/NewsList'));
-const UserList = lazy(() => import('../pages/admin/UserList'));
-const ToolList = lazy(() => import('../pages/admin/ToolList'));
-const AppPermissions = lazy(() => import('../pages/admin/AppPermissions'));
-const CarouselList = lazy(() => import('../pages/admin/CarouselList'));
-const AnnouncementList = lazy(() => import('../pages/admin/AnnouncementList'));
-const SystemSettings = lazy(() => import('../pages/admin/SystemSettings'));
-const PlatformSettings = lazy(() => import('../pages/admin/PlatformSettings'));
-const LicenseManagement = lazy(() => import('../pages/admin/LicenseManagement'));
-const SecuritySettings = lazy(() => import('../pages/admin/SecuritySettings'));
-const MfaSettings = lazy(() => import('../pages/admin/MfaSettings'));
-const NotificationServices = lazy(() => import('../pages/admin/NotificationServices'));
-const NotificationTemplates = lazy(() => import('../pages/admin/NotificationTemplates'));
-const ThirdPartyNotifications = lazy(() => import('../pages/admin/ThirdPartyNotifications'));
-const PasswordPolicy = lazy(() => import('../pages/admin/PasswordPolicy'));
-const SystemUserList = lazy(() => import('../pages/admin/SystemUserList'));
-const OnlineUsers = lazy(() => import('../pages/admin/OnlineUsers'));
-const DirectoryListPage = lazy(() => import('../pages/admin/iam/directories'));
-const RoleList = lazy(() => import('../pages/admin/RoleList'));
-const OrganizationList = lazy(() => import('../pages/admin/OrganizationList'));
-const BusinessLogs = lazy(() => import('../pages/admin/BusinessLogs'));
-const AccessLogs = lazy(() => import('../pages/admin/logs/AccessLogs'));
-const AboutUs = lazy(() => import('../pages/admin/AboutUs'));
-const LogForwarding = lazy(() => import('../pages/admin/LogForwarding'));
-const LogStorage = lazy(() => import('../pages/admin/LogStorage'));
-const AIAudit = lazy(() => import('../pages/admin/logs/AIAudit'));
-const ModelConfig = lazy(() => import('../pages/admin/ai/ModelConfig'));
-const SecurityPolicy = lazy(() => import('../pages/admin/ai/SecurityPolicy'));
-const AISettings = lazy(() => import('../pages/admin/ai/AISettings'));
-const ModelUsagePage = lazy(() => import('../pages/admin/ai/ModelUsagePage'));
-const KnowledgeBase = lazy(() => import('../pages/admin/ai/KnowledgeBase'));
-const IAMAuditLogs = lazy(() => import('../pages/iam/AuditLogs'));
-const AdminTodoList = lazy(() => import('../pages/admin/Todos'));
+const {
+  dashboard: AdminDashboard,
+  news: NewsList,
+  users: UserList,
+  tools: ToolList,
+  appPermissions: AppPermissions,
+  carousel: CarouselList,
+  announcements: AnnouncementList,
+  systemSettings: SystemSettings,
+  platformSettings: PlatformSettings,
+  license: LicenseManagement,
+  security: SecuritySettings,
+  mfaSettings: MfaSettings,
+  notificationServices: NotificationServices,
+  notificationTemplates: NotificationTemplates,
+  thirdPartyNotifications: ThirdPartyNotifications,
+  passwordPolicy: PasswordPolicy,
+  systemUsers: SystemUserList,
+  onlineUsers: OnlineUsers,
+  directories: DirectoryListPage,
+  roles: RoleList,
+  organizations: OrganizationList,
+  businessLogs: BusinessLogs,
+  accessLogs: AccessLogs,
+  aboutUs: AboutUs,
+  logForwarding: LogForwarding,
+  logStorage: LogStorage,
+  aiAudit: AIAudit,
+  aiModels: ModelConfig,
+  aiSecurity: SecurityPolicy,
+  aiSettings: AISettings,
+  aiUsage: ModelUsagePage,
+  knowledgeBase: KnowledgeBase,
+  todos: AdminTodoList,
+} = moduleRouteRegistry.admin;
+const { auditLogs: IAMAuditLogs } = moduleRouteRegistry.iam;
 
 type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 
-interface AdminRouterManagerProps {
+export interface AdminRouterManagerProps {
   effectiveAdminTab: string;
   onTabChange: (tab: string) => void;
   onExit: () => void;

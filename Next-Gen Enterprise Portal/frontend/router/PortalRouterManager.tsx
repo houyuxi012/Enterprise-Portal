@@ -3,14 +3,14 @@ import { Mail, Monitor, Moon, Sun, Laptop, Sparkles, Languages } from 'lucide-re
 import { AppLanguage } from '../i18n';
 import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from '../types';
 import ApiClient from '../services/api';
+import { moduleRouteRegistry } from '../app/router';
 import { getColorClass } from '../utils/colorMap';
 import { getIcon } from '../utils/iconMap';
 import { hasAdminAccess } from '../utils/adminAccess';
 import AvatarWithFallback from '../components/AvatarWithFallback';
 
 const Dashboard = lazy(() => import('../components/Dashboard'));
-const TodoList = lazy(() => import('../pages/app/Todos'));
-const PortalSecurity = lazy(() => import('../pages/PortalSecurity'));
+const { todos: TodoList, security: PortalSecurity } = moduleRouteRegistry.portal;
 
 type ThemeMode = 'light' | 'dark' | 'system';
 

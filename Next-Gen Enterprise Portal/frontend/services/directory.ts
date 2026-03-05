@@ -10,7 +10,7 @@ import type {
   DirectoryTestPayload,
   DirectoryTestResponse,
   DirectoryUpdatePayload,
-} from '../pages/admin/iam/directories/types';
+} from '@/modules/admin/pages/iam/directories/types';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
