@@ -1,7 +1,8 @@
 import React, { lazy } from 'react';
 import { Mail, Monitor, Moon, Sun, Laptop, Sparkles, Languages } from 'lucide-react';
 import { AppLanguage } from '../i18n';
-import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from '../types';
+import { AppView } from '../modules/portal/types/views';
+import { Employee, NewsItem, QuickToolDTO, Todo } from '../types';
 import ApiClient from '../services/api';
 import { moduleRouteRegistry } from '../app/router';
 import { getColorClass } from '@/shared/utils/colorMap';

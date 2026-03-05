@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { Spin } from 'antd';
-import { AppView, Employee, NewsItem, QuickToolDTO } from '@/types';
+import { AppView } from '@/modules/portal/types/views';
+import { Employee, NewsItem, QuickToolDTO } from '@/types';
 
 const Navbar = lazy(() => import('./Navbar'));
 const AIAssistant = lazy(() => import('./AIAssistant'));

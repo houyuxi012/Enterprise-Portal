@@ -6,7 +6,8 @@ import {
   CheckCircle2, Info, AlertCircle, Clock, ChevronRight
 } from 'lucide-react';
 import { KeyOutlined } from '@ant-design/icons';
-import { AppView, Notification } from '@/types';
+import { AppView, type PortalPrimaryNavView } from '@/modules/portal/types/views';
+import { Employee, NewsItem, Notification, QuickToolDTO } from '@/types';
 import ApiClient from '@/shared/services/api';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import ChangePasswordModal from '@/shared/components/ChangePasswordModal';
@@ -20,9 +21,9 @@ interface NavbarProps {
   onAskAI: (prompt: string) => void;
   onLogout?: () => void;
   // Data for preview
-  tools: any[];
-  news: any[];
-  employees: any[];
+  tools: QuickToolDTO[];
+  news: NewsItem[];
+  employees: Employee[];
   currentUser: any;
   systemConfig?: Record<string, string>;
 }
@@ -184,7 +185,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
-  const menuItems = useMemo(() => [
+  const menuItems = useMemo<ReadonlyArray<{ id: PortalPrimaryNavView; label: string; icon: React.ReactNode }>>(() => [
     { id: AppView.DASHBOARD, label: t('navbar.menu.overview'), icon: <LayoutDashboard size={18} /> },
     { id: AppView.NEWS, label: t('navbar.menu.news'), icon: <Newspaper size={18} /> },
     { id: AppView.DIRECTORY, label: t('navbar.menu.team'), icon: <Users size={18} /> },

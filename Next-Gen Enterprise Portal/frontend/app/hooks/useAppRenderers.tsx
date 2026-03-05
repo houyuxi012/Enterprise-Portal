@@ -3,7 +3,8 @@ import PortalRouterManager, { PortalRouterViewModel } from '@/router/PortalRoute
 import AdminRouterManager from '@/router/AdminRouterManager';
 import PortalShell from '@/modules/portal/components/PortalShell';
 import { AppLanguage } from '@/i18n';
-import { AppView, Employee, NewsItem, QuickToolDTO } from '@/types';
+import { AppView } from '@/modules/portal/types/views';
+import { Employee, NewsItem, QuickToolDTO } from '@/types';
 import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
 import { ThemeMode } from './useAppPreferences';
 

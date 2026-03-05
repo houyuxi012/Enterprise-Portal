@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { AppView } from '@/types';
+import { AppView } from '@/modules/portal/types/views';
 
 interface UsePortalViewStateResult {
   currentView: AppView;

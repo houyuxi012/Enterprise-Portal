@@ -1,17 +1,7 @@
 
 import React from 'react';
 
-export enum AppView {
-  DASHBOARD = 'dashboard',
-  NEWS = 'news',
-  DIRECTORY = 'directory',
-  RESOURCES = 'resources',
-  SETTINGS = 'settings',
-  TOOLS = 'tools',
-  SEARCH_RESULTS = 'search_results',
-  TODOS = 'todos',
-  SECURITY = 'security'
-}
+export { AppView } from './modules/portal/types/views';
 
 export interface NewsItem {
   id: string;

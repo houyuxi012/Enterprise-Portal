@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ApiClient from '@/shared/services/api';
-import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
+import { AppView } from '@/modules/portal/types/views';
+import { Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
