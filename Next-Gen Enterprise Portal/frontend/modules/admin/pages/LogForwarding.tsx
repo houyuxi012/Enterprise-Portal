@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { Table, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
 import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, ApiOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import ApiClient from '@/services/api';
+import ApiClient, { type LogForwardingUpsertPayload } from '@/services/api';
 import { LogForwardingConfig } from '@/types';
 import AppButton from '@/shared/components/AppButton';
+import type { ColumnsType } from 'antd/es/table';
 
 const LOG_TYPE_OPTIONS = [
     { value: 'BUSINESS', labelKey: 'business', color: 'blue' },
@@ -14,6 +15,29 @@ const LOG_TYPE_OPTIONS = [
     { value: 'AI', labelKey: 'ai', color: 'purple' },
     { value: 'IAM', labelKey: 'iam', color: 'orange' },
 ];
+
+const DEFAULT_LOG_TYPES = ['BUSINESS', 'SYSTEM', 'ACCESS'];
+
+const parseLogTypes = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        const normalized = value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+        return normalized.length > 0 ? normalized : [...DEFAULT_LOG_TYPES];
+    }
+
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+                const normalized = parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+                return normalized.length > 0 ? normalized : [...DEFAULT_LOG_TYPES];
+            }
+        } catch {
+            // ignore parse error and fallback to defaults
+        }
+    }
+
+    return [...DEFAULT_LOG_TYPES];
+};
 
 const LogForwarding: React.FC = () => {
     const { t } = useTranslation();
@@ -25,10 +49,9 @@ const LogForwarding: React.FC = () => {
         setLoading(true);
         try {
             const data = await ApiClient.getLogForwardingConfig();
-            // Parse log_types if it's a string
-            const parsed = data.map((c: any) => ({
-                ...c,
-                log_types: typeof c.log_types === 'string' ? JSON.parse(c.log_types) : (c.log_types || ['BUSINESS', 'SYSTEM', 'ACCESS'])
+            const parsed: LogForwardingConfig[] = data.map((config) => ({
+                ...config,
+                log_types: parseLogTypes(config.log_types),
             }));
             setConfigs(parsed);
         } catch (error) {
@@ -42,12 +65,11 @@ const LogForwarding: React.FC = () => {
         fetchConfigs();
     }, []);
 
-    const handleCreate = async (values: any) => {
+    const handleCreate = async (values: LogForwardingUpsertPayload) => {
         try {
-            // Ensure log_types is sent as JSON string for backend
-            const payload = {
+            const payload: LogForwardingUpsertPayload = {
                 ...values,
-                log_types: values.log_types || ['BUSINESS', 'SYSTEM', 'ACCESS']
+                log_types: parseLogTypes(values.log_types),
             };
             await ApiClient.saveLogForwardingConfig(payload);
             message.success(t('logForwarding.messages.saveSuccess'));
@@ -79,7 +101,7 @@ const LogForwarding: React.FC = () => {
         label: t(`logForwarding.logTypes.${item.labelKey}`),
     }));
 
-    const columns = [
+    const columns: ColumnsType<LogForwardingConfig> = [
         {
             title: t('logForwarding.table.protocolType'),
             dataIndex: 'type',
@@ -129,7 +151,7 @@ const LogForwarding: React.FC = () => {
             title: t('logForwarding.table.actions'),
             key: 'action',
             width: 80,
-            render: (_: any, record: LogForwardingConfig) => (
+            render: (_: unknown, record: LogForwardingConfig) => (
                 <AppButton intent="danger" size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>{t('common.buttons.delete')}</AppButton>
             )
         }
@@ -220,7 +242,7 @@ const LogForwarding: React.FC = () => {
                     form={form}
                     layout="vertical"
                     onFinish={handleCreate}
-                    initialValues={{ type: 'SYSLOG', enabled: true, log_types: ['BUSINESS', 'SYSTEM', 'ACCESS'] }}
+                    initialValues={{ type: 'SYSLOG', enabled: true, log_types: DEFAULT_LOG_TYPES }}
                 >
                     <Form.Item
                         name="log_types"
