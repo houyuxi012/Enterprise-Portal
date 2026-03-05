@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, ChevronRight, Folder, FolderOpen, Building2, Users } from 'lucide-react';
 import { Department, UserOption } from '@/types';
-import ApiClient from '@/services/api';
+import ApiClient, { type DepartmentCreatePayload, type DepartmentUpdatePayload } from '@/services/api';
 import { message, Tree, Empty, Input, Select, Popconfirm, Card, Descriptions, Tag, Statistic, Row, Col } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined } from '@ant-design/icons';
@@ -15,6 +15,28 @@ import {
 
 const { TextArea } = Input;
 
+type OrganizationFormValues = {
+    name: string;
+    parent_id?: number | null;
+    description?: string;
+    manager?: string;
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: { message?: string } | string;
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+    return fallback;
+};
+
 const OrganizationList: React.FC = () => {
     const { t } = useTranslation();
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -23,7 +45,7 @@ const OrganizationList: React.FC = () => {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
-    const [form] = AppForm.useForm();
+    const [form] = AppForm.useForm<OrganizationFormValues>();
     const [editingId, setEditingId] = useState<number | null>(null);
     const [userOptions, setUserOptions] = useState<UserOption[]>([]);
 
@@ -99,8 +121,8 @@ const OrganizationList: React.FC = () => {
             message.success(t('organizationList.messages.deleteSuccess'));
             fetchData();
             setSelectedDept(null);
-        } catch (e: any) {
-            message.error(e.response?.data?.detail || t('organizationList.messages.deleteFailed'));
+        } catch (e: unknown) {
+            message.error(resolveApiErrorMessage(e, t('organizationList.messages.deleteFailed')));
         }
     };
 
@@ -121,22 +143,28 @@ const OrganizationList: React.FC = () => {
         setIsEditorOpen(true);
     }
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: OrganizationFormValues) => {
         try {
             setLoading(true);
+            const basePayload = {
+                name: values.name,
+                parent_id: values.parent_id ?? null,
+                description: values.description || undefined,
+                manager: values.manager || undefined,
+            };
             if (editingId) {
-                await ApiClient.updateDepartment(editingId, values);
+                const payload: DepartmentUpdatePayload = basePayload;
+                await ApiClient.updateDepartment(editingId, payload);
                 message.success(t('organizationList.messages.updateSuccess'));
             } else {
-                await ApiClient.createDepartment(values);
+                const payload: DepartmentCreatePayload = basePayload;
+                await ApiClient.createDepartment(payload);
                 message.success(t('organizationList.messages.createSuccess'));
             }
             setIsEditorOpen(false);
             fetchData();
-        } catch (e: any) {
-            if (e.response?.data?.detail) {
-                message.error(e.response.data.detail);
-            }
+        } catch (e: unknown) {
+            message.error(resolveApiErrorMessage(e, t('organizationList.messages.deleteFailed')));
         } finally {
             setLoading(false);
         }
