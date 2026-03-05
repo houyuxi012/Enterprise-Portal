@@ -1,1 +1,1 @@
-__all__ = ["models", "schemas", "service", "repository", "router"]
+__all__ = ["models", "schemas", "service", "repository"]
