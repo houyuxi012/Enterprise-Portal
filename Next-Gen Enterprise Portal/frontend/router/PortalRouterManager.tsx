@@ -4,9 +4,9 @@ import { AppLanguage } from '../i18n';
 import { AppView, Employee, NewsItem, QuickToolDTO, Todo } from '../types';
 import ApiClient from '../services/api';
 import { moduleRouteRegistry } from '../app/router';
-import { getColorClass } from '../utils/colorMap';
-import { getIcon } from '../utils/iconMap';
-import { hasAdminAccess } from '../utils/adminAccess';
+import { getColorClass } from '@/shared/utils/colorMap';
+import { getIcon } from '@/shared/utils/iconMap';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import { AvatarWithFallback } from '../shared/components';
 
 const Dashboard = lazy(() => import('../modules/portal/components/Dashboard'));

@@ -14,8 +14,8 @@ import {
     AppPageHeader,
     AppFilterBar,
 } from '@/modules/admin/components/ui';
-import { getCurrentLocale, getLocalizedRoleMeta } from '@/utils/iamRoleI18n';
-import { hasAdminAccess } from '@/utils/adminAccess';
+import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI18n';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 
 const SystemUserList: React.FC = () => {
     const { t } = useTranslation();

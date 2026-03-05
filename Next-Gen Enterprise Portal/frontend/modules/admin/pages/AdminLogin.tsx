@@ -4,7 +4,7 @@ import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles, S
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient from '@/services/api';
-import { hasAdminAccess } from '@/utils/adminAccess';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 

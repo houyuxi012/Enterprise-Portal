@@ -8,7 +8,7 @@ import {
 import { KeyOutlined } from '@ant-design/icons';
 import { AppView, Notification } from '@/types';
 import ApiClient from '@/shared/services/api';
-import { hasAdminAccess } from '@/utils/adminAccess';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import ChangePasswordModal from '@/shared/components/ChangePasswordModal';
 import { useTranslation } from 'react-i18next';
 

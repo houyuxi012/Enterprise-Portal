@@ -6,8 +6,8 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { QuickToolDTO } from '@/services/api';
 import ApiClient from '@/services/api';
-import { getIcon } from '@/utils/iconMap';
-import { getColorClass } from '@/utils/colorMap';
+import { getIcon } from '@/shared/utils/iconMap';
+import { getColorClass } from '@/shared/utils/colorMap';
 import {
     AppButton,
     AppModal,

@@ -8,9 +8,9 @@ import {
 import TodoService from '@/shared/services/todos';
 import ApiClient, { QuickToolDTO } from '@/shared/services/api';
 import { NewsItem, Announcement, CarouselItem, Employee } from '@/types';
-import { getIcon } from '@/utils/iconMap';
-import { getColorClass } from '@/utils/colorMap';
-import { DAILY_QUOTES } from '@/constants';
+import { getIcon } from '@/shared/utils/iconMap';
+import { getColorClass } from '@/shared/utils/colorMap';
+import { DAILY_QUOTES } from '@/shared/utils/constants';
 
 interface DashboardProps {
   onViewAll: () => void;

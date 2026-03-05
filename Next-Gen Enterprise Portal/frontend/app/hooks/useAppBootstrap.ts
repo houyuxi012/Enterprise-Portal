@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Employee, NewsItem, QuickToolDTO, Todo } from '@/types';
 import ApiClient from '@/shared/services/api';
 import TodoService from '@/shared/services/todos';
-import { hasAdminAccess } from '@/utils/adminAccess';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 
 export type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;

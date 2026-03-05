@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Spin } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
-import { hasAdminAccess } from '@/utils/adminAccess';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;

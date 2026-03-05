@@ -4,8 +4,8 @@ import type { DataNode } from 'antd/es/tree';
 import { EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient, { QuickToolDTO } from '@/services/api';
-import { getIcon } from '@/utils/iconMap';
-import { getColorClass } from '@/utils/colorMap';
+import { getIcon } from '@/shared/utils/iconMap';
+import { getColorClass } from '@/shared/utils/colorMap';
 
 const resolveIconTextColorClass = (colorName: string): string => {
     const colorClass = getColorClass(colorName || 'blue');

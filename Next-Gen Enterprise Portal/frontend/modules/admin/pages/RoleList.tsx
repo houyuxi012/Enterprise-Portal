@@ -12,7 +12,7 @@ import {
     AppPageHeader,
     AppFilterBar,
 } from '@/modules/admin/components/ui';
-import { getCurrentLocale, getLocalizedRoleMeta } from '@/utils/iamRoleI18n';
+import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI18n';
 
 const RESERVED_ROLE_CODES = new Set(['user', 'portaladmin', 'portal_admin', 'superadmin']);
 

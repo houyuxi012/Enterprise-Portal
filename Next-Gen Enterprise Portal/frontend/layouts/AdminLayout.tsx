@@ -23,8 +23,8 @@ import {
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
-import { getLocalizedRoleMeta } from '../utils/iamRoleI18n';
-import { hasAdminAccess } from '../utils/adminAccess';
+import { getLocalizedRoleMeta } from '@/shared/utils/iamRoleI18n';
+import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import { useTranslation } from 'react-i18next';
 import { buildUserLanguageScope, normalizeLanguage } from '../i18n';
 
