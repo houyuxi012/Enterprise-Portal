@@ -2,20 +2,53 @@ services:
   db:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: portal_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}
+      POSTGRES_DB: ${POSTGRES_DB:-portal_db}
+    command: >
+      sh -c '
+      cp /run/certs/hyx_ngep.cer /var/lib/postgresql/data/server.crt &&
+      cp /run/certs/hyx_ngep.key /var/lib/postgresql/data/server.key &&
+      chmod 600 /var/lib/postgresql/data/server.key &&
+      exec docker-entrypoint.sh postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/data/server.crt
+      -c ssl_key_file=/var/lib/postgresql/data/server.key
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c password_encryption=scram-sha-256
+      '
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./ops/nginx/certs:/run/certs:ro
+      - ./ops/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
 
   redis:
     image: redis:8.4-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-ChangeThis_Redis_2026!}
+    command: >
+      sh -c '
+      exec redis-server
+      --port 0
+      --tls-port 6379
+      --tls-cert-file /run/certs/hyx_ngep.cer
+      --tls-key-file /run/certs/hyx_ngep.key
+      --tls-ca-cert-file /run/certs/hyx_ngep.cer
+      --tls-auth-clients no
+      --requirepass "$${REDIS_PASSWORD}"
+      '
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+      - ./ops/nginx/certs:/run/certs:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli --tls --insecure -h 127.0.0.1 -p 6379 -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -70,8 +103,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/portal_db
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}@db:5432/${POSTGRES_DB:-portal_db}?ssl=require
+      REDIS_URL: rediss://:${REDIS_PASSWORD:-ChangeThis_Redis_2026!}@redis:6379/0?ssl_cert_reqs=none
       PYTHONDONTWRITEBYTECODE: "1"
       DB_POOL_SIZE: "10"
       DB_MAX_OVERFLOW: "10"
@@ -156,6 +189,10 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       # 自动安装 Redis 数据源插件
       - GF_INSTALL_PLUGINS=redis-datasource
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ChangeThis_Redis_2026!}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}
+      - POSTGRES_DB=${POSTGRES_DB:-portal_db}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro

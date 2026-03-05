@@ -23,7 +23,7 @@ datasources:
     type: redis-datasource
     uid: redis
     access: proxy
-    url: redis://redis:6379
+    url: rediss://redis:6379
     editable: false
     jsonData:
       client: standalone
@@ -31,6 +31,10 @@ datasources:
       timeout: 10
       pingInterval: 0
       pipelineWindow: 0
+      tlsAuth: false
+      tlsSkipVerify: true
+    secureJsonData:
+      password: ${REDIS_PASSWORD}
 
   # PostgreSQL - 数据库数据源 (Grafana 内置支持)
   - name: PostgreSQL
@@ -38,13 +42,13 @@ datasources:
     uid: postgres
     access: proxy
     url: db:5432
-    user: user
+    user: ${POSTGRES_USER}
     editable: false
     secureJsonData:
-      password: password
+      password: ${POSTGRES_PASSWORD}
     jsonData:
-      database: portal_db
-      sslmode: disable
+      database: ${POSTGRES_DB}
+      sslmode: require
       maxOpenConns: 10
       maxIdleConns: 5
       connMaxLifetime: 14400

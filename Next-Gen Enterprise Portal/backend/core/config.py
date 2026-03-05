@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_url: str = os.getenv("REDIS_URL", "")
     cors_origins_raw: str = os.getenv("CORS_ORIGINS", "")
     product_id: str = os.getenv("PRODUCT_ID", "enterprise-portal")
 
@@ -18,4 +18,3 @@ class Settings:
 
 
 settings = Settings()
-

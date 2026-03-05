@@ -106,11 +106,21 @@ docker compose exec -T backend sh -lc "cd /app && alembic -c alembic.ini revisio
 
 - **统一入口**: 所有流量通过 HTTPS 443 端口
 - **HttpOnly Cookie**: JWT 存储防 XSS
+- **CSP 安全策略**: 网关已启用 `Content-Security-Policy`，并移除已废弃的 `X-XSS-Protection`
 - **双会话隔离**: `admin_session` / `portal_session` 分离，按 `aud` 严格校验
 - **RBAC 权限模型**: 细粒度应用/资源权限控制
 - **API Key 加密**: Fernet 对称加密存储
 - **限流保护**: Nginx 层 API 限流
 - **文件上传安全**: 魔数校验、大小限制
+
+### 基础设施连接安全（Docker Compose）
+
+- Redis 启用密码认证 + TLS（`rediss://`）
+- PostgreSQL 启用 `ssl=on`，并通过 `pg_hba.conf` 拒绝非 TLS 连接
+- 后端默认使用 TLS URL：
+  - `DATABASE_URL=...?...ssl=require`
+  - `REDIS_URL=rediss://...`
+- 建议通过环境变量覆盖以下凭据：`POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`、`REDIS_PASSWORD`
 
 ### License 安全配置（当前实现）
 

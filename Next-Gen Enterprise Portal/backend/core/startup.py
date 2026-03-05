@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import ssl
 import uuid
 from datetime import datetime
 
@@ -26,13 +27,26 @@ async def try_acquire_db_startup_lock() -> bool:
         import asyncpg
 
         url = database.engine.url
-        raw_conn = await asyncpg.connect(
+        connect_kwargs = dict(
             user=url.username,
             password=url.password,
             database=url.database,
             host=url.host,
             port=url.port,
         )
+        ssl_value = str(url.query.get("ssl", "")).strip().lower()
+        sslmode_value = str(url.query.get("sslmode", "")).strip().lower()
+        if ssl_value in {"1", "true", "require"} or sslmode_value in {
+            "require",
+            "verify-ca",
+            "verify-full",
+        }:
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            connect_kwargs["ssl"] = ssl_ctx
+
+        raw_conn = await asyncpg.connect(**connect_kwargs)
         acquired = await raw_conn.fetchval("SELECT pg_try_advisory_lock(872341)")
         if acquired:
             _STARTUP_LEADER_DB_CONN_ASYNC = raw_conn

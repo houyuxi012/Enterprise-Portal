@@ -63,7 +63,18 @@ class CacheManager:
         self._ensure_lock()
 
         if not redis_url:
-            redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            redis_url = os.getenv("REDIS_URL", "")
+            if not redis_url:
+                redis_password = os.getenv("REDIS_PASSWORD", "").strip()
+                if redis_password:
+                    redis_url = f"rediss://:{redis_password}@redis:6379/0?ssl_cert_reqs=none"
+                else:
+                    redis_url = "redis://redis:6379/0"
+
+        if redis_url.startswith("redis://"):
+            logger.warning("REDIS_URL is using plaintext transport (redis://). Prefer rediss:// in production.")
+        if "@" not in redis_url:
+            logger.warning("REDIS_URL appears to have no password configured.")
             
         if redis_url:
             try:
