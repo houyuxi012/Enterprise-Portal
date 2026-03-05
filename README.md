@@ -94,7 +94,8 @@ docker compose exec -T backend sh -lc "cd /app && alembic -c alembic.ini revisio
 ### 迁移规范
 
 - 所有 schema 变更必须提交到 `backend/db_migrations/versions/*.py`
-- 生产启动流程只执行 `alembic upgrade head`
+- 生产建议在发布前单独执行迁移：`python backend/db_migration.py`
+- 默认关闭启动自动迁移：`DB_AUTO_MIGRATE_ON_STARTUP=false`（启动时仅校验当前版本是否已到 head）
 - `alembic_version` 表用于追踪已执行版本
 - CI 已接入迁移守卫：`/.github/workflows/backend-migration-guard.yml`
 - CI 同时校验：若改动 `backend/**/models.py` 或 `backend/shared/base_models.py`，必须同时改动 migration revision 文件

@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 import core.database as database
-from core.migrations import run_db_migrations
+from core.migrations import ensure_db_schema_is_current, run_db_migrations, should_run_migrations_on_startup
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +125,14 @@ async def record_startup_status(status: str, error: str | None = None) -> None:
 async def _run_shared_startup_initialization() -> None:
     from test_db.rbac_init import init_rbac
 
-    await database.init_pgvector()
-    await run_db_migrations()
+    if should_run_migrations_on_startup():
+        await run_db_migrations()
+    else:
+        logger.info(
+            "Skipping startup DB migrations (DB_AUTO_MIGRATE_ON_STARTUP=false); "
+            "verifying schema revision only."
+        )
+        await ensure_db_schema_is_current()
 
     async with database.SessionLocal() as session:
         await init_rbac(session)
@@ -137,22 +143,6 @@ async def on_startup() -> None:
 
     if not getattr(cache, "redis", None):
         await cache.init()
-
-    async with database.engine.begin() as conn:
-        await conn.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS system_startup_status (
-                    boot_id TEXT PRIMARY KEY,
-                    instance_id TEXT,
-                    status TEXT,
-                    started_at TIMESTAMP,
-                    finished_at TIMESTAMP,
-                    error TEXT
-                )
-                """
-            )
-        )
 
     leader_type = await acquire_startup_leader()
     is_startup_leader = leader_type is not None

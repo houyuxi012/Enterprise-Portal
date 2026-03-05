@@ -22,6 +22,19 @@ LOG_RETENTION_CONFIG = {
     "iam": ("log_retention_iam_days", 180, IAMAuditLog, "timestamp", "dt"),
 }
 
+# Operational data retention (non-log hot tables that can grow indefinitely).
+# format: (config_key, default_days, model_class, timestamp_field)
+DATA_RETENTION_CONFIG = {
+    "license_events": ("retention_license_events_days", 365, models.LicenseEvent, "created_at"),
+    "notification_receipts": (
+        "retention_notification_receipts_days",
+        180,
+        models.NotificationReceipt,
+        "created_at",
+    ),
+    "sync_jobs": ("retention_sync_jobs_days", 90, models.SyncJob, "started_at"),
+}
+
 async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
     result = await db.execute(select(models.SystemConfig).filter(models.SystemConfig.key == key))
     config = result.scalars().first()
@@ -99,6 +112,7 @@ async def cleanup_logs(db_session_factory):
         try:
             retention_deleted_summary = {k: 0 for k in LOG_RETENTION_CONFIG.keys()}
             pressure_deleted_summary = {k: 0 for k in LOG_RETENTION_CONFIG.keys()}
+            data_retention_deleted_summary = {k: 0 for k in DATA_RETENTION_CONFIG.keys()}
             # 1. Fetch disk usage config
             max_disk_usage_str = await get_config_value(db, "log_max_disk_usage", "80")
             try:
@@ -142,6 +156,49 @@ async def cleanup_logs(db_session_factory):
                         retention_deleted_summary[log_type] += deleted_count
                         logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
             
+            await db.commit()
+
+            # 2.5 Additional lifecycle retention for non-log tables.
+            for table_name, (config_key, default_days, model_class, ts_field) in DATA_RETENTION_CONFIG.items():
+                retention_days_str = await get_config_value(db, config_key, str(default_days))
+                try:
+                    retention_days = int(retention_days_str)
+                except ValueError:
+                    logger.error(
+                        "Invalid retention config for %s. Using default %s.",
+                        table_name,
+                        default_days,
+                    )
+                    retention_days = default_days
+
+                if retention_days <= 0:
+                    continue
+
+                cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
+                ts_column = getattr(model_class, ts_field)
+                where_clause = ts_column < cutoff_date
+
+                # Preserve active jobs; only purge terminal sync jobs.
+                if model_class is models.SyncJob:
+                    where_clause = and_(
+                        ts_column < cutoff_date,
+                        model_class.status.in_(
+                            ["success", "failed", "canceled", "cancelled", "partial_success"]
+                        ),
+                    )
+
+                count_result = await db.execute(select(func.count(model_class.id)).where(where_clause))
+                deleted_count = count_result.scalar() or 0
+                if deleted_count:
+                    await db.execute(delete(model_class).where(where_clause))
+                    data_retention_deleted_summary[table_name] += deleted_count
+                    logger.info(
+                        "Cleaned up %s rows from %s older than %s days.",
+                        deleted_count,
+                        table_name,
+                        retention_days,
+                    )
+
             await db.commit()
 
             # 3. Cleanup by Disk Usage - Delete oldest logs until within limit
@@ -209,6 +266,7 @@ async def cleanup_logs(db_session_factory):
                 detail=json.dumps(
                     {
                         "retention_deleted": retention_deleted_summary,
+                        "data_retention_deleted": data_retention_deleted_summary,
                         "pressure_deleted": pressure_deleted_summary,
                         "disk_usage_before": disk_usage_before,
                         "disk_usage_after": post_cleanup_usage,

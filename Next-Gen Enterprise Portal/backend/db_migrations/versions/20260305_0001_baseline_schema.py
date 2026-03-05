@@ -242,8 +242,6 @@ LEGACY_STARTUP_SQL: tuple[str, ...] = (
     'ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS content TEXT',
     'CREATE INDEX IF NOT EXISTS ix_kb_chunks_doc_id_chunk_index ON kb_chunks (doc_id, chunk_index)',
     'CREATE INDEX IF NOT EXISTS ix_kb_documents_status_id ON kb_documents (status, id)',
-    'CREATE INDEX IF NOT EXISTS ix_kb_chunks_embedding_ivfflat ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)',
-    'ANALYZE kb_chunks',
     "INSERT INTO system_config (key, value) VALUES ('max_concurrent_sessions', '0') ON CONFLICT (key) DO NOTHING",
     "INSERT INTO system_config (key, value) VALUES ('login_session_timeout_minutes', '5') ON CONFLICT (key) DO NOTHING",
     "INSERT INTO system_config (key, value) VALUES ('login_session_absolute_timeout_minutes', '480') ON CONFLICT (key) DO NOTHING",

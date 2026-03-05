@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     JSON,
     Boolean,
     Column,
@@ -104,10 +105,13 @@ class WebAuthnCredential(Base):
 
 class UserPasswordHistory(Base):
     __tablename__ = "user_password_history"
+    __table_args__ = (
+        CheckConstraint("char_length(trim(hashed_password)) >= 40", name="ck_user_password_history_hash_nonempty"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
     changed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
 
 
@@ -175,7 +179,7 @@ class SyncJob(Base):
     cursor_end = Column(String(255), nullable=True)
     max_usn_seen = Column(String(255), nullable=True)
     error_detail = Column(Text, nullable=True)
-    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
 
@@ -227,4 +231,13 @@ class LicenseEvent(Base):
     ip_address = Column(String(64), nullable=True)
     trace_id = Column(String(128), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
-
+    __table_args__ = (
+        CheckConstraint("char_length(trim(host)) > 0", name="ck_directory_configs_host_nonempty"),
+        CheckConstraint("char_length(trim(base_dn)) > 0", name="ck_directory_configs_base_dn_nonempty"),
+        CheckConstraint("port BETWEEN 1 AND 65535", name="ck_directory_configs_port_range"),
+        CheckConstraint("sync_page_size BETWEEN 1 AND 10000", name="ck_directory_configs_sync_page_size_range"),
+        CheckConstraint(
+            "delete_grace_days BETWEEN 0 AND 3650",
+            name="ck_directory_configs_delete_grace_days_range",
+        ),
+    )
