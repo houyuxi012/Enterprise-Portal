@@ -725,6 +725,22 @@ export const ApiClient = {
     return response.data;
   },
 
+  recordPrivacyConsent: async (payload: {
+    audience: 'admin' | 'portal';
+    username?: string;
+    locale?: string;
+    accepted?: boolean;
+  }): Promise<{
+    consent_id: number;
+    audience: 'admin' | 'portal';
+    policy_version: string;
+    policy_hash: string;
+    accepted_at: string;
+  }> => {
+    const response = await api.post('/public/privacy/consents', payload);
+    return response.data;
+  },
+
   sessionPing: async (audience: 'admin' | 'portal'): Promise<{
     message: string;
     audience: 'admin' | 'portal';

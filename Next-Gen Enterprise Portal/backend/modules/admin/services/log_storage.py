@@ -14,10 +14,10 @@ from modules.iam.services.audit_service import AuditService
 logger = logging.getLogger(__name__)
 
 # 日志类型保留周期配置 (config_key, default_days, model_class, timestamp_field, field_type)
-# field_type: 'str' = Column is String, 'dt' = Column is DateTime
+# field_type: 'dt' = Column is DateTime
 LOG_RETENTION_CONFIG = {
-    "system": ("log_retention_system_days", 7, models.SystemLog, "timestamp", "str"),
-    "business": ("log_retention_business_days", 180, models.BusinessLog, "timestamp", "str"),
+    "system": ("log_retention_system_days", 7, models.SystemLog, "timestamp", "dt"),
+    "business": ("log_retention_business_days", 180, models.BusinessLog, "timestamp", "dt"),
     "ai": ("log_retention_ai_days", 180, models.AIAuditLog, "ts", "dt"),
     "iam": ("log_retention_iam_days", 180, IAMAuditLog, "timestamp", "dt"),
 }
@@ -40,68 +40,6 @@ async def get_config_value(db: AsyncSession, key: str, default: str) -> str:
     config = result.scalars().first()
     return config.value if config else default
 
-
-def _parse_string_timestamp(value: str):
-    if not value:
-        return None
-
-    text_value = str(value).strip()
-    if not text_value:
-        return None
-
-    # ISO8601 fallback normalization
-    if text_value.endswith("Z"):
-        text_value = text_value[:-1] + "+00:00"
-
-    try:
-        parsed = datetime.datetime.fromisoformat(text_value)
-    except Exception:
-        return None
-
-    # Normalize to naive UTC for comparison consistency
-    if parsed.tzinfo is not None:
-        return parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-    return parsed
-
-
-async def _collect_expired_ids_from_string_ts(
-    db: AsyncSession,
-    model_class,
-    ts_field: str,
-    cutoff_date: datetime.datetime,
-):
-    ts_column = getattr(model_class, ts_field)
-    result = await db.execute(select(model_class.id, ts_column))
-    rows = result.fetchall()
-
-    expired_ids = []
-    for row_id, raw_ts in rows:
-        parsed_ts = _parse_string_timestamp(raw_ts)
-        if parsed_ts and parsed_ts < cutoff_date:
-            expired_ids.append(row_id)
-
-    return expired_ids
-
-
-async def _collect_oldest_ids_from_string_ts(
-    db: AsyncSession,
-    model_class,
-    ts_field: str,
-    batch_size: int,
-):
-    ts_column = getattr(model_class, ts_field)
-    result = await db.execute(select(model_class.id, ts_column))
-    rows = result.fetchall()
-
-    parsed_rows = []
-    for row_id, raw_ts in rows:
-        parsed_ts = _parse_string_timestamp(raw_ts)
-        if parsed_ts:
-            parsed_rows.append((parsed_ts, row_id))
-
-    parsed_rows.sort(key=lambda x: x[0])
-    return [row_id for _, row_id in parsed_rows[:batch_size]]
-
 async def cleanup_logs(db_session_factory):
     """
     Background task to clean up old logs based on per-type retention policy and disk usage.
@@ -121,7 +59,7 @@ async def cleanup_logs(db_session_factory):
                 max_disk_usage_percent = 80.0
 
             # 2. Per-type cleanup based on retention policy
-            for log_type, (config_key, default_days, model_class, ts_field, field_type) in LOG_RETENTION_CONFIG.items():
+            for log_type, (config_key, default_days, model_class, ts_field, _field_type) in LOG_RETENTION_CONFIG.items():
                 retention_days_str = await get_config_value(db, config_key, str(default_days))
                 try:
                     retention_days = int(retention_days_str)
@@ -130,31 +68,18 @@ async def cleanup_logs(db_session_factory):
                     retention_days = default_days
                 
                 if retention_days > 0:
-                    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
+                    cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=retention_days)
                     
                     # Use the correct timestamp field for each model
                     ts_column = getattr(model_class, ts_field)
                     
-                    # Handle different column types: String vs DateTime
-                    if field_type == "str":
-                        # Parse string timestamps to avoid lexical comparison mismatch.
-                        expired_ids = await _collect_expired_ids_from_string_ts(
-                            db, model_class, ts_field, cutoff_date
-                        )
-                        deleted_count = len(expired_ids)
-                        if expired_ids:
-                            await db.execute(delete(model_class).where(model_class.id.in_(expired_ids)))
-                        retention_deleted_summary[log_type] += deleted_count
-                        logger.info(f"Cleaned up {deleted_count} {log_type} logs by parsed timestamp.")
-                    else:
-                        count_result = await db.execute(
-                            select(func.count(model_class.id)).where(ts_column < cutoff_date)
-                        )
-                        deleted_count = count_result.scalar() or 0
-                        # DateTime columns use datetime object directly
-                        await db.execute(delete(model_class).where(ts_column < cutoff_date))
-                        retention_deleted_summary[log_type] += deleted_count
-                        logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
+                    count_result = await db.execute(
+                        select(func.count(model_class.id)).where(ts_column < cutoff_date)
+                    )
+                    deleted_count = count_result.scalar() or 0
+                    await db.execute(delete(model_class).where(ts_column < cutoff_date))
+                    retention_deleted_summary[log_type] += deleted_count
+                    logger.info(f"Cleaned up {log_type} logs older than {retention_days} days.")
             
             await db.commit()
 
@@ -174,7 +99,7 @@ async def cleanup_logs(db_session_factory):
                 if retention_days <= 0:
                     continue
 
-                cutoff_date = datetime.datetime.now() - datetime.timedelta(days=retention_days)
+                cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=retention_days)
                 ts_column = getattr(model_class, ts_field)
                 where_clause = ts_column < cutoff_date
 
@@ -219,18 +144,13 @@ async def cleanup_logs(db_session_factory):
                     deleted_any = False
                     
                     # Find and delete oldest logs from each type
-                    for log_type, (_, _, model_class, ts_field, field_type) in LOG_RETENTION_CONFIG.items():
+                    for log_type, (_, _, model_class, ts_field, _field_type) in LOG_RETENTION_CONFIG.items():
                         try:
-                            if field_type == "str":
-                                oldest_ids = await _collect_oldest_ids_from_string_ts(
-                                    db, model_class, ts_field, batch_size
-                                )
-                            else:
-                                # Find oldest records using the correct timestamp field
-                                ts_column = getattr(model_class, ts_field)
-                                oldest_query = select(model_class.id).order_by(ts_column).limit(batch_size)
-                                result = await db.execute(oldest_query)
-                                oldest_ids = [row[0] for row in result.fetchall()]
+                            # Find oldest records using the correct timestamp field
+                            ts_column = getattr(model_class, ts_field)
+                            oldest_query = select(model_class.id).order_by(ts_column).limit(batch_size)
+                            result = await db.execute(oldest_query)
+                            oldest_ids = [row[0] for row in result.fetchall()]
                             
                             if oldest_ids:
                                 await db.execute(delete(model_class).where(model_class.id.in_(oldest_ids)))

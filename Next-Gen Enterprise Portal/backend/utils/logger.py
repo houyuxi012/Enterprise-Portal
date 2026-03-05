@@ -43,14 +43,14 @@ class DBHandler(logging.Handler):
                         level=level,
                         module=module,
                         message=message,
-                        timestamp=datetime.datetime.now().isoformat()
+                        timestamp=datetime.datetime.now(datetime.timezone.utc)
                     )
                     db.add(log)
                     db.commit()
             except Exception as e:
                 # If DB logging fails, fallback to stderr so we don't lose the error
-                print(f"!!! DB LOGGING FAILED: {e} !!!")
-                print(log_entry)
+                logging.getLogger(__name__).warning("DB logging failed: %s", e)
+                logging.getLogger(__name__).warning(log_entry)
 
         except Exception:
             self.handleError(record)

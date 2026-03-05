@@ -42,7 +42,7 @@ class SystemLog(Base):
     level = Column(String, index=True)
     module = Column(String, index=True)
     message = Column(Text)
-    timestamp = Column(String)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
     ip_address = Column(String, nullable=True)
     request_path = Column(String, nullable=True)
     method = Column(String, nullable=True)
@@ -65,7 +65,7 @@ class BusinessLog(Base):
     trace_id = Column(String, index=True, nullable=True)
     source = Column(String, default="WEB", nullable=True)
     domain = Column(String, default="BUSINESS", index=True)
-    timestamp = Column(String)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
 
 
 class LogForwardingConfig(Base):
@@ -150,4 +150,3 @@ class AIModelQuota(Base):
     daily_token_limit = Column(Integer, default=0)
     daily_request_limit = Column(Integer, default=0)
     updated_at = Column(DateTime(timezone=True), nullable=True)
-

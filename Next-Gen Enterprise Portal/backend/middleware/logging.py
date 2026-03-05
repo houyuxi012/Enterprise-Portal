@@ -77,7 +77,7 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                         level=level_str,
                         module="api.access",
                         message=f"{request.method} {request.url.path} - {response.status_code}",
-                        timestamp=datetime.datetime.now().isoformat(),
+                        timestamp=datetime.datetime.now(datetime.timezone.utc),
                         ip_address=log_data["ip"],
                         request_path=log_data["path"],
                         method=log_data["method"],
@@ -109,7 +109,7 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                         pass
             except Exception as e:
                 # Fallback if DB fails, don't break request
-                print(f"Failed to write system log to DB: {e}")
+                logging.getLogger(__name__).warning("Failed to write system log to DB: %s", e)
 
         except Exception:
             pass 

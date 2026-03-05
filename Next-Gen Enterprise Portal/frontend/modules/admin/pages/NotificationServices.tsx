@@ -91,6 +91,10 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
     return fallback;
 };
 
+const MASKED_VALUE = '__MASKED__';
+
+const isMaskedValue = (value: unknown): boolean => String(value ?? '').trim() === MASKED_VALUE;
+
 const NotificationServices: React.FC = () => {
     const { t } = useTranslation();
     const [smtpForm] = Form.useForm();
@@ -107,6 +111,13 @@ const NotificationServices: React.FC = () => {
     const [telegramConfigured, setTelegramConfigured] = useState(false);
     const [smsConfigured, setSmsConfigured] = useState(false);
     const [health, setHealth] = useState<NotificationHealthState | null>(null);
+    const [secretPresence, setSecretPresence] = useState({
+        smtpPassword: false,
+        telegramBotToken: false,
+        smsAccessKeySecret: false,
+        tencentSecretKey: false,
+        twilioAuthToken: false,
+    });
 
     useEffect(() => {
         loadNotificationConfig();
@@ -117,13 +128,18 @@ const NotificationServices: React.FC = () => {
             const data = await ApiClient.getSystemConfig();
             const config = data;
             const host = config['smtp_host'] || '';
-            const telegramToken = config['telegram_bot_token'] || '';
+            const smtpPasswordMasked = isMaskedValue(config['smtp_password']);
+            const telegramTokenMasked = isMaskedValue(config['telegram_bot_token']);
+            const aliyunSecretMasked = isMaskedValue(config['sms_access_key_secret']);
+            const tencentSecretMasked = isMaskedValue(config['tencent_secret_key']);
+            const twilioSecretMasked = isMaskedValue(config['twilio_auth_token']);
+            const telegramToken = telegramTokenMasked ? '' : (config['telegram_bot_token'] || '');
             const telegramChatId = config['telegram_chat_id'] || '';
             smtpForm.setFieldsValue({
                 smtp_host: host,
                 smtp_port: parseInt(config['smtp_port'] || '587'),
                 smtp_username: config['smtp_username'] || '',
-                smtp_password: config['smtp_password'] || '',
+                smtp_password: smtpPasswordMasked ? '' : (config['smtp_password'] || ''),
                 smtp_use_tls: (config['smtp_use_tls'] || 'true') === 'true',
                 smtp_sender: config['smtp_sender'] || config['smtp_username'] || '',
                 smtp_test_email: config['smtp_test_email'] || config['smtp_sender'] || config['smtp_username'] || '',
@@ -143,29 +159,36 @@ const NotificationServices: React.FC = () => {
                 sms_test_phone: config['sms_test_phone'] || '',
                 sms_test_message: config['sms_test_message'] || t('notificationServices.sms.defaultTestMessage'),
                 sms_access_key_id: config['sms_access_key_id'] || '',
-                sms_access_key_secret: config['sms_access_key_secret'] || '',
+                sms_access_key_secret: aliyunSecretMasked ? '' : (config['sms_access_key_secret'] || ''),
                 sms_sign_name: config['sms_sign_name'] || '',
                 sms_template_code: config['sms_template_code'] || '',
                 sms_template_param: config['sms_template_param'] || '{"code":"123456"}',
                 sms_region_id: config['sms_region_id'] || 'cn-hangzhou',
                 tencent_secret_id: config['tencent_secret_id'] || '',
-                tencent_secret_key: config['tencent_secret_key'] || '',
+                tencent_secret_key: tencentSecretMasked ? '' : (config['tencent_secret_key'] || ''),
                 tencent_sdk_app_id: config['tencent_sdk_app_id'] || '',
                 tencent_sign_name: config['tencent_sign_name'] || '',
                 tencent_template_id: config['tencent_template_id'] || '',
                 tencent_template_params: config['tencent_template_params'] || '123456',
                 tencent_region: config['tencent_region'] || 'ap-guangzhou',
                 twilio_account_sid: config['twilio_account_sid'] || '',
-                twilio_auth_token: config['twilio_auth_token'] || '',
+                twilio_auth_token: twilioSecretMasked ? '' : (config['twilio_auth_token'] || ''),
                 twilio_from_number: config['twilio_from_number'] || '',
                 twilio_messaging_service_sid: config['twilio_messaging_service_sid'] || '',
             });
+            setSecretPresence({
+                smtpPassword: smtpPasswordMasked || Boolean(config['smtp_password']),
+                telegramBotToken: telegramTokenMasked || Boolean(config['telegram_bot_token']),
+                smsAccessKeySecret: aliyunSecretMasked || Boolean(config['sms_access_key_secret']),
+                tencentSecretKey: tencentSecretMasked || Boolean(config['tencent_secret_key']),
+                twilioAuthToken: twilioSecretMasked || Boolean(config['twilio_auth_token']),
+            });
             setSmtpConfigured(!!host);
-            setTelegramConfigured(Boolean(telegramToken && telegramChatId));
+            setTelegramConfigured(Boolean((telegramToken || telegramTokenMasked) && telegramChatId));
             setSmsConfigured(Boolean(
-                (smsProvider === 'aliyun' && config['sms_access_key_id'] && config['sms_access_key_secret'] && config['sms_sign_name'] && config['sms_template_code']) ||
-                (smsProvider === 'tencent' && config['tencent_secret_id'] && config['tencent_secret_key'] && config['tencent_sdk_app_id'] && config['tencent_sign_name'] && config['tencent_template_id']) ||
-                (smsProvider === 'twilio' && config['twilio_account_sid'] && config['twilio_auth_token'] && (config['twilio_from_number'] || config['twilio_messaging_service_sid']))
+                (smsProvider === 'aliyun' && config['sms_access_key_id'] && (config['sms_access_key_secret'] || aliyunSecretMasked) && config['sms_sign_name'] && config['sms_template_code']) ||
+                (smsProvider === 'tencent' && config['tencent_secret_id'] && (config['tencent_secret_key'] || tencentSecretMasked) && config['tencent_sdk_app_id'] && config['tencent_sign_name'] && config['tencent_template_id']) ||
+                (smsProvider === 'twilio' && config['twilio_account_sid'] && (config['twilio_auth_token'] || twilioSecretMasked) && (config['twilio_from_number'] || config['twilio_messaging_service_sid']))
             ));
             await loadNotificationHealth();
         } catch {
@@ -194,14 +217,19 @@ const NotificationServices: React.FC = () => {
                 smtp_host: values.smtp_host,
                 smtp_port: String(values.smtp_port),
                 smtp_username: values.smtp_username,
-                smtp_password: values.smtp_password,
                 smtp_use_tls: values.smtp_use_tls ? 'true' : 'false',
                 smtp_sender: values.smtp_sender || values.smtp_username,
                 smtp_test_email: values.smtp_test_email || '',
             };
+            if (values.smtp_password) {
+                pairs.smtp_password = values.smtp_password;
+            } else if (!secretPresence.smtpPassword) {
+                pairs.smtp_password = '';
+            }
             await ApiClient.updateSystemConfig(pairs);
             message.success(t('notificationServices.messages.smtpSaved'));
             setSmtpConfigured(true);
+            setSecretPresence((prev) => ({ ...prev, smtpPassword: prev.smtpPassword || Boolean(values.smtp_password) }));
             await loadNotificationHealth();
         } catch (err: unknown) {
             if (hasFormValidationErrors(err)) return; // form validation
@@ -238,20 +266,29 @@ const NotificationServices: React.FC = () => {
     const handleSaveTelegram = async () => {
         try {
             const values = await telegramForm.validateFields() as TelegramConfig;
-            if (values.telegram_bot_enabled && (!values.telegram_bot_token || !values.telegram_chat_id)) {
+            const hasToken = Boolean(values.telegram_bot_token || secretPresence.telegramBotToken);
+            if (values.telegram_bot_enabled && (!hasToken || !values.telegram_chat_id)) {
                 message.error(t('notificationServices.telegram.validation.tokenAndChatRequiredWhenEnabled'));
                 return;
             }
             setTelegramSaving(true);
             const pairs: Record<string, string> = {
                 telegram_bot_enabled: values.telegram_bot_enabled ? 'true' : 'false',
-                telegram_bot_token: values.telegram_bot_token || '',
                 telegram_chat_id: values.telegram_chat_id || '',
                 telegram_parse_mode: values.telegram_parse_mode || 'MarkdownV2',
                 telegram_disable_web_page_preview: values.telegram_disable_web_page_preview ? 'true' : 'false',
             };
+            if (values.telegram_bot_token) {
+                pairs.telegram_bot_token = values.telegram_bot_token;
+            } else if (!secretPresence.telegramBotToken) {
+                pairs.telegram_bot_token = '';
+            }
             await ApiClient.updateSystemConfig(pairs);
-            setTelegramConfigured(Boolean(values.telegram_bot_token && values.telegram_chat_id));
+            setTelegramConfigured(Boolean((values.telegram_bot_token || secretPresence.telegramBotToken) && values.telegram_chat_id));
+            setSecretPresence((prev) => ({
+                ...prev,
+                telegramBotToken: prev.telegramBotToken || Boolean(values.telegram_bot_token),
+            }));
             message.success(t('notificationServices.messages.telegramSaved'));
             await loadNotificationHealth();
         } catch (err: unknown) {
@@ -286,17 +323,20 @@ const NotificationServices: React.FC = () => {
             return t('notificationServices.sms.validation.providerRequired');
         }
         if (values.sms_provider === 'aliyun') {
-            if (!values.sms_access_key_id || !values.sms_access_key_secret || !values.sms_sign_name || !values.sms_template_code) {
+            const hasSecret = Boolean(values.sms_access_key_secret || secretPresence.smsAccessKeySecret);
+            if (!values.sms_access_key_id || !hasSecret || !values.sms_sign_name || !values.sms_template_code) {
                 return t('notificationServices.sms.validation.aliyunRequired');
             }
         }
         if (values.sms_provider === 'tencent') {
-            if (!values.tencent_secret_id || !values.tencent_secret_key || !values.tencent_sdk_app_id || !values.tencent_sign_name || !values.tencent_template_id) {
+            const hasSecret = Boolean(values.tencent_secret_key || secretPresence.tencentSecretKey);
+            if (!values.tencent_secret_id || !hasSecret || !values.tencent_sdk_app_id || !values.tencent_sign_name || !values.tencent_template_id) {
                 return t('notificationServices.sms.validation.tencentRequired');
             }
         }
         if (values.sms_provider === 'twilio') {
-            if (!values.twilio_account_sid || !values.twilio_auth_token || (!values.twilio_from_number && !values.twilio_messaging_service_sid)) {
+            const hasSecret = Boolean(values.twilio_auth_token || secretPresence.twilioAuthToken);
+            if (!values.twilio_account_sid || !hasSecret || (!values.twilio_from_number && !values.twilio_messaging_service_sid)) {
                 return t('notificationServices.sms.validation.twilioRequired');
             }
         }
@@ -318,25 +358,43 @@ const NotificationServices: React.FC = () => {
                 sms_test_phone: values.sms_test_phone || '',
                 sms_test_message: values.sms_test_message || '',
                 sms_access_key_id: values.sms_access_key_id || '',
-                sms_access_key_secret: values.sms_access_key_secret || '',
                 sms_sign_name: values.sms_sign_name || '',
                 sms_template_code: values.sms_template_code || '',
                 sms_template_param: values.sms_template_param || '',
                 sms_region_id: values.sms_region_id || '',
                 tencent_secret_id: values.tencent_secret_id || '',
-                tencent_secret_key: values.tencent_secret_key || '',
                 tencent_sdk_app_id: values.tencent_sdk_app_id || '',
                 tencent_sign_name: values.tencent_sign_name || '',
                 tencent_template_id: values.tencent_template_id || '',
                 tencent_template_params: values.tencent_template_params || '',
                 tencent_region: values.tencent_region || '',
                 twilio_account_sid: values.twilio_account_sid || '',
-                twilio_auth_token: values.twilio_auth_token || '',
                 twilio_from_number: values.twilio_from_number || '',
                 twilio_messaging_service_sid: values.twilio_messaging_service_sid || '',
             };
+            if (values.sms_access_key_secret) {
+                pairs.sms_access_key_secret = values.sms_access_key_secret;
+            } else if (!secretPresence.smsAccessKeySecret) {
+                pairs.sms_access_key_secret = '';
+            }
+            if (values.tencent_secret_key) {
+                pairs.tencent_secret_key = values.tencent_secret_key;
+            } else if (!secretPresence.tencentSecretKey) {
+                pairs.tencent_secret_key = '';
+            }
+            if (values.twilio_auth_token) {
+                pairs.twilio_auth_token = values.twilio_auth_token;
+            } else if (!secretPresence.twilioAuthToken) {
+                pairs.twilio_auth_token = '';
+            }
             await ApiClient.updateSystemConfig(pairs);
             setSmsConfigured(true);
+            setSecretPresence((prev) => ({
+                ...prev,
+                smsAccessKeySecret: prev.smsAccessKeySecret || Boolean(values.sms_access_key_secret),
+                tencentSecretKey: prev.tencentSecretKey || Boolean(values.tencent_secret_key),
+                twilioAuthToken: prev.twilioAuthToken || Boolean(values.twilio_auth_token),
+            }));
             message.success(t('notificationServices.messages.smsSaved'));
             await loadNotificationHealth();
         } catch (err: unknown) {

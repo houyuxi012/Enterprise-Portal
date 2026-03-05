@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     JSON,
     Boolean,
@@ -117,6 +118,16 @@ class UserPasswordHistory(Base):
 
 class DirectoryConfig(Base):
     __tablename__ = "directory_configs"
+    __table_args__ = (
+        CheckConstraint("char_length(trim(host)) > 0", name="ck_directory_configs_host_nonempty"),
+        CheckConstraint("char_length(trim(base_dn)) > 0", name="ck_directory_configs_base_dn_nonempty"),
+        CheckConstraint("port BETWEEN 1 AND 65535", name="ck_directory_configs_port_range"),
+        CheckConstraint("sync_page_size BETWEEN 1 AND 10000", name="ck_directory_configs_sync_page_size_range"),
+        CheckConstraint(
+            "delete_grace_days BETWEEN 0 AND 3650",
+            name="ck_directory_configs_delete_grace_days_range",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(128), nullable=False, unique=True, index=True)
@@ -190,6 +201,22 @@ class SystemConfig(Base):
     value = Column(String)
 
 
+class PrivacyConsent(Base):
+    __tablename__ = "privacy_consents"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    username = Column(String(255), nullable=True, index=True)
+    audience = Column(String(20), nullable=False, index=True)
+    policy_version = Column(String(64), nullable=False, index=True)
+    policy_hash = Column(String(128), nullable=False, index=True)
+    accepted = Column(Boolean, nullable=False, default=True)
+    ip_address = Column(String(64), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    locale = Column(String(16), nullable=True)
+    trace_id = Column(String(128), nullable=True, index=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+
 class LicenseState(Base):
     __tablename__ = "license_state"
 
@@ -231,13 +258,3 @@ class LicenseEvent(Base):
     ip_address = Column(String(64), nullable=True)
     trace_id = Column(String(128), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
-    __table_args__ = (
-        CheckConstraint("char_length(trim(host)) > 0", name="ck_directory_configs_host_nonempty"),
-        CheckConstraint("char_length(trim(base_dn)) > 0", name="ck_directory_configs_base_dn_nonempty"),
-        CheckConstraint("port BETWEEN 1 AND 65535", name="ck_directory_configs_port_range"),
-        CheckConstraint("sync_page_size BETWEEN 1 AND 10000", name="ck_directory_configs_sync_page_size_range"),
-        CheckConstraint(
-            "delete_grace_days BETWEEN 0 AND 3650",
-            name="ck_directory_configs_delete_grace_days_range",
-        ),
-    )

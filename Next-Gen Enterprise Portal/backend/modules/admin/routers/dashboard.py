@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
@@ -34,21 +34,21 @@ async def get_dashboard_stats(
     system_visits = result.scalar() or 0
 
     # 4. New Content (News in last 7 days)
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
     # Ensure strict date comparison if db column is Date
     result = await db.execute(select(func.count(models.NewsItem.id)).where(models.NewsItem.date >= seven_days_ago.date()))
     new_content = result.scalar() or 0
 
     # --- Trend Calculation (Week over Week) ---
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_of_current_week = now - timedelta(days=7)
     start_of_previous_week = start_of_current_week - timedelta(days=7)
 
     async def get_count_in_range(model, start, end):
         query = select(func.count(model.id)).where(
-            model.timestamp >= start.isoformat() if hasattr(model, 'timestamp') else model.created_at >= start
+            model.timestamp >= start if hasattr(model, 'timestamp') else model.created_at >= start
         ).where(
-            model.timestamp < end.isoformat() if hasattr(model, 'timestamp') else model.created_at < end
+            model.timestamp < end if hasattr(model, 'timestamp') else model.created_at < end
         )
         res = await db.execute(query)
         return res.scalar() or 0
@@ -76,7 +76,7 @@ async def get_dashboard_stats(
     # Peak Time / Daily Activity (Current Week: Sun - Sat)
     # Find start of current week (Sunday)
     # Python weekday(): Mon=0, Sun=6.
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     # Calculate days to subtract to get to last Sunday
     idx = (today.weekday() + 1) % 7 # Sun=0, Mon=1...
     start_of_week = datetime.combine(today - timedelta(days=idx), datetime.min.time())

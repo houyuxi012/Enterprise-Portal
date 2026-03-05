@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import modules.models as models
 from infrastructure.cache_manager import CacheManager
+from modules.iam.services.system_config_security import decrypt_system_config_map
 
 logger = logging.getLogger("email_service")
 
@@ -38,7 +39,7 @@ def _generate_otp(length: int = 6) -> str:
 
 async def _get_smtp_config(db: AsyncSession) -> dict:
     result = await db.execute(select(models.SystemConfig))
-    all_cfg = {c.key: c.value for c in result.scalars().all()}
+    all_cfg = decrypt_system_config_map({c.key: c.value for c in result.scalars().all()})
     return {
         "host": all_cfg.get("smtp_host", ""),
         "port": int(all_cfg.get("smtp_port", "587")),

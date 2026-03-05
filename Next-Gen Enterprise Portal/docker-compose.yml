@@ -45,7 +45,7 @@ services:
       - redis_data:/data
       - ./ops/nginx/certs:/run/certs:ro
     healthcheck:
-      test: [ "CMD-SHELL", "redis-cli --tls --insecure -h 127.0.0.1 -p 6379 -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG" ]
+      test: [ "CMD-SHELL", "redis-cli --tls --cacert /run/certs/hyx_ngep.cer -h 127.0.0.1 -p 6379 -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -103,16 +103,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}@db:5432/${POSTGRES_DB:-portal_db}?ssl=require
-      REDIS_URL: rediss://:${REDIS_PASSWORD:-ChangeThis_Redis_2026!}@redis:6379/0?ssl_cert_reqs=none
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}@db:5432/${POSTGRES_DB:-portal_db}?sslmode=verify-ca&sslrootcert=/run/certs/hyx_ngep.cer
+      REDIS_URL: rediss://:${REDIS_PASSWORD:-ChangeThis_Redis_2026!}@redis:6379/0?ssl_cert_reqs=required&ssl_ca_certs=/run/certs/hyx_ngep.cer&ssl_check_hostname=false
       PYTHONDONTWRITEBYTECODE: "1"
       DB_POOL_SIZE: "10"
       DB_MAX_OVERFLOW: "10"
       DB_MAX_CONNECTION_BUDGET: "80"
       SECRET_KEY: "super-secret-fixed-key-for-persistence"
+      MASTER_KEY: ${MASTER_KEY:-ChangeThis_Master_Key_2026}
       ACCESS_TOKEN_EXPIRE_MINUTES: "5" # Default 5 minutes
       WEB_CONCURRENCY: "4"
       DB_AUTO_MIGRATE_ON_STARTUP: "false"
+      CACHE_STRICT_MODE: "true"
       GUNICORN_TIMEOUT: "120"
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       STORAGE_TYPE: minio
@@ -143,8 +145,9 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
-      - ./ops/nginx:/app/ops/nginx
-      - ./ops/loki:/app/loki # Allow backend to update Loki config
+      - ./ops/nginx:/app/ops/nginx:ro
+      - ./ops/loki:/app/loki:ro
+      - ./ops/nginx/certs:/run/certs:ro
       - ../test_db:/app/test_db # Mount test data scripts
 
   frontend:

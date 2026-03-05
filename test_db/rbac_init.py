@@ -3,6 +3,7 @@ import logging
 import asyncio
 import os
 import sys
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists, update, delete
 from sqlalchemy.orm import selectinload
@@ -297,20 +298,36 @@ async def init_rbac(db: AsyncSession):
 
     # 5. Ensure Default Admin User Exists
     print("Ensuring Admin User...")
+    seeded_admin_password = "ngep#HYX"
     admin_user_data = {
         "username": "admin",
         "email": "admin@example.com",
-        "hashed_password": await utils.get_password_hash("admin"),
+        "hashed_password": await utils.get_password_hash(seeded_admin_password),
         "account_type": "SYSTEM",
         # "role": "admin", # Legacy field REMOVED
         "is_active": True,
         "name": "Administrator",
-        "avatar": "/images/admin-avatar.svg"
+        "avatar": "/images/admin-avatar.svg",
+        "password_change_required": True,
+        "password_changed_at": datetime.now(timezone.utc),
     }
     
     stmt = insert(models.User).values(admin_user_data)
     stmt = stmt.on_conflict_do_nothing(index_elements=['username'])
     await db.execute(stmt)
+
+    admin_result = await db.execute(select(models.User).where(models.User.username == "admin"))
+    admin_user = admin_result.scalars().first()
+    if admin_user:
+        # One-time safety migration: rotate only legacy default password "admin".
+        if await utils.verify_password("admin", admin_user.hashed_password):
+            admin_user.hashed_password = await utils.get_password_hash(seeded_admin_password)
+            admin_user.password_change_required = True
+            admin_user.password_changed_at = datetime.now(timezone.utc)
+            db.add(admin_user)
+        elif await utils.verify_password(seeded_admin_password, admin_user.hashed_password):
+            admin_user.password_change_required = True
+            db.add(admin_user)
 
     # 6. Migrate Users (Bind Roles to Users who have NO roles)
     # Using 'NOT EXISTS' logic to avoid fetching all users

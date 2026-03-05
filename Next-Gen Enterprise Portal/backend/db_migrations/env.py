@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Import models so metadata is fully populated for autogenerate.
 import modules.models as models  # noqa: E402
+from core.db_tls import build_asyncpg_url_and_connect_args  # noqa: E402
 
 target_metadata = models.Base.metadata
 
@@ -61,12 +62,15 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     section = config.get_section(config.config_ini_section) or {}
-    section["sqlalchemy.url"] = get_database_url()
+    database_url = get_database_url()
+    normalized_url, connect_args = build_asyncpg_url_and_connect_args(database_url)
+    section["sqlalchemy.url"] = normalized_url
 
     connectable = async_engine_from_config(
         section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

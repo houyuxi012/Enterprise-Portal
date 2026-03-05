@@ -10,12 +10,20 @@ from typing import Any, Dict
 import httpx
 import psutil
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
+from modules.iam.services.system_config_security import (
+    decrypt_sensitive_system_config_value,
+    decrypt_system_config_map,
+    encrypt_sensitive_system_config_value,
+    is_masked_placeholder,
+    is_sensitive_system_config_key,
+    sanitize_system_config_map_for_client,
+)
 from application.admin_app import (
     AuditService,
     LicenseService,
@@ -168,10 +176,24 @@ async def _upsert_system_config_entries(db: AsyncSession, pairs: Dict[str, str])
             select(models.SystemConfig).filter(models.SystemConfig.key == key)
         )
         existing = result.scalars().first()
+        stored_value = (
+            encrypt_sensitive_system_config_value(key, value)
+            if is_sensitive_system_config_key(key)
+            else value
+        )
         if existing:
-            existing.value = value
+            existing.value = stored_value
         else:
-            db.add(models.SystemConfig(key=key, value=value))
+            db.add(models.SystemConfig(key=key, value=stored_value))
+
+
+async def _load_system_config_map(db: AsyncSession, keys: list[str] | set[str] | None = None) -> Dict[str, str]:
+    stmt = select(models.SystemConfig)
+    if keys is not None:
+        stmt = stmt.where(models.SystemConfig.key.in_(list(keys)))
+    result = await db.execute(stmt)
+    config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
+    return decrypt_system_config_map(config_map)
 
 # Simple state for network speed calculation
 _last_net_io = None
@@ -244,6 +266,71 @@ def _get_hardware_fingerprint_payload() -> dict:
         },
     }
     return payload
+
+
+@router.get("/privacy/consents", response_model=Dict[str, Any])
+async def list_privacy_consents(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    username: str | None = Query(default=None),
+    audience: str | None = Query(default=None, pattern="^(admin|portal)$"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    base_query = select(models.PrivacyConsent)
+    count_query = select(func.count(models.PrivacyConsent.id))
+
+    if username:
+        candidate = f"%{username.strip()}%"
+        base_query = base_query.where(models.PrivacyConsent.username.ilike(candidate))
+        count_query = count_query.where(models.PrivacyConsent.username.ilike(candidate))
+    if audience:
+        base_query = base_query.where(models.PrivacyConsent.audience == audience)
+        count_query = count_query.where(models.PrivacyConsent.audience == audience)
+
+    total_result = await db.execute(count_query)
+    total = int(total_result.scalar() or 0)
+
+    rows_result = await db.execute(
+        base_query.order_by(desc(models.PrivacyConsent.accepted_at)).limit(limit).offset(offset)
+    )
+    rows = rows_result.scalars().all()
+    items = [
+        {
+            "id": row.id,
+            "username": row.username,
+            "audience": row.audience,
+            "policy_version": row.policy_version,
+            "policy_hash": row.policy_hash,
+            "accepted": bool(row.accepted),
+            "ip_address": row.ip_address,
+            "locale": row.locale,
+            "trace_id": row.trace_id,
+            "accepted_at": row.accepted_at.isoformat() if row.accepted_at else None,
+        }
+        for row in rows
+    ]
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="READ_PRIVACY_CONSENTS",
+        target="隐私同意记录",
+        detail=f"username={username or '*'}, audience={audience or '*'}, limit={limit}, offset={offset}, total={total}",
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="SYSTEM",
+    )
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": items,
+    }
 
 
 def _build_system_serial_number() -> str:
@@ -379,9 +466,7 @@ async def get_system_config(
         )
         return config_map
 
-    result = await db.execute(select(models.SystemConfig))
-    configs = result.scalars().all()
-    config_map = {c.key: c.value for c in configs}
+    config_map = await _load_system_config_map(db)
     if normalized_scope == "platform":
         platform_keys = sorted([key for key in config_map.keys() if key.startswith("platform_")])
         AuditService.schedule_business_action(
@@ -420,7 +505,7 @@ async def get_system_config(
             trace_id=trace_id,
             domain="SYSTEM",
         )
-    return config_map
+    return sanitize_system_config_map_for_client(config_map)
 
 
 @router.post("/config", response_model=Dict[str, str])
@@ -434,7 +519,7 @@ async def update_system_config(
 ):
     result = await db.execute(select(models.SystemConfig))
     existing_configs = result.scalars().all()
-    existing_config_map = {c.key: c.value for c in existing_configs}
+    existing_config_map = decrypt_system_config_map({c.key: c.value for c in existing_configs})
     existing_config_items = {c.key: c for c in existing_configs}
 
     normalized_config: Dict[str, str] = {}
@@ -470,7 +555,7 @@ async def update_system_config(
                     detail=f"配置项 {key} 仅支持: {', '.join(sorted(allowed_values))}",
                 )
             normalized_value = candidate
-        normalized_config[key] = normalized_value
+        normalized_config[key] = str(normalized_value)
 
     await _require_feature_by_scope(db, scope)
     await _require_feature_by_config_keys(db, set(normalized_config.keys()))
@@ -525,11 +610,19 @@ async def update_system_config(
                 )
 
     for key, value in normalized_config.items():
+        if is_sensitive_system_config_key(key) and is_masked_placeholder(value):
+            continue
+
+        stored_value = (
+            encrypt_sensitive_system_config_value(key, value)
+            if is_sensitive_system_config_key(key)
+            else value
+        )
         existing = existing_config_items.get(key)
         if existing:
-            existing.value = value
+            existing.value = stored_value
         else:
-            db.add(models.SystemConfig(key=key, value=value))
+            db.add(models.SystemConfig(key=key, value=stored_value))
 
     # Sync Loki retention if access log retention is updated
     if "log_retention_access_days" in normalized_config:
@@ -600,9 +693,8 @@ async def update_system_config(
 
     await db.commit()
 
-    result = await db.execute(select(models.SystemConfig))
-    configs = result.scalars().all()
-    return {c.key: c.value for c in configs}
+    final_map = await _load_system_config_map(db)
+    return sanitize_system_config_map_for_client(final_map)
 
 
 @router.get("/platform/runtime", response_model=Dict[str, str])
@@ -702,9 +794,7 @@ async def apply_platform_config(
     db: AsyncSession = Depends(database.get_db),
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
-    result = await db.execute(select(models.SystemConfig))
-    configs = result.scalars().all()
-    config_map = {c.key: c.value for c in configs}
+    config_map = await _load_system_config_map(db)
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
@@ -873,7 +963,7 @@ async def test_telegram_bot(
                 )
             )
         )
-        config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
+        config_map = decrypt_system_config_map({cfg.key: cfg.value for cfg in result.scalars().all()})
         bot_token = bot_token or str(config_map.get("telegram_bot_token") or "").strip()
         chat_id = chat_id or str(config_map.get("telegram_chat_id") or "").strip()
         parse_mode = parse_mode or str(config_map.get("telegram_parse_mode") or "").strip()
@@ -1199,7 +1289,7 @@ async def test_sms_gateway(
             )
         )
     )
-    config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
+    config_map = decrypt_system_config_map({cfg.key: cfg.value for cfg in result.scalars().all()})
     payload: dict[str, Any] = {**config_map, **(body or {})}
 
     provider = str(payload.get("provider") or payload.get("sms_provider") or "").strip().lower()
@@ -1309,7 +1399,7 @@ async def get_notification_health(
         "twilio_messaging_service_sid",
     ]
     result = await db.execute(select(models.SystemConfig).where(models.SystemConfig.key.in_(keys)))
-    config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
+    config_map = decrypt_system_config_map({cfg.key: cfg.value for cfg in result.scalars().all()})
 
     smtp_configured = all(_is_nonempty(config_map.get(key)) for key in ("smtp_host", "smtp_username", "smtp_password"))
     smtp_sender = str(config_map.get("smtp_sender") or "").strip() or str(config_map.get("smtp_username") or "").strip()

@@ -68,7 +68,7 @@ cd "Next-Gen Enterprise Portal"
 # 后端 API: https://127.0.0.1/api/docs
 # Grafana: http://localhost:3000 (admin / Grafana@houyuxi)
 
-# 默认管理员: admin / admin  
+# 默认管理员: admin / ngep#HYX（首次登录强制修改密码）  
 ```
 
 ---

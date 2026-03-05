@@ -34,7 +34,7 @@ class SystemLogBase(BaseModel):
     level: str
     module: str
     message: str
-    timestamp: str
+    timestamp: datetime
 
 
 class SystemLog(SystemLogBase):
@@ -51,7 +51,7 @@ class BusinessLogBase(BaseModel):
     ip_address: Optional[str] = None
     status: str
     detail: Optional[str] = None
-    timestamp: str
+    timestamp: datetime
     source: Optional[str] = None
 
 
@@ -358,4 +358,3 @@ class AIModelQuota(AIModelQuotaBase):
 
     class Config:
         from_attributes = True
-

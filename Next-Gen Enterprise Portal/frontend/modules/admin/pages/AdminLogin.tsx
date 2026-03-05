@@ -45,7 +45,7 @@ const parseError = (error: unknown) => {
 };
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { login, logout } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
@@ -55,6 +55,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const [error, setError] = useState('');
     const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
     const [captchaId, setCaptchaId] = useState('');
@@ -98,6 +99,15 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
+            if (!privacyAccepted) {
+                throw new Error(t('loginAdmin.privacyConsentRequired', '请先阅读并同意隐私政策'));
+            }
+            await ApiClient.recordPrivacyConsent({
+                audience: 'admin',
+                username: username.trim() || undefined,
+                locale: i18n.language,
+                accepted: true,
+            });
             const headers: Record<string, string> = {};
             if (requiresCaptcha) {
                 const normalizedCaptcha = captchaCode.trim();
@@ -493,6 +503,26 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                             </div>
                         )}
 
+                        <div className="flex items-start gap-2 text-xs text-slate-500">
+                            <input
+                                id="privacy-consent-admin"
+                                type="checkbox"
+                                checked={privacyAccepted}
+                                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label htmlFor="privacy-consent-admin" className="leading-5">
+                                {t('loginAdmin.privacyConsentLabel', '阅读并同意')}
+                                <a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); setIsPrivacyOpen(true); }}
+                                    className="mx-1 text-blue-600 hover:text-blue-700"
+                                >
+                                    {t('loginAdmin.privacyPolicy')}
+                                </a>
+                            </label>
+                        </div>
+
                         {error && (
                             <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold text-center animate-in fade-in slide-in-from-top-2">
                                 {error}
@@ -512,17 +542,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         </button>
                     </form>
 
-                    <div className="mt-12 flex justify-between items-center text-[10px] text-slate-300 font-medium uppercase tracking-widest">
+                    <div className="mt-12 flex items-center text-[10px] text-slate-300 font-medium uppercase tracking-widest">
                         <div className="flex items-center space-x-1">
                             <span>{t('loginAdmin.footer')}</span>
                         </div>
-                        <a
-                            href="#"
-                            onClick={(e) => { e.preventDefault(); setIsPrivacyOpen(true); }}
-                            className="hover:text-slate-500 transition-colors"
-                        >
-                            {t('loginAdmin.privacyPolicy')}
-                        </a>
                     </div>
 
                 </div>

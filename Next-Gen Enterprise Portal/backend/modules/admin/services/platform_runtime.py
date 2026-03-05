@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import os
 import re
+import shlex
 import socket
 import ssl
 import subprocess
@@ -280,29 +281,30 @@ def test_ntp_connectivity(server: str, port: int, timeout_seconds: float = 3.0) 
 
 
 def apply_platform_runtime(config_map: Dict[str, str]) -> Dict[str, Any]:
-    nginx_root = Path(os.getenv("PLATFORM_NGINX_ROOT", "/app/ops/nginx"))
+    runtime_root = Path(os.getenv("PLATFORM_RUNTIME_ROOT", "/app/runtime/platform"))
+    nginx_root = Path(os.getenv("PLATFORM_NGINX_ROOT", str(runtime_root / "nginx")))
     cert_path = Path(
         os.getenv(
             "PLATFORM_SSL_CERT_FILE",
-            str(nginx_root / "certs" / "hyx_ngep.cer"),
+            str(nginx_root / "certs" / "platform_runtime.cer"),
         )
     )
     key_path = Path(
         os.getenv(
             "PLATFORM_SSL_KEY_FILE",
-            str(nginx_root / "certs" / "hyx_ngep.key"),
+            str(nginx_root / "certs" / "platform_runtime.key"),
         )
     )
     default_cert_path = Path(
         os.getenv(
             "PLATFORM_SSL_DEFAULT_CERT_FILE",
-            str(nginx_root / "certs" / "default" / "hyx_ngep.cer"),
+            "/app/ops/nginx/certs/default/hyx_ngep.cer",
         )
     )
     default_key_path = Path(
         os.getenv(
             "PLATFORM_SSL_DEFAULT_KEY_FILE",
-            str(nginx_root / "certs" / "default" / "hyx_ngep.key"),
+            "/app/ops/nginx/certs/default/hyx_ngep.key",
         )
     )
     server_name_path = Path(
@@ -408,9 +410,15 @@ def apply_platform_runtime(config_map: Dict[str, str]) -> Dict[str, Any]:
 
     if hook_command:
         try:
+            hook_args = shlex.split(hook_command)
+            if not hook_args:
+                raise PlatformRuntimeApplyError(
+                    "PLATFORM_HOOK_INVALID",
+                    "平台应用 Hook 命令为空或格式不正确",
+                )
             completed = subprocess.run(
-                hook_command,
-                shell=True,
+                hook_args,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=hook_timeout_seconds,

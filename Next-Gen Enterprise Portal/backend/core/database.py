@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from core.db_tls import (
+    build_asyncpg_url_and_connect_args,
+    database_url_requests_tls,
+    validate_database_tls_policy,
+)
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -14,10 +19,14 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set")
-if "sslmode=" not in DATABASE_URL and "ssl=" not in DATABASE_URL:
+DB_TLS_STRICT = os.getenv("DB_TLS_STRICT", "true").lower() != "false"
+if not database_url_requests_tls(DATABASE_URL):
     logger.warning("DATABASE_URL has no TLS parameter (sslmode/ssl). Prefer TLS-enabled DB connections.")
+validate_database_tls_policy(DATABASE_URL, strict_mode=DB_TLS_STRICT)
 if "://user:password@" in DATABASE_URL:
     logger.warning("DATABASE_URL appears to use default weak credentials; please rotate immediately.")
+
+NORMALIZED_DATABASE_URL, DATABASE_CONNECT_ARGS = build_asyncpg_url_and_connect_args(DATABASE_URL)
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 # Keep conservative defaults to avoid exhausting PostgreSQL max_connections.
@@ -38,7 +47,7 @@ if _potential_connections > DB_MAX_CONNECTION_BUDGET:
     )
 
 engine = create_async_engine(
-    DATABASE_URL,
+    NORMALIZED_DATABASE_URL,
     echo=DEBUG,
     future=True,
     pool_size=DB_POOL_SIZE,
@@ -46,6 +55,7 @@ engine = create_async_engine(
     pool_timeout=DB_POOL_TIMEOUT,
     pool_recycle=DB_POOL_RECYCLE,
     pool_pre_ping=True,
+    connect_args=DATABASE_CONNECT_ARGS,
 )
 
 SessionLocal = sessionmaker(

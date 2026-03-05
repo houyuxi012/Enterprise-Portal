@@ -221,12 +221,16 @@ async def read_business_logs(
     loki_logs_map = {}
     
     # helper: convert timestamp to epoch_ms for sorting
-    def to_epoch_ms(ts_str: str) -> int:
-        if not ts_str: return 0
+    def to_epoch_ms(ts_value) -> int:
+        if not ts_value:
+            return 0
+        if isinstance(ts_value, datetime.datetime):
+            dt = ts_value if ts_value.tzinfo else ts_value.replace(tzinfo=datetime.timezone.utc)
+            return int(dt.timestamp() * 1000)
         try:
             # Handle ISO8601 variations (with/without Z, space, T)
             # Simple normalization first
-            s = ts_str.replace("T", " ").replace("Z", "")
+            s = str(ts_value).replace("T", " ").replace("Z", "")
             # Truncate fractional seconds for parsing if needed, or handle generically
             # Using dateutil or basic datetime
             # Fallback to simple string sort if parsing fails? No, requirement is epoch ms.
@@ -394,7 +398,7 @@ async def create_business_log(
         trace_id=trace_id,
         source="WEB",
         domain="BUSINESS",
-        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        timestamp=datetime.datetime.now(datetime.timezone.utc),
     )
     db.add(db_log)
     await db.commit()
@@ -426,7 +430,7 @@ async def create_business_log_for_portal(
         trace_id=trace_id,
         source="WEB",
         domain="BUSINESS",
-        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        timestamp=datetime.datetime.now(datetime.timezone.utc),
     )
     db.add(db_log)
     await db.commit()
@@ -877,7 +881,7 @@ async def get_ai_audit_stats(
     """Get AI audit statistics summary"""
     from sqlalchemy import func
     
-    cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
     
     # Total requests
     total_result = await db.execute(

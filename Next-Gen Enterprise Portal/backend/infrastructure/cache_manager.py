@@ -3,6 +3,7 @@ import logging
 import time
 import asyncio
 from typing import Optional, Any, Union, Dict, List, Tuple
+from urllib.parse import quote
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 
@@ -34,6 +35,8 @@ class CacheManager:
             # Memory Cache: Store (value_bytes, expire_at_float)
             cls._instance.memory_cache: Dict[str, Tuple[bytes, float]] = {} 
             cls._instance.is_redis_available = False
+            cls._instance.strict_mode = str(os.getenv("CACHE_STRICT_MODE", "true")).lower() != "false"
+            cls._instance.allow_memory_fallback = not cls._instance.strict_mode
             
             # 4) & 5) Lock for thread/coroutine safety (memory + stats)
             cls._instance._lock = None 
@@ -61,18 +64,32 @@ class CacheManager:
         
         # Initialize Lock
         self._ensure_lock()
+        self.strict_mode = str(os.getenv("CACHE_STRICT_MODE", "true")).lower() != "false"
+        self.allow_memory_fallback = not self.strict_mode
 
         if not redis_url:
             redis_url = os.getenv("REDIS_URL", "")
             if not redis_url:
                 redis_password = os.getenv("REDIS_PASSWORD", "").strip()
                 if redis_password:
-                    redis_url = f"rediss://:{redis_password}@redis:6379/0?ssl_cert_reqs=none"
+                    redis_ca_cert = quote(os.getenv("REDIS_SSL_CA_CERT", "/run/certs/hyx_ngep.cer"), safe="/:")
+                    redis_url = (
+                        f"rediss://:{redis_password}@redis:6379/0"
+                        f"?ssl_cert_reqs=required&ssl_ca_certs={redis_ca_cert}"
+                    )
                 else:
                     redis_url = "redis://redis:6379/0"
 
         if redis_url.startswith("redis://"):
-            logger.warning("REDIS_URL is using plaintext transport (redis://). Prefer rediss:// in production.")
+            message = "REDIS_URL uses plaintext transport (redis://). Configure rediss:// for secure deployment."
+            if self.strict_mode:
+                raise RuntimeError(message)
+            logger.warning(message)
+        if "ssl_cert_reqs=none" in redis_url.lower():
+            message = "REDIS_URL disables certificate verification (ssl_cert_reqs=none)."
+            if self.strict_mode:
+                raise RuntimeError(message)
+            logger.warning(message)
         if "@" not in redis_url:
             logger.warning("REDIS_URL appears to have no password configured.")
             
@@ -109,12 +126,21 @@ class CacheManager:
                 await FastAPILimiter.init(self.redis_limiter)
                 logger.info(f"✅ Redis Cache Initialized: {redis_url} (Pools: Bytes={max_connections}, Str=20)")
             except Exception as e:
-                logger.warning(f"⚠️ Redis Connection Failed: {e}. Falling back to In-Memory Cache.")
+                logger.warning("⚠️ Redis Connection Failed: %s", e)
                 self.redis = None
                 self.redis_limiter = None
                 self.is_redis_available = False
+                if self.strict_mode:
+                    raise RuntimeError("Redis connection failed and CACHE_STRICT_MODE=true.") from e
+                logger.warning("Falling back to In-Memory Cache because CACHE_STRICT_MODE=false.")
         else:
+            if self.strict_mode:
+                raise RuntimeError("REDIS_URL is required when CACHE_STRICT_MODE=true.")
             logger.info("ℹ️ No REDIS_URL found. Using In-Memory Cache.")
+
+    def _ensure_backend_ready(self) -> None:
+        if self.strict_mode and not (self.is_redis_available and self.redis):
+            raise RuntimeError("Redis backend is unavailable and in-memory fallback is disabled.")
 
     def _mem_get_locked(self, key: str) -> Optional[bytes]:
         """Internal memory get assuming lock is held"""
@@ -132,12 +158,15 @@ class CacheManager:
         start = time.perf_counter()
         val = None
         hit = False
+        self._ensure_backend_ready()
         try:
             if self.is_redis_available and self.redis:
                 val = await self.redis.get(key)
-            else:
+            elif self.allow_memory_fallback:
                 async with self._lock:
                     val = self._mem_get_locked(key)
+            else:
+                raise RuntimeError("Redis backend unavailable.")
             
             if val is not None:
                 hit = True
@@ -145,6 +174,8 @@ class CacheManager:
             else:
                 return None
         except Exception as e:
+            if self.strict_mode:
+                raise
             logger.error(f"Cache GET error: {e}")
             return None
         finally:
@@ -163,6 +194,7 @@ class CacheManager:
         self._ensure_lock()
         if not keys:
             return {}
+        self._ensure_backend_ready()
         
         start = time.perf_counter()
         result = {}
@@ -179,7 +211,7 @@ class CacheManager:
                     else:
                         misses_delta += 1
                         result[key] = None
-            else:
+            elif self.allow_memory_fallback:
                 async with self._lock:
                     for key in keys:
                         val = self._mem_get_locked(key)
@@ -189,8 +221,12 @@ class CacheManager:
                         else:
                             misses_delta += 1
                             result[key] = None
+            else:
+                raise RuntimeError("Redis backend unavailable.")
             return result
         except Exception as e:
+            if self.strict_mode:
+                raise
             logger.error(f"Cache MGET error: {e}")
             return {}
         finally:
@@ -205,6 +241,7 @@ class CacheManager:
     async def set(self, key: str, value: Any, ttl: int = 60, is_json: bool = True):
         self._ensure_lock()
         start = time.perf_counter()
+        self._ensure_backend_ready()
         try:
             if is_json:
                 data = serialize(value)
@@ -218,11 +255,15 @@ class CacheManager:
 
             if self.is_redis_available and self.redis:
                 await self.redis.set(key, data, ex=ttl)
-            else:
+            elif self.allow_memory_fallback:
                 async with self._lock:
                     expire_at = time.time() + ttl
                     self.memory_cache[key] = (data, expire_at)
+            else:
+                raise RuntimeError("Redis backend unavailable.")
         except Exception as e:
+            if self.strict_mode:
+                raise
             logger.error(f"Cache SET error: {e}")
         finally:
             elapsed = (time.perf_counter() - start) * 1000
@@ -233,17 +274,23 @@ class CacheManager:
 
     async def delete(self, key: str):
         self._ensure_lock()
+        self._ensure_backend_ready()
         try:
             if self.is_redis_available and self.redis:
                 await self.redis.delete(key)
-            else:
+            elif self.allow_memory_fallback:
                 async with self._lock:
                     self.memory_cache.pop(key, None)
+            else:
+                raise RuntimeError("Redis backend unavailable.")
         except Exception as e:
+            if self.strict_mode:
+                raise
             logger.error(f"Cache DELETE error: {e}")
 
     async def delete_pattern(self, pattern: str):
         self._ensure_lock()
+        self._ensure_backend_ready()
         try:
             if self.is_redis_available and self.redis:
                 batch_size = 1000
@@ -258,14 +305,18 @@ class CacheManager:
                         batch_keys = []
                 if batch_keys:
                     await self.redis.delete(*batch_keys)
-            else:
+            elif self.allow_memory_fallback:
                 async with self._lock:
                     prefix = pattern.rstrip("*")
                     keys_to_del = [k for k in self.memory_cache.keys() if k.startswith(prefix)]
                     for k in keys_to_del:
                         del self.memory_cache[k]
+            else:
+                raise RuntimeError("Redis backend unavailable.")
         except Exception as e:
-             logger.error(f"Cache DELETE PATTERN error: {e}")
+            if self.strict_mode:
+                raise
+            logger.error(f"Cache DELETE PATTERN error: {e}")
 
     async def get_stats(self):
         self._ensure_lock()

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from fastapi import BackgroundTasks
 
@@ -171,7 +171,7 @@ class AuditService:
                 detail=detail,
                 trace_id=trace_id,
                 domain=domain,
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now(timezone.utc)
             )
             
             db.add(log_entry)

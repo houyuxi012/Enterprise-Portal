@@ -17,7 +17,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
 import httpx
@@ -25,6 +25,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_timestamp(value: str | datetime | None) -> datetime:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return datetime.now(timezone.utc)
+    text = str(value).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except Exception:
+        return datetime.now(timezone.utc)
 
 
 def _loki_headers() -> Dict[str, str]:
@@ -132,7 +147,7 @@ class DbLogWriter(LogWriter):
                         detail=entry.detail,
                         trace_id=entry.trace_id,
                         source=entry.source or "WEB",
-                        timestamp=entry.timestamp
+                        timestamp=_parse_timestamp(entry.timestamp)
                     )
                     db.add(log_obj)
                     await db.commit()
@@ -142,10 +157,8 @@ class DbLogWriter(LogWriter):
                     log_obj = SystemLog(
                         level=entry.level,
                         module=entry.source or "SYSTEM",
-                        message=entry.action,
-                        detail=entry.detail,
-                        trace_id=entry.trace_id,
-                        timestamp=entry.timestamp
+                        message=f"{entry.action} | {entry.detail or ''}".strip(" |"),
+                        timestamp=_parse_timestamp(entry.timestamp),
                     )
                     db.add(log_obj)
                     await db.commit()
@@ -162,7 +175,7 @@ class DbLogWriter(LogWriter):
                         detail=f"provider={entry.provider}, model={entry.model}, latency={entry.latency_ms}ms",
                         trace_id=entry.trace_id,
                         source="AI",
-                        timestamp=entry.timestamp
+                        timestamp=_parse_timestamp(entry.timestamp)
                     )
                     db.add(log_obj)
                     await db.commit()

@@ -895,43 +895,40 @@ class IdentityService:
                 token = auth_header.split(" ", 1)[1].strip()
 
         if not token:
-            print(f"IAM Debug: Cannot find token in cookies or headers for audience={audience}")
+            logger.debug("Auth token not found in request cookies/headers (audience=%s)", audience)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
 
-        print(f"IAM Debug: Found token for audience={audience}: {token[:15]}...")
         try:
             # Decode with audience verification if audience is specified
             options = {"verify_aud": True} if audience else {"verify_aud": False}
             payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM], audience=audience, options=options)
             username: str = payload.get("sub")
             if username is None:
-                print("IAM Debug: Payload sub is None")
+                logger.debug("JWT payload missing subject claim.")
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
             token_jti: str | None = payload.get("jti")
             if await IdentityService._is_jti_revoked(token_jti):
-                print(f"IAM Debug: Token JTI {token_jti} revoked")
+                logger.debug("Token revoked (jti=%s).", token_jti)
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
         except ExpiredSignatureError as e:
-            print(f"IAM Debug: Token expired {e}")
+            logger.debug("JWT expired: %s", e)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
         except JWTClaimsError as e:
-            print(f"IAM Debug: JWTClaimsError {e}")
+            logger.debug("JWT claims validation failed: %s", e)
             if audience and "audience" in str(e).lower():
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_AUDIENCE_MISMATCH)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
         except JWTError as e:
-            print(f"IAM Debug: JWTError {e}")
+            logger.debug("JWT decode failed: %s", e)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
-        
-        print(f"IAM Debug: Looking up user {username}")
-        
+
         result = await db.execute(select(models.User).filter(models.User.username == username).options(selectinload(models.User.roles).selectinload(models.Role.permissions)))
         user = result.scalars().first()
         if user is None:
-            print(f"IAM Debug: User {username} not found")
+            logger.debug("JWT subject user not found: %s", username)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
         if not user.is_active:
-            print(f"IAM Debug: User {username} is inactive")
+            logger.debug("Inactive user attempted access: %s", username)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
 
         # Enforce global MFA binding on backend side to prevent client bypass.

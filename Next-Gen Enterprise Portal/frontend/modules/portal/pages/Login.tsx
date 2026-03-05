@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { App } from 'antd';
+import { App, Modal } from 'antd';
 import { Lock, Loader2, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
@@ -11,10 +11,24 @@ interface LoginProps {
     onLoginSuccess: () => void;
 }
 
-const REMEMBERED_PORTAL_USERNAME_KEY = 'portal_remembered_username';
 const DEFAULT_LOGO_URL = '/images/logo.png';
 
 const normalizeConfigValue = (value?: string): string => String(value ?? '').trim();
+const stripPrivacyPolicyFromFooter = (value?: string): string => {
+    const text = normalizeConfigValue(value);
+    if (!text) return '';
+    return text
+        // markdown-style links like [隐私政策](...)
+        .replace(/\[[^\]]*隐私权?政策[^\]]*\]\([^)]+\)/gi, '')
+        .replace(/\[[^\]]*privacy\s*policy[^\]]*\]\([^)]+\)/gi, '')
+        // plain text markers
+        .replace(/隐私权?政策/gi, '')
+        .replace(/\bprivacy\s*policy\b/gi, '')
+        // cleanup trailing separators
+        .replace(/[\s|｜·•/]+$/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
 
 type ErrorDetailPayload = string | { message?: string; code?: string };
 type ErrorShape = {
@@ -47,14 +61,16 @@ const parseError = (error: unknown) => {
 };
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { login } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [rememberAccount, setRememberAccount] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [privacyPolicy, setPrivacyPolicy] = useState('');
+    const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
     const [captchaId, setCaptchaId] = useState('');
@@ -72,7 +88,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
     const [appName, setAppName] = useState(() => normalizeConfigValue(localStorage.getItem('sys_app_name') || '') || t('loginPortal.fallbackAppName'));
     const [logoUrl, setLogoUrl] = useState<string>(() => normalizeConfigValue(localStorage.getItem('sys_logo_url') || '') || DEFAULT_LOGO_URL);
-    const [footerText, setFooterText] = useState(() => normalizeConfigValue(localStorage.getItem('sys_footer_text') || '') || t('loginPortal.fallbackFooter'));
+    const [footerText, setFooterText] = useState(
+        () => stripPrivacyPolicyFromFooter(localStorage.getItem('sys_footer_text') || '') || t('loginPortal.fallbackFooter'),
+    );
 
     const fetchCaptcha = async () => {
         try {
@@ -85,12 +103,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     useEffect(() => {
-        const rememberedUsername = localStorage.getItem(REMEMBERED_PORTAL_USERNAME_KEY);
-        if (rememberedUsername) {
-            setUsername(rememberedUsername);
-            setRememberAccount(true);
-        }
-
         const fetchConfig = async () => {
             try {
                 const config = await ApiClient.getPublicSystemConfig();
@@ -99,14 +111,16 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 const nextFooterTextRaw = normalizeConfigValue(config.footer_text);
                 const nextBrowserTitleRaw = normalizeConfigValue(config.browser_title);
                 const nextFaviconRaw = normalizeConfigValue(config.favicon_url);
+                const nextPrivacyPolicy = normalizeConfigValue(config.privacy_policy);
 
                 const nextAppName = nextAppNameRaw || t('loginPortal.fallbackAppName');
                 const nextLogoUrl = nextLogoUrlRaw || DEFAULT_LOGO_URL;
-                const nextFooterText = nextFooterTextRaw || t('loginPortal.fallbackFooter');
+                const nextFooterText = stripPrivacyPolicyFromFooter(nextFooterTextRaw) || t('loginPortal.fallbackFooter');
 
                 setAppName(nextAppName);
                 setLogoUrl(nextLogoUrl);
                 setFooterText(nextFooterText);
+                setPrivacyPolicy(nextPrivacyPolicy);
 
                 if (nextAppNameRaw) localStorage.setItem('sys_app_name', nextAppNameRaw);
                 else localStorage.removeItem('sys_app_name');
@@ -142,6 +156,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         try {
+            if (!privacyAccepted) {
+                throw new Error(t('loginPortal.privacyConsentRequired', '请先阅读并同意隐私政策'));
+            }
+            await ApiClient.recordPrivacyConsent({
+                audience: 'portal',
+                username: username.trim() || undefined,
+                locale: i18n.language,
+                accepted: true,
+            });
             const headers: Record<string, string> = {};
             if (requiresCaptcha) {
                 const normalizedCaptcha = captchaCode.trim();
@@ -156,11 +179,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 headers['X-Captcha-Code'] = normalizedCaptcha;
             }
             await login(username, password, 'portal', headers);
-            if (rememberAccount && username.trim()) {
-                localStorage.setItem(REMEMBERED_PORTAL_USERNAME_KEY, username.trim());
-            } else {
-                localStorage.removeItem(REMEMBERED_PORTAL_USERNAME_KEY);
-            }
             message.success(t('loginPortal.messages.loginSuccess'));
             onLoginSuccess();
         } catch (err: unknown) {
@@ -225,9 +243,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 setError(msg);
                 message.error(msg);
                 return;
-            }
-            if (rememberAccount && username.trim()) {
-                localStorage.setItem(REMEMBERED_PORTAL_USERNAME_KEY, username.trim());
             }
             message.success(t('loginPortal.messages.loginSuccess'));
             // Force auth context to refresh
@@ -297,9 +312,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             };
 
             await AuthService.verifyMfaWebAuthn(mfaToken, webauthnResponse);
-            if (rememberAccount && username.trim()) {
-                localStorage.setItem(REMEMBERED_PORTAL_USERNAME_KEY, username.trim());
-            }
             message.success(t('loginPortal.messages.loginSuccess'));
             window.location.reload();
         } catch (err: unknown) {
@@ -515,20 +527,22 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center">
                                 <input
-                                    id="remember-account"
-                                    name="remember-account"
+                                    id="privacy-consent-portal"
                                     type="checkbox"
-                                    checked={rememberAccount}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setRememberAccount(checked);
-                                        if (!checked) {
-                                            localStorage.removeItem(REMEMBERED_PORTAL_USERNAME_KEY);
-                                        }
-                                    }}
+                                    checked={privacyAccepted}
+                                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
                                 />
-                                <label htmlFor="remember-account" className="ml-2 block text-sm text-slate-500 font-medium">{t('loginPortal.rememberAccount')}</label>
+                                <label htmlFor="privacy-consent-portal" className="ml-2 block text-sm text-slate-400 font-normal">
+                                    {t('loginPortal.privacyConsentLabel', '阅读并同意')}
+                                    <a
+                                        href="#"
+                                        onClick={(e) => { e.preventDefault(); setIsPrivacyOpen(true); }}
+                                        className="mx-1 font-medium text-slate-500 hover:text-slate-600"
+                                    >
+                                        {t('loginPortal.privacyPolicy', '隐私政策')}
+                                    </a>
+                                </label>
                             </div>
                             <div className="text-sm">
                                 <a href="#" className="font-bold text-blue-600 hover:text-blue-700">{t('loginPortal.forgotPassword')}</a>
@@ -550,6 +564,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <footer className="py-6 text-center text-xs text-slate-400 font-medium tracking-wide mb-4">
                 {footerText}
             </footer>
+
+            <Modal
+                title={t('loginPortal.privacyPolicy', '隐私政策')}
+                open={isPrivacyOpen}
+                onCancel={() => setIsPrivacyOpen(false)}
+                onOk={() => setIsPrivacyOpen(false)}
+                okText={t('loginPortal.privacyPolicyClose', '已阅读并关闭')}
+                cancelButtonProps={{ style: { display: 'none' } }}
+                width={720}
+            >
+                <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm text-slate-600 leading-relaxed">
+                    {privacyPolicy || t('loginPortal.privacyPolicyEmpty', '暂无隐私政策内容。')}
+                </div>
+            </Modal>
         </div>
     );
 };

@@ -3,14 +3,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import ssl
 import uuid
 from datetime import datetime
 
 from fastapi import FastAPI
+from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
 import core.database as database
+from core.db_tls import build_asyncpg_url_and_connect_args
 from core.migrations import ensure_db_schema_is_current, run_db_migrations, should_run_migrations_on_startup
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,12 @@ async def try_acquire_db_startup_lock() -> bool:
     try:
         import asyncpg
 
-        url = database.engine.url
+        raw_database_url = os.getenv("DATABASE_URL", "").strip()
+        if not raw_database_url:
+            raise RuntimeError("DATABASE_URL is not set")
+
+        normalized_url, connect_args = build_asyncpg_url_and_connect_args(raw_database_url)
+        url = make_url(normalized_url)
         connect_kwargs = dict(
             user=url.username,
             password=url.password,
@@ -34,17 +40,7 @@ async def try_acquire_db_startup_lock() -> bool:
             host=url.host,
             port=url.port,
         )
-        ssl_value = str(url.query.get("ssl", "")).strip().lower()
-        sslmode_value = str(url.query.get("sslmode", "")).strip().lower()
-        if ssl_value in {"1", "true", "require"} or sslmode_value in {
-            "require",
-            "verify-ca",
-            "verify-full",
-        }:
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
-            connect_kwargs["ssl"] = ssl_ctx
+        connect_kwargs.update(connect_args)
 
         raw_conn = await asyncpg.connect(**connect_kwargs)
         acquired = await raw_conn.fetchval("SELECT pg_try_advisory_lock(872341)")
@@ -138,6 +134,7 @@ async def record_startup_status(status: str, error: str | None = None) -> None:
 
 async def _run_shared_startup_initialization() -> None:
     from test_db.rbac_init import init_rbac
+    from modules.iam.services.system_config_security import ensure_sensitive_system_config_encrypted
 
     if should_run_migrations_on_startup():
         await run_db_migrations()
@@ -150,6 +147,10 @@ async def _run_shared_startup_initialization() -> None:
 
     async with database.SessionLocal() as session:
         await init_rbac(session)
+        encrypted_rows = await ensure_sensitive_system_config_encrypted(session)
+        if encrypted_rows:
+            await session.commit()
+            logger.info("Migrated %s plaintext sensitive system_config values to encrypted format.", encrypted_rows)
 
 
 async def on_startup() -> None:

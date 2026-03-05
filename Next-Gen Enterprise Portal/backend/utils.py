@@ -72,7 +72,7 @@ async def log_business_action(
             status=status,
             detail=detail,
             ip_address=ip_address,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now(timezone.utc)
         )
         db.add(log)
         # We assume the caller handles the transaction commit if they are in the middle of one,

@@ -1,7 +1,10 @@
-from typing import Dict, Set
+import hashlib
+from datetime import datetime, timezone
+from typing import Dict, Literal, Set
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +34,13 @@ PUBLIC_CONFIG_KEYS: Set[str] = {
 _FILE_BEARING_CONFIG_KEYS: Set[str] = {"logo_url", "favicon_url", "ai_icon"}
 
 
+class PrivacyConsentRequest(BaseModel):
+    audience: Literal["portal", "admin"] = "portal"
+    username: str | None = Field(default=None, max_length=255)
+    locale: str | None = Field(default=None, max_length=16)
+    accepted: bool = True
+
+
 @router.get("/config", response_model=Dict[str, str])
 async def get_public_config(
     db: AsyncSession = Depends(database.get_db),
@@ -56,6 +66,66 @@ async def get_public_config(
         payload["customer_name"] = customer_name
 
     return payload
+
+
+@router.post("/privacy/consents")
+async def record_privacy_consent(
+    payload: PrivacyConsentRequest,
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+):
+    if not payload.accepted:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "CONSENT_REQUIRED", "message": "必须同意隐私政策后才能继续"},
+        )
+
+    result = await db.execute(
+        select(models.SystemConfig).where(
+            models.SystemConfig.key.in_(
+                [
+                    "privacy_policy",
+                    "privacy_policy_version",
+                    "privacy_policy_required",
+                ]
+            )
+        )
+    )
+    config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
+
+    policy_text = str(config_map.get("privacy_policy") or "")
+    policy_version = str(config_map.get("privacy_policy_version") or "").strip() or "v1"
+    policy_required = str(config_map.get("privacy_policy_required") or "true").strip().lower() == "true"
+    policy_configured = bool(policy_text.strip())
+    if policy_required and not policy_configured:
+        # Keep login flow available even when policy text has not been configured yet.
+        # We still persist auditable consent evidence with a deterministic placeholder hash.
+        policy_text = "__PRIVACY_POLICY_NOT_CONFIGURED__"
+
+    consent = models.PrivacyConsent(
+        username=(payload.username or "").strip() or None,
+        audience=payload.audience,
+        policy_version=policy_version,
+        policy_hash=hashlib.sha256(policy_text.encode("utf-8")).hexdigest(),
+        accepted=True,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        locale=(payload.locale or "").strip() or None,
+        trace_id=request.headers.get("X-Request-ID"),
+        accepted_at=datetime.now(timezone.utc),
+    )
+    db.add(consent)
+    await db.commit()
+    await db.refresh(consent)
+
+    return {
+        "consent_id": consent.id,
+        "audience": consent.audience,
+        "policy_version": consent.policy_version,
+        "policy_hash": consent.policy_hash,
+        "policy_configured": policy_configured,
+        "accepted_at": consent.accepted_at.isoformat() if consent.accepted_at else "",
+    }
 
 
 
