@@ -1,6 +1,48 @@
-import { lazy } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-export const adminModuleRoutes = {
+type ModuleRouteComponent = LazyExoticComponent<ComponentType<any>>;
+
+const adminModuleRouteKeys = [
+  'login',
+  'dashboard',
+  'news',
+  'users',
+  'tools',
+  'appPermissions',
+  'carousel',
+  'announcements',
+  'systemSettings',
+  'platformSettings',
+  'license',
+  'security',
+  'mfaSettings',
+  'notificationServices',
+  'notificationTemplates',
+  'thirdPartyNotifications',
+  'passwordPolicy',
+  'systemUsers',
+  'onlineUsers',
+  'directories',
+  'roles',
+  'organizations',
+  'businessLogs',
+  'accessLogs',
+  'aboutUs',
+  'logForwarding',
+  'logStorage',
+  'aiAudit',
+  'aiModels',
+  'aiSecurity',
+  'aiSettings',
+  'aiUsage',
+  'knowledgeBase',
+  'todos',
+] as const;
+
+export type AdminModuleRouteKey = (typeof adminModuleRouteKeys)[number];
+export type AdminModuleRoutes = Record<AdminModuleRouteKey, ModuleRouteComponent>;
+
+export const adminModuleRoutes: AdminModuleRoutes = {
   login: lazy(() => import('./pages/AdminLogin')),
   dashboard: lazy(() => import('./pages/AdminDashboard')),
   news: lazy(() => import('./pages/NewsList')),
@@ -35,4 +77,4 @@ export const adminModuleRoutes = {
   aiUsage: lazy(() => import('./pages/ai/ModelUsagePage')),
   knowledgeBase: lazy(() => import('./pages/ai/KnowledgeBase')),
   todos: lazy(() => import('./pages/Todos')),
-} as const;
+};

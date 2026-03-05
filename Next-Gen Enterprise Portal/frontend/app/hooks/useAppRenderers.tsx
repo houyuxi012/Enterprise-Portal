@@ -4,6 +4,7 @@ import AdminRouterManager from '@/router/AdminRouterManager';
 import PortalShell from '@/modules/portal/components/PortalShell';
 import { AppLanguage } from '@/i18n';
 import { AppView, Employee, NewsItem, QuickToolDTO } from '@/types';
+import type { AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
 import { ThemeMode } from './useAppPreferences';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
@@ -20,7 +21,7 @@ interface UseAppRenderersOptions {
   handleLanguageChange: (lang: AppLanguage) => void;
   portalViewModel: PortalRouterViewModel;
   onEnterAdminMode: () => void;
-  effectiveAdminTab: string;
+  effectiveAdminTab: AdminTabKey;
   handleAdminTabChange: (tab: string) => void;
   onExitAdmin: () => void;
   systemConfig: Record<string, string>;

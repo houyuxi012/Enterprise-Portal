@@ -1,5 +1,14 @@
-import { lazy } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-export const iamModuleRoutes = {
+type ModuleRouteComponent = LazyExoticComponent<ComponentType<any>>;
+
+const iamModuleRouteKeys = [
+  'auditLogs',
+] as const;
+
+export type IAMModuleRouteKey = (typeof iamModuleRouteKeys)[number];
+export type IAMModuleRoutes = Record<IAMModuleRouteKey, ModuleRouteComponent>;
+
+export const iamModuleRoutes: IAMModuleRoutes = {
   auditLogs: lazy(() => import('./pages/AuditLogs')),
-} as const;
+};

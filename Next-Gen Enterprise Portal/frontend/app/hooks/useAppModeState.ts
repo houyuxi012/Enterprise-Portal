@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
-import { useAdminNavigationState } from '@/modules/admin/hooks/useAdminNavigationState';
+import { useAdminNavigationState, type AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
 
 interface UseAppModeStateResult {
   isAdminMode: boolean;
   isAdminPath: boolean;
-  activeAdminTab: string;
-  setActiveAdminTab: (tab: string) => void;
-  syncAdminTabPath: (tab: string) => void;
+  activeAdminTab: AdminTabKey;
+  setActiveAdminTab: (tab: AdminTabKey) => void;
+  syncAdminTabPath: (tab: string) => AdminTabKey;
   openAdminHome: () => void;
   enterAdminMode: () => void;
   enableAdminMode: () => void;

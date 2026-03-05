@@ -1,5 +1,6 @@
 import React, { lazy } from 'react';
 import { moduleRouteRegistry } from '../app/router';
+import type { AdminTabKey } from '@/modules/admin/hooks/useAdminNavigationState';
 
 const AdminLayout = lazy(() => import('../layouts/AdminLayout'));
 const {
@@ -42,7 +43,7 @@ const { auditLogs: IAMAuditLogs } = moduleRouteRegistry.iam;
 type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 
 export interface AdminRouterManagerProps {
-  effectiveAdminTab: string;
+  effectiveAdminTab: AdminTabKey;
   onTabChange: (tab: string) => void;
   onExit: () => void;
   systemConfig: Record<string, string>;
@@ -77,8 +78,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
   onDirectoryLicenseStateChange,
 }) => (
   <AdminLayout
-    activeTab={effectiveAdminTab as any}
-    onTabChange={onTabChange as any}
+    activeTab={effectiveAdminTab}
+    onTabChange={onTabChange}
     onExit={onExit}
     footerText={systemConfig.footer_text}
     logoUrl={systemConfig.logo_url}
