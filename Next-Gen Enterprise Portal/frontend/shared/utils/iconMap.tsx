@@ -14,10 +14,11 @@ import {
     Wifi, Bluetooth, Cpu,
     Home, User, LogOut, Menu
 } from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
 import React from 'react';
 
 // Registry of available icons
-const ICON_REGISTRY: Record<string, React.ElementType> = {
+const ICON_REGISTRY: Record<string, React.ComponentType<LucideProps>> = {
     Users, CreditCard, LifeBuoy, FileText, Briefcase, Calendar,
     ShieldCheck, Mail, Globe, MessageSquare, PieChart, HardDrive,
     LayoutDashboard, Newspaper, Settings, Search, Monitor, Moon, Sun, Laptop,
@@ -39,7 +40,7 @@ const LOWERCASE_MAP: Record<string, string> = Object.keys(ICON_REGISTRY).reduce(
     return acc;
 }, {} as Record<string, string>);
 
-export const getIcon = (name: string, props: any = {}) => {
+export const getIcon = (name: string, props: LucideProps = {}): React.ReactElement => {
     if (!name) return <AppWindow {...props} />;
 
     // 1. Direct match

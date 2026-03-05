@@ -1,3 +1,5 @@
+import type { Announcement, Notification } from '@/types';
+
 // Static UI Configuration Data
 export const DAILY_QUOTES = [
   'dashboardHome.quotes.quote1',
@@ -32,5 +34,5 @@ export const CAROUSEL_ITEMS = [
 ];
 
 
-export const MOCK_NOTIFICATIONS: any[] = [];
-export const MOCK_ANNOUNCEMENTS: any[] = [];
+export const MOCK_NOTIFICATIONS: Notification[] = [];
+export const MOCK_ANNOUNCEMENTS: Announcement[] = [];
