@@ -5,6 +5,31 @@ import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import AppButton from '@/shared/components/AppButton';
 
+type MfaSettingsFormValues = {
+    security_mfa_enabled: boolean;
+};
+
+type MfaSettingsConfig = {
+    security_mfa_enabled?: string;
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: {
+                message?: string;
+            } | string;
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape)?.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (detail && typeof detail.message === 'string') return detail.message;
+    return fallback;
+};
+
 const MfaSettings: React.FC = () => {
     const { t } = useTranslation();
     const [form] = Form.useForm();
@@ -13,18 +38,18 @@ const MfaSettings: React.FC = () => {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const config = await ApiClient.getMfaSettingsConfig();
+                const config = await ApiClient.getMfaSettingsConfig() as MfaSettingsConfig;
                 form.setFieldsValue({
                     security_mfa_enabled: config.security_mfa_enabled === 'true',
                 });
-            } catch (error: any) {
-                message.error(error?.response?.data?.detail?.message || t('mfaSettingsPage.messages.loadFailed'));
+            } catch (error: unknown) {
+                message.error(resolveApiErrorMessage(error, t('mfaSettingsPage.messages.loadFailed')));
             }
         };
         fetchConfig();
     }, [form, t]);
 
-    const handleSave = async (values: any) => {
+    const handleSave = async (values: MfaSettingsFormValues) => {
         setLoading(true);
         try {
             const payload = {
@@ -32,8 +57,8 @@ const MfaSettings: React.FC = () => {
             };
             await ApiClient.updateMfaSettingsConfig(payload);
             message.success(t('mfaSettingsPage.messages.saveSuccess'));
-        } catch (error: any) {
-            message.error(error?.response?.data?.detail?.message || t('mfaSettingsPage.messages.saveFailed'));
+        } catch (error: unknown) {
+            message.error(resolveApiErrorMessage(error, t('mfaSettingsPage.messages.saveFailed')));
         } finally {
             setLoading(false);
         }
