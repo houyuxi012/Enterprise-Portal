@@ -1,1 +1,15 @@
 test_db/
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+__pycache__/
+*/__pycache__/
+scripts/architecture-guard.config.json
+scripts/check_architecture_boundaries.py
+scripts/check_license_route_guard.py
+scripts/check_migration_guard.py
+scripts/check_model_migration_diff_guard.py
+scripts/seed_test_ldap.py
