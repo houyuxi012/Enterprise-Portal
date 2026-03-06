@@ -6,6 +6,8 @@ import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
+import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
+import { buildPrivacyConsentHeaders, isPrivacyConsentRequired } from '@/shared/utils/privacyConsent';
 import { useTranslation } from 'react-i18next';
 
 import { AppModal, AppButton } from '@/modules/admin/components/ui';
@@ -93,22 +95,22 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         fetchConfig();
     }, []);
 
+    const shouldRequirePrivacyConsent = isPrivacyConsentRequired(systemConfig);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
         try {
-            if (!privacyAccepted) {
+            if (shouldRequirePrivacyConsent && !privacyAccepted) {
                 throw new Error(t('loginAdmin.privacyConsentRequired', '请先阅读并同意隐私政策'));
             }
-            await ApiClient.recordPrivacyConsent({
-                audience: 'admin',
-                username: username.trim() || undefined,
-                locale: i18n.language,
-                accepted: true,
-            });
-            const headers: Record<string, string> = {};
+            const headers: Record<string, string> = buildPrivacyConsentHeaders(
+                systemConfig,
+                i18n.language,
+                privacyAccepted,
+            );
             if (requiresCaptcha) {
                 const normalizedCaptcha = captchaCode.trim();
                 if (!captchaId) {
@@ -147,12 +149,18 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             // Parse backend error response
             const { detail, detailCode, status, requiresCaptchaHeader, message: errMessage } = parseError(err);
             let msg = errMessage || t('loginAdmin.messages.loginFailedNetwork');
+            const isPrivacyConsentError = detailCode === 'PRIVACY_CONSENT_REQUIRED' || detailCode === 'PRIVACY_POLICY_STALE';
             const shouldShowCaptcha =
-                status === 428 ||
+                (!isPrivacyConsentError && status === 428) ||
                 requiresCaptchaHeader ||
                 /captcha/i.test(`${detail} ${detailCode}`);
 
-            if (shouldShowCaptcha) {
+            if (detailCode === 'PRIVACY_CONSENT_REQUIRED') {
+                msg = t('loginAdmin.privacyConsentRequired', '请先阅读并同意隐私政策');
+            } else if (detailCode === 'PRIVACY_POLICY_STALE') {
+                setPrivacyAccepted(false);
+                msg = t('loginAdmin.messages.privacyPolicyUpdated', '隐私政策已更新，请刷新页面后重新阅读并同意');
+            } else if (shouldShowCaptcha) {
                 setRequiresCaptcha(true);
                 fetchCaptcha();
                 setCaptchaCode('');
@@ -563,9 +571,12 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 width={700}
                 styles={{ body: { maxHeight: '60vh', overflowY: 'auto' } }}
             >
-                <div className="prose prose-slate dark:prose-invert max-w-none p-4 whitespace-pre-wrap text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {systemConfig.privacy_policy || t('loginAdmin.privacyPolicyEmpty')}
-                </div>
+                <PrivacyPolicyContent
+                    content={systemConfig.privacy_policy}
+                    emptyText={t('loginAdmin.privacyPolicyEmpty')}
+                    className="p-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
+                    htmlClassName="[&_a]:text-blue-500 dark:[&_a]:text-blue-400 [&_blockquote]:border-slate-300 dark:[&_blockquote]:border-slate-700 [&_code]:bg-slate-100 dark:[&_code]:bg-slate-800 [&_pre]:bg-slate-100 dark:[&_pre]:bg-slate-800"
+                />
             </AppModal>
         </div>
     );

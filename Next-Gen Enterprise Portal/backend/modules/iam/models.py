@@ -205,6 +205,7 @@ class PrivacyConsent(Base):
     __tablename__ = "privacy_consents"
 
     id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     username = Column(String(255), nullable=True, index=True)
     audience = Column(String(20), nullable=False, index=True)
     policy_version = Column(String(64), nullable=False, index=True)
@@ -215,6 +216,8 @@ class PrivacyConsent(Base):
     locale = Column(String(16), nullable=True)
     trace_id = Column(String(128), nullable=True, index=True)
     accepted_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+    user = relationship("User", backref="privacy_consents")
 
 
 class LicenseState(Base):

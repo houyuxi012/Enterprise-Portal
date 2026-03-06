@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
+import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
+import { buildPrivacyConsentHeaders, isPrivacyConsentRequired } from '@/shared/utils/privacyConsent';
 import { useTranslation } from 'react-i18next';
 
 interface LoginProps {
@@ -70,6 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [error, setError] = useState('');
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [privacyPolicy, setPrivacyPolicy] = useState('');
+    const [publicConfig, setPublicConfig] = useState<Record<string, string>>({});
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
@@ -106,6 +109,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         const fetchConfig = async () => {
             try {
                 const config = await ApiClient.getPublicSystemConfig();
+                setPublicConfig(config);
                 const nextAppNameRaw = normalizeConfigValue(config.app_name);
                 const nextLogoUrlRaw = normalizeConfigValue(config.logo_url);
                 const nextFooterTextRaw = normalizeConfigValue(config.footer_text);
@@ -150,22 +154,22 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         fetchConfig();
     }, [t]);
 
+    const shouldRequirePrivacyConsent = isPrivacyConsentRequired(publicConfig);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
         try {
-            if (!privacyAccepted) {
+            if (shouldRequirePrivacyConsent && !privacyAccepted) {
                 throw new Error(t('loginPortal.privacyConsentRequired', '请先阅读并同意隐私政策'));
             }
-            await ApiClient.recordPrivacyConsent({
-                audience: 'portal',
-                username: username.trim() || undefined,
-                locale: i18n.language,
-                accepted: true,
-            });
-            const headers: Record<string, string> = {};
+            const headers: Record<string, string> = buildPrivacyConsentHeaders(
+                publicConfig,
+                i18n.language,
+                privacyAccepted,
+            );
             if (requiresCaptcha) {
                 const normalizedCaptcha = captchaCode.trim();
                 if (!captchaId) {
@@ -196,12 +200,18 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             // Parse backend error response
             const { detail, detailCode, status, requiresCaptchaHeader, message: errMessage } = parseError(err);
             let msg = errMessage || t('loginPortal.messages.loginFailedNetwork');
+            const isPrivacyConsentError = detailCode === 'PRIVACY_CONSENT_REQUIRED' || detailCode === 'PRIVACY_POLICY_STALE';
             const shouldShowCaptcha =
-                status === 428 ||
+                (!isPrivacyConsentError && status === 428) ||
                 requiresCaptchaHeader ||
                 /captcha/i.test(`${detail} ${detailCode}`);
 
-            if (shouldShowCaptcha) {
+            if (detailCode === 'PRIVACY_CONSENT_REQUIRED') {
+                msg = t('loginPortal.privacyConsentRequired', '请先阅读并同意隐私政策');
+            } else if (detailCode === 'PRIVACY_POLICY_STALE') {
+                setPrivacyAccepted(false);
+                msg = t('loginPortal.messages.privacyPolicyUpdated', '隐私政策已更新，请刷新页面后重新阅读并同意');
+            } else if (shouldShowCaptcha) {
                 setRequiresCaptcha(true);
                 fetchCaptcha();
                 setCaptchaCode('');
@@ -574,9 +584,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 cancelButtonProps={{ style: { display: 'none' } }}
                 width={720}
             >
-                <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm text-slate-600 leading-relaxed">
-                    {privacyPolicy || t('loginPortal.privacyPolicyEmpty', '暂无隐私政策内容。')}
-                </div>
+                <PrivacyPolicyContent
+                    content={privacyPolicy}
+                    emptyText={t('loginPortal.privacyPolicyEmpty', '暂无隐私政策内容。')}
+                    className="max-h-[60vh] overflow-y-auto text-sm text-slate-600 leading-relaxed"
+                />
             </Modal>
         </div>
     );

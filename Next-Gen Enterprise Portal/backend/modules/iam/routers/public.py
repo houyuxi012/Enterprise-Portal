@@ -1,8 +1,6 @@
-import hashlib
-from datetime import datetime, timezone
 from typing import Dict, Literal, Set
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -11,6 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from application.iam_app import LicenseService, generate_file_token, resolve_file_token, storage
 import core.database as database
 import modules.models as models
+from modules.iam.services.privacy_consent import (
+    load_privacy_policy_snapshot,
+    load_public_privacy_config,
+)
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -22,6 +24,8 @@ PUBLIC_CONFIG_KEYS: Set[str] = {
     "browser_title",
     "favicon_url",
     "privacy_policy",
+    "privacy_policy_required",
+    "privacy_policy_version",
     "ai_name",
     "ai_icon",
     "ai_enabled",
@@ -36,7 +40,6 @@ _FILE_BEARING_CONFIG_KEYS: Set[str] = {"logo_url", "favicon_url", "ai_icon"}
 
 class PrivacyConsentRequest(BaseModel):
     audience: Literal["portal", "admin"] = "portal"
-    username: str | None = Field(default=None, max_length=255)
     locale: str | None = Field(default=None, max_length=16)
     accepted: bool = True
 
@@ -65,67 +68,27 @@ async def get_public_config(
     if customer_name and customer_name != "-":
         payload["customer_name"] = customer_name
 
+    payload.update(await load_public_privacy_config(db))
     return payload
 
 
 @router.post("/privacy/consents")
 async def record_privacy_consent(
-    payload: PrivacyConsentRequest,
-    request: Request,
+    _: PrivacyConsentRequest,
+    __: Request,
     db: AsyncSession = Depends(database.get_db),
 ):
-    if not payload.accepted:
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "CONSENT_REQUIRED", "message": "必须同意隐私政策后才能继续"},
-        )
-
-    result = await db.execute(
-        select(models.SystemConfig).where(
-            models.SystemConfig.key.in_(
-                [
-                    "privacy_policy",
-                    "privacy_policy_version",
-                    "privacy_policy_required",
-                ]
-            )
-        )
+    snapshot = await load_privacy_policy_snapshot(db)
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "code": "PRIVACY_CONSENT_AUTH_BOUND_REQUIRED",
+            "message": "匿名隐私同意记录已停用，请在登录请求中提交并完成当前政策版本的同意。",
+            "policy_version": snapshot.version,
+            "policy_hash": snapshot.policy_hash,
+            "policy_required": snapshot.required,
+        },
     )
-    config_map = {cfg.key: cfg.value for cfg in result.scalars().all()}
-
-    policy_text = str(config_map.get("privacy_policy") or "")
-    policy_version = str(config_map.get("privacy_policy_version") or "").strip() or "v1"
-    policy_required = str(config_map.get("privacy_policy_required") or "true").strip().lower() == "true"
-    policy_configured = bool(policy_text.strip())
-    if policy_required and not policy_configured:
-        # Keep login flow available even when policy text has not been configured yet.
-        # We still persist auditable consent evidence with a deterministic placeholder hash.
-        policy_text = "__PRIVACY_POLICY_NOT_CONFIGURED__"
-
-    consent = models.PrivacyConsent(
-        username=(payload.username or "").strip() or None,
-        audience=payload.audience,
-        policy_version=policy_version,
-        policy_hash=hashlib.sha256(policy_text.encode("utf-8")).hexdigest(),
-        accepted=True,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        locale=(payload.locale or "").strip() or None,
-        trace_id=request.headers.get("X-Request-ID"),
-        accepted_at=datetime.now(timezone.utc),
-    )
-    db.add(consent)
-    await db.commit()
-    await db.refresh(consent)
-
-    return {
-        "consent_id": consent.id,
-        "audience": consent.audience,
-        "policy_version": consent.policy_version,
-        "policy_hash": consent.policy_hash,
-        "policy_configured": policy_configured,
-        "accepted_at": consent.accepted_at.isoformat() if consent.accepted_at else "",
-    }
 
 
 

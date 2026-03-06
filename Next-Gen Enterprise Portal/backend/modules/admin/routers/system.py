@@ -300,6 +300,7 @@ async def list_privacy_consents(
     items = [
         {
             "id": row.id,
+            "user_id": row.user_id,
             "username": row.username,
             "audience": row.audience,
             "policy_version": row.policy_version,

@@ -523,7 +523,8 @@
       "accountLocked": "Account is locked, please try again later",
       "ipForbidden": "Current IP address is not allowed",
       "concurrentExceeded": "This user exceeded concurrent session limit. Please log out from other devices and retry.",
-      "invalidCredentials": "Invalid username or password"
+      "invalidCredentials": "Invalid username or password",
+      "privacyPolicyUpdated": "The privacy policy has changed. Refresh the page, review it again, and confirm your consent."
     }
   },
   "loginAdmin": {
@@ -559,7 +560,8 @@
       "accountLocked": "Account is locked, please try again later",
       "ipForbidden": "Current IP address is not allowed",
       "concurrentExceeded": "This user exceeded concurrent session limit. Please log out from other devices and retry.",
-      "invalidCredentials": "Invalid username or password"
+      "invalidCredentials": "Invalid username or password",
+      "privacyPolicyUpdated": "The privacy policy has changed. Refresh the page, review it again, and confirm your consent."
     }
   },
   "appRoot": {
@@ -2257,7 +2259,7 @@
       "faviconUrlHelp": "Enter .ico/.png URL or upload directly (recommended 32x32).",
       "footerText": "Footer Copyright Text",
       "privacyPolicy": "Privacy Policy Content",
-      "privacyPolicyHelp": "Supports plain text or simple HTML. Shown in login page privacy policy dialog.",
+      "privacyPolicyHelp": "Supports plain text or simple HTML (links, lists, emphasis, and other safe tags). Shown in the login page privacy policy dialog.",
       "placeholders": {
         "appName": "Next-Gen Enterprise Portal",
         "browserTitle": "Next-Gen Enterprise Portal | By HouYuXi",

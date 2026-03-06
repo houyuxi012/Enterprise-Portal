@@ -15,6 +15,11 @@ import modules.models as models
 import utils
 from iam.audit.service import IAMAuditService
 from iam.identity.service import IdentityService
+from modules.iam.services.privacy_consent import (
+    build_mfa_privacy_claims,
+    persist_authenticated_privacy_consent,
+    prepare_login_privacy_consent,
+)
 from modules.iam.services.identity.providers import (
     IdentityAuthResult,
     IdentityProviderError,
@@ -543,6 +548,13 @@ class ProviderIdentityService:
                     detail={"code": "ACCOUNT_DISABLED", "message": "Account is disabled."},
                 )
 
+            pending_privacy_consent = await prepare_login_privacy_consent(
+                db=db,
+                request=request,
+                user=user,
+                audience="portal",
+            )
+
             # ── MFA Challenge Gate ──
             mfa_forced = False
             try:
@@ -576,7 +588,11 @@ class ProviderIdentityService:
                         )
 
                 from modules.iam.services.auth_helpers import create_mfa_token
-                mfa_token = create_mfa_token(user, provider=normalized_provider)
+                mfa_token = create_mfa_token(
+                    user,
+                    provider=normalized_provider,
+                    extra_claims=build_mfa_privacy_claims(pending_privacy_consent),
+                )
                 await db.commit()
                 return {
                     "message": "MFA verification required",
@@ -588,6 +604,13 @@ class ProviderIdentityService:
                     "provider": normalized_provider,
                 }
 
+            await persist_authenticated_privacy_consent(
+                db=db,
+                request=request,
+                user=user,
+                audience="portal",
+                consent=pending_privacy_consent,
+            )
             token_payload = await cls._issue_portal_token(
                 db=db,
                 request=request,
@@ -639,6 +662,12 @@ class ProviderIdentityService:
                             status_code=status.HTTP_401_UNAUTHORIZED,
                             detail={"code": "ACCOUNT_DISABLED", "message": "Account is disabled."},
                         )
+                    pending_privacy_consent = await prepare_login_privacy_consent(
+                        db=db,
+                        request=request,
+                        user=user,
+                        audience="portal",
+                    )
                     fallback_mfa_methods = await IdentityService._get_enabled_mfa_methods(user, db)
                     if fallback_mfa_methods:
                         if "email" in fallback_mfa_methods:
@@ -657,7 +686,11 @@ class ProviderIdentityService:
                                     )
                         from modules.iam.services.auth_helpers import create_mfa_token
 
-                        mfa_token = create_mfa_token(user, provider="local")
+                        mfa_token = create_mfa_token(
+                            user,
+                            provider="local",
+                            extra_claims=build_mfa_privacy_claims(pending_privacy_consent),
+                        )
                         await db.commit()
                         return {
                             "message": "MFA verification required",
@@ -668,6 +701,13 @@ class ProviderIdentityService:
                             "mfa_methods": fallback_mfa_methods,
                             "provider": "local",
                         }
+                    await persist_authenticated_privacy_consent(
+                        db=db,
+                        request=request,
+                        user=user,
+                        audience="portal",
+                        consent=pending_privacy_consent,
+                    )
                     token_payload = await cls._issue_portal_token(
                         db=db,
                         request=request,

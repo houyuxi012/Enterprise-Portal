@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,10 +24,18 @@ async def get_system_mfa_config(db: AsyncSession) -> bool:
     return config is not None and str(config.value).lower() == "true"
 
 
-def create_mfa_token(user: models.User, provider: str = "local") -> str:
+def create_mfa_token(
+    user: models.User,
+    provider: str = "local",
+    *,
+    extra_claims: dict[str, Any] | None = None,
+) -> str:
     """Issue a short-lived JWT for MFA challenge (not usable as session)."""
+    token_payload = {"sub": user.username, "uid": user.id, "provider": provider}
+    if extra_claims:
+        token_payload.update(extra_claims)
     return utils.create_access_token(
-        data={"sub": user.username, "uid": user.id, "provider": provider},
+        data=token_payload,
         expires_delta=timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES),
         audience="mfa_challenge",
     )
@@ -47,4 +56,3 @@ async def verify_captcha(captcha_id: str, captcha_code: str) -> bool:
         stored_code = stored_code.decode("utf-8")
 
     return str(stored_code).lower() == str(captcha_code).lower()
-

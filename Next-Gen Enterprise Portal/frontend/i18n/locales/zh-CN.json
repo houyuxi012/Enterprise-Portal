@@ -524,7 +524,8 @@
       "accountLocked": "账户已被锁定，请稍后再试",
       "ipForbidden": "当前 IP 地址无访问权限",
       "concurrentExceeded": "该用户超过并发设定，请退出其他设备后再次尝试登陆",
-      "invalidCredentials": "用户名或密码错误"
+      "invalidCredentials": "用户名或密码错误",
+      "privacyPolicyUpdated": "隐私政策已更新，请刷新页面后重新阅读并同意"
     }
   },
   "loginAdmin": {
@@ -560,7 +561,8 @@
       "accountLocked": "账户已被锁定，请稍后再试",
       "ipForbidden": "当前 IP 地址无访问权限",
       "concurrentExceeded": "该用户超过并发设定，请退出其他设备后再次尝试登陆",
-      "invalidCredentials": "用户名或密码错误"
+      "invalidCredentials": "用户名或密码错误",
+      "privacyPolicyUpdated": "隐私政策已更新，请刷新页面后重新阅读并同意"
     }
   },
   "appRoot": {
@@ -2271,7 +2273,7 @@
       "faviconUrlHelp": "输入.ico/.png图片URL或直接上传(建议32x32)。",
       "footerText": "底部版权文字",
       "privacyPolicy": "隐私协议内容",
-      "privacyPolicyHelp": "支持纯文本或Simple HTML。将显示在登录页的“隐私政策”弹窗中。",
+      "privacyPolicyHelp": "支持纯文本或简单 HTML（如链接、列表、强调等安全标签），将显示在登录页的“隐私政策”弹窗中。",
       "placeholders": {
         "appName": "Next-Gen Enterprise Portal",
         "browserTitle": "Next-Gen Enterprise Portal ｜ By HouYuXi",
