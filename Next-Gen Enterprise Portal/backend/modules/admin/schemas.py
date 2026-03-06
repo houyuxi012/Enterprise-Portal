@@ -70,17 +70,17 @@ class LogForwardingConfigBase(BaseModel):
     type: str
     endpoint: str
     port: Optional[int] = None
-    secret_token: Optional[str] = None
     enabled: bool = False
     log_types: Optional[list[str]] = ["BUSINESS", "SYSTEM", "ACCESS"]
 
 
 class LogForwardingConfigCreate(LogForwardingConfigBase):
-    pass
+    secret_token: Optional[str] = None
 
 
 class LogForwardingConfig(LogForwardingConfigBase):
     id: int
+    has_secret_token: bool = False
 
     class Config:
         from_attributes = True

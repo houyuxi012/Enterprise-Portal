@@ -21,6 +21,10 @@ from application.admin_app import (
     get_log_repository,
     invalidate_forwarding_cache,
 )
+from modules.admin.services.log_forwarding_security import (
+    has_log_forwarding_secret,
+    resolve_log_forwarding_secret_for_storage,
+)
 from pydantic import BaseModel, Field
 
 router = APIRouter(
@@ -83,6 +87,18 @@ def _get_client_ip(request: Optional[Request]) -> str:
     x_real_ip = request.headers.get("X-Real-IP")
     x_forwarded_for = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
     return x_real_ip or x_forwarded_for or (request.client.host if request.client else "unknown")
+
+
+def _serialize_log_forwarding_config(cfg: models.LogForwardingConfig) -> dict[str, object]:
+    return {
+        "id": cfg.id,
+        "type": cfg.type,
+        "endpoint": cfg.endpoint,
+        "port": cfg.port,
+        "enabled": cfg.enabled,
+        "log_types": _parse_log_types_field(cfg.log_types),
+        "has_secret_token": has_log_forwarding_secret(cfg.secret_token),
+    }
 
 
 CLIENT_ACTION_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{2,80}$")
@@ -460,15 +476,7 @@ async def read_log_configs(
         background_tasks=background_tasks,
     )
     return [
-        {
-            "id": cfg.id,
-            "type": cfg.type,
-            "endpoint": cfg.endpoint,
-            "port": cfg.port,
-            "secret_token": cfg.secret_token,
-            "enabled": cfg.enabled,
-            "log_types": _parse_log_types_field(cfg.log_types),
-        }
+        _serialize_log_forwarding_config(cfg)
         for cfg in configs
     ]
 
@@ -482,11 +490,12 @@ async def create_log_config(
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     normalized_log_types = _parse_log_types_field(config.log_types)
-    payload = config.dict()
+    payload = config.model_dump()
     payload["log_types"] = json.dumps(
         normalized_log_types,
         ensure_ascii=False
     )
+    payload["secret_token"] = resolve_log_forwarding_secret_for_storage(config.secret_token)
     db_config = models.LogForwardingConfig(**payload)
     db.add(db_config)
     await db.commit()
@@ -503,15 +512,7 @@ async def create_log_config(
         domain="SYSTEM",
     )
     invalidate_forwarding_cache()
-    return {
-        "id": db_config.id,
-        "type": db_config.type,
-        "endpoint": db_config.endpoint,
-        "port": db_config.port,
-        "secret_token": db_config.secret_token,
-        "enabled": db_config.enabled,
-        "log_types": normalized_log_types,
-    }
+    return _serialize_log_forwarding_config(db_config)
 
 @router.delete("/config/{config_id}")
 async def delete_log_config(

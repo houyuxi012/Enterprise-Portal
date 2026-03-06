@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 import modules.models as models
 from core.database import SessionLocal
+from modules.admin.services.log_forwarding_security import decrypt_log_forwarding_secret
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +100,10 @@ async def _forward_to_webhook(cfg: models.LogForwardingConfig, payload: dict[str
         return
 
     headers = {"Content-Type": "application/json"}
-    if cfg.secret_token:
-        headers["Authorization"] = f"Bearer {cfg.secret_token}"
-        headers["X-Log-Token"] = cfg.secret_token
+    secret_token = decrypt_log_forwarding_secret(cfg.secret_token)
+    if secret_token:
+        headers["Authorization"] = f"Bearer {secret_token}"
+        headers["X-Log-Token"] = secret_token
 
     async with httpx.AsyncClient(timeout=4.0) as client:
         resp = await client.post(endpoint, json=payload, headers=headers)

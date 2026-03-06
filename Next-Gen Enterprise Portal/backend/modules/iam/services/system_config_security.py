@@ -72,20 +72,26 @@ def _get_primary_fernet() -> Fernet:
     return Fernet(_normalize_fernet_key(master_key))
 
 
-def encrypt_sensitive_system_config_value(key: str, value: str | None) -> str:
+def has_stored_secret_value(value: str | None) -> bool:
+    return bool(str(value or "").strip())
+
+
+def sanitize_secret_value_for_client(value: str | None) -> str:
+    return SYSTEM_CONFIG_MASKED_PLACEHOLDER if has_stored_secret_value(value) else ""
+
+
+def encrypt_secret_value(value: str | None) -> str:
     text = str(value or "")
-    if not is_sensitive_system_config_key(key):
-        return text
     if text == "":
         return ""
+    if text.startswith(SYSTEM_CONFIG_SECRET_PREFIX):
+        return text
     token = _get_primary_fernet().encrypt(text.encode("utf-8")).decode("utf-8")
     return f"{SYSTEM_CONFIG_SECRET_PREFIX}{token}"
 
 
-def decrypt_sensitive_system_config_value(key: str, value: str | None) -> str:
+def decrypt_secret_value(value: str | None) -> str:
     text = str(value or "")
-    if not is_sensitive_system_config_key(key):
-        return text
     if text == "":
         return ""
     if not text.startswith(SYSTEM_CONFIG_SECRET_PREFIX):
@@ -98,7 +104,24 @@ def decrypt_sensitive_system_config_value(key: str, value: str | None) -> str:
             return fernet.decrypt(token.encode("utf-8")).decode("utf-8")
         except Exception:
             continue
-    raise RuntimeError(f"Failed to decrypt sensitive config key '{key}'. Check MASTER_KEY rotation settings.")
+    raise RuntimeError("Failed to decrypt sensitive secret value. Check MASTER_KEY rotation settings.")
+
+
+def encrypt_sensitive_system_config_value(key: str, value: str | None) -> str:
+    text = str(value or "")
+    if not is_sensitive_system_config_key(key):
+        return text
+    return encrypt_secret_value(text)
+
+
+def decrypt_sensitive_system_config_value(key: str, value: str | None) -> str:
+    text = str(value or "")
+    if not is_sensitive_system_config_key(key):
+        return text
+    try:
+        return decrypt_secret_value(text)
+    except RuntimeError as exc:
+        raise RuntimeError(f"Failed to decrypt sensitive config key '{key}'. Check MASTER_KEY rotation settings.") from exc
 
 
 def decrypt_system_config_map(config_map: Dict[str, str]) -> Dict[str, str]:
@@ -119,8 +142,7 @@ def sanitize_system_config_map_for_client(config_map: Dict[str, str]) -> Dict[st
     sanitized: Dict[str, str] = {}
     for key, value in (config_map or {}).items():
         if is_sensitive_system_config_key(key):
-            has_value = bool(str(value or "").strip())
-            sanitized[key] = SYSTEM_CONFIG_MASKED_PLACEHOLDER if has_value else ""
+            sanitized[key] = sanitize_secret_value_for_client(value)
         else:
             sanitized[key] = str(value or "")
     return sanitized

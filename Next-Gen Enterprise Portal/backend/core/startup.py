@@ -139,6 +139,7 @@ async def _run_shared_startup_initialization() -> None:
         init_admin,
         invalidate_permission_cache,
     )
+    from modules.admin.services.log_forwarding_security import ensure_log_forwarding_secrets_encrypted
     from modules.iam.services.system_config_security import ensure_sensitive_system_config_encrypted
 
     if should_run_migrations_on_startup():
@@ -157,12 +158,18 @@ async def _run_shared_startup_initialization() -> None:
             affected_user_ids.add(admin_user_id)
         affected_user_ids.update(await assign_default_roles_to_roleless_users(session, role_map))
         encrypted_rows = await ensure_sensitive_system_config_encrypted(session)
-        if affected_user_ids or encrypted_rows:
+        encrypted_log_forwarding_rows = await ensure_log_forwarding_secrets_encrypted(session)
+        if affected_user_ids or encrypted_rows or encrypted_log_forwarding_rows:
             await session.commit()
         if affected_user_ids:
             await invalidate_permission_cache(affected_user_ids)
         if encrypted_rows:
             logger.info("Migrated %s plaintext sensitive system_config values to encrypted format.", encrypted_rows)
+        if encrypted_log_forwarding_rows:
+            logger.info(
+                "Migrated %s plaintext log forwarding secret_token values to encrypted format.",
+                encrypted_log_forwarding_rows,
+            )
 
 
 async def on_startup() -> None:

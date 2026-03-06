@@ -186,9 +186,9 @@ export interface LogForwardingConfig {
   type: 'SYSLOG' | 'WEBHOOK';
   endpoint: string;
   port?: number;
-  secret_token?: string;
   enabled: boolean;
   log_types?: string[];  // 要外发的日志类型
+  has_secret_token?: boolean;
 }
 
 export interface CarouselItem {
