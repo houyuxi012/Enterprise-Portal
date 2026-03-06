@@ -13,7 +13,18 @@ from sqlalchemy.orm import selectinload
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
 
+from modules.iam.services.auth_helpers import create_mfa_token
+from modules.iam.services.privacy_consent import (
+    build_mfa_privacy_claims,
+    persist_authenticated_privacy_consent,
+    prepare_login_privacy_consent,
+)
+
 logger = logging.getLogger(__name__)
+
+
+class SessionStateStoreError(RuntimeError):
+    """Raised when session revocation state cannot be safely read or written."""
 
 
 class IdentityService:
@@ -36,6 +47,7 @@ class IdentityService:
     AUTH_CODE_SESSION_EXPIRED = "SESSION_EXPIRED"
     AUTH_CODE_TOKEN_REVOKED = "TOKEN_REVOKED"
     AUTH_CODE_AUDIENCE_MISMATCH = "AUDIENCE_MISMATCH"
+    AUTH_CODE_SESSION_STATE_UNAVAILABLE = "SESSION_STATE_UNAVAILABLE"
 
     @staticmethod
     def _auth_error_message(code: str) -> str:
@@ -43,6 +55,8 @@ class IdentityService:
             return "当前会话已失效，请重新登录。"
         if code == IdentityService.AUTH_CODE_AUDIENCE_MISMATCH:
             return "Audience mismatch for current session."
+        if code == IdentityService.AUTH_CODE_SESSION_STATE_UNAVAILABLE:
+            return "会话安全状态服务暂时不可用，请稍后重试。"
         return "登录会话已过期，请重新登录。"
 
     @staticmethod
@@ -63,6 +77,14 @@ class IdentityService:
                 "message": message or IdentityService._auth_error_message(code),
             },
             headers=error_headers or None,
+        )
+
+    @staticmethod
+    def _raise_session_state_unavailable(message: str | None = None) -> None:
+        IdentityService._raise_auth_error(
+            code=IdentityService.AUTH_CODE_SESSION_STATE_UNAVAILABLE,
+            message=message,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
     @staticmethod
@@ -352,8 +374,10 @@ class IdentityService:
             )
             return True
         except Exception as e:
-            logger.warning("Failed to add token jti=%s into denylist: %s", normalized_jti, e)
-            return False
+            logger.error("Failed to add token jti=%s into denylist: %s", normalized_jti, e)
+            raise SessionStateStoreError(
+                f"Failed to persist revoked token state for jti={normalized_jti}"
+            ) from e
 
     @staticmethod
     async def _cleanup_expired_sessions(
@@ -518,6 +542,8 @@ class IdentityService:
                 await redis_client.delete(session_key)
                 await cache.delete(legacy_key)
                 return revoked_count
+            except SessionStateStoreError:
+                raise
             except Exception as e:
                 logger.warning("Failed to revoke all sessions for key=%s: %s", session_key, e)
 
@@ -541,7 +567,9 @@ class IdentityService:
             try:
                 user = await IdentityService.get_current_user(request, db, audience=audience)
                 return user, audience
-            except HTTPException:
+            except HTTPException as exc:
+                if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+                    raise
                 continue
         return None, None
 
@@ -838,8 +866,8 @@ class IdentityService:
             revoked = await cache.get(IdentityService._revoked_jti_cache_key(jti), is_json=False)
             return revoked is not None
         except Exception as e:
-            logger.warning("Failed to check token denylist for jti=%s: %s", jti, e)
-            return False
+            logger.error("Failed to check token denylist for jti=%s: %s", jti, e)
+            raise SessionStateStoreError(f"Failed to read revoked token state for jti={jti}") from e
 
     @staticmethod
     async def _revoke_token(
@@ -910,6 +938,9 @@ class IdentityService:
             if await IdentityService._is_jti_revoked(token_jti):
                 logger.debug("Token revoked (jti=%s).", token_jti)
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_TOKEN_REVOKED)
+        except SessionStateStoreError as e:
+            logger.error("Token denylist check unavailable (audience=%s): %s", audience, e)
+            IdentityService._raise_session_state_unavailable()
         except ExpiredSignatureError as e:
             logger.debug("JWT expired: %s", e)
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
@@ -1313,6 +1344,13 @@ class IdentityService:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
+        pending_privacy_consent = await prepare_login_privacy_consent(
+            db=db,
+            request=request,
+            user=user,
+            audience=audience,
+        )
+
         # ── MFA Challenge Gate ──
         mfa_forced = False
         try:
@@ -1346,10 +1384,10 @@ class IdentityService:
                     )
 
             mfa_provider = "admin" if check_admin_access else "local"
-            mfa_token = utils.create_access_token(
-                data={"sub": user.username, "uid": user.id, "provider": mfa_provider},
-                expires_delta=timedelta(minutes=5),
-                audience="mfa_challenge",
+            mfa_token = create_mfa_token(
+                user,
+                provider=mfa_provider,
+                extra_claims=build_mfa_privacy_claims(pending_privacy_consent),
             )
             # Reset fail counters on valid password
             if user.failed_attempts > 0 or user.locked_until is not None:
@@ -1382,11 +1420,20 @@ class IdentityService:
             await db.commit()
 
         # --- Active Session Cleanup + Concurrent Session Limit Check ---
-        active_session_count = await IdentityService._cleanup_expired_sessions(
-            user_id=user_id,
-            audience=audience,
-            session_timeout_minutes=session_timeout,
-        )
+        try:
+            active_session_count = await IdentityService._cleanup_expired_sessions(
+                user_id=user_id,
+                audience=audience,
+                session_timeout_minutes=session_timeout,
+            )
+        except SessionStateStoreError as e:
+            logger.error(
+                "Failed to evaluate active sessions during login user=%s audience=%s: %s",
+                username,
+                audience,
+                e,
+            )
+            IdentityService._raise_session_state_unavailable()
         if max_concurrent_sessions > 0 and active_session_count >= max_concurrent_sessions:
             await IAMAuditService.log_login(
                 db,
@@ -1404,6 +1451,14 @@ class IdentityService:
                 detail="该用户超过并发设定，请退出其他设备后再次尝试登陆",
             )
 
+        await persist_authenticated_privacy_consent(
+            db=db,
+            request=request,
+            user=user,
+            audience=audience,
+            consent=pending_privacy_consent,
+        )
+
         # Log success
         await IAMAuditService.log_login(
             db, username=username, success=True,
@@ -1416,7 +1471,16 @@ class IdentityService:
         previous_token = request.cookies.get(cookie_name)
         if previous_token:
             # Rotate same-audience session token on login to limit concurrent stale token reuse.
-            await IdentityService._revoke_token(previous_token, db=db)
+            try:
+                await IdentityService._revoke_token(previous_token, db=db)
+            except SessionStateStoreError as e:
+                logger.error(
+                    "Failed to revoke previous token during login rotation user=%s audience=%s: %s",
+                    username,
+                    audience,
+                    e,
+                )
+                IdentityService._raise_session_state_unavailable()
         # Issue token with Audience
         session_start_epoch = int(datetime.now(timezone.utc).timestamp())
         access_token = utils.create_access_token(
@@ -1438,6 +1502,14 @@ class IdentityService:
                 exp_epoch=new_exp,
                 session_timeout_minutes=session_timeout,
             )
+        except SessionStateStoreError as e:
+            logger.error(
+                "Failed to persist active session state user=%s audience=%s: %s",
+                username,
+                audience,
+                e,
+            )
+            IdentityService._raise_session_state_unavailable()
         except Exception as e:
             logger.error(f"Failed to track active session: {e}")
 
@@ -1605,6 +1677,9 @@ class IdentityService:
                 "expires_in_seconds": max(0, int(expires_at_epoch) - now_epoch),
                 "absolute_timeout_minutes": int(absolute_timeout_minutes),
             }
+        except SessionStateStoreError as e:
+            logger.error("Session ping failed because session state is unavailable: %s", e)
+            IdentityService._raise_session_state_unavailable()
         except HTTPException as e:
             if e.status_code in (401, 419):
                 IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
@@ -1626,12 +1701,20 @@ class IdentityService:
         if request and db:
             try:
                 current_user, _ = await IdentityService._resolve_current_identity(request, db)
+            except HTTPException as e:
+                if e.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+                    raise
+                logger.warning("Failed to resolve current identity for logout: %s", e)
             except Exception as e:
                 logger.warning("Failed to resolve current identity for logout: %s", e)
 
         if request:
-            for token in IdentityService._collect_request_tokens(request):
-                await IdentityService._revoke_token(token, db=db)
+            try:
+                for token in IdentityService._collect_request_tokens(request):
+                    await IdentityService._revoke_token(token, db=db)
+            except SessionStateStoreError as e:
+                logger.error("Failed to revoke current session during logout: %s", e)
+                IdentityService._raise_session_state_unavailable()
 
         if current_user and request and db:
             try:
@@ -1666,67 +1749,71 @@ class IdentityService:
         redis_client = cache.redis if cache.is_redis_available and cache.redis else None
         stats: dict[int, dict[str, int | None]] = {}
 
-        for audience in targets:
-            keys = await IdentityService._list_session_keys_for_audience(audience)
-            for key in keys:
-                user_id = IdentityService._parse_user_id_from_session_key(key)
-                if not user_id:
-                    continue
+        try:
+            for audience in targets:
+                keys = await IdentityService._list_session_keys_for_audience(audience)
+                for key in keys:
+                    user_id = IdentityService._parse_user_id_from_session_key(key)
+                    if not user_id:
+                        continue
 
-                session_count = 0
-                latest_exp: int | None = None
+                    session_count = 0
+                    latest_exp: int | None = None
 
-                if redis_client:
-                    try:
-                        await redis_client.zremrangebyscore(key, "-inf", now_epoch)
-                        session_count = int(await redis_client.zcard(key))
-                        if session_count <= 0:
-                            await redis_client.delete(key)
+                    if redis_client:
+                        try:
+                            await redis_client.zremrangebyscore(key, "-inf", now_epoch)
+                            session_count = int(await redis_client.zcard(key))
+                            if session_count <= 0:
+                                await redis_client.delete(key)
+                                continue
+                            latest = await redis_client.zrange(key, -1, -1, withscores=True)
+                            if latest:
+                                latest_exp = IdentityService._exp_to_epoch(latest[0][1])
+                        except Exception as e:
+                            logger.warning("Failed to read online sessions for key=%s: %s", key, e)
                             continue
-                        latest = await redis_client.zrange(key, -1, -1, withscores=True)
-                        if latest:
-                            latest_exp = IdentityService._exp_to_epoch(latest[0][1])
-                    except Exception as e:
-                        logger.warning("Failed to read online sessions for key=%s: %s", key, e)
+                    else:
+                        raw_sessions = await cache.get(key)
+                        sessions = IdentityService._normalize_memory_sessions(raw_sessions)
+                        valid_sessions: dict[str, int] = {}
+                        for session_jti, exp_epoch in sessions.items():
+                            if exp_epoch > now_epoch and not await IdentityService._is_jti_revoked(session_jti):
+                                valid_sessions[session_jti] = exp_epoch
+                        if not valid_sessions:
+                            await cache.delete(key)
+                            continue
+                        session_count = len(valid_sessions)
+                        latest_exp = max(valid_sessions.values())
+                        ttl_seconds = max(
+                            60,
+                            latest_exp - now_epoch + IdentityService.SESSION_TTL_BUFFER_SECONDS,
+                        )
+                        await cache.set(key, valid_sessions, ttl=ttl_seconds)
+
+                    if session_count <= 0:
                         continue
-                else:
-                    raw_sessions = await cache.get(key)
-                    sessions = IdentityService._normalize_memory_sessions(raw_sessions)
-                    valid_sessions: dict[str, int] = {}
-                    for session_jti, exp_epoch in sessions.items():
-                        if exp_epoch > now_epoch and not await IdentityService._is_jti_revoked(session_jti):
-                            valid_sessions[session_jti] = exp_epoch
-                    if not valid_sessions:
-                        await cache.delete(key)
-                        continue
-                    session_count = len(valid_sessions)
-                    latest_exp = max(valid_sessions.values())
-                    ttl_seconds = max(
-                        60,
-                        latest_exp - now_epoch + IdentityService.SESSION_TTL_BUFFER_SECONDS,
+
+                    entry = stats.setdefault(
+                        user_id,
+                        {
+                            "admin_sessions": 0,
+                            "portal_sessions": 0,
+                            "total_sessions": 0,
+                            "latest_exp_epoch": None,
+                        },
                     )
-                    await cache.set(key, valid_sessions, ttl=ttl_seconds)
-
-                if session_count <= 0:
-                    continue
-
-                entry = stats.setdefault(
-                    user_id,
-                    {
-                        "admin_sessions": 0,
-                        "portal_sessions": 0,
-                        "total_sessions": 0,
-                        "latest_exp_epoch": None,
-                    },
-                )
-                if audience == "admin":
-                    entry["admin_sessions"] = int(entry["admin_sessions"] or 0) + session_count
-                else:
-                    entry["portal_sessions"] = int(entry["portal_sessions"] or 0) + session_count
-                entry["total_sessions"] = int(entry["total_sessions"] or 0) + session_count
-                existing_latest = IdentityService._exp_to_epoch(entry.get("latest_exp_epoch"))
-                if latest_exp is not None and (existing_latest is None or latest_exp > existing_latest):
-                    entry["latest_exp_epoch"] = latest_exp
+                    if audience == "admin":
+                        entry["admin_sessions"] = int(entry["admin_sessions"] or 0) + session_count
+                    else:
+                        entry["portal_sessions"] = int(entry["portal_sessions"] or 0) + session_count
+                    entry["total_sessions"] = int(entry["total_sessions"] or 0) + session_count
+                    existing_latest = IdentityService._exp_to_epoch(entry.get("latest_exp_epoch"))
+                    if latest_exp is not None and (existing_latest is None or latest_exp > existing_latest):
+                        entry["latest_exp_epoch"] = latest_exp
+        except SessionStateStoreError as e:
+            logger.error("Failed to list online users because session state is unavailable: %s", e)
+            IdentityService._raise_session_state_unavailable()
 
         if not stats:
             return []
@@ -1792,16 +1879,25 @@ class IdentityService:
             IdentityService._raise_auth_error(code=IdentityService.AUTH_CODE_SESSION_EXPIRED)
 
         revoked_sessions = 0
-        target_audiences = IdentityService._resolve_audiences(audience_scope)
-        for audience in target_audiences:
-            revoked_sessions += await IdentityService._revoke_all_sessions_for_user(
-                user_id=current_user.id,
-                audience=audience,
-            )
+        try:
+            target_audiences = IdentityService._resolve_audiences(audience_scope)
+            for audience in target_audiences:
+                revoked_sessions += await IdentityService._revoke_all_sessions_for_user(
+                    user_id=current_user.id,
+                    audience=audience,
+                )
 
-        # Ensure current request token/cookies are also denylisted, even if issued before ZSET tracking.
-        for token in IdentityService._collect_request_tokens(request):
-            await IdentityService._revoke_token(token, db=db)
+            # Ensure current request token/cookies are also denylisted, even if issued before ZSET tracking.
+            for token in IdentityService._collect_request_tokens(request):
+                await IdentityService._revoke_token(token, db=db)
+        except SessionStateStoreError as e:
+            logger.error(
+                "Failed to revoke all sessions for user_id=%s audience_scope=%s: %s",
+                current_user.id,
+                audience_scope,
+                e,
+            )
+            IdentityService._raise_session_state_unavailable()
 
         try:
             ip = request.client.host if request.client else "unknown"
@@ -1853,12 +1949,21 @@ class IdentityService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         revoked_sessions = 0
-        target_audiences = IdentityService._resolve_audiences(audience_scope)
-        for audience in target_audiences:
-            revoked_sessions += await IdentityService._revoke_all_sessions_for_user(
-                user_id=target_user.id,
-                audience=audience,
+        try:
+            target_audiences = IdentityService._resolve_audiences(audience_scope)
+            for audience in target_audiences:
+                revoked_sessions += await IdentityService._revoke_all_sessions_for_user(
+                    user_id=target_user.id,
+                    audience=audience,
+                )
+        except SessionStateStoreError as e:
+            logger.error(
+                "Failed to revoke sessions for target_user_id=%s audience_scope=%s: %s",
+                target_user.id,
+                audience_scope,
+                e,
             )
+            IdentityService._raise_session_state_unavailable()
 
         ip = request.client.host if request.client else "unknown"
         user_agent = request.headers.get("User-Agent", "unknown")
