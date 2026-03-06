@@ -148,6 +148,7 @@ services:
       - minio
     volumes:
       - ./backend:/app
+      - /app/test_db
       - ./backend/uploads:/app/uploads
       - ./ops/nginx:/app/ops/nginx:ro
       - ./ops/loki:/app/loki:ro
