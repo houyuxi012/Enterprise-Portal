@@ -133,7 +133,12 @@ async def record_startup_status(status: str, error: str | None = None) -> None:
 
 
 async def _run_shared_startup_initialization() -> None:
-    from test_db.rbac_init import init_rbac
+    from modules.iam.services.rbac_bootstrap import (
+        assign_default_roles_to_roleless_users,
+        ensure_rbac_baseline,
+        init_admin,
+        invalidate_permission_cache,
+    )
     from modules.iam.services.system_config_security import ensure_sensitive_system_config_encrypted
 
     if should_run_migrations_on_startup():
@@ -146,10 +151,17 @@ async def _run_shared_startup_initialization() -> None:
         await ensure_db_schema_is_current()
 
     async with database.SessionLocal() as session:
-        await init_rbac(session)
+        _, role_map, affected_user_ids = await ensure_rbac_baseline(session)
+        admin_user_id = await init_admin(session, role_map)
+        if admin_user_id is not None:
+            affected_user_ids.add(admin_user_id)
+        affected_user_ids.update(await assign_default_roles_to_roleless_users(session, role_map))
         encrypted_rows = await ensure_sensitive_system_config_encrypted(session)
-        if encrypted_rows:
+        if affected_user_ids or encrypted_rows:
             await session.commit()
+        if affected_user_ids:
+            await invalidate_permission_cache(affected_user_ids)
+        if encrypted_rows:
             logger.info("Migrated %s plaintext sensitive system_config values to encrypted format.", encrypted_rows)
 
 

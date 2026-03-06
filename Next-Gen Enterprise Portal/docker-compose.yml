@@ -138,6 +138,9 @@ services:
       BIND_PASSWORD_ENC_KEYS: '{"k2025q4":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY","k2026q1":"YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk"}'
       BIND_PASSWORD_ENC_ACTIVE_KID: "k2026q1"
       PLATFORM_AUTO_RELOAD: "true"
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-Administrator}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@local.invalid}
     depends_on:
       - db
       - redis
@@ -148,7 +151,6 @@ services:
       - ./ops/nginx:/app/ops/nginx:ro
       - ./ops/loki:/app/loki:ro
       - ./ops/nginx/certs:/run/certs:ro
-      - ../test_db:/app/test_db # Mount test data scripts
 
   frontend:
     build:
