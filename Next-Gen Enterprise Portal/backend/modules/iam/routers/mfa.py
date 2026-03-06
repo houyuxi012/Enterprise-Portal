@@ -29,6 +29,8 @@ import modules.models as models
 import modules.schemas as schemas
 import utils
 from iam.deps import get_db, get_current_identity, verify_admin_aud
+from iam.identity.service import SessionStateStoreError
+from modules.iam.services.privacy_consent import consume_mfa_privacy_claims
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +460,14 @@ async def verify_mfa_challenge(
     audience = "admin" if provider == "admin" else "portal"
     cookie_name = "admin_session" if audience == "admin" else "portal_session"
 
+    await consume_mfa_privacy_claims(
+        db=db,
+        request=request,
+        user=user,
+        audience=audience,
+        token_data=token_data,
+    )
+
     # Portal uses login_session_timeout_minutes, Admin uses admin_session_timeout_minutes.
     if audience == "admin":
         config_key = "admin_session_timeout_minutes"
@@ -472,7 +482,16 @@ async def verify_mfa_challenge(
     # Revoke previous token if exists
     previous_token = request.cookies.get(cookie_name)
     if previous_token:
-        await IAMIdentityService._revoke_token(previous_token, db=db)
+        try:
+            await IAMIdentityService._revoke_token(previous_token, db=db)
+        except SessionStateStoreError as e:
+            logger.error(
+                "Failed to revoke previous MFA session token user=%s audience=%s: %s",
+                user.username,
+                audience,
+                e,
+            )
+            IAMIdentityService._raise_session_state_unavailable()
 
     # Issue real session token
     from datetime import datetime, timezone
@@ -495,6 +514,14 @@ async def verify_mfa_challenge(
             exp_epoch=new_exp,
             session_timeout_minutes=session_timeout,
         )
+    except SessionStateStoreError as e:
+        logger.error(
+            "Failed to persist MFA active session user=%s audience=%s: %s",
+            user.username,
+            audience,
+            e,
+        )
+        IAMIdentityService._raise_session_state_unavailable()
     except Exception:
         pass
 
