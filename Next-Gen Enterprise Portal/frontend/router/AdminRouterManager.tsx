@@ -23,6 +23,8 @@ const {
   systemUsers: SystemUserList,
   onlineUsers: OnlineUsers,
   directories: DirectoryListPage,
+  meetingLocal: MeetingLocalManagement,
+  meetingSync: MeetingThirdPartySync,
   roles: RoleList,
   organizations: OrganizationList,
   businessLogs: BusinessLogs,
@@ -105,6 +107,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
         onLicenseStateChange={onDirectoryLicenseStateChange}
       />
     )}
+    {effectiveAdminTab === 'meeting_local' && <MeetingLocalManagement />}
+    {effectiveAdminTab === 'meeting_sync' && <MeetingThirdPartySync />}
     {effectiveAdminTab === 'roles' && <RoleList />}
     {effectiveAdminTab === 'tools' && <ToolList />}
     {effectiveAdminTab === 'app_permissions' && <AppPermissions />}

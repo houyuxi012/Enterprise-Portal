@@ -80,6 +80,24 @@ class LogForwardingConfig(Base):
     log_types = Column(String, nullable=True, default='["BUSINESS","SYSTEM","ACCESS"]')
 
 
+class AdminMeeting(Base):
+    __tablename__ = "admin_meetings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject = Column(String(255), nullable=False, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    duration_minutes = Column(Integer, nullable=False)
+    meeting_type = Column(String(20), nullable=False, index=True)
+    meeting_room = Column(String(255), nullable=False)
+    meeting_id = Column(String(128), nullable=False, unique=True, index=True)
+    organizer = Column(String(255), nullable=False)
+    attendees = Column(JSON, nullable=False, default=list)
+    source = Column(String(20), nullable=False, default="local", index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AIProvider(Base):
     __tablename__ = "ai_providers"
 

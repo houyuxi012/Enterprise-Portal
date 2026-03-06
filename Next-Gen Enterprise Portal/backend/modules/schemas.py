@@ -5,6 +5,9 @@ Use this module as the canonical import entry for Pydantic schemas.
 """
 
 from modules.admin.schemas import (
+    AdminMeeting,
+    AdminMeetingBase,
+    AdminMeetingCreate,
     AIAuditLog,
     AIAuditLogBase,
     AIAuditLogQuery,

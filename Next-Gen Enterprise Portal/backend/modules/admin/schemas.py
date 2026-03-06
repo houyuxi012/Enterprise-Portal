@@ -86,6 +86,36 @@ class LogForwardingConfig(LogForwardingConfigBase):
         from_attributes = True
 
 
+MeetingType = Literal["online", "offline"]
+MeetingSource = Literal["local", "third_party"]
+
+
+class AdminMeetingBase(BaseModel):
+    subject: str
+    start_time: datetime
+    duration_minutes: int
+    meeting_type: MeetingType
+    meeting_room: str
+    organizer: str
+    attendees: list[str] = []
+
+
+class AdminMeetingCreate(AdminMeetingBase):
+    meeting_id: Optional[str] = None
+
+
+class AdminMeeting(AdminMeetingBase):
+    id: int
+    meeting_id: str
+    source: MeetingSource = "local"
+    created_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class CarouselItemBase(BaseModel):
     title: str
     image: str

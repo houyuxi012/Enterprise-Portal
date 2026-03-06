@@ -217,6 +217,35 @@ export interface AIAuditLogEntry {
   source?: string;
 }
 
+export type AdminMeetingType = 'online' | 'offline';
+
+export interface AdminMeetingDTO {
+  id: number;
+  subject: string;
+  start_time: string;
+  duration_minutes: number;
+  meeting_type: AdminMeetingType;
+  meeting_room: string;
+  meeting_id: string;
+  organizer: string;
+  attendees: string[];
+  source: 'local' | 'third_party';
+  created_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminMeetingCreatePayload {
+  subject: string;
+  start_time: string;
+  duration_minutes: number;
+  meeting_type: AdminMeetingType;
+  meeting_room: string;
+  meeting_id?: string;
+  organizer: string;
+  attendees: string[];
+}
+
 export interface AIAuditQueryParams {
   start_time?: string;
   end_time?: string;
@@ -1240,6 +1269,20 @@ export const ApiClient = {
   }> => {
     const response = await api.get('/admin/system/notification/health');
     return response.data;
+  },
+
+  getAdminMeetings: async (): Promise<AdminMeetingDTO[]> => {
+    const response = await api.get<AdminMeetingDTO[]>('/meetings/');
+    return response.data;
+  },
+
+  createAdminMeeting: async (payload: AdminMeetingCreatePayload): Promise<AdminMeetingDTO> => {
+    const response = await api.post<AdminMeetingDTO>('/meetings/', payload);
+    return response.data;
+  },
+
+  deleteAdminMeeting: async (meetingId: number): Promise<void> => {
+    await api.delete(`/meetings/${meetingId}`);
   },
 };
 

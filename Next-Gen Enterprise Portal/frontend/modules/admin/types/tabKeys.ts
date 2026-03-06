@@ -8,6 +8,8 @@ export const ADMIN_TAB_KEYS = [
   'directories',
   'tools',
   'app_permissions',
+  'meeting_local',
+  'meeting_sync',
   'settings',
   'platform_settings',
   'license',

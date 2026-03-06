@@ -19,7 +19,8 @@ import {
     BarChartOutlined,
     KeyOutlined,
     BookOutlined,
-    CheckSquareOutlined
+    CheckSquareOutlined,
+    CalendarOutlined,
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -178,6 +179,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     label: t('adminLayout.menu.carousel'),
                 },
 
+            ],
+        },
+        {
+            key: 'sub_meeting',
+            label: t('adminLayout.menu.meetingManagement', '会议管理'),
+            icon: <CalendarOutlined />,
+            children: [
+                {
+                    key: 'meeting_local',
+                    label: t('adminLayout.menu.meetingLocal', '本地管理'),
+                },
+                {
+                    key: 'meeting_sync',
+                    label: t('adminLayout.menu.meetingSync', '三方同步'),
+                    icon: <ApiOutlined />,
+                },
             ],
         },
         {
