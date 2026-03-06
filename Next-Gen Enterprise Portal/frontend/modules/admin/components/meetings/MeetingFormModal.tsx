@@ -21,6 +21,8 @@ export interface MeetingFormValues {
 interface MeetingFormModalProps {
   open: boolean;
   confirmLoading: boolean;
+  mode?: 'create' | 'edit';
+  initialValues?: Partial<MeetingFormValues>;
   onCancel: () => void;
   onSubmit: (values: MeetingFormValues) => Promise<void> | void;
 }
@@ -28,6 +30,8 @@ interface MeetingFormModalProps {
 const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   open,
   confirmLoading,
+  mode = 'create',
+  initialValues,
   onCancel,
   onSubmit,
 }) => {
@@ -39,12 +43,16 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
       return;
     }
     form.resetFields();
-    form.setFieldsValue({
+    const defaults: Partial<MeetingFormValues> = {
       durationMinutes: 60,
       meetingType: 'online',
       attendees: [],
+    };
+    form.setFieldsValue({
+      ...defaults,
+      ...initialValues,
     });
-  }, [form, open]);
+  }, [form, initialValues, open]);
 
   const handleOk = async (): Promise<void> => {
     const values = await form.validateFields();
@@ -54,9 +62,13 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   return (
     <AppModal
       open={open}
-      title={t('meetingLocal.modal.title', '创建会议')}
+      title={mode === 'edit'
+        ? t('meetingLocal.modal.editTitle', '编辑会议')
+        : t('meetingLocal.modal.title', '创建会议')}
       width={820}
-      okText={t('meetingLocal.actions.create', '创建会议')}
+      okText={mode === 'edit'
+        ? t('meetingLocal.actions.save', '保存修改')
+        : t('meetingLocal.actions.create', '创建会议')}
       cancelText={t('common.buttons.cancel', '取消')}
       confirmLoading={confirmLoading}
       onOk={() => {
@@ -65,7 +77,9 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
       onCancel={onCancel}
     >
       <Paragraph className="text-slate-500 mb-5">
-        {t('meetingLocal.form.tip', '未填写会议 ID 时，系统会在保存时自动生成一个唯一标识。')}
+        {mode === 'edit'
+          ? t('meetingLocal.form.editTip', '你可以直接修改会议信息；保留会议 ID 不变可避免外部引用失效。')
+          : t('meetingLocal.form.tip', '未填写会议 ID 时，系统会在保存时自动生成一个唯一标识。')}
       </Paragraph>
       <AppForm form={form} layout="vertical">
         <Row gutter={16}>

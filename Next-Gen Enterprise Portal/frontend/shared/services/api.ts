@@ -246,6 +246,13 @@ export interface AdminMeetingCreatePayload {
   attendees: string[];
 }
 
+export type AdminMeetingListParams = {
+  q?: string;
+  meeting_type?: AdminMeetingType;
+  start_from?: string;
+  start_to?: string;
+};
+
 export interface AIAuditQueryParams {
   start_time?: string;
   end_time?: string;
@@ -1271,13 +1278,18 @@ export const ApiClient = {
     return response.data;
   },
 
-  getAdminMeetings: async (): Promise<AdminMeetingDTO[]> => {
-    const response = await api.get<AdminMeetingDTO[]>('/meetings/');
+  getAdminMeetings: async (params?: AdminMeetingListParams): Promise<AdminMeetingDTO[]> => {
+    const response = await api.get<AdminMeetingDTO[]>('/meetings/', { params });
     return response.data;
   },
 
   createAdminMeeting: async (payload: AdminMeetingCreatePayload): Promise<AdminMeetingDTO> => {
     const response = await api.post<AdminMeetingDTO>('/meetings/', payload);
+    return response.data;
+  },
+
+  updateAdminMeeting: async (meetingId: number, payload: AdminMeetingCreatePayload): Promise<AdminMeetingDTO> => {
+    const response = await api.put<AdminMeetingDTO>(`/meetings/${meetingId}`, payload);
     return response.data;
   },
 

@@ -104,6 +104,10 @@ class AdminMeetingCreate(AdminMeetingBase):
     meeting_id: Optional[str] = None
 
 
+class AdminMeetingUpdate(AdminMeetingBase):
+    meeting_id: Optional[str] = None
+
+
 class AdminMeeting(AdminMeetingBase):
     id: int
     meeting_id: str

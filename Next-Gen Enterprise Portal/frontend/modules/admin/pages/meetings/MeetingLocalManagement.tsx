@@ -1,14 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Col, Empty, message, Popconfirm, Row, Space, Tag, Typography } from 'antd';
-import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
-import { AppButton, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+import { AppButton, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 import MeetingFormModal, { type MeetingFormValues } from '@/modules/admin/components/meetings/MeetingFormModal';
-import meetingLocalStoreService, { type CreateLocalMeetingInput, type LocalMeetingRecord } from '@/modules/admin/services/meetings';
+import meetingService, {
+  type CreateLocalMeetingInput,
+  type ListMeetingFilters,
+  type LocalMeetingRecord,
+} from '@/modules/admin/services/meetings';
 
 const { Text } = Typography;
+
+type MeetingFilterState = {
+  q: string;
+  meetingType?: LocalMeetingRecord['meetingType'];
+  startRange: [Dayjs, Dayjs] | null;
+};
 
 type ApiLikeError = {
   response?: {
@@ -32,13 +43,26 @@ const MeetingLocalManagement: React.FC = () => {
   const { t } = useTranslation();
   const [meetings, setMeetings] = useState<LocalMeetingRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<LocalMeetingRecord | null>(null);
+  const [filters, setFilters] = useState<MeetingFilterState>({
+    q: '',
+    meetingType: undefined,
+    startRange: null,
+  });
+
+  const buildListFilters = (): ListMeetingFilters => ({
+    q: filters.q || undefined,
+    meetingType: filters.meetingType,
+    startFrom: filters.startRange?.[0] ? filters.startRange[0].startOf('day').toISOString() : undefined,
+    startTo: filters.startRange?.[1] ? filters.startRange[1].endOf('day').toISOString() : undefined,
+  });
 
   const loadMeetings = async (): Promise<void> => {
     setLoading(true);
     try {
-      const data = await meetingLocalStoreService.listMeetings();
+      const data = await meetingService.listMeetings(buildListFilters());
       setMeetings(data);
     } finally {
       setLoading(false);
@@ -47,7 +71,7 @@ const MeetingLocalManagement: React.FC = () => {
 
   useEffect(() => {
     void loadMeetings();
-  }, []);
+  }, [filters.q, filters.meetingType, filters.startRange]);
 
   const metrics = useMemo(() => {
     const now = dayjs();
@@ -59,7 +83,7 @@ const MeetingLocalManagement: React.FC = () => {
     };
   }, [meetings]);
 
-  const handleCreateMeeting = async (values: MeetingFormValues): Promise<void> => {
+  const handleSubmitMeeting = async (values: MeetingFormValues): Promise<void> => {
     const payload: CreateLocalMeetingInput = {
       subject: values.subject,
       startTime: values.startTime.toISOString(),
@@ -73,12 +97,25 @@ const MeetingLocalManagement: React.FC = () => {
 
     setSubmitLoading(true);
     try {
-      await meetingLocalStoreService.createMeeting(payload);
-      message.success(t('meetingLocal.messages.createSuccess', '会议已创建'));
-      setCreateOpen(false);
+      if (editingMeeting) {
+        await meetingService.updateMeeting(editingMeeting.id, payload);
+        message.success(t('meetingLocal.messages.updateSuccess', '会议已更新'));
+      } else {
+        await meetingService.createMeeting(payload);
+        message.success(t('meetingLocal.messages.createSuccess', '会议已创建'));
+      }
+      setModalOpen(false);
+      setEditingMeeting(null);
       await loadMeetings();
     } catch (error) {
-      message.error(resolveErrorMessage(error, t('meetingLocal.messages.createFailed', '创建会议失败')));
+      message.error(
+        resolveErrorMessage(
+          error,
+          editingMeeting
+            ? t('meetingLocal.messages.updateFailed', '更新会议失败')
+            : t('meetingLocal.messages.createFailed', '创建会议失败'),
+        ),
+      );
     } finally {
       setSubmitLoading(false);
     }
@@ -86,12 +123,35 @@ const MeetingLocalManagement: React.FC = () => {
 
   const handleDeleteMeeting = async (id: number): Promise<void> => {
     try {
-      await meetingLocalStoreService.deleteMeeting(id);
+      await meetingService.deleteMeeting(id);
       message.success(t('meetingLocal.messages.deleteSuccess', '会议已删除'));
       await loadMeetings();
     } catch (error) {
       message.error(resolveErrorMessage(error, t('meetingLocal.messages.deleteFailed', '删除会议失败')));
     }
+  };
+
+  const handleCreate = (): void => {
+    setEditingMeeting(null);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (meeting: LocalMeetingRecord): void => {
+    setEditingMeeting(meeting);
+    setModalOpen(true);
+  };
+
+  const handleModalCancel = (): void => {
+    setModalOpen(false);
+    setEditingMeeting(null);
+  };
+
+  const handleResetFilters = (): void => {
+    setFilters({
+      q: '',
+      meetingType: undefined,
+      startRange: null,
+    });
   };
 
   const columns: ColumnsType<LocalMeetingRecord> = [
@@ -167,19 +227,28 @@ const MeetingLocalManagement: React.FC = () => {
     {
       title: t('common.actions', '操作'),
       key: 'actions',
-      width: 96,
+      width: 132,
       fixed: 'right',
       render: (_, record) => (
-        <Popconfirm
-          title={t('meetingLocal.actions.deleteConfirm', '确认删除这场会议吗？')}
-          okText={t('common.buttons.confirm', '确认')}
-          cancelText={t('common.buttons.cancel', '取消')}
-          onConfirm={() => {
-            void handleDeleteMeeting(record.id);
-          }}
-        >
-          <AppButton intent="danger" icon={<DeleteOutlined />} iconOnly aria-label={t('meetingLocal.actions.delete', '删除会议')} />
-        </Popconfirm>
+        <Space size={4}>
+          <AppButton
+            intent="tertiary"
+            icon={<EditOutlined />}
+            iconOnly
+            aria-label={t('meetingLocal.actions.edit', '编辑会议')}
+            onClick={() => handleEdit(record)}
+          />
+          <Popconfirm
+            title={t('meetingLocal.actions.deleteConfirm', '确认删除这场会议吗？')}
+            okText={t('common.buttons.confirm', '确认')}
+            cancelText={t('common.buttons.cancel', '取消')}
+            onConfirm={() => {
+              void handleDeleteMeeting(record.id);
+            }}
+          >
+            <AppButton intent="danger" icon={<DeleteOutlined />} iconOnly aria-label={t('meetingLocal.actions.delete', '删除会议')} />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -221,11 +290,54 @@ const MeetingLocalManagement: React.FC = () => {
         title={t('meetingLocal.page.title', '会议管理 / 本地管理')}
         subtitle={t('meetingLocal.page.subtitle', '创建并维护门户后台的本地会议台账，后续可平滑接入三方会议平台。')}
         action={(
-          <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             {t('meetingLocal.actions.create', '创建会议')}
           </AppButton>
         )}
       />
+
+      <AppFilterBar>
+        <AppFilterBar.Search
+          value={filters.q}
+          placeholder={t('meetingLocal.filters.search', '按会议主题搜索')}
+          className="!w-64"
+          onChange={(event) => {
+            setFilters((current) => ({ ...current, q: event.target.value }));
+          }}
+        />
+        <AppFilterBar.Select
+          allowClear
+          value={filters.meetingType}
+          placeholder={t('meetingLocal.filters.type', '会议类型')}
+          width={160}
+          options={[
+            { value: 'online', label: t('meetingLocal.types.online', '线上') },
+            { value: 'offline', label: t('meetingLocal.types.offline', '线下') },
+          ]}
+          onChange={(value) => {
+            setFilters((current) => ({
+              ...current,
+              meetingType: value as LocalMeetingRecord['meetingType'] | undefined,
+            }));
+          }}
+        />
+        <AppFilterBar.DateRange
+          value={filters.startRange}
+          className="min-w-[280px]"
+          format="YYYY-MM-DD"
+          onChange={(values) => {
+            setFilters((current) => ({
+              ...current,
+              startRange: values?.[0] && values?.[1] ? [values[0], values[1]] : null,
+            }));
+          }}
+        />
+        <AppFilterBar.Action>
+          <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={handleResetFilters}>
+            {t('meetingLocal.actions.resetFilters', '重置筛选')}
+          </AppButton>
+        </AppFilterBar.Action>
+      </AppFilterBar>
 
       <Row gutter={[16, 16]}>
         {summaryCards.map((item) => (
@@ -264,10 +376,21 @@ const MeetingLocalManagement: React.FC = () => {
       </Card>
 
       <MeetingFormModal
-        open={createOpen}
+        open={modalOpen}
+        mode={editingMeeting ? 'edit' : 'create'}
+        initialValues={editingMeeting ? {
+          subject: editingMeeting.subject,
+          startTime: dayjs(editingMeeting.startTime),
+          durationMinutes: editingMeeting.durationMinutes,
+          meetingType: editingMeeting.meetingType,
+          meetingRoom: editingMeeting.meetingRoom,
+          meetingId: editingMeeting.meetingId,
+          organizer: editingMeeting.organizer,
+          attendees: editingMeeting.attendees,
+        } : undefined}
         confirmLoading={submitLoading}
-        onCancel={() => setCreateOpen(false)}
-        onSubmit={handleCreateMeeting}
+        onCancel={handleModalCancel}
+        onSubmit={handleSubmitMeeting}
       />
     </div>
   );

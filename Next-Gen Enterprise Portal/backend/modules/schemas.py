@@ -8,6 +8,8 @@ from modules.admin.schemas import (
     AdminMeeting,
     AdminMeetingBase,
     AdminMeetingCreate,
+    MeetingType,
+    AdminMeetingUpdate,
     AIAuditLog,
     AIAuditLogBase,
     AIAuditLogQuery,

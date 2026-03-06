@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Iterable
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import Select, asc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,14 +93,28 @@ async def _fetch_meeting_or_404(db: AsyncSession, meeting_pk: int) -> models.Adm
 
 @router.get("/", response_model=list[schemas.AdminMeeting])
 async def list_admin_meetings(
+    q: str | None = Query(default=None),
+    meeting_type: schemas.MeetingType | None = Query(default=None),
+    start_from: datetime | None = Query(default=None),
+    start_to: datetime | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: models.User = Depends(PermissionChecker("admin:access")),
 ):
     query: Select[tuple[models.AdminMeeting]] = (
         select(models.AdminMeeting)
         .where(models.AdminMeeting.source == "local")
-        .order_by(asc(models.AdminMeeting.start_time), asc(models.AdminMeeting.id))
     )
+    normalized_query = _normalize_string(q or "")
+    if normalized_query:
+        query = query.where(models.AdminMeeting.subject.ilike(f"%{normalized_query}%"))
+    if meeting_type is not None:
+        query = query.where(models.AdminMeeting.meeting_type == meeting_type)
+    if start_from is not None:
+        query = query.where(models.AdminMeeting.start_time >= start_from)
+    if start_to is not None:
+        query = query.where(models.AdminMeeting.start_time <= start_to)
+
+    query = query.order_by(asc(models.AdminMeeting.start_time), asc(models.AdminMeeting.id))
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -145,6 +159,59 @@ async def create_admin_meeting(
         user_id=current_user.id,
         username=current_user.username,
         action="ADMIN_CREATE_MEETING",
+        target=f"meeting:{meeting.id}",
+        detail=(
+            f"subject={meeting.subject}, meeting_id={meeting.meeting_id}, "
+            f"type={MEETING_TYPE_LABELS.get(meeting.meeting_type, meeting.meeting_type)}, attendees={len(attendees)}"
+        ),
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
+    )
+    return meeting
+
+
+@router.put("/{meeting_pk}", response_model=schemas.AdminMeeting)
+async def update_admin_meeting(
+    meeting_pk: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    payload: schemas.AdminMeetingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(PermissionChecker("admin:access")),
+):
+    meeting = await _fetch_meeting_or_404(db, meeting_pk)
+    subject, organizer, meeting_room, attendees = _validate_payload(payload)
+
+    normalized_meeting_id = _normalize_string(payload.meeting_id)
+    next_meeting_id = normalized_meeting_id or meeting.meeting_id
+    if next_meeting_id != meeting.meeting_id:
+        existing = await db.execute(
+            select(models.AdminMeeting.id).where(
+                models.AdminMeeting.meeting_id == next_meeting_id,
+                models.AdminMeeting.id != meeting_pk,
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=409, detail="会议 ID 已存在，请更换后重试")
+
+    meeting.subject = subject
+    meeting.start_time = payload.start_time
+    meeting.duration_minutes = payload.duration_minutes
+    meeting.meeting_type = payload.meeting_type
+    meeting.meeting_room = meeting_room
+    meeting.meeting_id = next_meeting_id
+    meeting.organizer = organizer
+    meeting.attendees = attendees
+
+    await db.commit()
+    await db.refresh(meeting)
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="ADMIN_UPDATE_MEETING",
         target=f"meeting:{meeting.id}",
         detail=(
             f"subject={meeting.subject}, meeting_id={meeting.meeting_id}, "
