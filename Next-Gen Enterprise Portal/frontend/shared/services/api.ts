@@ -27,7 +27,7 @@ import {
 } from '@/types';
 import { triggerSessionInvalid } from './sessionGuard';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -219,6 +219,12 @@ export interface AIAuditLogEntry {
 
 export type AdminMeetingType = 'online' | 'offline';
 
+export interface AdminMeetingUserRefDTO {
+  id: number;
+  username: string;
+  name?: string | null;
+}
+
 export interface AdminMeetingDTO {
   id: number;
   subject: string;
@@ -229,10 +235,49 @@ export interface AdminMeetingDTO {
   meeting_id: string;
   organizer: string;
   attendees: string[];
+  organizer_user_id?: number | null;
+  organizer_user?: AdminMeetingUserRefDTO | null;
+  attendee_user_ids: number[];
+  attendee_users: AdminMeetingUserRefDTO[];
   source: 'local' | 'third_party';
   created_by?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminMeetingListSummaryDTO {
+  total: number;
+  upcoming: number;
+  online: number;
+  offline: number;
+}
+
+export interface AdminMeetingListResponseDTO {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminMeetingDTO[];
+  summary: AdminMeetingListSummaryDTO;
+}
+
+export interface PortalMeetingSummaryItemDTO {
+  subject: string;
+  start_time: string;
+  duration_minutes: number;
+  meeting_type: AdminMeetingType;
+  meeting_room: string;
+  meeting_id: string;
+  organizer: string;
+}
+
+export interface PortalMeetingListItemDTO extends PortalMeetingSummaryItemDTO {
+  attendees: string[];
+}
+
+export interface PortalTodayMeetingSummaryDTO {
+  date: string;
+  total: number;
+  next_meeting?: PortalMeetingSummaryItemDTO | null;
 }
 
 export interface AdminMeetingCreatePayload {
@@ -242,8 +287,8 @@ export interface AdminMeetingCreatePayload {
   meeting_type: AdminMeetingType;
   meeting_room: string;
   meeting_id?: string;
-  organizer: string;
-  attendees: string[];
+  organizer_user_id: number;
+  attendee_user_ids: number[];
 }
 
 export type AdminMeetingListParams = {
@@ -251,6 +296,17 @@ export type AdminMeetingListParams = {
   meeting_type?: AdminMeetingType;
   start_from?: string;
   start_to?: string;
+  organizer_user_id?: number;
+  attendee_user_id?: number;
+  status?: 'upcoming' | 'inProgress' | 'finished';
+  limit?: number;
+  offset?: number;
+};
+
+export type PortalTodayMeetingSummaryParams = {
+  start_from?: string;
+  start_to?: string;
+  current_time?: string;
 };
 
 export interface AIAuditQueryParams {
@@ -1278,8 +1334,22 @@ export const ApiClient = {
     return response.data;
   },
 
-  getAdminMeetings: async (params?: AdminMeetingListParams): Promise<AdminMeetingDTO[]> => {
-    const response = await api.get<AdminMeetingDTO[]>('/meetings/', { params });
+  getAdminMeetings: async (params?: AdminMeetingListParams): Promise<AdminMeetingListResponseDTO> => {
+    const response = await api.get<AdminMeetingListResponseDTO>('/meetings/', { params });
+    return response.data;
+  },
+
+  getPortalTodayMeetingSummary: async (
+    params?: PortalTodayMeetingSummaryParams,
+  ): Promise<PortalTodayMeetingSummaryDTO> => {
+    const response = await api.get<PortalTodayMeetingSummaryDTO>('/meetings/today', { params });
+    return response.data;
+  },
+
+  getPortalMeetings: async (
+    params?: PortalTodayMeetingSummaryParams,
+  ): Promise<PortalMeetingListItemDTO[]> => {
+    const response = await api.get<PortalMeetingListItemDTO[]>('/meetings/', { params });
     return response.data;
   },
 

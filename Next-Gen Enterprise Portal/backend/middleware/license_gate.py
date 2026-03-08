@@ -23,22 +23,23 @@ class LicenseGateMiddleware(BaseHTTPMiddleware):
     """
 
     EXEMPT_EXACT_PATHS = {
-        "/api/iam/auth/portal/token",
-        "/api/iam/auth/admin/token",
-        "/api/iam/auth/logout",
-        "/api/iam/auth/logout-all",
-        "/api/iam/auth/me",
-        "/api/system/session/ping",
+        "/api/v1/iam/auth/portal/token",
+        "/api/v1/iam/auth/admin/token",
+        "/api/v1/iam/auth/logout",
+        "/api/v1/iam/auth/logout-all",
+        "/api/v1/iam/auth/me",
+        "/api/v1/iam/users/me/password",
+        "/api/v1/system/session/ping",
         # Keep system version/info readable for logged-in operators even before license install.
-        "/api/admin/system/info",
-        "/api/admin/system/version",
+        "/api/v1/admin/system/info",
+        "/api/v1/admin/system/version",
     }
 
     EXEMPT_PREFIXES = (
-        "/api/public/",
-        "/api/captcha/",
-        "/api/system/license/",
-        "/api/admin/system/license/",
+        "/api/v1/public/",
+        "/api/v1/captcha/",
+        "/api/v1/system/license/",
+        "/api/v1/admin/system/license/",
     )
 
     READ_ONLY_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -70,7 +71,7 @@ class LicenseGateMiddleware(BaseHTTPMiddleware):
     @classmethod
     def _should_check(cls, path: str) -> bool:
         normalized = cls._normalize_path(path)
-        if not normalized.startswith("/api/"):
+        if not (normalized == "/api/v1" or normalized.startswith("/api/v1/")):
             return False
         if cls._is_exempt(normalized):
             return False

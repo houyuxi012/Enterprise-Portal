@@ -15,7 +15,7 @@ def _make_request(
     *,
     cookies: dict[str, str] | None = None,
     headers: dict[str, str] | None = None,
-    path: str = "/api/admin/me",
+    path: str = "/api/v1/admin/me",
 ):
     return SimpleNamespace(
         cookies=cookies or {},
@@ -124,7 +124,7 @@ class SessionFailClosedTests(IsolatedAsyncioTestCase):
         self.assertEqual(exc.exception.detail["code"], IdentityService.AUTH_CODE_SESSION_STATE_UNAVAILABLE)
 
     async def test_verify_mfa_challenge_returns_503_when_session_tracking_fails(self):
-        request = _make_request(path="/api/mfa/verify")
+        request = _make_request(path="/api/v1/mfa/verify")
         response = Response()
         user = SimpleNamespace(
             id=11,
@@ -147,7 +147,7 @@ class SessionFailClosedTests(IsolatedAsyncioTestCase):
             patch.object(mfa_router, "_get_enabled_mfa_methods", AsyncMock(return_value=["totp"])),
             patch.object(mfa_router, "consume_mfa_privacy_claims", AsyncMock(return_value=None)),
             patch("pyotp.TOTP.verify", return_value=True),
-            patch("utils.create_access_token", return_value="session-token"),
+            patch("modules.iam.routers.mfa.security.create_access_token", return_value="session-token"),
             patch.object(
                 IdentityService,
                 "_extract_token_session_meta",

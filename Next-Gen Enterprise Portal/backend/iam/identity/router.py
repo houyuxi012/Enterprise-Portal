@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, Response, Query, HTTPException,
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from core import security
 
 from .service import IdentityService
 from .schemas import (
@@ -24,7 +25,6 @@ from iam.audit.service import IAMAuditService
 from modules.admin.services.license_service import LicenseService
 from modules.iam.services.password_policy import set_user_password
 import modules.models as models
-import utils
 
 router = APIRouter(prefix="/auth", tags=["iam-identity"])
 user_router = APIRouter(prefix="/users", tags=["iam-identity"])
@@ -177,7 +177,7 @@ async def change_my_password(
                 "message": "该账户由外部目录服务管理，请在目录服务中修改密码",
             },
         )
-    if not await utils.verify_password(payload.old_password, current_user.hashed_password):
+    if not await security.verify_password(payload.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="原密码不正确")
     if payload.old_password == payload.new_password:
         raise HTTPException(status_code=400, detail="新密码不能与原密码相同")

@@ -12,7 +12,7 @@ import type {
   DirectoryUpdatePayload,
 } from '@/modules/admin/pages/iam/directories/types';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -9,6 +9,7 @@ from starlette.responses import Response
 from starlette.concurrency import iterate_in_threadpool
 from sqlalchemy.orm import Session
 from core.database import SessionLocal
+from core.time_utils import utc_now_iso
 import modules.models as models
 import datetime
 import logging
@@ -24,7 +25,7 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
         # Skip logging for static files, OPTIONS, or polling endpoints (to avoid noise)
         if (request.url.path.startswith("/uploads") or 
             request.method == "OPTIONS" or 
-            request.url.path in ["/api/system/resources", "/api/dashboard/stats"]):
+            request.url.path in ["/api/v1/system/resources", "/api/v1/dashboard/stats"]):
             return await call_next(request)
 
         try:
@@ -96,7 +97,7 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                                 "level": level_str,
                                 "module": "api.access",
                                 "message": f"{request.method} {request.url.path} - {response.status_code}",
-                                "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                                "timestamp": utc_now_iso(),
                                 "ip_address": log_data["ip"],
                                 "path": log_data["path"],
                                 "method": log_data["method"],

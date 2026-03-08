@@ -3,16 +3,16 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 import modules.models as models
-import utils
+from core import security
 import modules.schemas as schemas
 from sqlalchemy import select
 from datetime import timedelta
 from jose import JWTError, jwt
-from application.iam_app import AuditService, CryptoService, IdentityService
+from application.iam_app import AuditService, IdentityService
 
 router = APIRouter(prefix="/auth", tags=["auth"], deprecated=True)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/iam/auth/portal/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/iam/auth/portal/token")
 
 
 @router.post("/token")

@@ -47,7 +47,7 @@ router = APIRouter(
     tags=["system"],
 )
 
-# Alias router for /api/system/license/* (admin audience only, wired in main.py)
+# Alias router for /api/v1/system/license/* (admin audience only, wired in main.py)
 license_alias_router = APIRouter(
     prefix="/system/license",
     tags=["system"],
@@ -60,6 +60,7 @@ VERSION_DEFAULTS = {
     "semver": "0.0.0",
     "channel": "dev",
     "git_sha": "unknown",
+    "git_ref": "unknown",
     "dirty": False,
     "build_time": "unknown",
     "build_number": "0",
@@ -1820,6 +1821,7 @@ async def get_system_info(
         "environment": "生产环境",
         "copyright": "© 2026 ShiKu Inc. All rights reserved.",
         "git_sha": version_info["git_sha"],
+        "git_ref": version_info.get("git_ref", "unknown"),
         "dirty": version_info.get("dirty", False),
         "build_time": version_info["build_time"],
         "build_id": version_info.get("build_id", "unknown"),
@@ -1843,6 +1845,7 @@ async def get_system_version(
         "semver": version_info.get("semver", "0.0.0"),
         "channel": version_info.get("channel", "dev"),
         "git_sha": version_info.get("git_sha", "unknown"),
+        "git_ref": version_info.get("git_ref", "unknown"),
         "dirty": version_info.get("dirty", False),
         "build_time": version_info.get("build_time", "unknown"),
         "build_number": version_info.get("build_number", "0"),

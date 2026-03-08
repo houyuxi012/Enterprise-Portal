@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import modules.models as models
-import utils
+from core import security
 
 
 def _parse_bool(value: str | bool | None, default: bool = False) -> bool:
@@ -95,7 +95,7 @@ async def validate_password(
         historical_hashes.extend(history_rows)
 
         for old_hash in historical_hashes:
-            if old_hash and await utils.verify_password(password, old_hash):
+            if old_hash and await security.verify_password(password, old_hash):
                 raise HTTPException(
                     status_code=400,
                     detail=f"新密码不能与最近 {history_reuse} 次使用的密码重复",
@@ -142,7 +142,7 @@ async def set_user_password(
 
     old_hash = getattr(user, "hashed_password", None)
     now = datetime.now(timezone.utc)
-    user.hashed_password = await utils.get_password_hash(new_password)
+    user.hashed_password = await security.get_password_hash(new_password)
     user.password_changed_at = now
     user.password_violates_policy = False
     user.password_change_required = False

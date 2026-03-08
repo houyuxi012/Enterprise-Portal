@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
 
+from core import security
 from modules.iam.services.auth_helpers import create_mfa_token
 from modules.iam.services.privacy_consent import (
     build_mfa_privacy_claims,
@@ -25,6 +26,15 @@ logger = logging.getLogger(__name__)
 
 class SessionStateStoreError(RuntimeError):
     """Raised when session revocation state cannot be safely read or written."""
+
+
+def _normalize_api_path(path: str) -> str:
+    normalized = (path or "").strip()
+    if not normalized:
+        return "/"
+    if normalized == "/":
+        return normalized
+    return normalized.rstrip("/")
 
 
 class IdentityService:
@@ -51,13 +61,8 @@ class IdentityService:
 
     @staticmethod
     def _auth_error_message(code: str) -> str:
-        if code == IdentityService.AUTH_CODE_TOKEN_REVOKED:
-            return "当前会话已失效，请重新登录。"
-        if code == IdentityService.AUTH_CODE_AUDIENCE_MISMATCH:
-            return "Audience mismatch for current session."
-        if code == IdentityService.AUTH_CODE_SESSION_STATE_UNAVAILABLE:
-            return "会话安全状态服务暂时不可用，请稍后重试。"
-        return "登录会话已过期，请重新登录。"
+        from iam.identity.auth_policy import auth_error_message
+        return auth_error_message(code)
 
     @staticmethod
     def _raise_auth_error(
@@ -67,187 +72,103 @@ class IdentityService:
         status_code: int = status.HTTP_401_UNAUTHORIZED,
         headers: dict[str, str] | None = None,
     ) -> None:
-        error_headers = dict(headers or {})
-        if status_code == status.HTTP_401_UNAUTHORIZED and "WWW-Authenticate" not in error_headers:
-            error_headers["WWW-Authenticate"] = "Bearer"
-        raise HTTPException(
+        from iam.identity.auth_policy import raise_auth_error
+        raise_auth_error(
+            code=code,
+            message=message,
             status_code=status_code,
-            detail={
-                "code": code,
-                "message": message or IdentityService._auth_error_message(code),
-            },
-            headers=error_headers or None,
+            headers=headers,
         )
 
     @staticmethod
     def _raise_session_state_unavailable(message: str | None = None) -> None:
-        IdentityService._raise_auth_error(
-            code=IdentityService.AUTH_CODE_SESSION_STATE_UNAVAILABLE,
-            message=message,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        from iam.identity.auth_policy import raise_session_state_unavailable
+        raise_session_state_unavailable(message)
 
     @staticmethod
     def _normalize_account_type(user) -> str:
-        account_type = getattr(user, "account_type", IdentityService.ACCOUNT_TYPE_PORTAL) or IdentityService.ACCOUNT_TYPE_PORTAL
-        return str(account_type).upper()
+        from iam.identity.auth_policy import normalize_account_type
+        return normalize_account_type(user)
 
     @staticmethod
     def _has_role(user, role_codes: set[str]) -> bool:
-        return any(getattr(role, "code", "") in role_codes for role in getattr(user, "roles", []))
+        from iam.identity.auth_policy import has_role
+        return has_role(user, role_codes)
 
     @staticmethod
     def _has_permission(user, permission_code: str) -> bool:
-        canonical = permission_code.strip()
-        normalized = canonical[7:] if canonical.startswith("portal.") else canonical
-        accepted_codes = {normalized, f"portal.{normalized}"}
-        for role in getattr(user, "roles", []):
-            for perm in getattr(role, "permissions", []):
-                current = (getattr(perm, "code", "") or "").strip()
-                if current in accepted_codes:
-                    return True
-        return False
+        from iam.identity.auth_policy import has_permission
+        return has_permission(user, permission_code)
 
     @staticmethod
     def _can_login_portal(user) -> bool:
-        return IdentityService._normalize_account_type(user) == IdentityService.ACCOUNT_TYPE_PORTAL
+        from iam.identity.auth_policy import can_login_portal
+        return can_login_portal(user)
 
     @staticmethod
     def _can_login_admin(user) -> bool:
-        account_type = IdentityService._normalize_account_type(user)
-        if account_type == IdentityService.ACCOUNT_TYPE_SYSTEM:
-            return True
-        if account_type != IdentityService.ACCOUNT_TYPE_PORTAL:
-            return False
-        return IdentityService._has_permission(user, "admin:access") or IdentityService._has_role(
-            user, {"PortalAdmin", "portal_admin", "SuperAdmin"}
-        )
+        from iam.identity.auth_policy import can_login_admin
+        return can_login_admin(user)
 
     @staticmethod
     def _is_mfa_setup_exempt_path(path: str) -> bool:
-        safe_path = (path or "").strip()
-        return (
-            safe_path.startswith("/api/mfa/")
-            or safe_path.startswith("/api/iam/auth/logout")
-            or safe_path.startswith("/api/iam/auth/me")
-        )
+        from iam.identity.auth_policy import is_mfa_setup_exempt_path
+        return is_mfa_setup_exempt_path(path)
 
     @staticmethod
     async def _is_system_mfa_forced(db: AsyncSession) -> bool:
-        import modules.models as models
-
-        result = await db.execute(
-            select(models.SystemConfig.value).filter(models.SystemConfig.key == "security_mfa_enabled")
-        )
-        value = result.scalar_one_or_none()
-        return str(value or "").strip().lower() == "true"
+        from iam.identity.auth_policy import is_system_mfa_forced
+        return await is_system_mfa_forced(db)
 
     @staticmethod
     async def _get_enabled_mfa_methods(user, db: AsyncSession) -> list[str]:
-        import modules.models as models
-
-        methods: list[str] = []
-        if bool(getattr(user, "totp_enabled", False)):
-            methods.append("totp")
-        if bool(getattr(user, "email_mfa_enabled", False)) and bool(getattr(user, "email", "")):
-            methods.append("email")
-
-        webauthn_count_result = await db.execute(
-            select(func.count()).select_from(models.WebAuthnCredential).filter(
-                models.WebAuthnCredential.user_id == user.id
-            )
-        )
-        if (webauthn_count_result.scalar() or 0) > 0:
-            methods.append("webauthn")
-        return methods
+        from iam.identity.auth_policy import get_enabled_mfa_methods
+        return await get_enabled_mfa_methods(user, db)
 
     @staticmethod
     def _revoked_jti_cache_key(jti: str) -> str:
-        return f"{IdentityService.REVOKED_JTI_PREFIX}{jti}"
+        from iam.identity.session_manager import revoked_jti_cache_key
+        return revoked_jti_cache_key(jti)
 
     @staticmethod
     def _session_zset_key(*, audience: str, user_id: int) -> str:
-        aud = (audience or "unknown").strip().lower() or "unknown"
-        return f"{IdentityService.SESSION_ZSET_PREFIX}:{aud}:{user_id}"
+        from iam.identity.session_manager import session_zset_key
+        return session_zset_key(audience=audience, user_id=user_id)
 
     @staticmethod
     def _legacy_active_session_key(*, audience: str, user_id: int) -> str:
-        aud = (audience or "unknown").strip().lower() or "unknown"
-        return f"{IdentityService.LEGACY_ACTIVE_SESSION_PREFIX}:{user_id}:{aud}"
+        from iam.identity.session_manager import legacy_active_session_key
+        return legacy_active_session_key(audience=audience, user_id=user_id)
 
     @staticmethod
     def _session_key_ttl_seconds(session_timeout_minutes: int) -> int:
-        return max(60, int(session_timeout_minutes) * 60 + IdentityService.SESSION_TTL_BUFFER_SECONDS)
+        from iam.identity.session_manager import session_key_ttl_seconds
+        return session_key_ttl_seconds(session_timeout_minutes)
 
     @staticmethod
     def _normalize_jti(value: Any) -> str | None:
-        if value is None:
-            return None
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-        normalized = str(value).strip()
-        return normalized or None
+        from iam.identity.token_service import normalize_jti
+        return normalize_jti(value)
 
     @staticmethod
     def _normalize_user_id(value: Any) -> int | None:
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, int):
-            return value if value > 0 else None
-        if isinstance(value, float):
-            iv = int(value)
-            return iv if iv > 0 else None
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-        if isinstance(value, str):
-            text = value.strip()
-            if text.isdigit():
-                iv = int(text)
-                return iv if iv > 0 else None
-        return None
+        from iam.identity.token_service import normalize_user_id
+        return normalize_user_id(value)
 
     @staticmethod
     def _normalize_audience_claim(value: Any) -> str | None:
-        if value is None:
-            return None
-        if isinstance(value, (list, tuple, set)):
-            if not value:
-                return None
-            value = next(iter(value))
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="ignore")
-        aud = str(value).strip().lower()
-        if aud in {"admin", "portal"}:
-            return aud
-        return None
+        from iam.identity.token_service import normalize_audience_claim
+        return normalize_audience_claim(value)
 
     @staticmethod
     def _decode_token_payload(token: str | None) -> dict | None:
-        if not token:
-            return None
-        import utils
-
-        try:
-            return jwt.decode(
-                token,
-                utils.SECRET_KEY,
-                algorithms=[utils.ALGORITHM],
-                options={"verify_aud": False, "verify_exp": False},
-            )
-        except JWTError:
-            return None
+        from iam.identity.token_service import decode_token_payload
+        return decode_token_payload(token)
 
     @staticmethod
     async def _resolve_user_id_from_payload(payload: dict | None, db: AsyncSession | None) -> int | None:
-        if not payload:
-            return None
-        user_id = IdentityService._normalize_user_id(payload.get("uid"))
-        if user_id:
-            return user_id
-        if db is None:
-            return None
+        from iam.identity.token_service import resolve_user_id_from_payload
+        return await resolve_user_id_from_payload(payload, db)
         username = (payload.get("sub") or "").strip()
         if not username:
             return None
@@ -262,122 +183,38 @@ class IdentityService:
         *,
         db: AsyncSession | None = None,
     ) -> tuple[int | None, str | None, str | None, int | None]:
-        payload = IdentityService._decode_token_payload(token)
-        if not payload:
-            return None, None, None, None
-        user_id = await IdentityService._resolve_user_id_from_payload(payload, db)
-        audience = IdentityService._normalize_audience_claim(payload.get("aud"))
-        jti = IdentityService._normalize_jti(payload.get("jti"))
-        exp_epoch = IdentityService._exp_to_epoch(payload.get("exp"))
-        return user_id, audience, jti, exp_epoch
+        from iam.identity.token_service import extract_token_session_meta
+        return await extract_token_session_meta(token, db=db)
 
     @staticmethod
     def _normalize_memory_sessions(raw: Any) -> dict[str, int]:
-        sessions: dict[str, int] = {}
-        pairs: list[tuple[Any, Any]] = []
-        if isinstance(raw, dict):
-            pairs = list(raw.items())
-        elif isinstance(raw, list):
-            for item in raw:
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    pairs.append((item[0], item[1]))
-                elif isinstance(item, dict):
-                    pairs.append((item.get("jti"), item.get("exp")))
-
-        for raw_jti, raw_exp in pairs:
-            jti = IdentityService._normalize_jti(raw_jti)
-            exp_epoch = IdentityService._exp_to_epoch(raw_exp)
-            if jti and exp_epoch is not None:
-                sessions[jti] = int(exp_epoch)
-        return sessions
+        from iam.identity.session_manager import normalize_memory_sessions
+        return normalize_memory_sessions(raw)
 
     @staticmethod
     def _resolve_audiences(scope: str | None) -> list[str]:
-        normalized = (scope or "all").strip().lower()
-        if normalized in {"admin", "portal"}:
-            return [normalized]
-        return ["admin", "portal"]
+        from iam.identity.session_manager import resolve_audiences
+        return resolve_audiences(scope)
 
     @staticmethod
     def _parse_user_id_from_session_key(key: str) -> int | None:
-        if not key:
-            return None
-        parts = key.split(":")
-        if len(parts) < 4:
-            return None
-        raw_user_id = parts[-1]
-        if not raw_user_id.isdigit():
-            return None
-        return int(raw_user_id)
+        from iam.identity.session_manager import parse_user_id_from_session_key
+        return parse_user_id_from_session_key(key)
 
     @staticmethod
     async def _list_session_keys_for_audience(audience: str) -> list[str]:
-        from infrastructure.cache_manager import cache
-
-        prefix = f"{IdentityService.SESSION_ZSET_PREFIX}:{audience}:"
-        redis_client = cache.redis if cache.is_redis_available and cache.redis else None
-        keys: list[str] = []
-
-        if redis_client:
-            pattern = f"{prefix}*"
-            try:
-                async for raw_key in redis_client.scan_iter(match=pattern.encode("utf-8"), count=200):
-                    if isinstance(raw_key, bytes):
-                        keys.append(raw_key.decode("utf-8", errors="ignore"))
-                    else:
-                        keys.append(str(raw_key))
-                return keys
-            except Exception as e:
-                logger.warning("Failed to scan online session keys pattern=%s: %s", pattern, e)
-
-        cache._ensure_lock()  # type: ignore[attr-defined]
-        async with cache._lock:  # type: ignore[attr-defined]
-            for cache_key in cache.memory_cache.keys():
-                if isinstance(cache_key, str) and cache_key.startswith(prefix):
-                    keys.append(cache_key)
-        return keys
+        from iam.identity.session_manager import list_session_keys_for_audience
+        return await list_session_keys_for_audience(audience)
 
     @staticmethod
     def _collect_request_tokens(request: Request | None) -> list[str]:
-        if not request:
-            return []
-        tokens: list[str] = []
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            bearer = auth_header.split(" ", 1)[1].strip()
-            if bearer:
-                tokens.append(bearer)
-
-        for cookie_name in ("access_token", "portal_session", "admin_session"):
-            token = request.cookies.get(cookie_name)
-            if token:
-                tokens.append(token)
-
-        # de-duplicate while preserving order
-        return list(dict.fromkeys(tokens))
+        from iam.identity.token_service import collect_request_tokens
+        return collect_request_tokens(request)
 
     @staticmethod
     async def _revoke_jti_until_expiry(jti: str | None, exp_epoch: int | None) -> bool:
-        normalized_jti = IdentityService._normalize_jti(jti)
-        normalized_exp = IdentityService._exp_to_epoch(exp_epoch)
-        if not normalized_jti or normalized_exp is None:
-            return False
-        from infrastructure.cache_manager import cache
-
-        ttl = max(1, int(normalized_exp) - int(datetime.now(timezone.utc).timestamp()))
-        try:
-            await cache.set(
-                IdentityService._revoked_jti_cache_key(normalized_jti),
-                "1",
-                ttl=ttl,
-                is_json=False,
-            )
-            return True
-        except Exception as e:
-            logger.error("Failed to add token jti=%s into denylist: %s", normalized_jti, e)
-            raise SessionStateStoreError(
-                f"Failed to persist revoked token state for jti={normalized_jti}"
-            ) from e
+        from iam.identity.session_manager import revoke_jti_until_expiry
+        return await revoke_jti_until_expiry(jti, exp_epoch)
 
     @staticmethod
     async def _cleanup_expired_sessions(
@@ -386,42 +223,12 @@ class IdentityService:
         audience: str,
         session_timeout_minutes: int,
     ) -> int:
-        from infrastructure.cache_manager import cache
-
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
-        ttl_seconds = IdentityService._session_key_ttl_seconds(session_timeout_minutes)
-        session_key = IdentityService._session_zset_key(audience=audience, user_id=user_id)
-        legacy_key = IdentityService._legacy_active_session_key(audience=audience, user_id=user_id)
-        redis_client = cache.redis if cache.is_redis_available and cache.redis else None
-
-        if redis_client:
-            try:
-                await redis_client.zremrangebyscore(session_key, "-inf", now_epoch)
-                active_count = int(await redis_client.zcard(session_key))
-                if active_count > 0:
-                    await redis_client.expire(session_key, ttl_seconds)
-                else:
-                    await redis_client.delete(session_key)
-                await cache.delete(legacy_key)
-                return active_count
-            except Exception as e:
-                logger.warning("Session ZSET cleanup failed for key=%s: %s", session_key, e)
-
-        raw_sessions = await cache.get(session_key)
-        if raw_sessions is None:
-            raw_sessions = await cache.get(legacy_key)
-        sessions = IdentityService._normalize_memory_sessions(raw_sessions)
-        valid_sessions: dict[str, int] = {}
-        for jti, exp_epoch in sessions.items():
-            if exp_epoch > now_epoch and not await IdentityService._is_jti_revoked(jti):
-                valid_sessions[jti] = exp_epoch
-
-        if valid_sessions:
-            await cache.set(session_key, valid_sessions, ttl=ttl_seconds)
-        else:
-            await cache.delete(session_key)
-        await cache.delete(legacy_key)
-        return len(valid_sessions)
+        from iam.identity.session_manager import cleanup_expired_sessions
+        return await cleanup_expired_sessions(
+            user_id=user_id,
+            audience=audience,
+            session_timeout_minutes=session_timeout_minutes,
+        )
 
     @staticmethod
     async def _add_active_session(
@@ -432,47 +239,14 @@ class IdentityService:
         exp_epoch: int | None,
         session_timeout_minutes: int,
     ):
-        from infrastructure.cache_manager import cache
-
-        normalized_jti = IdentityService._normalize_jti(jti)
-        normalized_exp = IdentityService._exp_to_epoch(exp_epoch)
-        if not normalized_jti or normalized_exp is None:
-            return
-
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
-        if normalized_exp <= now_epoch:
-            return
-
-        ttl_seconds = IdentityService._session_key_ttl_seconds(session_timeout_minutes)
-        session_key = IdentityService._session_zset_key(audience=audience, user_id=user_id)
-        legacy_key = IdentityService._legacy_active_session_key(audience=audience, user_id=user_id)
-        redis_client = cache.redis if cache.is_redis_available and cache.redis else None
-
-        if redis_client:
-            try:
-                await redis_client.zadd(session_key, {normalized_jti: float(normalized_exp)})
-                await redis_client.zremrangebyscore(session_key, "-inf", now_epoch)
-                await redis_client.expire(session_key, ttl_seconds)
-                await cache.delete(legacy_key)
-                return
-            except Exception as e:
-                logger.warning("Failed to add active session to ZSET key=%s: %s", session_key, e)
-
-        raw_sessions = await cache.get(session_key)
-        if raw_sessions is None:
-            raw_sessions = await cache.get(legacy_key)
-        sessions = IdentityService._normalize_memory_sessions(raw_sessions)
-        sessions[normalized_jti] = int(normalized_exp)
-        sessions = {
-            session_jti: session_exp
-            for session_jti, session_exp in sessions.items()
-            if session_exp > now_epoch and not await IdentityService._is_jti_revoked(session_jti)
-        }
-        if sessions:
-            await cache.set(session_key, sessions, ttl=ttl_seconds)
-        else:
-            await cache.delete(session_key)
-        await cache.delete(legacy_key)
+        from iam.identity.session_manager import add_active_session
+        await add_active_session(
+            user_id=user_id,
+            audience=audience,
+            jti=jti,
+            exp_epoch=exp_epoch,
+            session_timeout_minutes=session_timeout_minutes,
+        )
 
     @staticmethod
     async def _remove_active_session(
@@ -481,82 +255,18 @@ class IdentityService:
         audience: str | None,
         jti: str | None,
     ):
-        if not user_id or not audience or not jti:
-            return
-        from infrastructure.cache_manager import cache
-
-        normalized_jti = IdentityService._normalize_jti(jti)
-        normalized_audience = IdentityService._normalize_audience_claim(audience)
-        if not normalized_jti or not normalized_audience:
-            return
-
-        session_key = IdentityService._session_zset_key(audience=normalized_audience, user_id=user_id)
-        legacy_key = IdentityService._legacy_active_session_key(audience=normalized_audience, user_id=user_id)
-        redis_client = cache.redis if cache.is_redis_available and cache.redis else None
-
-        if redis_client:
-            try:
-                await redis_client.zrem(session_key, normalized_jti)
-                await cache.delete(legacy_key)
-                return
-            except Exception as e:
-                logger.warning("Failed to remove active session from ZSET key=%s: %s", session_key, e)
-
-        raw_sessions = await cache.get(session_key)
-        if raw_sessions is None:
-            raw_sessions = await cache.get(legacy_key)
-        sessions = IdentityService._normalize_memory_sessions(raw_sessions)
-        if normalized_jti in sessions:
-            sessions.pop(normalized_jti, None)
-            if sessions:
-                now_epoch = int(datetime.now(timezone.utc).timestamp())
-                max_exp = max(int(exp_epoch) for exp_epoch in sessions.values())
-                ttl_seconds = max(
-                    60,
-                    max_exp - now_epoch + IdentityService.SESSION_TTL_BUFFER_SECONDS,
-                )
-                await cache.set(session_key, sessions, ttl=ttl_seconds)
-            else:
-                await cache.delete(session_key)
-        await cache.delete(legacy_key)
+        from iam.identity.session_manager import remove_active_session
+        await remove_active_session(
+            user_id=user_id,
+            audience=audience,
+            jti=jti,
+        )
 
     @staticmethod
     async def _revoke_all_sessions_for_user(*, user_id: int, audience: str) -> int:
-        from infrastructure.cache_manager import cache
+        from iam.identity.session_manager import revoke_all_sessions_for_user
+        return await revoke_all_sessions_for_user(user_id=user_id, audience=audience)
 
-        session_key = IdentityService._session_zset_key(audience=audience, user_id=user_id)
-        legacy_key = IdentityService._legacy_active_session_key(audience=audience, user_id=user_id)
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
-        revoked_count = 0
-        redis_client = cache.redis if cache.is_redis_available and cache.redis else None
-
-        if redis_client:
-            try:
-                await redis_client.zremrangebyscore(session_key, "-inf", now_epoch)
-                entries = await redis_client.zrange(session_key, 0, -1, withscores=True)
-                for member, score in entries:
-                    jti = IdentityService._normalize_jti(member)
-                    exp_epoch = IdentityService._exp_to_epoch(score)
-                    if await IdentityService._revoke_jti_until_expiry(jti, exp_epoch):
-                        revoked_count += 1
-                await redis_client.delete(session_key)
-                await cache.delete(legacy_key)
-                return revoked_count
-            except SessionStateStoreError:
-                raise
-            except Exception as e:
-                logger.warning("Failed to revoke all sessions for key=%s: %s", session_key, e)
-
-        raw_sessions = await cache.get(session_key)
-        if raw_sessions is None:
-            raw_sessions = await cache.get(legacy_key)
-        sessions = IdentityService._normalize_memory_sessions(raw_sessions)
-        for jti, exp_epoch in sessions.items():
-            if exp_epoch > now_epoch and await IdentityService._revoke_jti_until_expiry(jti, exp_epoch):
-                revoked_count += 1
-        await cache.delete(session_key)
-        await cache.delete(legacy_key)
-        return revoked_count
 
     @staticmethod
     async def _resolve_current_identity(
@@ -575,29 +285,8 @@ class IdentityService:
 
     @staticmethod
     def _clear_auth_cookies(response: Response):
-        import utils
-
-        response.delete_cookie(
-            key="access_token",
-            path="/",
-            domain=utils.COOKIE_DOMAIN,
-            secure=utils.COOKIE_SECURE,
-            samesite=utils.COOKIE_SAMESITE,
-        )
-        response.delete_cookie(
-            key="portal_session",
-            path="/",
-            domain=utils.COOKIE_DOMAIN,
-            secure=utils.COOKIE_SECURE,
-            samesite=utils.COOKIE_SAMESITE,
-        )
-        response.delete_cookie(
-            key="admin_session",
-            path="/",
-            domain=utils.COOKIE_DOMAIN,
-            secure=utils.COOKIE_SECURE,
-            samesite=utils.COOKIE_SAMESITE,
-        )
+        from iam.identity.token_service import clear_auth_cookies
+        clear_auth_cookies(response)
 
     @staticmethod
     def _exp_to_epoch(exp_claim) -> int | None:
@@ -617,37 +306,18 @@ class IdentityService:
 
     @staticmethod
     def _cookie_name_by_audience(audience: str) -> str:
-        return "admin_session" if audience == "admin" else "portal_session"
+        from iam.identity.token_service import cookie_name_by_audience
+        return cookie_name_by_audience(audience)
 
     @staticmethod
     def _resolve_ping_audience(request: Request, audience: str | None) -> str | None:
-        normalized = IdentityService._normalize_audience_claim(audience)
-        if normalized:
-            return normalized
-        has_admin = bool(request.cookies.get("admin_session"))
-        has_portal = bool(request.cookies.get("portal_session"))
-        if has_admin and not has_portal:
-            return "admin"
-        if has_portal and not has_admin:
-            return "portal"
-        referer = (request.headers.get("Referer") or "").lower()
-        if "/admin" in referer:
-            return "admin"
-        if "/login" in referer or "/app" in referer:
-            return "portal"
-        return None
+        from iam.identity.token_service import resolve_ping_audience
+        return resolve_ping_audience(request, audience)
 
     @staticmethod
     def _session_start_epoch_from_payload(payload: dict | None) -> int | None:
-        if not payload:
-            return None
-        session_start = IdentityService._exp_to_epoch(payload.get("session_start"))
-        if session_start is not None:
-            return int(session_start)
-        iat_epoch = IdentityService._exp_to_epoch(payload.get("iat"))
-        if iat_epoch is not None:
-            return int(iat_epoch)
-        return None
+        from iam.identity.token_service import session_start_epoch_from_payload
+        return session_start_epoch_from_payload(payload)
 
     @staticmethod
     def _parse_int_config(
@@ -658,216 +328,88 @@ class IdentityService:
         min_value: int | None = None,
         max_value: int | None = None,
     ) -> int:
-        raw = configs.get(key)
-        value = default
-        if raw is not None and str(raw).strip() != "":
-            try:
-                value = int(str(raw).strip())
-            except (TypeError, ValueError):
-                logger.warning("Invalid integer config %s=%r, fallback=%s", key, raw, default)
-                value = default
-        if min_value is not None and value < min_value:
-            logger.warning("Config %s=%s below min=%s, clamped", key, value, min_value)
-            value = min_value
-        if max_value is not None and value > max_value:
-            logger.warning("Config %s=%s above max=%s, clamped", key, value, max_value)
-            value = max_value
-        return value
+        from iam.identity.auth_policy import parse_int_config
+        return parse_int_config(configs, key, default, min_value=min_value, max_value=max_value)
 
     @staticmethod
     def _parse_lockout_scope(configs: dict) -> str:
-        raw = str(configs.get("security_lockout_scope", IdentityService.LOCKOUT_MODE_ACCOUNT) or "").strip().lower()
-        if raw not in {IdentityService.LOCKOUT_MODE_ACCOUNT, IdentityService.LOCKOUT_MODE_IP}:
-            logger.warning("Invalid lockout scope %r, fallback=%s", raw, IdentityService.LOCKOUT_MODE_ACCOUNT)
-            return IdentityService.LOCKOUT_MODE_ACCOUNT
-        return raw
+        from iam.identity.auth_policy import parse_lockout_scope
+        return parse_lockout_scope(configs)
 
     @staticmethod
     async def _load_session_policy(db: AsyncSession, *, audience: str | None = None) -> tuple[int, int, int]:
-        import modules.models as models
-        import utils
-
-        config_result = await db.execute(select(models.SystemConfig))
-        configs = {c.key: c.value for c in config_result.scalars().all()}
-
-        # Portal uses login_session_timeout_minutes, Admin uses admin_session_timeout_minutes.
-        if audience == "admin":
-            config_key = "admin_session_timeout_minutes"
-        else:
-            config_key = "login_session_timeout_minutes"
-        session_timeout_minutes = IdentityService._parse_int_config(
-            configs,
-            config_key,
-            utils.ACCESS_TOKEN_EXPIRE_MINUTES,
-            min_value=5,
-            max_value=43200,
-        )
-        refresh_window_minutes = IdentityService._parse_int_config(
-            configs,
-            "login_session_refresh_window_minutes",
-            IdentityService.SESSION_REFRESH_WINDOW_MINUTES,
-            min_value=1,
-            max_value=120,
-        )
-        absolute_timeout_minutes = IdentityService._parse_int_config(
-            configs,
-            "login_session_absolute_timeout_minutes",
-            IdentityService.SESSION_ABSOLUTE_TIMEOUT_MINUTES,
-            min_value=5,
-            max_value=43200,
-        )
-        if refresh_window_minutes >= session_timeout_minutes:
-            refresh_window_minutes = max(1, session_timeout_minutes - 1)
-        return session_timeout_minutes, refresh_window_minutes, absolute_timeout_minutes
+        from iam.identity.auth_policy import load_session_policy
+        return await load_session_policy(db, audience=audience)
 
     @staticmethod
     def _login_fail_cache_key(*, audience: str, ip: str, username: str) -> str:
-        principal = (username or "").strip().lower() or "unknown"
-        client_ip = ip or "unknown"
-        aud = audience or "unknown"
-        return f"{IdentityService.LOGIN_FAIL_CACHE_PREFIX}{aud}:{client_ip}:{principal}"
+        from iam.identity.lockout_service import login_fail_cache_key
+        return login_fail_cache_key(audience=audience, ip=ip, username=username)
 
     @staticmethod
     def _login_fail_ip_cache_key(*, audience: str, ip: str) -> str:
-        client_ip = ip or "unknown"
-        aud = audience or "unknown"
-        return f"{IdentityService.LOGIN_FAIL_IP_CACHE_PREFIX}{aud}:{client_ip}"
+        from iam.identity.lockout_service import login_fail_ip_cache_key
+        return login_fail_ip_cache_key(audience=audience, ip=ip)
 
     @staticmethod
     def _login_lock_ip_cache_key(*, audience: str, ip: str) -> str:
-        client_ip = ip or "unknown"
-        aud = audience or "unknown"
-        return f"{IdentityService.LOGIN_LOCK_IP_CACHE_PREFIX}{aud}:{client_ip}"
+        from iam.identity.lockout_service import login_lock_ip_cache_key
+        return login_lock_ip_cache_key(audience=audience, ip=ip)
 
     @staticmethod
     def _parse_cached_int(raw) -> int:
-        if raw is None:
-            return 0
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8", errors="ignore")
-        if isinstance(raw, str):
-            raw = raw.strip()
-            if raw == "":
-                return 0
-        try:
-            return max(0, int(raw))
-        except (TypeError, ValueError):
-            return 0
+        from iam.identity.lockout_service import parse_cached_int
+        return parse_cached_int(raw)
 
     @staticmethod
     async def _get_login_fail_count(*, audience: str, ip: str, username: str) -> int:
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
-        try:
-            raw = await cache.get(key, is_json=False)
-            return IdentityService._parse_cached_int(raw)
-        except Exception:
-            return 0
+        from iam.identity.lockout_service import get_login_fail_count
+        return await get_login_fail_count(audience=audience, ip=ip, username=username)
 
     @staticmethod
     async def _increase_login_fail_count(*, audience: str, ip: str, username: str) -> int:
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
-        count = await IdentityService._get_login_fail_count(audience=audience, ip=ip, username=username)
-        count += 1
-        try:
-            await cache.set(
-                key,
-                str(count),
-                ttl=IdentityService.LOGIN_FAIL_CACHE_TTL_SECONDS,
-                is_json=False,
-            )
-        except Exception as e:
-            logger.warning("Failed to update login fail counter key=%s: %s", key, e)
-        return count
+        from iam.identity.lockout_service import increase_login_fail_count
+        return await increase_login_fail_count(audience=audience, ip=ip, username=username)
 
     @staticmethod
     async def _clear_login_fail_count(*, audience: str, ip: str, username: str):
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_cache_key(audience=audience, ip=ip, username=username)
-        try:
-            await cache.delete(key)
-        except Exception as e:
-            logger.warning("Failed to clear login fail counter key=%s: %s", key, e)
+        from iam.identity.lockout_service import clear_login_fail_count
+        await clear_login_fail_count(audience=audience, ip=ip, username=username)
 
     @staticmethod
     async def _get_login_fail_ip_count(*, audience: str, ip: str) -> int:
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
-        try:
-            raw = await cache.get(key, is_json=False)
-            return IdentityService._parse_cached_int(raw)
-        except Exception:
-            return 0
+        from iam.identity.lockout_service import get_login_fail_ip_count
+        return await get_login_fail_ip_count(audience=audience, ip=ip)
 
     @staticmethod
     async def _increase_login_fail_ip_count(*, audience: str, ip: str) -> int:
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
-        count = await IdentityService._get_login_fail_ip_count(audience=audience, ip=ip)
-        count += 1
-        try:
-            await cache.set(
-                key,
-                str(count),
-                ttl=IdentityService.LOGIN_FAIL_CACHE_TTL_SECONDS,
-                is_json=False,
-            )
-        except Exception as e:
-            logger.warning("Failed to update login fail IP counter key=%s: %s", key, e)
-        return count
+        from iam.identity.lockout_service import increase_login_fail_ip_count
+        return await increase_login_fail_ip_count(audience=audience, ip=ip)
 
     @staticmethod
     async def _clear_login_fail_ip_count(*, audience: str, ip: str):
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_fail_ip_cache_key(audience=audience, ip=ip)
-        try:
-            await cache.delete(key)
-        except Exception as e:
-            logger.warning("Failed to clear login fail IP counter key=%s: %s", key, e)
+        from iam.identity.lockout_service import clear_login_fail_ip_count
+        await clear_login_fail_ip_count(audience=audience, ip=ip)
 
     @staticmethod
     async def _is_ip_locked(*, audience: str, ip: str) -> bool:
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
-        try:
-            raw = await cache.get(key, is_json=False)
-            return raw is not None
-        except Exception as e:
-            logger.warning("Failed to read IP lock key=%s: %s", key, e)
-            return False
+        from iam.identity.lockout_service import is_ip_locked
+        return await is_ip_locked(audience=audience, ip=ip)
 
     @staticmethod
     async def _set_ip_lock(*, audience: str, ip: str, duration_minutes: int):
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
-        ttl_seconds = max(60, int(duration_minutes) * 60)
-        lock_until = int(datetime.now(timezone.utc).timestamp()) + ttl_seconds
-        try:
-            await cache.set(key, str(lock_until), ttl=ttl_seconds, is_json=False)
-        except Exception as e:
-            logger.warning("Failed to write IP lock key=%s: %s", key, e)
+        from iam.identity.lockout_service import set_ip_lock
+        await set_ip_lock(audience=audience, ip=ip, duration_minutes=duration_minutes)
 
     @staticmethod
     async def _clear_ip_lock(*, audience: str, ip: str):
-        from infrastructure.cache_manager import cache
-        key = IdentityService._login_lock_ip_cache_key(audience=audience, ip=ip)
-        try:
-            await cache.delete(key)
-        except Exception as e:
-            logger.warning("Failed to clear IP lock key=%s: %s", key, e)
+        from iam.identity.lockout_service import clear_ip_lock
+        await clear_ip_lock(audience=audience, ip=ip)
 
     @staticmethod
     async def _is_jti_revoked(jti: str | None) -> bool:
-        if not jti:
-            return True
-        from infrastructure.cache_manager import cache
-        try:
-            revoked = await cache.get(IdentityService._revoked_jti_cache_key(jti), is_json=False)
-            return revoked is not None
-        except Exception as e:
-            logger.error("Failed to check token denylist for jti=%s: %s", jti, e)
-            raise SessionStateStoreError(f"Failed to read revoked token state for jti={jti}") from e
+        from iam.identity.session_manager import is_jti_revoked
+        return await is_jti_revoked(jti)
 
     @staticmethod
     async def _revoke_token(
@@ -875,31 +417,20 @@ class IdentityService:
         *,
         db: AsyncSession | None = None,
     ):
-        if not token:
-            return
-
-        user_id, audience, jti, exp_ts = await IdentityService._extract_token_session_meta(token, db=db)
-        if not jti or exp_ts is None:
-            return
-        await IdentityService._revoke_jti_until_expiry(jti, exp_ts)
-        await IdentityService._remove_active_session(
-            user_id=user_id,
-            audience=audience,
-            jti=jti,
-        )
+        from iam.identity.session_manager import revoke_token
+        await revoke_token(token, db=db)
     
     @staticmethod
-    async def get_current_user(request: Request, db: AsyncSession, audience: str = None):
+    async def get_current_user(request: Request, db: AsyncSession, audience: str | None = None):
         """从 Cookie/Header 解析当前用户"""
-        import utils
         import modules.models as models
 
         # Infer audience from route space if caller didn't provide one.
         if audience is None:
-            path = request.url.path or ""
-            if path.startswith("/api/admin/"):
+            path = _normalize_api_path(request.url.path or "")
+            if path.startswith("/api/v1/admin/") or path.startswith("/api/v1/system/"):
                 audience = "admin"
-            elif path.startswith("/api/app/"):
+            elif path.startswith("/api/v1/app/"):
                 audience = "portal"
 
         # Strict cookie isolation when audience is explicitly required.
@@ -929,7 +460,13 @@ class IdentityService:
         try:
             # Decode with audience verification if audience is specified
             options = {"verify_aud": True} if audience else {"verify_aud": False}
-            payload = jwt.decode(token, utils.SECRET_KEY, algorithms=[utils.ALGORITHM], audience=audience, options=options)
+            payload = jwt.decode(
+                token,
+                security.get_jwt_secret(),
+                algorithms=[security.ALGORITHM],
+                audience=audience,
+                options=options,
+            )
             username: str = payload.get("sub")
             if username is None:
                 logger.debug("JWT payload missing subject claim.")
@@ -987,7 +524,6 @@ class IdentityService:
         check_admin_access: bool = False
     ) -> dict:
         """核心登录逻辑"""
-        import utils
         import modules.models as models
         from iam.audit.service import IAMAuditService
         
@@ -1043,7 +579,7 @@ class IdentityService:
         session_timeout = IdentityService._parse_int_config(
             configs,
             config_key,
-            utils.ACCESS_TOKEN_EXPIRE_MINUTES,
+            security.ACCESS_TOKEN_EXPIRE_MINUTES,
             min_value=5,
             max_value=43200,
         )
@@ -1052,7 +588,7 @@ class IdentityService:
             session_timeout,
             audience,
             configs.get("login_session_timeout_minutes"),
-            utils.ACCESS_TOKEN_EXPIRE_MINUTES,
+            security.ACCESS_TOKEN_EXPIRE_MINUTES,
             form_data.username,
         )
         
@@ -1195,7 +731,7 @@ class IdentityService:
                 await db.commit()
 
         # Password Verification
-        if not user or not await utils.verify_password(form_data.password, user.hashed_password):
+        if not user or not await security.verify_password(form_data.password, user.hashed_password):
             fail_count_principal = await IdentityService._increase_login_fail_count(
                 audience=audience,
                 ip=ip,
@@ -1483,7 +1019,7 @@ class IdentityService:
                 IdentityService._raise_session_state_unavailable()
         # Issue token with Audience
         session_start_epoch = int(datetime.now(timezone.utc).timestamp())
-        access_token = utils.create_access_token(
+        access_token = security.create_access_token(
             data={"sub": username, "uid": user_id, "session_start": session_start_epoch},
             expires_delta=access_token_expires,
             audience=audience,
@@ -1534,9 +1070,9 @@ class IdentityService:
             httponly=True,
             max_age=session_timeout_seconds,
             expires=session_timeout_seconds,
-            samesite=utils.COOKIE_SAMESITE,
-            secure=utils.COOKIE_SECURE,
-            domain=utils.COOKIE_DOMAIN,
+            samesite=security.COOKIE_SAMESITE,
+            secure=security.COOKIE_SECURE,
+            domain=security.COOKIE_DOMAIN,
             path="/"
         )
         
@@ -1574,7 +1110,6 @@ class IdentityService:
         audience: str | None = None,
     ) -> dict:
         """Rolling session keepalive with absolute-timeout enforcement."""
-        import utils
 
         try:
             resolved_audience = IdentityService._resolve_ping_audience(request, audience)
@@ -1621,7 +1156,7 @@ class IdentityService:
             expires_at_epoch = int(current_exp_epoch)
 
             if (current_exp_epoch - now_epoch) < refresh_threshold_seconds:
-                new_token = utils.create_access_token(
+                new_token = security.create_access_token(
                     data={
                         "sub": user.username,
                         "uid": user.id,
@@ -1653,9 +1188,9 @@ class IdentityService:
                     httponly=True,
                     max_age=max_age_seconds,
                     expires=max_age_seconds,
-                    samesite=utils.COOKIE_SAMESITE,
-                    secure=utils.COOKIE_SECURE,
-                    domain=utils.COOKIE_DOMAIN,
+                    samesite=security.COOKIE_SAMESITE,
+                    secure=security.COOKIE_SECURE,
+                    domain=security.COOKIE_DOMAIN,
                     path="/",
                 )
                 refreshed = True

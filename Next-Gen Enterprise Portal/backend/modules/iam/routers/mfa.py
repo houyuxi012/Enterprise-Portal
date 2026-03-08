@@ -1,7 +1,7 @@
 """
 MFA (Multi-Factor Authentication) Router
-/api/mfa/setup, /api/mfa/verify-setup, /api/mfa/disable, /api/mfa/status, /api/mfa/verify
-/api/mfa/webauthn/* — FIDO2/WebAuthn hardware security key endpoints
+/api/v1/mfa/setup, /api/v1/mfa/verify-setup, /api/v1/mfa/disable, /api/v1/mfa/status, /api/v1/mfa/verify
+/api/v1/mfa/webauthn/* — FIDO2/WebAuthn hardware security key endpoints
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from application.iam_app import (
 )
 import modules.models as models
 import modules.schemas as schemas
-import utils
+from core import security
 from iam.deps import get_db, get_current_identity, verify_admin_aud
 from iam.identity.service import SessionStateStoreError
 from modules.iam.services.privacy_consent import consume_mfa_privacy_claims
@@ -53,7 +53,7 @@ def _generate_qr_base64(uri: str) -> str:
 
 def _create_mfa_token(user: models.User, provider: str = "local") -> str:
     """Issue a short-lived JWT for MFA challenge (not usable as session)."""
-    return utils.create_access_token(
+    return security.create_access_token(
         data={"sub": user.username, "uid": user.id, "provider": provider},
         expires_delta=timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES),
         audience="mfa_challenge",
@@ -127,7 +127,7 @@ async def _verify_sensitive_action_password(
     db: AsyncSession,
     request: Request,
 ) -> bool:
-    if await utils.verify_password(password, user.hashed_password):
+    if await security.verify_password(password, user.hashed_password):
         return True
 
     auth_source = str(getattr(user, "auth_source", "local") or "local").strip().lower()
@@ -362,8 +362,8 @@ async def verify_mfa_challenge(
     try:
         token_data = jwt.decode(
             payload.mfa_token,
-            utils.SECRET_KEY,
-            algorithms=[utils.ALGORITHM],
+            security.get_jwt_secret(),
+            algorithms=[security.ALGORITHM],
             audience="mfa_challenge",
         )
     except JWTError:
@@ -475,7 +475,7 @@ async def verify_mfa_challenge(
         config_key = "login_session_timeout_minutes"
     configs_result = await db.execute(select(models.SystemConfig))
     configs = {c.key: c.value for c in configs_result.scalars().all()}
-    session_timeout = int(configs.get(config_key, str(utils.ACCESS_TOKEN_EXPIRE_MINUTES)))
+    session_timeout = int(configs.get(config_key, str(security.ACCESS_TOKEN_EXPIRE_MINUTES)))
     session_timeout = max(5, min(session_timeout, 43200))
     session_timeout_seconds = session_timeout * 60
 
@@ -496,7 +496,7 @@ async def verify_mfa_challenge(
     # Issue real session token
     from datetime import datetime, timezone
     session_start_epoch = int(datetime.now(timezone.utc).timestamp())
-    access_token = utils.create_access_token(
+    access_token = security.create_access_token(
         data={"sub": user.username, "uid": user.id, "session_start": session_start_epoch},
         expires_delta=timedelta(minutes=session_timeout),
         audience=audience,
@@ -532,9 +532,9 @@ async def verify_mfa_challenge(
         httponly=True,
         max_age=session_timeout_seconds,
         expires=session_timeout_seconds,
-        samesite=utils.COOKIE_SAMESITE,
-        secure=utils.COOKIE_SECURE,
-        domain=utils.COOKIE_DOMAIN,
+        samesite=security.COOKIE_SAMESITE,
+        secure=security.COOKIE_SECURE,
+        domain=security.COOKIE_DOMAIN,
         path="/",
     )
 
@@ -762,8 +762,8 @@ async def send_email_mfa_code(
         try:
             token_data = jwt.decode(
                 mfa_token,
-                utils.SECRET_KEY,
-                algorithms=[utils.ALGORITHM],
+                security.get_jwt_secret(),
+                algorithms=[security.ALGORITHM],
                 audience="mfa_challenge",
             )
             username = token_data.get("sub")
@@ -1175,8 +1175,8 @@ async def webauthn_authenticate_options(
         try:
             token_data = jwt.decode(
                 mfa_token,
-                utils.SECRET_KEY,
-                algorithms=[utils.ALGORITHM],
+                security.get_jwt_secret(),
+                algorithms=[security.ALGORITHM],
                 audience="mfa_challenge",
             )
         except JWTError:

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 import modules.models as models
+from modules.admin.services.ai_provider_security import decrypt_ai_provider_api_key
 from modules.portal.services import gemini_service
 import re
 from urllib.parse import urlparse
@@ -98,7 +99,6 @@ class AIEngine:
         allowed_image_hosts: Optional[set[str]] = None,
     ) -> str:
         from modules.portal.services.ai_audit_writer import AIAuditEntry, log_ai_audit
-        from infrastructure.crypto_service import CryptoService
         
         start_time = time.time()
         
@@ -162,14 +162,10 @@ class AIEngine:
                 audit_entry.provider = provider.type
                 audit_entry.model = provider.model
                 audit_entry.resource_id = f"{provider.type}:{provider.model}"
-                
-                # Decrypt API Key for fingerprint
-                api_key_raw = provider.api_key
-                try:
-                    if api_key_raw and api_key_raw.startswith("gAAAA"):
-                        api_key_raw = CryptoService.decrypt_data(api_key_raw)
-                except Exception:
-                    pass
+                api_key_raw = decrypt_ai_provider_api_key(
+                    provider.api_key,
+                    allow_plaintext=getattr(provider, "id", None) is None,
+                )
                 audit_entry.api_key = api_key_raw  # 存储用于生成指纹，不会直接写入 DB
             else:
                 logger.info("No active provider, using default Gemini service")
@@ -322,8 +318,8 @@ class AIEngine:
             if not raw.startswith("/"):
                 raise ValueError("Image URL must be absolute or start with '/'")
 
-            # Handle new proxy file URLs: /api/files/{token}
-            proxy_prefixes = ("/api/files/", "/api/app/files/", "/api/admin/files/")
+            # Handle proxy file URLs: /api/v1/files/{token}
+            proxy_prefixes = ("/api/v1/files/", "/api/v1/app/files/", "/api/v1/admin/files/")
             for prefix in proxy_prefixes:
                 if raw.startswith(prefix):
                     token = raw[len(prefix):].split("?")[0]
@@ -334,7 +330,7 @@ class AIEngine:
                         return f"internal://minio/{real_filename}"
                     raise ValueError("Invalid file token")
 
-            if not (raw.startswith("/api/upload/files/") or raw.startswith("/minio/")):
+            if not (raw.startswith("/api/v1/app/upload/files/") or raw.startswith("/minio/")):
                 raise ValueError("Image URL path is not allowed")
 
             # Prefer direct internal MinIO access to avoid external TLS/cert issues.
@@ -456,14 +452,10 @@ class AIEngine:
         image_data: Optional[bytes] = None,
         mime_type: Optional[str] = None,
     ) -> str:
-        from infrastructure.crypto_service import CryptoService
-        
-        api_key = provider.api_key
-        try:
-             if api_key and api_key.startswith("gAAAA"):
-                 api_key = CryptoService.decrypt_data(api_key)
-        except Exception:
-             pass
+        api_key = decrypt_ai_provider_api_key(
+            provider.api_key,
+            allow_plaintext=getattr(provider, "id", None) is None,
+        )
 
         system_prompt = "You are a helpful enterprise assistant. Answer based on the context provided if available."
         full_content = f"Context: {context}\n\nUser Question: {prompt}" if context else prompt

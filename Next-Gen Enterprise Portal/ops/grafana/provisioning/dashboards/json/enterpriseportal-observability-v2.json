@@ -86,7 +86,7 @@
       "pluginVersion": "10.4.1",
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/admin/token\" | status_code >= 400 [1h]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/admin/token\" | status_code >= 400 [1h]))",
           "refId": "A"
         }
       ],
@@ -143,7 +143,7 @@
       "pluginVersion": "10.4.1",
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/portal/token\" | status_code >= 400 [1h]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/portal/token\" | status_code >= 400 [1h]))",
           "refId": "A"
         }
       ],

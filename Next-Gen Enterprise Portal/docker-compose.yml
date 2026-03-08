@@ -3,52 +3,63 @@ services:
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}
       POSTGRES_DB: ${POSTGRES_DB:-portal_db}
-    command: >
-      sh -c '
-      cp /run/certs/hyx_ngep.cer /var/lib/postgresql/data/server.crt &&
-      cp /run/certs/hyx_ngep.key /var/lib/postgresql/data/server.key &&
-      chmod 600 /var/lib/postgresql/data/server.key &&
-      exec docker-entrypoint.sh postgres
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/data/server.crt
-      -c ssl_key_file=/var/lib/postgresql/data/server.key
-      -c hba_file=/etc/postgresql/pg_hba.conf
-      -c password_encryption=scram-sha-256
-      '
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        export POSTGRES_PASSWORD="$(cat /run/secrets/postgres_password)"
+        mkdir -p /tmp/postgres-certs
+        cp /run/certs/hyx_ngep.cer /tmp/postgres-certs/server.crt
+        cp /run/certs/hyx_ngep.key /tmp/postgres-certs/server.key
+        chown postgres:postgres /tmp/postgres-certs/server.crt /tmp/postgres-certs/server.key
+        chmod 600 /tmp/postgres-certs/server.key
+        exec docker-entrypoint.sh postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/postgres-certs/server.crt \
+          -c ssl_key_file=/tmp/postgres-certs/server.key \
+          -c hba_file=/etc/postgresql/pg_hba.conf \
+          -c password_encryption=scram-sha-256
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./ops/nginx/certs:/run/certs:ro
       - ./ops/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    secrets:
+      - postgres_password
 
   redis:
     image: redis:8.4-alpine
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-ChangeThis_Redis_2026!}
-    command: >
-      sh -c '
-      exec redis-server
-      --port 0
-      --tls-port 6379
-      --tls-cert-file /run/certs/hyx_ngep.cer
-      --tls-key-file /run/certs/hyx_ngep.key
-      --tls-ca-cert-file /run/certs/hyx_ngep.cer
-      --tls-auth-clients no
-      --requirepass "$${REDIS_PASSWORD}"
-      '
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        REDIS_PASSWORD="$(cat /run/secrets/redis_password)"
+        exec docker-entrypoint.sh redis-server \
+          --port 0 \
+          --tls-port 6379 \
+          --tls-cert-file /run/certs/hyx_ngep.cer \
+          --tls-key-file /run/certs/hyx_ngep.key \
+          --tls-ca-cert-file /run/certs/hyx_ngep.cer \
+          --tls-auth-clients no \
+          --requirepass "$$REDIS_PASSWORD"
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
       - ./ops/nginx/certs:/run/certs:ro
     healthcheck:
-      test: [ "CMD-SHELL", "redis-cli --tls --cacert /run/certs/hyx_ngep.cer -h 127.0.0.1 -p 6379 -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG" ]
+      test:
+        [
+          "CMD-SHELL",
+          "REDIS_PASSWORD=\"$$(cat /run/secrets/redis_password)\" && redis-cli --tls --cacert /run/certs/hyx_ngep.cer -h 127.0.0.1 -p 6379 -a \"$$REDIS_PASSWORD\" ping | grep -q PONG",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
+    secrets:
+      - redis_password
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -56,77 +67,87 @@ services:
     expose:
       - "9000"
       - "9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin@houyuxi
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        export MINIO_ROOT_USER="$(cat /run/secrets/minio_root_user)"
+        export MINIO_ROOT_PASSWORD="$(cat /run/secrets/minio_root_password)"
+        exec minio server /data --console-address ":9001"
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
+    secrets:
+      - minio_root_user
+      - minio_root_password
 
   createbuckets:
     image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       - minio
-    entrypoint: |
-      /bin/sh -c '
-      set -e
-
-      echo "wait minio..."
-      ok=0
-
-      for i in $(seq 1 60); do
-        if /usr/bin/mc alias set myminio http://minio:9000 minioadmin "minioadmin@houyuxi" >/dev/null 2>&1; then
-          ok=1
-          break
+    environment:
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-next-gen-enterprise-portal}
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        MINIO_ROOT_USER="$(cat /run/secrets/minio_root_user)"
+        MINIO_ROOT_PASSWORD="$(cat /run/secrets/minio_root_password)"
+        echo "wait minio..."
+        ok=0
+        for i in $(seq 1 60); do
+          if /usr/bin/mc alias set myminio http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; then
+            ok=1
+            break
+          fi
+          sleep 2
+        done
+        if [ "$$ok" -ne 1 ]; then
+          echo "minio not ready after 120s"
+          exit 1
         fi
-        sleep 2
-      done
-
-      if [ "$$ok" -ne 1 ]; then
-        echo "minio not ready after 120s"
-        exit 1
-      fi
-
-      /usr/bin/mc mb -p myminio/next-gen-enterprise-portal || true
-
-      echo "done"
-      '
+        /usr/bin/mc mb -p "myminio/$$MINIO_BUCKET_NAME" || true
+        echo "done"
     restart: "no"
+    secrets:
+      - minio_root_user
+      - minio_root_password
 
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}@db:5432/${POSTGRES_DB:-portal_db}?sslmode=verify-ca&sslrootcert=/run/certs/hyx_ngep.cer
-      REDIS_URL: rediss://:${REDIS_PASSWORD:-ChangeThis_Redis_2026!}@redis:6379/0?ssl_cert_reqs=required&ssl_ca_certs=/run/certs/hyx_ngep.cer&ssl_check_hostname=false
+      DATABASE_URL_FILE: /run/secrets/backend_database_url
+      REDIS_URL_FILE: /run/secrets/backend_redis_url
       PYTHONDONTWRITEBYTECODE: "1"
       DB_POOL_SIZE: "10"
       DB_MAX_OVERFLOW: "10"
       DB_MAX_CONNECTION_BUDGET: "80"
-      SECRET_KEY: "super-secret-fixed-key-for-persistence"
-      MASTER_KEY: ${MASTER_KEY:-ChangeThis_Master_Key_2026}
-      ACCESS_TOKEN_EXPIRE_MINUTES: "5" # Default 5 minutes
+      SECRET_KEY_FILE: /run/secrets/jwt_secret
+      MASTER_KEY_FILE: /run/secrets/master_key
+      MASTER_KEY_PREVIOUS_FILE: /run/secrets/master_key_previous
+      ACCESS_TOKEN_EXPIRE_MINUTES: "5"
       WEB_CONCURRENCY: "4"
       DB_AUTO_MIGRATE_ON_STARTUP: "false"
       CACHE_STRICT_MODE: "true"
       GUNICORN_TIMEOUT: "120"
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       STORAGE_TYPE: minio
-      PUBLIC_BASE_URL: "https://127.0.0.1" # Frontend entry point
-      CORS_ORIGINS: "https://127.0.0.1" # Strict single origin
-      COOKIE_DOMAIN: "" # HostOnly
-      COOKIE_SECURE: "True" # Force secure cookie
+      PUBLIC_BASE_URL: "https://127.0.0.1"
+      CORS_ORIGINS: "https://127.0.0.1"
+      COOKIE_DOMAIN: ""
+      COOKIE_SECURE: "True"
       COOKIE_SAMESITE: "lax"
-      MINIO_ENDPOINT: minio:9000 # Internal Docker network
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin@houyuxi
-      MINIO_BUCKET_NAME: next-gen-enterprise-portal
+      MINIO_ENDPOINT_FILE: /run/secrets/minio_endpoint
+      MINIO_ACCESS_KEY_FILE: /run/secrets/minio_access_key
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_secret_key
+      MINIO_BUCKET_NAME_FILE: /run/secrets/minio_bucket_name
+      MINIO_SECURE_FILE: /run/secrets/minio_secure
       LOKI_PUSH_URL: http://loki:3100
       LOKI_BASE_URL: http://loki:3100
       LOKI_TENANT_ID: enterprise-portal
@@ -135,11 +156,10 @@ services:
         MCowBQYDK2VwAyEADko/AM8cwzU86O44/rXDqn8ukJpxJGgPEKJskfw7Iwk=
         -----END PUBLIC KEY-----
       LICENSE_ED25519_PUBLIC_KEY_FINGERPRINT: "57e66ed76ba225868318c89943a34f92edfb7d542303fa1b0d66c9dc6b644046"
-      BIND_PASSWORD_ENC_KEYS: '{"k2025q4":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY","k2026q1":"YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk"}'
-      BIND_PASSWORD_ENC_ACTIVE_KID: "k2026q1"
+      BIND_PASSWORD_ENC_KEYS_FILE: /run/secrets/bind_password_enc_keys
+      BIND_PASSWORD_ENC_ACTIVE_KID_FILE: /run/secrets/bind_password_enc_active_kid
       PLATFORM_AUTO_RELOAD: "true"
-      # First-boot only: set these explicitly when bootstrapping a brand new environment.
-      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      INITIAL_ADMIN_PASSWORD_FILE: /run/secrets/initial_admin_password
       INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-Administrator}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@local.invalid}
     depends_on:
@@ -153,18 +173,32 @@ services:
       - ./ops/nginx:/app/ops/nginx:ro
       - ./ops/loki:/app/loki:ro
       - ./ops/nginx/certs:/run/certs:ro
+    secrets:
+      - backend_database_url
+      - backend_redis_url
+      - jwt_secret
+      - master_key
+      - master_key_previous
+      - bind_password_enc_keys
+      - bind_password_enc_active_kid
+      - minio_access_key
+      - minio_secret_key
+      - minio_endpoint
+      - minio_bucket_name
+      - minio_secure
+      - initial_admin_password
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: /api
+        VITE_API_BASE_URL: /api/v1
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     environment:
-      VITE_API_BASE_URL: /api
+      VITE_API_BASE_URL: /api/v1
       PLATFORM_RELOAD_WATCH_INTERVAL_SECONDS: "2"
     depends_on:
       - backend
@@ -192,14 +226,18 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=Grafana@houyuxi
-      - GF_USERS_ALLOW_SIGN_UP=false
-      # 自动安装 Redis 数据源插件
-      - GF_INSTALL_PLUGINS=redis-datasource
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ChangeThis_Redis_2026!}
-      - POSTGRES_USER=${POSTGRES_USER:-user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ChangeThis_Postgres_2026!}
-      - POSTGRES_DB=${POSTGRES_DB:-portal_db}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: redis-datasource
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_DB: ${POSTGRES_DB:-portal_db}
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        export GF_SECURITY_ADMIN_PASSWORD="$(cat /run/secrets/grafana_admin_password)"
+        export REDIS_PASSWORD="$(cat /run/secrets/redis_password)"
+        export POSTGRES_PASSWORD="$(cat /run/secrets/postgres_password)"
+        exec /run.sh
     volumes:
       - grafana_data:/var/lib/grafana
       - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -207,6 +245,10 @@ services:
       - loki
       - redis
       - db
+    secrets:
+      - grafana_admin_password
+      - redis_password
+      - postgres_password
 
 volumes:
   postgres_data:
@@ -214,3 +256,41 @@ volumes:
   minio_data:
   loki_data:
   grafana_data:
+
+secrets:
+  postgres_password:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/postgres_password
+  redis_password:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/redis_password
+  jwt_secret:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/jwt_secret
+  master_key:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/master_key
+  master_key_previous:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/master_key_previous
+  bind_password_enc_keys:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/bind_password_enc_keys
+  bind_password_enc_active_kid:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/bind_password_enc_active_kid
+  minio_root_user:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_root_user
+  minio_root_password:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_root_password
+  minio_access_key:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_access_key
+  minio_secret_key:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_secret_key
+  minio_endpoint:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_endpoint
+  minio_bucket_name:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_bucket_name
+  minio_secure:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/minio_secure
+  backend_database_url:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/backend_database_url
+  backend_redis_url:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/backend_redis_url
+  grafana_admin_password:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/grafana_admin_password
+  initial_admin_password:
+    file: ${PORTAL_RUNTIME_SECRETS_DIR:-/run/secrets}/initial_admin_password

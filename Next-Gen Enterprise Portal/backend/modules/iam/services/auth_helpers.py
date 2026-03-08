@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.cache_manager import cache
 import modules.models as models
-import utils
+from core import security
 
 MFA_TOKEN_EXPIRE_MINUTES = 5
 
@@ -34,7 +34,7 @@ def create_mfa_token(
     token_payload = {"sub": user.username, "uid": user.id, "provider": provider}
     if extra_claims:
         token_payload.update(extra_claims)
-    return utils.create_access_token(
+    return security.create_access_token(
         data=token_payload,
         expires_delta=timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES),
         audience="mfa_challenge",

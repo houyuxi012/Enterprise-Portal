@@ -12,7 +12,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import modules.models as models
-import utils
+from core import security
 from iam.audit.service import IAMAuditService
 from iam.identity.service import IdentityService
 from modules.iam.services.privacy_consent import (
@@ -306,7 +306,7 @@ class ProviderIdentityService:
             user = models.User(
                 username=auth_result.username,
                 email=safe_email,
-                hashed_password=await utils.get_password_hash(generated_password),
+                hashed_password=await security.get_password_hash(generated_password),
                 account_type="PORTAL",
                 is_active=True,
                 name=auth_result.display_name or auth_result.username,
@@ -438,7 +438,7 @@ class ProviderIdentityService:
         session_timeout = IdentityService._parse_int_config(
             configs,
             "login_session_timeout_minutes",
-            utils.ACCESS_TOKEN_EXPIRE_MINUTES,
+            security.ACCESS_TOKEN_EXPIRE_MINUTES,
             min_value=5,
             max_value=43200,
         )
@@ -470,7 +470,7 @@ class ProviderIdentityService:
 
         session_start_epoch = int(datetime.now(timezone.utc).timestamp())
         access_token_expires = timedelta(minutes=session_timeout)
-        access_token = utils.create_access_token(
+        access_token = security.create_access_token(
             data={"sub": user.username, "uid": user.id, "session_start": session_start_epoch},
             expires_delta=access_token_expires,
             audience="portal",
@@ -495,9 +495,9 @@ class ProviderIdentityService:
             httponly=True,
             max_age=session_timeout_seconds,
             expires=session_timeout_seconds,
-            samesite=utils.COOKIE_SAMESITE,
-            secure=utils.COOKIE_SECURE,
-            domain=utils.COOKIE_DOMAIN,
+            samesite=security.COOKIE_SAMESITE,
+            secure=security.COOKIE_SECURE,
+            domain=security.COOKIE_DOMAIN,
             path="/",
         )
         return {"message": "Login successful", "token_type": "bearer", "access_token": access_token}

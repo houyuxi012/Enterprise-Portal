@@ -142,15 +142,24 @@ def run_guard(backend_root: Path) -> dict[str, Any]:
     if not has_admin_system:
         errors.append("application/admin_routes.py must include system.router in register_admin_routes()")
 
-    # 4) License gate middleware allowlist must keep both admin and alias prefixes
+    # 4) License gate middleware allowlist must keep both admin and alias prefixes.
+    # Public surface is /api/v1/*, while middleware may internally canonicalize
+    # paths back to /api/* for comparisons.
     gate_text = license_gate.read_text(encoding="utf-8")
-    required_prefixes = ["/api/system/license/", "/api/admin/system/license/"]
-    details["gate_prefixes_present"] = {
-        p: (p in gate_text) for p in required_prefixes
-    }
-    for prefix in required_prefixes:
-        if prefix not in gate_text:
-            errors.append(f"middleware/license_gate.py missing exempt prefix: {prefix}")
+    required_public_prefixes = ["/api/v1/system/license/", "/api/v1/admin/system/license/"]
+
+    def _canonicalize_public_prefix(prefix: str) -> str:
+        if prefix.startswith("/api/v1/"):
+            return "/api" + prefix[len("/api/v1"):]
+        return prefix
+
+    details["gate_prefixes_present"] = {}
+    for public_prefix in required_public_prefixes:
+        candidates = (public_prefix, _canonicalize_public_prefix(public_prefix))
+        present = any(prefix in gate_text for prefix in candidates)
+        details["gate_prefixes_present"][public_prefix] = present
+        if not present:
+            errors.append(f"middleware/license_gate.py missing exempt prefix: {public_prefix}")
 
     return {
         "ok": not errors,

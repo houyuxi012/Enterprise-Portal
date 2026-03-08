@@ -31,20 +31,20 @@ def _assert(condition: bool, message: str):
 
 async def _admin_login(client: httpx.AsyncClient):
     resp = await client.post(
-        "/api/iam/auth/admin/token",
+        "/api/v1/iam/auth/admin/token",
         data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
     )
     _assert(resp.status_code == 200, f"admin login failed: {resp.status_code} {resp.text}")
 
 
 async def _get_roles(client: httpx.AsyncClient) -> dict[str, int]:
-    resp = await client.get("/api/iam/admin/roles")
+    resp = await client.get("/api/v1/iam/admin/roles")
     _assert(resp.status_code == 200, f"list roles failed: {resp.status_code} {resp.text}")
     return {item["code"]: item["id"] for item in resp.json()}
 
 
 async def _list_users(client: httpx.AsyncClient) -> list[dict]:
-    resp = await client.get("/api/iam/admin/users")
+    resp = await client.get("/api/v1/iam/admin/users")
     _assert(resp.status_code == 200, f"list users failed: {resp.status_code} {resp.text}")
     return resp.json()
 
@@ -62,7 +62,7 @@ async def _ensure_portal_user(
 
     if not found:
         create_resp = await client.post(
-            "/api/iam/admin/users",
+            "/api/v1/iam/admin/users",
             json={
                 "username": username,
                 "email": email,
@@ -82,7 +82,7 @@ async def _ensure_portal_user(
 
     user_id = int(found["id"])
     update_resp = await client.put(
-        f"/api/iam/admin/users/{user_id}",
+        f"/api/v1/iam/admin/users/{user_id}",
         json={
             "password": password,
             "is_active": True,
@@ -131,7 +131,7 @@ async def _run():
 
         async with httpx.AsyncClient(base_url=BASE_URL, verify=VERIFY_SSL, timeout=20.0) as plain_client:
             plain_admin_login = await plain_client.post(
-                "/api/iam/auth/admin/token",
+                "/api/v1/iam/auth/admin/token",
                 data={
                     "username": TEST_PORTAL_PLAIN["username"],
                     "password": TEST_PORTAL_PLAIN["password"],
@@ -142,7 +142,7 @@ async def _run():
 
         async with httpx.AsyncClient(base_url=BASE_URL, verify=VERIFY_SSL, timeout=20.0) as portal_admin_client:
             portal_admin_login = await portal_admin_client.post(
-                "/api/iam/auth/admin/token",
+                "/api/v1/iam/auth/admin/token",
                 data={
                     "username": TEST_PORTAL_ADMIN["username"],
                     "password": TEST_PORTAL_ADMIN["password"],
@@ -151,12 +151,12 @@ async def _run():
             results.append(("portal_admin_login_admin", portal_admin_login.status_code))
             _assert(portal_admin_login.status_code == 200, "portal admin should login admin/token")
 
-            forbidden_call = await portal_admin_client.delete("/api/admin/employees/999999")
+            forbidden_call = await portal_admin_client.delete("/api/v1/admin/employees/999999")
             results.append(("portal_admin_delete_employee", forbidden_call.status_code))
             _assert(forbidden_call.status_code == 403, "portal admin should not edit employees")
 
         authz_logs = await admin_client.get(
-            "/api/admin/logs/business",
+            "/api/v1/admin/logs/business",
             params={"domain": "IAM", "action": "AUTHZ_DENIED", "source": "db", "limit": 20},
         )
         results.append(("query_authz_denied_logs", authz_logs.status_code))
@@ -172,7 +172,7 @@ async def _run():
             follow_redirects=False,
         ) as portal_admin_revoke_client:
             relogin = await portal_admin_revoke_client.post(
-                "/api/iam/auth/admin/token",
+                "/api/v1/iam/auth/admin/token",
                 data={
                     "username": TEST_PORTAL_ADMIN["username"],
                     "password": TEST_PORTAL_ADMIN["password"],
@@ -181,29 +181,29 @@ async def _run():
             results.append(("portal_admin_relogin_before_revoke", relogin.status_code))
             _assert(relogin.status_code == 200, "portal admin relogin failed")
 
-            before_revoke = await portal_admin_revoke_client.get("/api/admin/news/")
+            before_revoke = await portal_admin_revoke_client.get("/api/v1/admin/news/")
             results.append(("portal_admin_access_before_revoke", before_revoke.status_code))
             _assert(before_revoke.status_code == 200, "portal admin should access admin/news before revoke")
 
             revoke_resp = await admin_client.post(
-                f"/api/iam/admin/users/{portal_admin_user_id}/portal-admin/revoke"
+                f"/api/v1/iam/admin/users/{portal_admin_user_id}/portal-admin/revoke"
             )
             results.append(("revoke_portal_admin", revoke_resp.status_code))
             _assert(revoke_resp.status_code == 200, "revoke portal admin failed")
 
-            after_revoke = await portal_admin_revoke_client.get("/api/admin/news/")
+            after_revoke = await portal_admin_revoke_client.get("/api/v1/admin/news/")
             results.append(("portal_admin_access_after_revoke", after_revoke.status_code))
             _assert(after_revoke.status_code == 403, "revoked portal admin should be blocked immediately")
 
             grant_resp = await admin_client.post(
-                f"/api/iam/admin/users/{portal_admin_user_id}/portal-admin/grant"
+                f"/api/v1/iam/admin/users/{portal_admin_user_id}/portal-admin/grant"
             )
             results.append(("restore_portal_admin", grant_resp.status_code))
             _assert(grant_resp.status_code == 200, "restore portal admin failed")
 
         async with httpx.AsyncClient(base_url=BASE_URL, verify=VERIFY_SSL, timeout=20.0) as sys_client:
             sys_login = await sys_client.post(
-                "/api/iam/auth/admin/token",
+                "/api/v1/iam/auth/admin/token",
                 data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
             )
             results.append(("system_admin_login", sys_login.status_code))
@@ -212,22 +212,22 @@ async def _run():
             old_admin_token = sys_client.cookies.get("admin_session")
             _assert(bool(old_admin_token), "admin_session cookie missing after login")
 
-            before_logout = await sys_client.get("/api/admin/news/")
+            before_logout = await sys_client.get("/api/v1/admin/news/")
             results.append(("system_admin_access_before_logout", before_logout.status_code))
             _assert(before_logout.status_code == 200, "system admin should access admin/news before logout")
 
-            logout_resp = await sys_client.post("/api/iam/auth/logout")
+            logout_resp = await sys_client.post("/api/v1/iam/auth/logout")
             results.append(("system_admin_logout", logout_resp.status_code))
             _assert(logout_resp.status_code == 200, "logout failed")
 
             sys_client.cookies.set("admin_session", old_admin_token)
-            replay_resp = await sys_client.get("/api/admin/news/")
+            replay_resp = await sys_client.get("/api/v1/admin/news/")
             results.append(("system_admin_replay_old_token", replay_resp.status_code))
             _assert(replay_resp.status_code == 401, "replayed old admin token should be rejected")
 
         async with httpx.AsyncClient(base_url=BASE_URL, verify=VERIFY_SSL, timeout=20.0) as portal_client:
             portal_login = await portal_client.post(
-                "/api/iam/auth/portal/token",
+                "/api/v1/iam/auth/portal/token",
                 data={
                     "username": TEST_PORTAL_PLAIN["username"],
                     "password": TEST_PORTAL_PLAIN["password"],
@@ -237,14 +237,14 @@ async def _run():
             _assert(portal_login.status_code == 200, "portal login failed")
 
             invalid_action_resp = await portal_client.post(
-                "/api/app/logs/business",
+                "/api/v1/app/logs/business",
                 json={"action": "DROP TABLE;", "target": "x", "detail": "hack"},
             )
             results.append(("portal_invalid_action", invalid_action_resp.status_code))
             _assert(invalid_action_resp.status_code == 400, "invalid business log action should be rejected")
 
             valid_action_resp = await portal_client.post(
-                "/api/app/logs/business",
+                "/api/v1/app/logs/business",
                 json={
                     "action": "search.query",
                     "target": "kb:handbook",

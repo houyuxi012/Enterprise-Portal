@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import modules.models as models
-import utils
+from core import security
 from iam.identity.service import IdentityService
 from modules.iam.services.identity.providers.base import IdentityAuthResult, IdentityProvider, IdentityProviderError
 
@@ -29,7 +29,7 @@ class LocalIdentityProvider(IdentityProvider):
             .options(selectinload(models.User.roles).selectinload(models.Role.permissions))
         )
         user = result.scalars().first()
-        if not user or not await utils.verify_password(password, user.hashed_password):
+        if not user or not await security.verify_password(password, user.hashed_password):
             raise IdentityProviderError(
                 code="INVALID_CREDENTIALS",
                 message="Incorrect username or password",
@@ -66,4 +66,3 @@ class LocalIdentityProvider(IdentityProvider):
         request=None,
     ) -> dict[str, str]:
         return {"success": True, "message": "Local provider is healthy"}
-

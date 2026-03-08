@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, BinaryIO, Dict, Any, Generator
 from minio import Minio
 import logging
+from core.runtime_secrets import get_env, get_required_env
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _get_token_secret() -> bytes:
     """Return the HMAC signing key for file tokens."""
-    raw = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-env")
+    raw = get_required_env("SECRET_KEY")
     return raw.encode("utf-8")
 
 
@@ -100,7 +101,7 @@ class LocalStorageProvider(StorageProvider):
     def get_url(self, filename: str, expires_in: int = 3600, is_public: bool = False) -> str:
         # Local storage: return proxy download URL (same as MinIO path)
         token = generate_file_token(filename)
-        return f"/api/files/{token}"
+        return f"/api/v1/files/{token}"
 
     async def delete(self, filename: str):
         file_path = os.path.join(self.upload_dir, filename)
@@ -139,10 +140,10 @@ class LocalStorageProvider(StorageProvider):
 
 class MinioStorageProvider(StorageProvider):
     def __init__(self):
-        self.endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
-        self.access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-        self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-        self.bucket = os.getenv("MINIO_BUCKET_NAME", "shiku-portal")
+        self.endpoint = get_required_env("MINIO_ENDPOINT")
+        self.access_key = get_required_env("MINIO_ACCESS_KEY")
+        self.secret_key = get_required_env("MINIO_SECRET_KEY")
+        self.bucket = get_required_env("MINIO_BUCKET_NAME")
         self.secure = os.getenv("MINIO_SECURE", "False").lower() == "true"
         
         # Initialize MinIO Client
@@ -175,11 +176,11 @@ class MinioStorageProvider(StorageProvider):
         """Return backend proxy URL — no external MinIO exposure.
 
         All callers (public images, view_file, avatar, etc.) receive
-        ``/api/files/{token}`` which is served by the authenticated
+        ``/api/v1/files/{token}`` which is served by the authenticated
         proxy endpoint.
         """
         token = generate_file_token(filename)
-        return f"/api/files/{token}"
+        return f"/api/v1/files/{token}"
 
     def get_object_stream(self, filename: str):
         """Stream an object from MinIO for proxy download.
@@ -266,7 +267,7 @@ class MinioStorageProvider(StorageProvider):
 
 # Factory
 def get_storage_provider() -> StorageProvider:
-    storage_type = os.getenv("STORAGE_TYPE", "local").lower()
+    storage_type = get_env("STORAGE_TYPE", default="local").lower()
     if storage_type == "minio":
         return MinioStorageProvider()
     return LocalStorageProvider()

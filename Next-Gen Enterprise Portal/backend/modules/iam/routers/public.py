@@ -55,8 +55,8 @@ async def get_public_config(
     payload = {c.key: c.value for c in configs}
 
     # Rewrite file proxy URLs to public (no-auth) path for login/branding screens
-    _PUBLIC_FILE_PREFIX = "/api/files/"
-    _PUBLIC_REWRITE_PREFIX = "/api/public/files/"
+    _PUBLIC_FILE_PREFIX = "/api/v1/files/"
+    _PUBLIC_REWRITE_PREFIX = "/api/v1/public/files/"
     for key in _FILE_BEARING_CONFIG_KEYS:
         val = payload.get(key, "")
         if val and val.startswith(_PUBLIC_FILE_PREFIX):
@@ -127,7 +127,7 @@ async def public_file_proxy(
 
     # 2. Whitelist check: the exact proxy URL must be stored in system_config
     expected_token = generate_file_token(real_filename)
-    expected_url = f"/api/files/{expected_token}"
+    expected_url = f"/api/v1/files/{expected_token}"
 
     result = await db.execute(
         select(models.SystemConfig).where(

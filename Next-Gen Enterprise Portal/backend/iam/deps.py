@@ -9,17 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 
+def _normalize_api_path(path: str) -> str:
+    normalized = (path or "").strip()
+    if not normalized:
+        return "/"
+    if normalized == "/":
+        return normalized
+    return normalized.rstrip("/")
+
+
 def _infer_request_audience(request: Request) -> str | None:
     """
     Infer audience from route space to avoid mixed cookie resolution when
     admin_session and portal_session coexist in the same browser.
     """
-    path = request.url.path or ""
-    if path.startswith("/api/admin/"):
+    path = _normalize_api_path(request.url.path or "")
+    if path.startswith("/api/v1/admin/"):
         return "admin"
-    if path.startswith("/api/system/"):
+    if path.startswith("/api/v1/system/"):
         return "admin"
-    if path.startswith("/api/app/"):
+    if path.startswith("/api/v1/app/"):
         return "portal"
     query_audience = (request.query_params.get("audience") or "").strip().lower()
     if query_audience in {"admin", "portal"}:

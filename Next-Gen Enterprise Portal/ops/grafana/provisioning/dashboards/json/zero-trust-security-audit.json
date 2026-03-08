@@ -90,7 +90,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/admin/token\" | status_code >= 400 [1h]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/admin/token\" | status_code >= 400 [1h]))",
           "refId": "A"
         }
       ],
@@ -151,7 +151,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/portal/token\" | status_code >= 400 [1h]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/portal/token\" | status_code >= 400 [1h]))",
           "refId": "A"
         }
       ],
@@ -471,7 +471,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/admin/token\" | status_code = 200 [5m]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/admin/token\" | status_code = 200 [5m]))",
           "legendFormat": "Admin Login Success",
           "refId": "A"
         },
@@ -480,7 +480,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/admin/token\" | status_code >= 400 [5m]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/admin/token\" | status_code >= 400 [5m]))",
           "legendFormat": "Admin Login Fail",
           "refId": "B"
         },
@@ -489,7 +489,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/portal/token\" | status_code = 200 [5m]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/portal/token\" | status_code = 200 [5m]))",
           "legendFormat": "Portal Login Success",
           "refId": "C"
         },
@@ -498,7 +498,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/iam/auth/portal/token\" | status_code >= 400 [5m]))",
+          "expr": "sum(count_over_time({job=\"enterprise-portal\", log_type=\"ACCESS\"} | json | path=\"/api/v1/iam/auth/portal/token\" | status_code >= 400 [5m]))",
           "legendFormat": "Portal Login Fail",
           "refId": "D"
         }
