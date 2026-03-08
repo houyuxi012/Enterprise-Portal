@@ -243,3 +243,37 @@ class TodoStatsResponse(BaseModel):
     completed: int
     canceled: int
 
+
+class PortalMeetingCreate(BaseModel):
+    subject: str
+    start_time: datetime
+    duration_minutes: int
+    meeting_type: Literal["online", "offline"]
+    meeting_room: str
+    attendees: list[str] = []
+
+
+class PortalMeetingSummaryItem(BaseModel):
+    subject: str
+    start_time: datetime
+    duration_minutes: int
+    meeting_type: str
+    meeting_room: str
+    meeting_id: str
+    organizer: str
+
+    class Config:
+        from_attributes = True
+
+
+class PortalMeetingListItem(PortalMeetingSummaryItem):
+    attendees: list[str] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PortalTodayMeetingSummary(BaseModel):
+    date: date
+    total: int
+    next_meeting: Optional[PortalMeetingSummaryItem] = None

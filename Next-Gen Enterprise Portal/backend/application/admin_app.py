@@ -4,7 +4,6 @@ Routers in admin domain should import platform/domain capabilities from here.
 """
 
 from infrastructure.cache_manager import cache
-from infrastructure.crypto_service import CryptoService
 from infrastructure.storage import storage
 from modules.admin.services.license_service import LicenseService
 from modules.admin.services.license_settings import settings as license_settings
@@ -30,7 +29,6 @@ from modules.portal.services.ai_engine import AIEngine
 __all__ = [
     "AIEngine",
     "AuditService",
-    "CryptoService",
     "LicenseService",
     "LogQuery",
     "PlatformRuntimeApplyError",
@@ -50,4 +48,3 @@ __all__ = [
     "update_loki_retention",
     "validate_password",
 ]
-

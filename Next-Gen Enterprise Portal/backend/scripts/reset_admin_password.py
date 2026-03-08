@@ -24,7 +24,6 @@ from modules.iam.services.password_policy import set_user_password
 from modules.iam.services.rbac_bootstrap import ensure_rbac_baseline, invalidate_permission_cache
 
 DEFAULT_ADMIN_USERNAME: Final[str] = "admin"
-DEFAULT_RESET_PASSWORD: Final[str] = "ngep#HYX"
 SCRIPT_OPERATOR: Final[str] = "ops/reset-admin-password"
 
 
@@ -39,8 +38,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--password",
-        default=DEFAULT_RESET_PASSWORD,
-        help="New temporary password to set. Defaults to the operational reset password.",
+        help="New temporary password to set. Required.",
     )
     parser.add_argument(
         "--yes",
@@ -147,7 +145,11 @@ def main() -> int:
     if not args.yes:
         print("refusing to run without --yes")
         return 2
-    return asyncio.run(reset_admin_password(username=str(args.username).strip(), password=str(args.password)))
+    password = str(args.password or "").strip()
+    if not password:
+        print("refusing to run without --password")
+        return 2
+    return asyncio.run(reset_admin_password(username=str(args.username).strip(), password=password))
 
 
 if __name__ == "__main__":

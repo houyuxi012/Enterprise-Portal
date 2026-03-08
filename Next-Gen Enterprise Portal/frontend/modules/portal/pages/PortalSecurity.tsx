@@ -5,10 +5,35 @@ import ApiClient from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 
+type ChangePasswordFormValues = {
+    oldPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: string | { message?: string };
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape | undefined)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) {
+        return detail.message;
+    }
+    return fallback;
+};
+
 const PortalSecurity: React.FC = () => {
     const { t } = useTranslation();
     const { message } = App.useApp();
-    const { user } = useAuth();
+    const { user, refreshCurrentUser } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [totpEnabled, setTotpEnabled] = useState(false);
@@ -84,7 +109,7 @@ const PortalSecurity: React.FC = () => {
         }
     };
 
-    const handlePasswordChange = async (values: any) => {
+    const handlePasswordChange = async (values: ChangePasswordFormValues) => {
         if (values.newPassword !== values.confirmPassword) {
             message.error(t('changePasswordModal.messages.passwordMismatch', '两次密码不一致'));
             return;
@@ -95,11 +120,14 @@ const PortalSecurity: React.FC = () => {
                 old_password: values.oldPassword,
                 new_password: values.newPassword,
             });
+            await refreshCurrentUser();
             message.success(t('changePasswordModal.messages.changeSuccess', '密码修改成功'));
             pwdForm.resetFields();
-        } catch (error: any) {
-            const detail = error?.response?.data?.detail;
-            const errorMsg = typeof detail === 'string' ? detail : detail?.message || t('changePasswordModal.messages.changeFailed', '密码修改失败');
+        } catch (error: unknown) {
+            const errorMsg = resolveApiErrorMessage(
+                error,
+                t('changePasswordModal.messages.changeFailed', '密码修改失败'),
+            );
             message.error(errorMsg);
         } finally {
             setChangingPwd(false);

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import (
     JSON,
     Boolean,
+    BigInteger,
     Column,
     DateTime,
     Float,
@@ -12,20 +11,22 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
 from core.database import Base
+from core.time_utils import utc_now
 
 
 class Department(Base):
     __tablename__ = "departments"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
+    name = Column(String(128), index=True)
     parent_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
-    manager = Column(String, nullable=True)
-    description = Column(String, nullable=True)
+    manager = Column(String(128), nullable=True)
+    description = Column(String(255), nullable=True)
     sort_order = Column(Integer, default=0)
 
     directory_id = Column(Integer, index=True, nullable=True)
@@ -38,46 +39,46 @@ class Department(Base):
 class SystemLog(Base):
     __tablename__ = "system_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    level = Column(String, index=True)
-    module = Column(String, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
+    level = Column(String(20), index=True)
+    module = Column(String(100), index=True)
     message = Column(Text)
-    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
-    ip_address = Column(String, nullable=True)
-    request_path = Column(String, nullable=True)
-    method = Column(String, nullable=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+    ip_address = Column(String(45), nullable=True)
+    request_path = Column(String(2048), nullable=True)
+    method = Column(String(16), nullable=True)
     status_code = Column(Integer, nullable=True)
     response_time = Column(Float, nullable=True)
     request_size = Column(Integer, nullable=True)
-    user_agent = Column(String, nullable=True)
+    user_agent = Column(String(512), nullable=True)
 
 
 class BusinessLog(Base):
     __tablename__ = "business_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    operator = Column(String, index=True)
-    action = Column(String, index=True)
-    target = Column(String, nullable=True)
-    ip_address = Column(String, nullable=True)
-    status = Column(String)
+    id = Column(BigInteger, primary_key=True, index=True)
+    operator = Column(String(255), index=True)
+    action = Column(String(128), index=True)
+    target = Column(String(255), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    status = Column(String(20))
     detail = Column(Text, nullable=True)
-    trace_id = Column(String, index=True, nullable=True)
-    source = Column(String, default="WEB", nullable=True)
-    domain = Column(String, default="BUSINESS", index=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    trace_id = Column(String(128), index=True, nullable=True)
+    source = Column(String(32), default="WEB", nullable=True)
+    domain = Column(String(32), default="BUSINESS", index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
 
 class LogForwardingConfig(Base):
     __tablename__ = "log_forwarding_config"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String)
-    endpoint = Column(String)
+    type = Column(String(32))
+    endpoint = Column(String(1024))
     port = Column(Integer, nullable=True)
-    secret_token = Column(String, nullable=True)
+    secret_token = Column(Text, nullable=True)
     enabled = Column(Boolean, default=False)
-    log_types = Column(String, nullable=True, default='["BUSINESS","SYSTEM","ACCESS"]')
+    log_types = Column(Text, nullable=True, default='["BUSINESS","SYSTEM","ACCESS"]')
 
 
 class AdminMeeting(Base):
@@ -91,23 +92,47 @@ class AdminMeeting(Base):
     meeting_room = Column(String(255), nullable=False)
     meeting_id = Column(String(128), nullable=False, unique=True, index=True)
     organizer = Column(String(255), nullable=False)
+    organizer_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     attendees = Column(JSON, nullable=False, default=list)
     source = Column(String(20), nullable=False, default="local", index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+    organizer_user = relationship("User", foreign_keys=[organizer_user_id])
+    attendee_links = relationship(
+        "AdminMeetingAttendee",
+        back_populates="meeting",
+        cascade="all, delete-orphan",
+        order_by="AdminMeetingAttendee.id",
+    )
+
+
+class AdminMeetingAttendee(Base):
+    __tablename__ = "admin_meeting_attendees"
+    __table_args__ = (
+        UniqueConstraint("meeting_id", "user_id", name="uq_admin_meeting_attendees_meeting_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("admin_meetings.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+
+    meeting = relationship("AdminMeeting", back_populates="attendee_links")
+    user = relationship("User")
 
 
 class AIProvider(Base):
     __tablename__ = "ai_providers"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    type = Column(String)
-    model_kind = Column(String, default="text")
-    base_url = Column(String, nullable=True)
-    api_key = Column(String)
-    model = Column(String)
+    name = Column(String(128), unique=True, index=True)
+    type = Column(String(32))
+    model_kind = Column(String(32), default="text")
+    base_url = Column(String(1024), nullable=True)
+    api_key = Column(Text)
+    model = Column(String(128))
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -116,10 +141,10 @@ class AISecurityPolicy(Base):
     __tablename__ = "ai_security_policies"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    type = Column(String)
+    name = Column(String(128), unique=True, index=True)
+    type = Column(String(32))
     content = Column(Text)
-    action = Column(String)
+    action = Column(String(32))
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -127,7 +152,7 @@ class AISecurityPolicy(Base):
 class AIAuditLog(Base):
     __tablename__ = "ai_audit_log"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     event_id = Column(String(64), unique=True, index=True)
     ts = Column(DateTime(timezone=True), index=True)
     env = Column(String(20), default="production")
@@ -164,7 +189,7 @@ class AIModelQuota(Base):
     __tablename__ = "ai_model_quotas"
 
     id = Column(Integer, primary_key=True, index=True)
-    model_name = Column(String, unique=True, index=True)
+    model_name = Column(String(128), unique=True, index=True)
     daily_token_limit = Column(Integer, default=0)
     daily_request_limit = Column(Integer, default=0)
     updated_at = Column(DateTime(timezone=True), nullable=True)

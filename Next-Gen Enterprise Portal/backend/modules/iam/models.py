@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -18,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from core.database import Base
+from core.time_utils import utc_now
 from shared.base_models import role_permissions, user_roles
 
 
@@ -25,8 +24,8 @@ class Permission(Base):
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
     app_id = Column(String(50), index=True, default="portal")
-    code = Column(String, index=True)
-    description = Column(String)
+    code = Column(String(128), index=True)
+    description = Column(String(255))
     created_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -38,9 +37,9 @@ class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True, index=True)
     app_id = Column(String(50), index=True, default="portal")
-    code = Column(String, index=True)
-    name = Column(String)
-    description = Column(String, nullable=True)
+    code = Column(String(128), index=True)
+    name = Column(String(128))
+    description = Column(String(255), nullable=True)
     limit_scope = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -58,21 +57,21 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    username = Column(String(128), unique=True, index=True)
+    email = Column(String(255), unique=True, index=True)
+    hashed_password = Column(String(255))
     account_type = Column(String(20), default="PORTAL", nullable=False, index=True)
     is_active = Column(Boolean, default=True)
     failed_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime(timezone=True), nullable=True)
-    name = Column(String, nullable=True)
-    avatar = Column(String, nullable=True)
+    name = Column(String(255), nullable=True)
+    avatar = Column(String(512), nullable=True)
     directory_id = Column(Integer, nullable=True, index=True)
     external_id = Column(String(255), nullable=True, index=True)
     pending_delete_at = Column(DateTime(timezone=True), nullable=True)
     password_violates_policy = Column(Boolean, default=False)
     password_change_required = Column(Boolean, default=False)
-    password_changed_at = Column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
+    password_changed_at = Column(DateTime(timezone=True), nullable=True, default=utc_now)
     auth_source = Column(String(50), nullable=False, default="local", index=True)
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
@@ -99,7 +98,7 @@ class WebAuthnCredential(Base):
     sign_count = Column(Integer, nullable=False, default=0)
     name = Column(String(128), nullable=False, default="Security Key")
     transports = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     user = relationship("User", backref="webauthn_credentials")
 
@@ -113,7 +112,7 @@ class UserPasswordHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
-    changed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    changed_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
 
 class DirectoryConfig(Base):
@@ -172,8 +171,8 @@ class DirectoryConfig(Base):
     delete_whitelist = Column(Text, nullable=True)
 
     enabled = Column(Boolean, nullable=False, default=False, index=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
 
 class SyncJob(Base):
@@ -190,15 +189,15 @@ class SyncJob(Base):
     cursor_end = Column(String(255), nullable=True)
     max_usn_seen = Column(String(255), nullable=True)
     error_detail = Column(Text, nullable=True)
-    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class SystemConfig(Base):
     __tablename__ = "system_config"
 
-    key = Column(String, primary_key=True, index=True)
-    value = Column(String)
+    key = Column(String(128), primary_key=True, index=True)
+    value = Column(Text)
 
 
 class PrivacyConsent(Base):
@@ -215,7 +214,7 @@ class PrivacyConsent(Base):
     user_agent = Column(String(512), nullable=True)
     locale = Column(String(16), nullable=True)
     trace_id = Column(String(128), nullable=True, index=True)
-    accepted_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
     user = relationship("User", backref="privacy_consents")
 
@@ -238,8 +237,8 @@ class LicenseState(Base):
     status = Column(String(20), nullable=False, default="active", index=True)
     reason = Column(String(255), nullable=True)
     last_seen_time = Column(DateTime(timezone=True), nullable=True, index=True)
-    installed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    installed_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
 
 class LicenseEvent(Base):
@@ -260,4 +259,4 @@ class LicenseEvent(Base):
     actor_username = Column(String(255), nullable=True)
     ip_address = Column(String(64), nullable=True)
     trace_id = Column(String(128), nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)

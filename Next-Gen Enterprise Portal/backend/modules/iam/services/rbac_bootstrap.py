@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import modules.models as models
-import utils
+from core import security
 from infrastructure.cache_manager import cache
 
 logger = logging.getLogger(__name__)
@@ -284,7 +284,7 @@ async def _warn_if_legacy_admin_password(admin_user: models.User) -> None:
 
     for legacy_password in LEGACY_BOOTSTRAP_PASSWORDS:
         try:
-            if await utils.verify_password(legacy_password, hashed_password):
+            if await security.verify_password(legacy_password, hashed_password):
                 logger.critical(
                     "Admin user '%s' still matches a retired bootstrap password. Rotate credentials immediately.",
                     INITIAL_ADMIN_USERNAME,
@@ -355,7 +355,7 @@ async def init_admin(db: AsyncSession, role_map: dict[str, int]) -> int | None:
     admin_user = models.User(
         username=INITIAL_ADMIN_USERNAME,
         email=await _resolve_initial_admin_email(db),
-        hashed_password=await utils.get_password_hash(bootstrap_password),
+        hashed_password=await security.get_password_hash(bootstrap_password),
         account_type="SYSTEM",
         is_active=True,
         name=_read_bootstrap_env(INITIAL_ADMIN_NAME_ENV, DEFAULT_ADMIN_NAME),

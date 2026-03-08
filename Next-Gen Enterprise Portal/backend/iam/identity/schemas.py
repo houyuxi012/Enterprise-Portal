@@ -21,7 +21,7 @@ class UserMeResponse(BaseModel):
     """GET /iam/auth/me 响应"""
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
     account_type: str = "PORTAL"
     name: Optional[str] = None
     avatar: Optional[str] = None

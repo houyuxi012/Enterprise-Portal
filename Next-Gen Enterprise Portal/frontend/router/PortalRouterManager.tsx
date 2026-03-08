@@ -12,7 +12,7 @@ import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import { AvatarWithFallback } from '../shared/components';
 
 const Dashboard = lazy(() => import('../modules/portal/components/Dashboard'));
-const { todos: TodoList, security: PortalSecurity } = moduleRouteRegistry.portal;
+const { meetings: MeetingsPage, todos: TodoList, security: PortalSecurity } = moduleRouteRegistry.portal;
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -96,10 +96,13 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
           onViewAll={() => setCurrentView(AppView.TOOLS)}
           onNavigateToDirectory={() => setCurrentView(AppView.DIRECTORY)}
           onNavigateToTodos={() => setCurrentView(AppView.TODOS)}
+          onNavigateToMeetings={() => setCurrentView(AppView.MEETINGS)}
           employees={employees}
           currentUser={currentUser}
         />
       );
+    case AppView.MEETINGS:
+      return <MeetingsPage onBack={() => setCurrentView(AppView.DASHBOARD)} />;
     case AppView.SETTINGS:
       return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-700 slide-in-from-bottom-8 pb-20">

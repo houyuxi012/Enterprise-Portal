@@ -11,7 +11,15 @@ import modules.models as models
 import modules.schemas as schemas
 from core.dependencies import PermissionChecker
 from fastapi import Request
-from application.admin_app import AIEngine, AuditService, CryptoService
+from application.admin_app import AIEngine, AuditService
+from modules.admin.services.ai_provider_security import (
+    is_ai_provider_api_key_ciphertext,
+    resolve_ai_provider_api_key_for_storage,
+)
+from modules.iam.services.system_config_security import (
+    SYSTEM_CONFIG_MASKED_PLACEHOLDER,
+    is_masked_placeholder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +68,16 @@ async def create_provider(
         raise HTTPException(status_code=400, detail="API Key is required")
     
     # Foolproof check: Do not allow ciphertext or placeholders
-    if plain_api_key.startswith("gAAAA") or "***" in plain_api_key or "placeholder" in plain_api_key.lower():
+    if (
+        is_ai_provider_api_key_ciphertext(plain_api_key)
+        or is_masked_placeholder(plain_api_key)
+        or plain_api_key == SYSTEM_CONFIG_MASKED_PLACEHOLDER
+        or "***" in plain_api_key
+        or "placeholder" in plain_api_key.lower()
+    ):
         raise HTTPException(status_code=400, detail="Invalid API Key format. Please provide a valid plaintext key.")
 
-    encrypted_api_key = CryptoService.encrypt_data(plain_api_key)
+    encrypted_api_key = resolve_ai_provider_api_key_for_storage(plain_api_key)
     
     # Update dict with encrypted key
     provider_data = provider.dict()
@@ -203,21 +217,23 @@ async def update_provider(
              if input_key == db_provider.api_key:
                  pass # No change
          
-             # 2. Foolproof Check: Starts with Fernet prefix 'gAAAA'
-             # If it starts with gAAAA, assume it's the existing ciphertext being returned by UI.
-             # Do NOT re-encrypt. Do NOT update.
-             elif input_key.startswith("gAAAA"):
-                 logger.info("Ignored encrypted key update for provider %s", id)
+             # 2. Ignore any stored-format ciphertext echoed back by stale clients.
+             elif is_ai_provider_api_key_ciphertext(input_key):
+                 logger.info("Ignored stored-format key update for provider %s", id)
                  pass
              
              # 3. Foolproof Check: Masked chars or obvious placeholders
-             elif "***" in input_key or "placeholder" in input_key.lower():
+             elif (
+                 is_masked_placeholder(input_key)
+                 or input_key == SYSTEM_CONFIG_MASKED_PLACEHOLDER
+                 or "***" in input_key
+                 or "placeholder" in input_key.lower()
+             ):
                  logger.info("Ignored masked/invalid key update for provider %s", id)
                  pass
              
              else:
-                 # Plain text key (TLS) -> Encrypt
-                 db_provider.api_key = CryptoService.encrypt_data(input_key)
+                 db_provider.api_key = resolve_ai_provider_api_key_for_storage(input_key)
     if provider.model is not None:
          db_provider.model = provider.model
     if provider.is_active is not None:

@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 export interface User {
     id: number;
     username: string;
-    email: string;
+    email: string | null;
     account_type?: 'PORTAL' | 'SYSTEM';
     name?: string;
     avatar?: string;

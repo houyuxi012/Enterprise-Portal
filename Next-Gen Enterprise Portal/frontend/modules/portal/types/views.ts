@@ -7,6 +7,7 @@ export enum AppView {
   TOOLS = 'tools',
   SEARCH_RESULTS = 'search_results',
   TODOS = 'todos',
+  MEETINGS = 'meetings',
   SECURITY = 'security',
 }
 

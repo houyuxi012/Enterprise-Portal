@@ -4,6 +4,7 @@ import { Copy, Check, Server, GitBranch, Clock, Package } from 'lucide-react';
 import { SystemVersion } from '@/types';
 import ApiClient from '@/shared/services/api';
 import { useTranslation } from 'react-i18next';
+import { buildVersionModalCopyText, getVersionModalBuildReference } from './versionModalContract';
 
 interface VersionModalProps {
     open: boolean;
@@ -36,7 +37,16 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
 
     const handleCopy = () => {
         if (!versionInfo) return;
-        const text = `${t('versionModal.copy.product')}: ${versionInfo.product}\n${t('versionModal.copy.version')}: ${versionInfo.version}\n${t('versionModal.copy.gitSha')}: ${versionInfo.git_sha}\n${t('versionModal.copy.buildTime')}: ${versionInfo.build_time}`;
+        const text = buildVersionModalCopyText(versionInfo, {
+            product: t('versionModal.copy.product'),
+            version: t('versionModal.copy.version'),
+            gitSha: t('versionModal.copy.gitSha'),
+            gitRef: t('versionModal.copy.gitRef'),
+            buildTime: t('versionModal.copy.buildTime'),
+            buildRef: t('versionModal.copy.buildRef'),
+            apiVersion: t('versionModal.copy.apiVersion'),
+            schema: t('versionModal.copy.schema'),
+        });
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -86,7 +96,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                             </div>
                             <div className="text-xs text-slate-400 mt-2 font-mono">
                                 {versionInfo.release_id || t('versionModal.fields.buildFallback', {
-                                    value: versionInfo.build_id || versionInfo.build_number || 'N/A'
+                                    value: getVersionModalBuildReference(versionInfo)
                                 })}
                             </div>
                         </div>
@@ -103,6 +113,9 @@ const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
                                     </div>
                                     <div className="font-mono text-slate-800 dark:text-slate-200 text-sm truncate select-all">
                                         {versionInfo.git_sha}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 font-mono truncate">
+                                        {versionInfo.git_ref || 'unknown'}
                                     </div>
                                 </div>
                             </div>

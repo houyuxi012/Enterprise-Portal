@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Index, JSON
+from sqlalchemy import BigInteger, Column, Integer, String, DateTime, Text, Index, JSON
 from sqlalchemy.sql import func
 from core.database import Base
 
@@ -7,7 +7,7 @@ class IAMAuditLog(Base):
     """IAM 行为审计日志 (P2 Compliance)"""
     __tablename__ = "iam_audit_logs"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     # 操作者

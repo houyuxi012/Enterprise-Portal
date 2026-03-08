@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Modal, Form, Input, Button, message } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Alert, App, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import ApiClient from '@/shared/services/api';
-import { Key, Lock, CheckCircle } from 'lucide-react';
+import { CheckCircleOutlined, KeyOutlined, LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,142 +12,205 @@ interface ChangePasswordModalProps {
     forceMode?: boolean;
 }
 
+type ChangePasswordFormValues = {
+    oldPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: string | { message?: string };
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape | undefined)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) {
+        return detail.message;
+    }
+    return fallback;
+};
+
 const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose, onSuccess, forceMode = false }) => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const { message } = App.useApp();
+    const [form] = Form.useForm<ChangePasswordFormValues>();
     const [loading, setLoading] = useState(false);
-    const { user } = useAuth();
+    const { user, refreshCurrentUser } = useAuth();
+    const { token } = theme.useToken();
 
-    // 如果是强制修改密码模式，可能不存在这层拦截；但正常情况，外部身份源禁用面板
     const isManagedExternally = ['ldap', 'ad', 'oidc'].includes(user?.auth_source || 'local');
+    const titleText = forceMode
+        ? t('changePasswordModal.forceMode.title', { defaultValue: '首次登录修改密码' })
+        : t('changePasswordModal.title');
+    const headerIconStyle = useMemo(
+        () => ({
+            color: token.colorPrimary,
+            background: token.colorPrimaryBg,
+            borderRadius: token.borderRadiusSM,
+            padding: 8,
+            fontSize: 16,
+        }),
+        [token.colorPrimary, token.colorPrimaryBg, token.borderRadiusSM],
+    );
 
-    const handleSubmit = async (values: any) => {
-        if (values.newPassword !== values.confirmPassword) {
-            message.error(t('changePasswordModal.messages.passwordMismatch'));
-            return;
-        }
-
+    const handleSubmit = async (values: ChangePasswordFormValues) => {
         setLoading(true);
         try {
             await ApiClient.changeMyPassword({
                 old_password: values.oldPassword,
-                new_password: values.newPassword
+                new_password: values.newPassword,
             });
+            await refreshCurrentUser();
             message.success(t('changePasswordModal.messages.changeSuccess'));
             form.resetFields();
             onSuccess();
-        } catch (error: any) {
-            const detail = error?.response?.data?.detail;
-            const errorMsg =
-                typeof detail === 'string'
-                    ? detail
-                    : detail?.message || t('changePasswordModal.messages.changeFailed');
+        } catch (error: unknown) {
+            const errorMsg = resolveApiErrorMessage(error, t('changePasswordModal.messages.changeFailed'));
             message.error(errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleClose = () => {
+        if (forceMode) return;
+        form.resetFields();
+        onClose();
+    };
+
     return (
         <Modal
             title={
-                <div className="flex items-center gap-2">
-                    <Key size={18} className="text-blue-500" />
-                    <span>{t('changePasswordModal.title')}</span>
-                </div>
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space size={12} align="start">
+                        <KeyOutlined style={headerIconStyle} />
+                        <Typography.Text strong style={{ fontSize: token.fontSizeLG }}>
+                            {titleText}
+                        </Typography.Text>
+                    </Space>
+                </Space>
             }
             open={open}
-            onCancel={() => {
-                if (forceMode) return;
-                form.resetFields();
-                onClose();
-            }}
+            onCancel={handleClose}
+            onOk={() => form.submit()}
+            confirmLoading={loading}
             closable={!forceMode}
             maskClosable={!forceMode}
             keyboard={!forceMode}
-            footer={forceMode ? [
-                <Button key="submit" type="primary" loading={loading} onClick={() => form.submit()}>
-                    {t('common.buttons.confirm')}
-                </Button>
-            ] : [
-                <Button key="cancel" onClick={() => {
-                    form.resetFields();
-                    onClose();
-                }} disabled={loading}>
-                    {t('common.buttons.cancel')}
-                </Button>,
-                <Button key="submit" type="primary" loading={loading} onClick={() => form.submit()}>
-                    {t('common.buttons.confirm')}
-                </Button>
-            ]}
             destroyOnClose
             centered
-            width={480}
+            width={560}
+            okText={t('common.buttons.confirm')}
+            cancelButtonProps={forceMode ? { style: { display: 'none' } } : undefined}
+            cancelText={t('common.buttons.cancel')}
+            okButtonProps={{
+                size: 'large',
+                disabled: isManagedExternally,
+            }}
+            styles={{
+                header: {
+                    paddingBottom: token.paddingXS,
+                },
+                body: {
+                    paddingTop: token.paddingSM,
+                },
+                footer: {
+                    marginTop: token.marginSM,
+                },
+            }}
+            afterOpenChange={(visible) => {
+                if (!visible) {
+                    form.resetFields();
+                }
+            }}
         >
-            <div className="pt-4">
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 {isManagedExternally ? (
-                    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4 flex items-start gap-3">
-                        <div className="bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-400 p-1.5 rounded-full mt-0.5">
-                            <Lock size={16} />
-                        </div>
-                        <div className="text-amber-800 dark:text-amber-300 text-sm leading-relaxed">
-                            {t('changePasswordModal.messages.managedExternally', {
-                                defaultValue: '该账户由目录服务管理，请在AD/LDAP中修改密码'
-                            })}
-                        </div>
-                    </div>
+                    <Alert
+                        showIcon
+                        type="info"
+                        icon={<LockOutlined />}
+                        message={t('changePasswordModal.messages.managedExternallyTitle', { defaultValue: '目录托管账户' })}
+                        description={t('changePasswordModal.messages.managedExternally', {
+                            defaultValue: '该账户由目录服务管理，请在AD/LDAP中修改密码',
+                        })}
+                    />
                 ) : (
-                    <Form
+                    <Form<ChangePasswordFormValues>
                         form={form}
                         layout="vertical"
                         onFinish={handleSubmit}
                         requiredMark={false}
+                        colon={false}
                     >
                         <Form.Item
-                            label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.oldPassword')}</span>}
+                            label={t('changePasswordModal.form.oldPassword')}
                             name="oldPassword"
                             rules={[{ required: true, message: t('changePasswordModal.validation.oldPasswordRequired') }]}
                         >
                             <Input.Password
-                                prefix={<Lock size={16} className="text-slate-400 mr-1" />}
+                                autoComplete="current-password"
+                                prefix={<LockOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('changePasswordModal.form.placeholders.oldPassword')}
                                 size="large"
-                                className="rounded-lg"
                             />
                         </Form.Item>
 
                         <Form.Item
-                            label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.newPassword')}</span>}
+                            label={t('changePasswordModal.form.newPassword')}
                             name="newPassword"
                             rules={[
                                 { required: true, message: t('changePasswordModal.validation.newPasswordRequired') },
-                                { min: 6, message: t('changePasswordModal.validation.newPasswordMin') }
+                                { min: 6, message: t('changePasswordModal.validation.newPasswordMin') },
                             ]}
-                            help={<span className="text-xs text-slate-500">{t('changePasswordModal.form.newPasswordHelp')}</span>}
+                            extra={t('changePasswordModal.form.newPasswordHelp')}
                         >
                             <Input.Password
-                                prefix={<CheckCircle size={16} className="text-slate-400 mr-1" />}
+                                autoComplete="new-password"
+                                prefix={<CheckCircleOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('changePasswordModal.form.placeholders.newPassword')}
                                 size="large"
-                                className="rounded-lg"
                             />
                         </Form.Item>
 
                         <Form.Item
-                            label={<span className="font-medium text-slate-700 dark:text-slate-300">{t('changePasswordModal.form.confirmPassword')}</span>}
+                            label={t('changePasswordModal.form.confirmPassword')}
                             name="confirmPassword"
-                            rules={[{ required: true, message: t('changePasswordModal.validation.confirmPasswordRequired') }]}
+                            dependencies={['newPassword']}
+                            rules={[
+                                {
+                                    required: true,
+                                    message: t('changePasswordModal.validation.confirmPasswordRequired'),
+                                },
+                                ({ getFieldValue }) => ({
+                                    validator(_, value: string) {
+                                        if (!value || getFieldValue('newPassword') === value) {
+                                            return Promise.resolve();
+                                        }
+                                        return Promise.reject(
+                                            new Error(t('changePasswordModal.messages.passwordMismatch')),
+                                        );
+                                    },
+                                }),
+                            ]}
                         >
                             <Input.Password
-                                prefix={<CheckCircle size={16} className="text-slate-400 mr-1" />}
+                                autoComplete="new-password"
+                                prefix={<CheckCircleOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('changePasswordModal.form.placeholders.confirmPassword')}
                                 size="large"
-                                className="rounded-lg"
                             />
                         </Form.Item>
                     </Form>
                 )}
-            </div>
+            </Space>
         </Modal>
     );
 };

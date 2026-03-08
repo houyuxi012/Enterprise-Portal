@@ -105,7 +105,7 @@ class UserOption(BaseModel):
 class UserMeResponse(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
     name: Optional[str] = None
     avatar: Optional[str] = None
     auth_source: Optional[str] = "local"
@@ -313,4 +313,3 @@ class WebAuthnCredentialOut(BaseModel):
 
 class WebAuthnDeleteRequest(BaseModel):
     password: str
-

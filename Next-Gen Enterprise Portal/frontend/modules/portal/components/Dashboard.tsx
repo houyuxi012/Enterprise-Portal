@@ -5,10 +5,12 @@ import {
   Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
   X, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
 } from 'lucide-react';
+import dayjs from 'dayjs';
 import TodoService from '@/shared/services/todos';
 import ApiClient, { QuickToolDTO } from '@/shared/services/api';
 import { NewsItem, Announcement, CarouselItem, Employee } from '@/types';
 import type { User as AuthUser } from '@/shared/services/auth';
+import portalMeetingService, { type PortalTodayMeetingSummary } from '@/modules/portal/services/meetings';
 import { getIcon } from '@/shared/utils/iconMap';
 import { getColorClass } from '@/shared/utils/colorMap';
 import { DAILY_QUOTES } from '@/shared/utils/constants';
@@ -17,11 +19,21 @@ interface DashboardProps {
   onViewAll: () => void;
   onNavigateToDirectory?: () => void;
   onNavigateToTodos?: () => void;
+  onNavigateToMeetings?: () => void;
   employees?: Employee[];
   currentUser?: AuthUser | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory, onNavigateToTodos, employees = [], currentUser }) => {
+const POLL_INTERVAL_MS = 30000;
+
+const Dashboard: React.FC<DashboardProps> = ({
+  onViewAll,
+  onNavigateToDirectory,
+  onNavigateToTodos,
+  onNavigateToMeetings,
+  employees = [],
+  currentUser,
+}) => {
   const { t, i18n } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
@@ -39,6 +51,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
 
   const username = currentUser?.username || t('dashboardHome.userFallback');
   const [todoStats, setTodoStats] = useState({ total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 });
+  const [todayMeetingSummary, setTodayMeetingSummary] = useState<PortalTodayMeetingSummary>(
+    portalMeetingService.getEmptyTodaySummary(),
+  );
   // Data State
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -60,6 +75,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     return t('dashboardHome.time.daysAgo', { count: diffDay });
   };
 
+  const loadTodayMeetingSummary = React.useCallback(async () => {
+    try {
+      const summary = await portalMeetingService.getTodaySummary();
+      setTodayMeetingSummary(summary);
+    } catch (error) {
+      console.error('Failed to fetch today meeting summary', error);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -69,14 +93,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
           fetchedAnnouncements,
           fetchedCarousel,
           todoStatsData,
-          readAnnouncementIdsData
+          readAnnouncementIdsData,
         ] = await Promise.all([
           ApiClient.getTools(),
           ApiClient.getNews(),
           ApiClient.getAnnouncements(),
           ApiClient.getCarouselItems(),
           TodoService.getMyTaskStats('active'),
-          ApiClient.getAnnouncementReadState()
+          ApiClient.getAnnouncementReadState(),
         ]);
         setTools(fetchedTools);
         setNewsList(fetchedNews);
@@ -98,6 +122,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
     fetchData();
   }, []);
 
+  useEffect(() => {
+    void loadTodayMeetingSummary();
+  }, [loadTodayMeetingSummary]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void loadTodayMeetingSummary();
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [loadTodayMeetingSummary]);
+
   const quote = useMemo(() => {
     const day = new Date().getDate();
     const quoteKey = DAILY_QUOTES[day % DAILY_QUOTES.length];
@@ -112,6 +150,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
       weekday: 'long'
     }).format(new Date());
   }, [i18n.resolvedLanguage]);
+
+  const todayMeetingDesc = useMemo(() => {
+    if (!todayMeetingSummary.nextMeeting) {
+      return todayMeetingSummary.total > 0
+        ? t('dashboardHome.cards.meeting.allCompleted', '今日会议已结束')
+        : t('dashboardHome.cards.meeting.empty', '今日暂无会议');
+    }
+
+    return t('dashboardHome.cards.meeting.next', {
+      time: dayjs(todayMeetingSummary.nextMeeting.startTime).format('HH:mm'),
+      subject: todayMeetingSummary.nextMeeting.subject,
+    });
+  }, [t, todayMeetingSummary.nextMeeting, todayMeetingSummary.total]);
 
   useEffect(() => {
     if (carouselItems.length === 0) return;
@@ -245,9 +296,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewAll, onNavigateToDirectory,
           {
             icon: <Calendar size={18} />,
             label: t('dashboardHome.cards.meeting.label'),
-            val: t('dashboardHome.cards.meeting.value', { count: 4 }),
+            val: t('dashboardHome.cards.meeting.value', { count: todayMeetingSummary.total }),
             color: 'purple',
-            desc: t('dashboardHome.cards.meeting.desc')
+            desc: todayMeetingDesc,
+            onClick: onNavigateToMeetings,
           },
           {
             icon: <Clock size={18} />,

@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Col, DatePicker, Input, InputNumber, Row, Select, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { AppForm, AppModal } from '@/modules/admin/components/ui';
 import type { MeetingType } from '@/modules/admin/services/meetings';
+import ApiClient from '@/shared/services/api';
+import type { UserOption } from '@/types';
 
 const { Paragraph } = Typography;
 
@@ -14,8 +16,8 @@ export interface MeetingFormValues {
   meetingType: MeetingType;
   meetingRoom: string;
   meetingId?: string;
-  organizer: string;
-  attendees: string[];
+  organizerUserId: number;
+  attendeeUserIds: number[];
 }
 
 interface MeetingFormModalProps {
@@ -37,6 +39,8 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form] = AppForm.useForm<MeetingFormValues>();
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -46,13 +50,52 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     const defaults: Partial<MeetingFormValues> = {
       durationMinutes: 60,
       meetingType: 'online',
-      attendees: [],
+      attendeeUserIds: [],
     };
     form.setFieldsValue({
       ...defaults,
       ...initialValues,
     });
   }, [form, initialValues, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let active = true;
+    const loadUsers = async (): Promise<void> => {
+      setUsersLoading(true);
+      try {
+        const users = await ApiClient.getUserOptions();
+        if (active) {
+          setUserOptions(Array.isArray(users) ? users : []);
+        }
+      } finally {
+        if (active) {
+          setUsersLoading(false);
+        }
+      }
+    };
+
+    void loadUsers();
+    return () => {
+      active = false;
+    };
+  }, [open]);
+
+  const selectableUserOptions = useMemo(() => {
+    const optionMap = new Map<number, { value: number; label: string }>();
+
+    userOptions.forEach((user) => {
+      const label = user.name?.trim()
+        ? `${user.name.trim()} / ${user.username}`
+        : user.username;
+      optionMap.set(user.id, { value: user.id, label });
+    });
+
+    return Array.from(optionMap.values());
+  }, [userOptions]);
 
   const handleOk = async (): Promise<void> => {
     const values = await form.validateFields();
@@ -94,11 +137,17 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           </Col>
           <Col xs={24} md={12}>
             <AppForm.Item
-              name="organizer"
+              name="organizerUserId"
               label={t('meetingLocal.form.organizer', '会议发起人')}
               rules={[{ required: true, message: t('meetingLocal.validation.organizer', '请输入会议发起人') }]}
             >
-              <Input placeholder={t('meetingLocal.form.organizerPlaceholder', '例如：王敏 / wangmin')} />
+              <Select
+                showSearch
+                optionFilterProp="label"
+                loading={usersLoading}
+                options={selectableUserOptions}
+                placeholder={t('meetingLocal.form.organizerPlaceholder', '从用户中心选择会议发起人')}
+              />
             </AppForm.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -158,14 +207,17 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           </Col>
           <Col xs={24}>
             <AppForm.Item
-              name="attendees"
+              name="attendeeUserIds"
               label={t('meetingLocal.form.attendees', '参会人')}
               rules={[{ required: true, type: 'array', min: 1, message: t('meetingLocal.validation.attendees', '请至少填写一位参会人') }]}
             >
               <Select
-                mode="tags"
-                tokenSeparators={[',', '，', ';', '；']}
-                placeholder={t('meetingLocal.form.attendeesPlaceholder', '输入参会人姓名后回车，可连续添加多个')}
+                mode="multiple"
+                showSearch
+                optionFilterProp="label"
+                loading={usersLoading}
+                options={selectableUserOptions}
+                placeholder={t('meetingLocal.form.attendeesPlaceholder', '从用户中心选择参会人，可多选')}
               />
             </AppForm.Item>
           </Col>

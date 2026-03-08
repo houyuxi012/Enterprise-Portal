@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Dict, Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+from core.runtime_secrets import get_env
 
 def _b64url_nopad_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
@@ -37,8 +37,8 @@ class BindPasswordKeyring:
     @classmethod
     @lru_cache(maxsize=1)
     def load_keyring(cls) -> Tuple[Dict[str, bytes], str]:
-        raw_keyring = (os.getenv(cls.KEYRING_ENV) or "").strip()
-        raw_active_kid = (os.getenv(cls.ACTIVE_KID_ENV) or "").strip()
+        raw_keyring = str(get_env(cls.KEYRING_ENV)).strip()
+        raw_active_kid = str(get_env(cls.ACTIVE_KID_ENV)).strip()
 
         if not raw_keyring or not raw_active_kid:
             raise KeyringConfigError(

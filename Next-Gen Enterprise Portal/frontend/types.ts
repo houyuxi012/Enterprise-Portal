@@ -114,7 +114,7 @@ export interface RoleUpdate {
 export interface User {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   account_type?: 'PORTAL' | 'SYSTEM';
   name?: string;
   avatar?: string;
@@ -284,6 +284,7 @@ export interface SystemVersion {
   semver: string;  // Base version (e.g. 2.5.0)
   channel: string; // stable, beta, dev
   git_sha: string;
+  git_ref?: string;
   dirty?: boolean;
   build_time: string;
   build_number?: string;

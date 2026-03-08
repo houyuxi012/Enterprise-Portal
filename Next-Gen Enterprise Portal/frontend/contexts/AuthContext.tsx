@@ -19,6 +19,7 @@ interface AuthContextType {
     login: (username: string, password: string, type?: 'portal' | 'admin', headers?: Record<string, string>) => Promise<User>;
     logout: () => void;
     initAuth: () => Promise<void>;
+    refreshCurrentUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -97,6 +98,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         return initPromiseRef.current;
     }, [isInitialized]);
+
+    const refreshCurrentUser = useCallback(async (): Promise<User | null> => {
+        try {
+            const currentUser = await AuthService.getCurrentUser();
+            setUser(currentUser);
+            setIsInitialized(true);
+            return currentUser;
+        } catch {
+            setUser(null);
+            setIsInitialized(true);
+            return null;
+        }
+    }, []);
 
     // Auto-initialize auth on mount (handles page refresh)
     useEffect(() => {
@@ -220,6 +234,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         login,
         logout,
         initAuth,
+        refreshCurrentUser,
     };
 
     return (

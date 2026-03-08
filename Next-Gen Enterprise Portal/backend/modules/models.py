@@ -7,6 +7,7 @@ Use this module as the canonical import entry for SQLAlchemy models.
 from core.database import Base
 from modules.admin.models import (
     AdminMeeting,
+    AdminMeetingAttendee,
     AIAuditLog,
     AIModelQuota,
     AIProvider,
@@ -74,6 +75,7 @@ __all__ = [
     "SystemLog",
     "BusinessLog",
     "AdminMeeting",
+    "AdminMeetingAttendee",
     "LogForwardingConfig",
     "CarouselItem",
     "FileMetadata",

@@ -6,7 +6,14 @@ import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
-import { buildPrivacyConsentHeaders, isPrivacyConsentRequired } from '@/shared/utils/privacyConsent';
+import {
+    buildPrivacyConsentHeaders,
+    clearStoredPortalPrivacyConsent,
+    getCachedPortalPrivacyConsent,
+    getStoredPortalPrivacyConsent,
+    isPrivacyConsentRequired,
+    persistPortalPrivacyConsent,
+} from '@/shared/utils/privacyConsent';
 import { useTranslation } from 'react-i18next';
 
 interface LoginProps {
@@ -70,9 +77,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [privacyAccepted, setPrivacyAccepted] = useState(() => getCachedPortalPrivacyConsent());
     const [privacyPolicy, setPrivacyPolicy] = useState('');
     const [publicConfig, setPublicConfig] = useState<Record<string, string>>({});
+    const [publicConfigLoaded, setPublicConfigLoaded] = useState(false);
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
@@ -125,6 +133,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 setLogoUrl(nextLogoUrl);
                 setFooterText(nextFooterText);
                 setPrivacyPolicy(nextPrivacyPolicy);
+                setPrivacyAccepted(getStoredPortalPrivacyConsent(config));
 
                 if (nextAppNameRaw) localStorage.setItem('sys_app_name', nextAppNameRaw);
                 else localStorage.removeItem('sys_app_name');
@@ -149,10 +158,19 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 }
             } catch (error) {
                 console.error("Failed to load system config:", error);
+            } finally {
+                setPublicConfigLoaded(true);
             }
         };
         fetchConfig();
     }, [t]);
+
+    useEffect(() => {
+        if (!publicConfigLoaded) {
+            return;
+        }
+        persistPortalPrivacyConsent(publicConfig, privacyAccepted);
+    }, [privacyAccepted, publicConfig, publicConfigLoaded]);
 
     const shouldRequirePrivacyConsent = isPrivacyConsentRequired(publicConfig);
 
@@ -207,9 +225,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 /captcha/i.test(`${detail} ${detailCode}`);
 
             if (detailCode === 'PRIVACY_CONSENT_REQUIRED') {
+                clearStoredPortalPrivacyConsent();
                 msg = t('loginPortal.privacyConsentRequired', '请先阅读并同意隐私政策');
             } else if (detailCode === 'PRIVACY_POLICY_STALE') {
                 setPrivacyAccepted(false);
+                clearStoredPortalPrivacyConsent();
                 msg = t('loginPortal.messages.privacyPolicyUpdated', '隐私政策已更新，请刷新页面后重新阅读并同意');
             } else if (shouldShowCaptcha) {
                 setRequiresCaptcha(true);

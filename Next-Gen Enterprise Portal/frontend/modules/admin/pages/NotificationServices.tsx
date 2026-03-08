@@ -461,32 +461,7 @@ const NotificationServices: React.FC = () => {
                 <h2 className="text-xl font-bold text-slate-800">{t('notificationServices.title')}</h2>
                 <p className="text-sm text-slate-500 mt-1">{t('notificationServices.subtitle')}</p>
             </div>
-            <Card className="mb-6 shadow-sm border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 className="text-base font-semibold text-slate-800">{t('notificationServices.health.title')}</h3>
-                        <p className="text-xs text-slate-500 mt-1">{t('notificationServices.health.subtitle')}</p>
-                    </div>
-                    <Button icon={<ReloadOutlined />} onClick={loadNotificationHealth} loading={healthLoading}>
-                        {t('common.buttons.refresh')}
-                    </Button>
-                </div>
-                <Space wrap size={[8, 8]}>
-                    <Tag color={getHealthTagColor(health?.overall_status)}>
-                        {t('notificationServices.health.overall')}: {t(`notificationServices.health.status.${health?.overall_status || 'disabled'}`)}
-                    </Tag>
-                    <Tag color={getHealthTagColor(health?.channels?.smtp?.status)}>
-                        {t('notificationServices.health.channels.smtp')}: {t(`notificationServices.health.status.${health?.channels?.smtp?.status || 'not_configured'}`)}
-                    </Tag>
-                    <Tag color={getHealthTagColor(health?.channels?.telegram?.status)}>
-                        {t('notificationServices.health.channels.telegram')}: {t(`notificationServices.health.status.${health?.channels?.telegram?.status || 'disabled'}`)}
-                    </Tag>
-                    <Tag color={getHealthTagColor(health?.channels?.sms?.status)}>
-                        {t('notificationServices.health.channels.sms')}: {t(`notificationServices.health.status.${health?.channels?.sms?.status || 'disabled'}`)}
-                        {health?.channels?.sms?.provider ? ` (${health.channels.sms.provider})` : ''}
-                    </Tag>
-                </Space>
-            </Card>
+
 
             <Tabs
                 items={[

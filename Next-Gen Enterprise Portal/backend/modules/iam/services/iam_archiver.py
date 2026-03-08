@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from iam.audit.models import IAMAuditLog
+from core.runtime_secrets import get_required_env
 import modules.models as models
 # from services.minio_service import MinioService # To be corrected
 from core.database import SessionLocal
@@ -157,9 +158,9 @@ class IAMAuditArchiver:
                     
                     # Manual MinIO client setup if service not found, OR use existing one
                     # Assuming we can grab params from env
-                    minio_endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
-                    minio_access = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-                    minio_secret = os.getenv("MINIO_SECRET_KEY", "minioadmin@houyuxi")
+                    minio_endpoint = get_required_env("MINIO_ENDPOINT")
+                    minio_access = get_required_env("MINIO_ACCESS_KEY")
+                    minio_secret = get_required_env("MINIO_SECRET_KEY")
                     minio_secure = False
                     
                     client = Minio(

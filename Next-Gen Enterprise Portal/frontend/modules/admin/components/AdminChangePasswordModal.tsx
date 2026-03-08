@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Modal, Form, Input, message } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Alert, App, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import ApiClient from '@/shared/services/api';
-import { KeyOutlined, LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, KeyOutlined, LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,56 +12,101 @@ interface AdminChangePasswordModalProps {
     forceMode?: boolean;
 }
 
-const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ open, onClose, onSuccess, forceMode = false }) => {
+type ChangePasswordFormValues = {
+    oldPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+};
+
+type ApiErrorShape = {
+    response?: {
+        data?: {
+            detail?: string | { message?: string };
+        };
+    };
+};
+
+const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
+    const detail = (error as ApiErrorShape | undefined)?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+    }
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) {
+        return detail.message;
+    }
+    return fallback;
+};
+
+const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({
+    open,
+    onClose,
+    onSuccess,
+    forceMode = false,
+}) => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const { message } = App.useApp();
+    const [form] = Form.useForm<ChangePasswordFormValues>();
     const [loading, setLoading] = useState(false);
-    const { user } = useAuth();
+    const { user, refreshCurrentUser } = useAuth();
+    const { token } = theme.useToken();
 
-    // Check if the current user profile implies an external AD/LDAP
     const isManagedExternally = ['ldap', 'ad', 'oidc'].includes(user?.auth_source || 'local');
+    const titleText = forceMode
+        ? t('adminChangePassword.forceMode.title', { defaultValue: '首次登录修改密码' })
+        : t('adminChangePassword.title');
+    const headerIconStyle = useMemo(
+        () => ({
+            color: token.colorPrimary,
+            background: token.colorPrimaryBg,
+            borderRadius: token.borderRadiusSM,
+            padding: 8,
+            fontSize: 16,
+        }),
+        [token.colorPrimary, token.colorPrimaryBg, token.borderRadiusSM],
+    );
 
-    const handleSubmit = async (values: any) => {
-        if (values.newPassword !== values.confirmPassword) {
-            message.error(t('adminChangePassword.messages.passwordMismatch'));
-            return;
-        }
-
+    const handleSubmit = async (values: ChangePasswordFormValues) => {
         setLoading(true);
         try {
             await ApiClient.changeMyPassword({
                 old_password: values.oldPassword,
-                new_password: values.newPassword
+                new_password: values.newPassword,
             });
+            await refreshCurrentUser();
             message.success(t('adminChangePassword.messages.changeSuccess'));
             form.resetFields();
             onSuccess();
-        } catch (error: any) {
-            const detail = error?.response?.data?.detail;
-            const errorMsg =
-                typeof detail === 'string'
-                    ? detail
-                    : detail?.message || t('adminChangePassword.messages.changeFailed');
+        } catch (error: unknown) {
+            const errorMsg = resolveApiErrorMessage(
+                error,
+                t('adminChangePassword.messages.changeFailed'),
+            );
             message.error(errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleClose = () => {
+        if (forceMode) return;
+        form.resetFields();
+        onClose();
+    };
+
     return (
         <Modal
             title={
-                <div className="flex items-center gap-2">
-                    <KeyOutlined className="text-blue-500" />
-                    <span>{t('adminChangePassword.title')}</span>
-                </div>
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space size={12} align="start">
+                        <KeyOutlined style={headerIconStyle} />
+                        <Typography.Text strong style={{ fontSize: token.fontSizeLG }}>
+                            {titleText}
+                        </Typography.Text>
+                    </Space>
+                </Space>
             }
             open={open}
-            onCancel={() => {
-                if (forceMode) return;
-                form.resetFields();
-                onClose();
-            }}
+            onCancel={handleClose}
             onOk={() => form.submit()}
             confirmLoading={loading}
             closable={!forceMode}
@@ -69,29 +114,49 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
             keyboard={!forceMode}
             destroyOnClose
             centered
-            width={480}
+            width={560}
             okText={t('adminChangePassword.actions.confirm')}
             cancelButtonProps={forceMode ? { style: { display: 'none' } } : undefined}
             cancelText={t('common.buttons.cancel')}
+            okButtonProps={{
+                size: 'large',
+                disabled: isManagedExternally,
+            }}
+            styles={{
+                header: {
+                    paddingBottom: token.paddingXS,
+                },
+                body: {
+                    paddingTop: token.paddingSM,
+                },
+                footer: {
+                    marginTop: token.marginSM,
+                },
+            }}
+            afterOpenChange={(visible) => {
+                if (!visible) {
+                    form.resetFields();
+                }
+            }}
         >
-            <div className="pt-4">
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 {isManagedExternally ? (
-                    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4 flex items-start gap-3">
-                        <div className="bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-400 p-1.5 rounded-full mt-0.5">
-                            <LockOutlined />
-                        </div>
-                        <div className="text-amber-800 dark:text-amber-300 text-sm leading-relaxed">
-                            {t('adminChangePassword.messages.managedExternally', {
-                                defaultValue: '该账户由目录服务管理，请在AD/LDAP中修改密码'
-                            })}
-                        </div>
-                    </div>
+                    <Alert
+                        showIcon
+                        type="info"
+                        icon={<LockOutlined />}
+                        message={t('adminChangePassword.messages.managedExternallyTitle', { defaultValue: '目录托管账户' })}
+                        description={t('adminChangePassword.messages.managedExternally', {
+                            defaultValue: '该账户由目录服务管理，请在AD/LDAP中修改密码',
+                        })}
+                    />
                 ) : (
-                    <Form
+                    <Form<ChangePasswordFormValues>
                         form={form}
                         layout="vertical"
                         onFinish={handleSubmit}
                         requiredMark={false}
+                        colon={false}
                     >
                         <Form.Item
                             label={t('adminChangePassword.form.oldPassword')}
@@ -99,7 +164,8 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
                             rules={[{ required: true, message: t('adminChangePassword.validation.oldPasswordRequired') }]}
                         >
                             <Input.Password
-                                prefix={<LockOutlined className="text-slate-400 mr-1" />}
+                                autoComplete="current-password"
+                                prefix={<LockOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('adminChangePassword.form.placeholders.oldPassword')}
                                 size="large"
                             />
@@ -110,12 +176,13 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
                             name="newPassword"
                             rules={[
                                 { required: true, message: t('adminChangePassword.validation.newPasswordRequired') },
-                                { min: 6, message: t('adminChangePassword.validation.newPasswordMin') }
+                                { min: 6, message: t('adminChangePassword.validation.newPasswordMin') },
                             ]}
-                            help={t('adminChangePassword.form.newPasswordHelp')}
+                            extra={t('adminChangePassword.form.newPasswordHelp')}
                         >
                             <Input.Password
-                                prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
+                                autoComplete="new-password"
+                                prefix={<CheckCircleOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('adminChangePassword.form.placeholders.newPassword')}
                                 size="large"
                             />
@@ -124,17 +191,34 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ ope
                         <Form.Item
                             label={t('adminChangePassword.form.confirmPassword')}
                             name="confirmPassword"
-                            rules={[{ required: true, message: t('adminChangePassword.validation.confirmPasswordRequired') }]}
+                            dependencies={['newPassword']}
+                            rules={[
+                                {
+                                    required: true,
+                                    message: t('adminChangePassword.validation.confirmPasswordRequired'),
+                                },
+                                ({ getFieldValue }) => ({
+                                    validator(_, value: string) {
+                                        if (!value || getFieldValue('newPassword') === value) {
+                                            return Promise.resolve();
+                                        }
+                                        return Promise.reject(
+                                            new Error(t('adminChangePassword.messages.passwordMismatch')),
+                                        );
+                                    },
+                                }),
+                            ]}
                         >
                             <Input.Password
-                                prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
+                                autoComplete="new-password"
+                                prefix={<CheckCircleOutlined style={{ color: token.colorTextTertiary }} />}
                                 placeholder={t('adminChangePassword.form.placeholders.confirmPassword')}
                                 size="large"
                             />
                         </Form.Item>
                     </Form>
                 )}
-            </div>
+            </Space>
         </Modal>
     );
 };

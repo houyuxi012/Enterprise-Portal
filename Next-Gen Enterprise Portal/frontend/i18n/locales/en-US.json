@@ -311,6 +311,270 @@
       }
     }
   },
+  "portalMeetings": {
+    "title": "Meetings Today",
+    "subtitle": "Review today's meetings with live auto-sync when new meetings are created in the admin console.",
+    "lastUpdated": "Updated at {{time}}",
+    "duration": "{{count}} min",
+    "organizer": "Organizer",
+    "attendees": "Attendees",
+    "empty": "There are no meetings scheduled for today",
+    "emptyFiltered": "No meetings match the current filters",
+    "types": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "metrics": {
+      "total": "Total",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "filters": {
+      "all": "All",
+      "searchPlaceholder": "Search by subject / organizer / room",
+      "type": "Type",
+      "status": "Status"
+    },
+    "actions": {
+      "back": "Back to Home",
+      "refresh": "Refresh",
+      "resetFilters": "Clear Filters",
+      "viewDetail": "View Details"
+    },
+    "sections": {
+      "timeline": "Timeline",
+      "todaySchedule": "Today's Schedule",
+      "nextMeeting": "Next Up"
+    },
+    "status": {
+      "upcoming": "Upcoming",
+      "inProgress": "In Progress",
+      "finished": "Finished"
+    },
+    "next": {
+      "empty": "There are no upcoming meetings today.",
+      "filteredEmpty": "No upcoming meetings under the current filters.",
+      "onlineHint": "Prepare the meeting link and device before the online meeting starts.",
+      "offlineHint": "Allow enough arrival time and confirm the meeting room for the offline meeting."
+    },
+    "drawer": {
+      "title": "Meeting Details",
+      "startTime": "Start Time",
+      "duration": "Duration",
+      "room": "Room",
+      "meetingId": "Meeting ID",
+      "organizerHint": "Meeting owner and agenda sponsor",
+      "attendeeCount": "{{count}} attendees",
+      "noAttendees": "No attendee information is available for this meeting yet"
+    }
+  },
+  "meetingLocal": {
+    "page": {
+      "title": "Meeting Management / Local Registry",
+      "subtitle": "Create and maintain the admin-side local meeting ledger with a stable data model for future third-party integrations."
+    },
+    "filters": {
+      "search": "Search by subject / room / meeting ID / organizer / attendee",
+      "type": "Meeting Type",
+      "organizer": "Organizer",
+      "attendee": "Attendee",
+      "status": "Meeting Status"
+    },
+    "actions": {
+      "create": "Create Meeting",
+      "save": "Save Changes",
+      "resetFilters": "Reset Filters",
+      "edit": "Edit Meeting",
+      "delete": "Delete Meeting",
+      "deleteConfirm": "Delete this meeting?",
+      "viewDetail": "View Details",
+      "copyMeetingId": "Copy Meeting ID",
+      "copyAttendees": "Copy Attendees",
+      "copy": "Copy"
+    },
+    "status": {
+      "upcoming": "Upcoming",
+      "inProgress": "In Progress",
+      "finished": "Finished"
+    },
+    "messages": {
+      "updateSuccess": "Meeting updated",
+      "createSuccess": "Meeting created",
+      "updateFailed": "Failed to update meeting",
+      "createFailed": "Failed to create meeting",
+      "deleteSuccess": "Meeting deleted",
+      "deleteFailed": "Failed to delete meeting",
+      "copyFailed": "Copy failed, please try again later",
+      "copyMeetingIdSuccess": "Meeting ID copied",
+      "copyRoomSuccess": "Meeting room copied",
+      "copyAttendeesSuccess": "Attendees copied"
+    },
+    "table": {
+      "subject": "Subject",
+      "createdAt": "Created at",
+      "startTime": "Start Time",
+      "duration": "Duration",
+      "type": "Meeting Type",
+      "room": "Room",
+      "meetingId": "Meeting ID",
+      "organizer": "Organizer",
+      "attendees": "Attendees"
+    },
+    "units": {
+      "minutes": " min"
+    },
+    "metrics": {
+      "total": "Local Meetings",
+      "upcoming": "Upcoming Meetings",
+      "online": "Online Meetings",
+      "offline": "Offline Meetings"
+    },
+    "types": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "modal": {
+      "title": "Create Meeting",
+      "editTitle": "Edit Meeting"
+    },
+    "form": {
+      "tip": "If Meeting ID is left blank, the system will generate a unique identifier when saving.",
+      "editTip": "You can edit the meeting directly. Keeping the same Meeting ID avoids breaking external references.",
+      "subject": "Meeting Subject",
+      "subjectPlaceholder": "Example: Q2 Operations Review",
+      "organizer": "Organizer",
+      "organizerPlaceholder": "Select an organizer from User Center",
+      "startTime": "Start Time",
+      "startTimePlaceholder": "Select meeting start time",
+      "duration": "Duration (minutes)",
+      "meetingType": "Meeting Type",
+      "meetingTypePlaceholder": "Select meeting type",
+      "room": "Meeting Room",
+      "roomPlaceholder": "Example: 18F Xinghai Room / Tencent Meeting 904-123",
+      "meetingId": "Meeting ID",
+      "meetingIdPlaceholder": "Optional, auto-generated if left blank",
+      "attendees": "Attendees",
+      "attendeesPlaceholder": "Select attendees from User Center"
+    },
+    "validation": {
+      "subject": "Please enter the meeting subject",
+      "organizer": "Please enter the organizer",
+      "startTime": "Please select the start time",
+      "duration": "Please enter the duration",
+      "meetingType": "Please select the meeting type",
+      "room": "Please enter the meeting room",
+      "attendees": "Please provide at least one attendee"
+    },
+    "empty": "There are no local meetings yet. Create one to get started.",
+    "emptyFiltered": "No meetings match the current filters.",
+    "drawer": {
+      "title": "Meeting Details",
+      "summary": "Review the core meeting data in one place and quickly copy important fields.",
+      "startTime": "Start Time",
+      "duration": "Duration",
+      "room": "Meeting Room",
+      "meetingId": "Meeting ID",
+      "organizer": "Organizer",
+      "updatedAt": "Last Updated",
+      "createdAt": "Created At",
+      "attendees": "Attendees",
+      "attendeeCount": "{{count}} attendees",
+      "editCurrent": "Edit This Meeting"
+    }
+  },
+  "meetingSync": {
+    "page": {
+      "title": "Meeting Management / Third-Party Sync",
+      "subtitle": "Connect external meeting platforms and synchronize meetings plus room resources. This entry is reserved for now."
+    },
+    "status": {
+      "title": "Planned",
+      "description": "This page now collects platform settings and task placeholders. Real credential storage, schedulers, and sync audit will be connected next.",
+      "pending": "Planned"
+    },
+    "actions": {
+      "testConnection": "Test Connection",
+      "saveDraft": "Save Draft"
+    },
+    "messages": {
+      "saveSuccess": "Sync config draft saved",
+      "testPlaceholder": "The test connection entry is reserved. Real connectivity checks will be wired in later."
+    },
+    "sections": {
+      "config": "Platform Configuration",
+      "configHint": "Save the integration draft first so the same fields can be moved into backend persistence later.",
+      "tasks": "Sync Task Placeholders",
+      "tasksHint": "Break the sync chain into explicit stages now, then swap the placeholder data with real jobs later."
+    },
+    "form": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "syncEnabled": "Sync Switch",
+      "syncEnabledHint": "This only saves a draft and will not trigger jobs immediately.",
+      "provider": "Provider",
+      "apiBaseUrl": "Platform URL",
+      "apiBaseUrlPlaceholder": "Example: https://open.feishu.cn",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "Enter the platform Client ID / App ID",
+      "clientSecret": "Client Secret",
+      "clientSecretPlaceholder": "Enter the platform secret",
+      "syncMode": "Sync Mode",
+      "syncScope": "Sync Scope",
+      "syncCron": "Polling Expression",
+      "syncCronPlaceholder": "Example: 0 */2 * * *",
+      "roomMapping": "Room Mapping",
+      "syncModes": {
+        "manual": "Manual Trigger",
+        "scheduled": "Scheduled Polling",
+        "webhook": "Webhook Callback"
+      },
+      "syncScopes": {
+        "meetings": "Meetings Only",
+        "meetingsRooms": "Meetings + Rooms",
+        "full": "Full Objects"
+      },
+      "roomMappings": {
+        "name": "Match by Name",
+        "externalId": "Match by External ID",
+        "hybrid": "Hybrid Strategy"
+      }
+    },
+    "provider": {
+      "description": "Supports meeting creation, member sync, room mapping, and meeting record ingestion."
+    },
+    "providers": {
+      "tencent": "Tencent Meeting",
+      "feishu": "Feishu Meetings",
+      "dingtalk": "DingTalk Meetings",
+      "zoom": "Zoom",
+      "teams": "Microsoft Teams"
+    },
+    "tasks": {
+      "bootstrap": {
+        "title": "Configure Platform Credentials",
+        "description": "Fill in the platform URL, app ID, and secret before the integration can move into verification."
+      },
+      "rooms": {
+        "title": "Validate Room Mapping",
+        "description": "Define how local meeting rooms map to external rooms to avoid duplicate room records after sync."
+      },
+      "jobs": {
+        "title": "Connect Sync Jobs",
+        "description": "This is a task placeholder for now. Scheduled jobs, webhook callbacks, and retries will be connected here later."
+      },
+      "provider": {
+        "title": "Current Provider",
+        "description": "{{provider}} is selected as the current integration target."
+      }
+    },
+    "taskStatus": {
+      "ready": "Ready",
+      "planning": "Planning",
+      "pending": "Pending"
+    },
+    "empty": "No third-party meeting connector has been configured yet.",
+    "hint": "Once the integration surface is ready, platform credentials and sync rules can be configured here."
+  },
   "adminTodos": {
     "title": "Todo Management",
     "subtitle": "Centralized task monitoring and scheduling",
@@ -392,6 +656,9 @@
       "news": "News",
       "announcements": "Announcements",
       "carousel": "Carousel",
+      "meetingManagement": "Meeting Management",
+      "meetingLocal": "Local Registry",
+      "meetingSync": "Third-Party Sync",
       "apps": "App Center",
       "tools": "App Management",
       "appPermissions": "App Permissions",
@@ -529,6 +796,10 @@
   },
   "loginAdmin": {
     "fallbackAppName": "Next-Gen Enterprise Portal",
+    "heroTitleLine1": "Empowering",
+    "heroTitleLine2": "Next-Gen",
+    "heroTitleLine3": "Workplaces.",
+    "heroDescription": "Experience the future of enterprise collaboration with AI-powered insights and seamless productivity tools.",
     "welcomeTitle": "Welcome Back",
     "welcomeSubtitle": "Please sign in with your enterprise account",
     "identityGovernanceTitle": "Enterprise Identity & Access Governance",
@@ -1974,7 +2245,10 @@
       "meeting": {
         "label": "Meetings Today",
         "value": "{{count}}",
-        "desc": "Next: 14:00 Product Weekly"
+        "desc": "Next: 14:00 Product Weekly",
+        "next": "Next: {{time}} {{subject}}",
+        "empty": "No meetings today",
+        "allCompleted": "Today's meetings are finished"
       },
       "workHours": {
         "label": "Work Hours",
@@ -2072,7 +2346,11 @@
       "product": "Product",
       "version": "Version",
       "gitSha": "Git SHA",
-      "buildTime": "Build Time"
+      "gitRef": "Git Ref",
+      "buildTime": "Build Time",
+      "buildRef": "Build Ref",
+      "apiVersion": "API Version",
+      "schema": "Schema"
     },
     "fields": {
       "buildFallback": "Build {{value}}",

@@ -88,6 +88,7 @@ class LogForwardingConfig(LogForwardingConfigBase):
 
 MeetingType = Literal["online", "offline"]
 MeetingSource = Literal["local", "third_party"]
+AdminMeetingStatus = Literal["upcoming", "inProgress", "finished"]
 
 
 class AdminMeetingBase(BaseModel):
@@ -96,8 +97,8 @@ class AdminMeetingBase(BaseModel):
     duration_minutes: int
     meeting_type: MeetingType
     meeting_room: str
-    organizer: str
-    attendees: list[str] = []
+    organizer_user_id: int
+    attendee_user_ids: list[int] = []
 
 
 class AdminMeetingCreate(AdminMeetingBase):
@@ -108,9 +109,29 @@ class AdminMeetingUpdate(AdminMeetingBase):
     meeting_id: Optional[str] = None
 
 
-class AdminMeeting(AdminMeetingBase):
+class AdminMeetingUserRef(BaseModel):
     id: int
+    username: str
+    name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminMeeting(BaseModel):
+    id: int
+    subject: str
+    start_time: datetime
+    duration_minutes: int
+    meeting_type: MeetingType
+    meeting_room: str
     meeting_id: str
+    organizer: str
+    organizer_user_id: Optional[int] = None
+    organizer_user: Optional[AdminMeetingUserRef] = None
+    attendees: list[str] = []
+    attendee_user_ids: list[int] = []
+    attendee_users: list[AdminMeetingUserRef] = []
     source: MeetingSource = "local"
     created_by: Optional[int] = None
     created_at: datetime
@@ -118,6 +139,21 @@ class AdminMeeting(AdminMeetingBase):
 
     class Config:
         from_attributes = True
+
+
+class AdminMeetingListSummary(BaseModel):
+    total: int
+    upcoming: int
+    online: int
+    offline: int
+
+
+class AdminMeetingListResponse(BaseModel):
+    total: int
+    limit: int = 20
+    offset: int = 0
+    items: list[AdminMeeting]
+    summary: AdminMeetingListSummary
 
 
 class CarouselItemBase(BaseModel):

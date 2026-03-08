@@ -311,6 +311,270 @@
       }
     }
   },
+  "portalMeetings": {
+    "title": "今日会议",
+    "subtitle": "查看今日会议安排，支持自动刷新，后台新增后将自动同步到当前列表。",
+    "lastUpdated": "已更新于 {{time}}",
+    "duration": "{{count}} 分钟",
+    "organizer": "发起人",
+    "attendees": "参会人",
+    "empty": "今天还没有会议安排",
+    "emptyFiltered": "没有符合筛选条件的会议",
+    "types": {
+      "online": "线上",
+      "offline": "线下"
+    },
+    "metrics": {
+      "total": "总场次",
+      "online": "线上",
+      "offline": "线下"
+    },
+    "filters": {
+      "all": "全部",
+      "searchPlaceholder": "搜索会议主题 / 发起人 / 会议室",
+      "type": "会议类型",
+      "status": "会议状态"
+    },
+    "actions": {
+      "back": "返回首页",
+      "refresh": "立即刷新",
+      "resetFilters": "清空筛选",
+      "viewDetail": "查看详情"
+    },
+    "sections": {
+      "timeline": "时间线",
+      "todaySchedule": "今日会议安排",
+      "nextMeeting": "下一场"
+    },
+    "status": {
+      "upcoming": "即将开始",
+      "inProgress": "进行中",
+      "finished": "已结束"
+    },
+    "next": {
+      "empty": "今天没有待开始的会议。",
+      "filteredEmpty": "当前筛选条件下没有待开始的会议。",
+      "onlineHint": "线上会议，请提前准备入会链接与设备。",
+      "offlineHint": "线下会议，请预留到场时间并确认会议室。"
+    },
+    "drawer": {
+      "title": "会议详情",
+      "startTime": "开始时间",
+      "duration": "会议时长",
+      "room": "会议室",
+      "meetingId": "会议 ID",
+      "organizerHint": "会议发起人与议程所有者",
+      "attendeeCount": "{{count}} 人",
+      "noAttendees": "当前会议还没有参会人信息"
+    }
+  },
+  "meetingLocal": {
+    "page": {
+      "title": "会议管理 / 本地管理",
+      "subtitle": "创建并维护后台本地会议台账，为后续接入三方会议平台预留统一数据面。"
+    },
+    "filters": {
+      "search": "按会议主题 / 会议室 / 会议 ID / 发起人 / 参会人搜索",
+      "type": "会议类型",
+      "organizer": "会议发起人",
+      "attendee": "参会人",
+      "status": "会议状态"
+    },
+    "actions": {
+      "create": "创建会议",
+      "save": "保存修改",
+      "resetFilters": "重置筛选",
+      "edit": "编辑会议",
+      "delete": "删除会议",
+      "deleteConfirm": "确认删除这场会议吗？",
+      "viewDetail": "查看详情",
+      "copyMeetingId": "复制会议 ID",
+      "copyAttendees": "复制参会人",
+      "copy": "复制"
+    },
+    "status": {
+      "upcoming": "即将开始",
+      "inProgress": "进行中",
+      "finished": "已结束"
+    },
+    "messages": {
+      "updateSuccess": "会议已更新",
+      "createSuccess": "会议已创建",
+      "updateFailed": "更新会议失败",
+      "createFailed": "创建会议失败",
+      "deleteSuccess": "会议已删除",
+      "deleteFailed": "删除会议失败",
+      "copyFailed": "复制失败，请稍后重试",
+      "copyMeetingIdSuccess": "会议 ID 已复制",
+      "copyRoomSuccess": "会议室信息已复制",
+      "copyAttendeesSuccess": "参会人已复制"
+    },
+    "table": {
+      "subject": "会议主题",
+      "createdAt": "创建于",
+      "startTime": "开始时间",
+      "duration": "会议时长",
+      "type": "会议类型",
+      "room": "会议室",
+      "meetingId": "会议 ID",
+      "organizer": "会议发起人",
+      "attendees": "参会人"
+    },
+    "units": {
+      "minutes": "分钟"
+    },
+    "metrics": {
+      "total": "本地会议总数",
+      "upcoming": "待开始会议",
+      "online": "线上会议",
+      "offline": "线下会议"
+    },
+    "types": {
+      "online": "线上",
+      "offline": "线下"
+    },
+    "modal": {
+      "title": "创建会议",
+      "editTitle": "编辑会议"
+    },
+    "form": {
+      "tip": "未填写会议 ID 时，系统会在保存时自动生成一个唯一标识。",
+      "editTip": "你可以直接修改会议信息；保留会议 ID 不变可避免外部引用失效。",
+      "subject": "会议主题",
+      "subjectPlaceholder": "例如：Q2 经营复盘会",
+      "organizer": "会议发起人",
+      "organizerPlaceholder": "从用户中心选择会议发起人",
+      "startTime": "开始时间",
+      "startTimePlaceholder": "选择会议开始时间",
+      "duration": "会议时长（分钟）",
+      "meetingType": "会议类型",
+      "meetingTypePlaceholder": "选择会议类型",
+      "room": "会议室",
+      "roomPlaceholder": "例如：18F 星海会议室 / 腾讯会议 904-123",
+      "meetingId": "会议 ID",
+      "meetingIdPlaceholder": "可选，留空时自动生成",
+      "attendees": "参会人",
+      "attendeesPlaceholder": "从用户中心选择参会人，可多选"
+    },
+    "validation": {
+      "subject": "请输入会议主题",
+      "organizer": "请输入会议发起人",
+      "startTime": "请选择开始时间",
+      "duration": "请输入会议时长",
+      "meetingType": "请选择会议类型",
+      "room": "请输入会议室",
+      "attendees": "请至少填写一位参会人"
+    },
+    "empty": "当前还没有本地会议，先创建一场会议。",
+    "emptyFiltered": "当前筛选条件下没有会议。",
+    "drawer": {
+      "title": "会议详情",
+      "summary": "集中查看当前会议的核心信息，并支持快速复制关键字段。",
+      "startTime": "开始时间",
+      "duration": "会议时长",
+      "room": "会议室",
+      "meetingId": "会议 ID",
+      "organizer": "会议发起人",
+      "updatedAt": "最后更新时间",
+      "createdAt": "创建时间",
+      "attendees": "参会人",
+      "attendeeCount": "共 {{count}} 人",
+      "editCurrent": "编辑此会议"
+    }
+  },
+  "meetingSync": {
+    "page": {
+      "title": "会议管理 / 三方同步",
+      "subtitle": "用于对接外部会议平台、同步会议信息和会议室资源。当前入口先预留。"
+    },
+    "status": {
+      "title": "待开发",
+      "description": "当前页面提供平台配置和任务占位，用于收口接入参数。后续会继续接真实凭据存储、任务调度和同步审计。",
+      "pending": "待开发"
+    },
+    "actions": {
+      "testConnection": "测试连接",
+      "saveDraft": "保存草稿"
+    },
+    "messages": {
+      "saveSuccess": "同步配置草稿已保存",
+      "testPlaceholder": "测试连接入口已预留，后续会接入真实联通性检查。"
+    },
+    "sections": {
+      "config": "平台配置",
+      "configHint": "先保存平台接入草稿，后续接后端持久化时可直接平移字段。",
+      "tasks": "同步任务占位",
+      "tasksHint": "先把同步链路拆成几个明确阶段，后续接任务引擎时直接替换占位数据。"
+    },
+    "form": {
+      "enabled": "已启用",
+      "disabled": "未启用",
+      "syncEnabled": "同步开关",
+      "syncEnabledHint": "仅保存草稿，不会立刻触发同步任务",
+      "provider": "接入平台",
+      "apiBaseUrl": "平台地址",
+      "apiBaseUrlPlaceholder": "例如：https://open.feishu.cn",
+      "clientId": "应用 ID",
+      "clientIdPlaceholder": "填写平台分配的 Client ID / App ID",
+      "clientSecret": "应用密钥",
+      "clientSecretPlaceholder": "填写平台分配的密钥",
+      "syncMode": "同步模式",
+      "syncScope": "同步范围",
+      "syncCron": "轮询表达式",
+      "syncCronPlaceholder": "例如：0 */2 * * *",
+      "roomMapping": "会议室映射",
+      "syncModes": {
+        "manual": "手动触发",
+        "scheduled": "定时轮询",
+        "webhook": "Webhook 回流"
+      },
+      "syncScopes": {
+        "meetings": "仅会议",
+        "meetingsRooms": "会议 + 会议室",
+        "full": "全量对象"
+      },
+      "roomMappings": {
+        "name": "按名称匹配",
+        "externalId": "按外部 ID 匹配",
+        "hybrid": "混合策略"
+      }
+    },
+    "provider": {
+      "description": "支持会议创建、成员同步、会议室映射和会议记录回流。"
+    },
+    "providers": {
+      "tencent": "腾讯会议",
+      "feishu": "飞书会议",
+      "dingtalk": "钉钉会议",
+      "zoom": "Zoom",
+      "teams": "Microsoft Teams"
+    },
+    "tasks": {
+      "bootstrap": {
+        "title": "配置平台凭据",
+        "description": "填写平台地址、应用 ID 与密钥后，才可以进入后续同步联调。"
+      },
+      "rooms": {
+        "title": "会议室映射校验",
+        "description": "确定本地会议室与外部平台房间的映射策略，避免同步后产生重复会议室。"
+      },
+      "jobs": {
+        "title": "同步任务接入",
+        "description": "当前先展示任务占位。后续会在这里接入定时任务、Webhook 回流和失败重试。"
+      },
+      "provider": {
+        "title": "当前平台",
+        "description": "已选择 {{provider}} 作为当前接入平台。"
+      }
+    },
+    "taskStatus": {
+      "ready": "已就绪",
+      "planning": "规划中",
+      "pending": "待完成"
+    },
+    "empty": "当前尚未配置任何三方会议同步器。",
+    "hint": "接口预留完成后，可在此处配置平台凭据与同步规则。"
+  },
   "adminTodos": {
     "title": "待办管理",
     "subtitle": "全员待办任务监控与调度",
@@ -392,6 +656,9 @@
       "news": "新闻资讯",
       "announcements": "实时公告",
       "carousel": "轮播管理",
+      "meetingManagement": "会议管理",
+      "meetingLocal": "本地管理",
+      "meetingSync": "三方同步",
       "apps": "应用中心",
       "tools": "应用管理",
       "appPermissions": "应用权限",
@@ -530,6 +797,10 @@
   },
   "loginAdmin": {
     "fallbackAppName": "Next-Gen Enterprise Portal",
+    "heroTitleLine1": "赋能",
+    "heroTitleLine2": "新一代",
+    "heroTitleLine3": "智能办公。",
+    "heroDescription": "体验 AI 驱动洞察与无缝生产力工具带来的未来企业协作方式。",
     "welcomeTitle": "欢迎回来",
     "welcomeSubtitle": "请使用您的企业账户登录系统",
     "identityGovernanceTitle": "企业级身份与访问治理",
@@ -1988,7 +2259,10 @@
       "meeting": {
         "label": "今日会议",
         "value": "{{count}}场",
-        "desc": "下一场：14:00 产品周会"
+        "desc": "下一场：14:00 产品周会",
+        "next": "下一场：{{time}} {{subject}}",
+        "empty": "今日暂无会议",
+        "allCompleted": "今日会议已结束"
       },
       "workHours": {
         "label": "工时完成",
@@ -2086,7 +2360,11 @@
       "product": "产品",
       "version": "版本",
       "gitSha": "Git SHA",
-      "buildTime": "构建时间"
+      "gitRef": "Git Ref",
+      "buildTime": "构建时间",
+      "buildRef": "构建标识",
+      "apiVersion": "API 版本",
+      "schema": "Schema"
     },
     "fields": {
       "buildFallback": "构建 {{value}}",

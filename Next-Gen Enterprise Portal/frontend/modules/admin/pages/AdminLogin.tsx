@@ -7,7 +7,14 @@ import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
-import { buildPrivacyConsentHeaders, isPrivacyConsentRequired } from '@/shared/utils/privacyConsent';
+import {
+    buildPrivacyConsentHeaders,
+    getCachedAdminPrivacyConsent,
+    clearStoredAdminPrivacyConsent,
+    getStoredAdminPrivacyConsent,
+    isPrivacyConsentRequired,
+    persistAdminPrivacyConsent,
+} from '@/shared/utils/privacyConsent';
 import { useTranslation } from 'react-i18next';
 
 import { AppModal, AppButton } from '@/modules/admin/components/ui';
@@ -56,8 +63,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
+    const [systemConfigLoaded, setSystemConfigLoaded] = useState(false);
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
-    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [privacyAccepted, setPrivacyAccepted] = useState(() => getCachedAdminPrivacyConsent());
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
     const [captchaId, setCaptchaId] = useState('');
@@ -88,12 +96,22 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             try {
                 const config = await ApiClient.getPublicSystemConfig();
                 setSystemConfig(config);
+                setPrivacyAccepted(getStoredAdminPrivacyConsent(config));
             } catch (e) {
                 console.error("Failed to load system config", e);
+            } finally {
+                setSystemConfigLoaded(true);
             }
         };
         fetchConfig();
     }, []);
+
+    React.useEffect(() => {
+        if (!systemConfigLoaded) {
+            return;
+        }
+        persistAdminPrivacyConsent(systemConfig, privacyAccepted);
+    }, [privacyAccepted, systemConfig, systemConfigLoaded]);
 
     const shouldRequirePrivacyConsent = isPrivacyConsentRequired(systemConfig);
 
@@ -156,9 +174,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 /captcha/i.test(`${detail} ${detailCode}`);
 
             if (detailCode === 'PRIVACY_CONSENT_REQUIRED') {
+                clearStoredAdminPrivacyConsent();
                 msg = t('loginAdmin.privacyConsentRequired', '请先阅读并同意隐私政策');
             } else if (detailCode === 'PRIVACY_POLICY_STALE') {
                 setPrivacyAccepted(false);
+                clearStoredAdminPrivacyConsent();
                 msg = t('loginAdmin.messages.privacyPolicyUpdated', '隐私政策已更新，请刷新页面后重新阅读并同意');
             } else if (shouldShowCaptcha) {
                 setRequiresCaptcha(true);
@@ -403,13 +423,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                     </div>
 
                     <h1 className="text-5xl font-black text-white leading-tight tracking-tight mb-8">
-                        Empowering<br />
-                        <span className="text-blue-400">Next-Gen</span><br />
-                        Workplaces.
+                        {t('loginAdmin.heroTitleLine1')}<br />
+                        <span className="text-blue-400">{t('loginAdmin.heroTitleLine2')}</span><br />
+                        {t('loginAdmin.heroTitleLine3')}
                     </h1>
 
                     <p className="text-slate-400 text-lg leading-relaxed max-w-md">
-                        Experience the future of enterprise collaboration with AI-powered insights and seamless productivity tools.
+                        {t('loginAdmin.heroDescription')}
                     </p>
                 </div>
 

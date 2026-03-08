@@ -17,7 +17,43 @@ branch_labels = None
 depends_on = None
 
 
+def _get_column_data_type(table_name: str, column_name: str) -> str | None:
+    bind = op.get_bind()
+    return bind.execute(
+        sa.text(
+            """
+SELECT data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = :table_name
+  AND column_name = :column_name
+"""
+        ),
+        {"table_name": table_name, "column_name": column_name},
+    ).scalar_one_or_none()
+
+
 def _convert_log_timestamp_to_timestamptz(table_name: str) -> None:
+    current_type = _get_column_data_type(table_name, "timestamp")
+    if current_type == "timestamp with time zone":
+        op.execute(sa.text(f"ALTER TABLE {table_name} ALTER COLUMN timestamp SET NOT NULL"))
+        op.execute(sa.text(f"ALTER TABLE {table_name} ALTER COLUMN timestamp SET DEFAULT NOW()"))
+        op.execute(sa.text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_timestamp ON {table_name} (timestamp)"))
+        return
+
+    if current_type == "timestamp without time zone":
+        op.alter_column(
+            table_name,
+            "timestamp",
+            existing_type=sa.DateTime(timezone=False),
+            type_=sa.DateTime(timezone=True),
+            postgresql_using="timestamp AT TIME ZONE 'UTC'",
+        )
+        op.execute(sa.text(f"ALTER TABLE {table_name} ALTER COLUMN timestamp SET NOT NULL"))
+        op.execute(sa.text(f"ALTER TABLE {table_name} ALTER COLUMN timestamp SET DEFAULT NOW()"))
+        op.execute(sa.text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_timestamp ON {table_name} (timestamp)"))
+        return
+
     op.execute(
         sa.text(
             f"""
@@ -43,6 +79,11 @@ WHERE timestamp_tmp IS NULL
 
 
 def _convert_log_timestamp_to_varchar(table_name: str) -> None:
+    current_type = _get_column_data_type(table_name, "timestamp")
+    if current_type in {"character varying", "text"}:
+        op.execute(sa.text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_timestamp ON {table_name} (timestamp)"))
+        return
+
     op.execute(
         sa.text(
             f"""

@@ -4,11 +4,12 @@ import asyncio
 import logging
 import os
 import uuid
-from datetime import datetime
 
 from fastapi import FastAPI
 from sqlalchemy.engine import make_url
 from sqlalchemy import text
+from core.runtime_secrets import get_env, get_required_env
+from core.time_utils import utc_now
 
 import core.database as database
 from core.db_tls import build_asyncpg_url_and_connect_args
@@ -27,9 +28,7 @@ async def try_acquire_db_startup_lock() -> bool:
     try:
         import asyncpg
 
-        raw_database_url = os.getenv("DATABASE_URL", "").strip()
-        if not raw_database_url:
-            raise RuntimeError("DATABASE_URL is not set")
+        raw_database_url = get_required_env("DATABASE_URL")
 
         normalized_url, connect_args = build_asyncpg_url_and_connect_args(raw_database_url)
         url = make_url(normalized_url)
@@ -53,45 +52,6 @@ async def try_acquire_db_startup_lock() -> bool:
         logger.warning("DB advisory lock acquisition failed: %s", e)
         return False
 
-
-async def _maintain_redis_startup_lock() -> None:
-    from infrastructure.cache_manager import cache
-
-    try:
-        while True:
-            await asyncio.sleep(60)
-            client = getattr(cache, "redis", None)
-            if client:
-                await client.expire("enterprise_portal_startup_lock", 120)
-    except asyncio.CancelledError:
-        return
-    except Exception as e:
-        logger.warning("Redis lock maintainer failed: %s", e)
-
-
-async def try_acquire_redis_startup_lock() -> bool:
-    from infrastructure.cache_manager import cache
-
-    try:
-        client = getattr(cache, "redis", None)
-        if not client:
-            await cache.init()
-            client = getattr(cache, "redis", None)
-        if not client:
-            raise RuntimeError("CacheManager client is unavailable after init")
-        acquired = await client.set(
-            "enterprise_portal_startup_lock",
-            _INSTANCE_ID,
-            ex=120,
-            nx=True,
-        )
-        if acquired:
-            _LEADER_TASKS.append(asyncio.create_task(_maintain_redis_startup_lock()))
-            return True
-        return False
-    except Exception as e:
-        logger.warning("Redis fallback lock check failed: %s", e)
-        return False
 
 
 async def acquire_startup_leader() -> str | None:
@@ -124,7 +84,7 @@ async def record_startup_status(status: str, error: str | None = None) -> None:
                     "boot_id": _BOOT_ID,
                     "instance_id": _INSTANCE_ID,
                     "status": status,
-                    "now": datetime.utcnow(),
+                    "now": utc_now(),
                     "error": error,
                 },
             )
@@ -139,6 +99,7 @@ async def _run_shared_startup_initialization() -> None:
         init_admin,
         invalidate_permission_cache,
     )
+    from modules.admin.services.ai_provider_security import ensure_ai_provider_api_keys_encrypted
     from modules.admin.services.log_forwarding_security import ensure_log_forwarding_secrets_encrypted
     from modules.iam.services.system_config_security import ensure_sensitive_system_config_encrypted
 
@@ -157,12 +118,18 @@ async def _run_shared_startup_initialization() -> None:
         if admin_user_id is not None:
             affected_user_ids.add(admin_user_id)
         affected_user_ids.update(await assign_default_roles_to_roleless_users(session, role_map))
+        encrypted_ai_provider_rows = await ensure_ai_provider_api_keys_encrypted(session)
         encrypted_rows = await ensure_sensitive_system_config_encrypted(session)
         encrypted_log_forwarding_rows = await ensure_log_forwarding_secrets_encrypted(session)
-        if affected_user_ids or encrypted_rows or encrypted_log_forwarding_rows:
+        if affected_user_ids or encrypted_ai_provider_rows or encrypted_rows or encrypted_log_forwarding_rows:
             await session.commit()
         if affected_user_ids:
             await invalidate_permission_cache(affected_user_ids)
+        if encrypted_ai_provider_rows:
+            logger.info(
+                "Migrated %s AI provider api_key values to MASTER_KEY-backed encrypted format.",
+                encrypted_ai_provider_rows,
+            )
         if encrypted_rows:
             logger.info("Migrated %s plaintext sensitive system_config values to encrypted format.", encrypted_rows)
         if encrypted_log_forwarding_rows:
@@ -199,7 +166,7 @@ async def on_startup() -> None:
     from modules.admin.services.log_repository import init_log_repository
     from modules.admin.services.log_sink import init_log_sink
 
-    loki_url = os.getenv("LOKI_PUSH_URL")
+    loki_url = get_env("LOKI_PUSH_URL")
 
     async def noop_db_write(_entry):
         return True
@@ -229,7 +196,12 @@ async def on_startup() -> None:
         logger.info("Skipping leader-only schedulers in follower worker.")
 
 
-async def on_shutdown() -> None:
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan_context(app: FastAPI):
+    await on_startup()
+    yield
     from modules.admin.services.log_repository import shutdown_log_repository
     from modules.admin.services.log_sink import shutdown_log_sink
 
@@ -238,8 +210,3 @@ async def on_shutdown() -> None:
     _LEADER_TASKS.clear()
     await shutdown_log_sink()
     await shutdown_log_repository()
-
-
-def register_startup_events(app: FastAPI) -> None:
-    app.add_event_handler("startup", on_startup)
-    app.add_event_handler("shutdown", on_shutdown)

@@ -1,10 +1,13 @@
 import asyncio
 import logging
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
+
 from fastapi import BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.time_utils import utc_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +188,7 @@ class AuditService:
                 if sink:
                     loki_entry = LogEntry(
                         trace_id=trace_id,
-                        timestamp=datetime.utcnow().isoformat() + "Z",
+                        timestamp=utc_now_iso(),
                         level="INFO",
                         log_type=domain, # Use domain as log_type in Loki for isolation
                         action=action,
@@ -210,7 +213,7 @@ class AuditService:
                         "detail": detail,
                         "ip_address": ip_address,
                         "user_id": user_id,
-                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "timestamp": utc_now_iso(),
                     }
                 )
             except Exception as e:

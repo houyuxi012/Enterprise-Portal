@@ -3,9 +3,9 @@ import logging
 import time
 import asyncio
 from typing import Optional, Any, Union, Dict, List, Tuple
-from urllib.parse import quote
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
+from core.runtime_secrets import get_env
 
 # 1) JSON Fallback Update: Must decode bytes before loads
 try:
@@ -68,17 +68,7 @@ class CacheManager:
         self.allow_memory_fallback = not self.strict_mode
 
         if not redis_url:
-            redis_url = os.getenv("REDIS_URL", "")
-            if not redis_url:
-                redis_password = os.getenv("REDIS_PASSWORD", "").strip()
-                if redis_password:
-                    redis_ca_cert = quote(os.getenv("REDIS_SSL_CA_CERT", "/run/certs/hyx_ngep.cer"), safe="/:")
-                    redis_url = (
-                        f"rediss://:{redis_password}@redis:6379/0"
-                        f"?ssl_cert_reqs=required&ssl_ca_certs={redis_ca_cert}"
-                    )
-                else:
-                    redis_url = "redis://redis:6379/0"
+            redis_url = get_env("REDIS_URL")
 
         if redis_url.startswith("redis://"):
             message = "REDIS_URL uses plaintext transport (redis://). Configure rediss:// for secure deployment."

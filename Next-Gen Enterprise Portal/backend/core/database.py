@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from core.runtime_secrets import get_required_env
 from core.db_tls import (
     build_asyncpg_url_and_connect_args,
     database_url_requests_tls,
@@ -16,9 +17,7 @@ from core.db_tls import (
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set")
+DATABASE_URL = get_required_env("DATABASE_URL")
 DB_TLS_STRICT = os.getenv("DB_TLS_STRICT", "true").lower() != "false"
 if not database_url_requests_tls(DATABASE_URL):
     logger.warning("DATABASE_URL has no TLS parameter (sslmode/ssl). Prefer TLS-enabled DB connections.")

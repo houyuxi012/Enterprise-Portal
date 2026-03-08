@@ -6,6 +6,7 @@ const portalModuleRouteKeys = [
   'login',
   'security',
   'todos',
+  'meetings',
 ] as const;
 
 export type PortalModuleRouteKey = (typeof portalModuleRouteKeys)[number];
@@ -15,4 +16,5 @@ export const portalModuleRoutes: PortalModuleRoutes = {
   login: lazy(() => import('./pages/Login')),
   security: lazy(() => import('./pages/PortalSecurity')),
   todos: lazy(() => import('./pages/Todos')),
+  meetings: lazy(() => import('./pages/Meetings')),
 };

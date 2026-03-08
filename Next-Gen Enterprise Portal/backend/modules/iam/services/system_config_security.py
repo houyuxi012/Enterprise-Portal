@@ -7,6 +7,7 @@ import os
 from typing import Dict
 
 from cryptography.fernet import Fernet
+from core.runtime_secrets import get_env, get_required_env
 
 logger = logging.getLogger(__name__)
 
@@ -49,27 +50,19 @@ def _normalize_fernet_key(raw_key: str) -> bytes:
 def _load_fernet_key_candidates() -> list[Fernet]:
     candidates: list[Fernet] = []
 
-    master_key = str(os.getenv("MASTER_KEY") or "").strip()
+    master_key = str(get_env("MASTER_KEY")).strip()
     if master_key:
         candidates.append(Fernet(_normalize_fernet_key(master_key)))
 
-    previous_master_key = str(os.getenv("MASTER_KEY_PREVIOUS") or "").strip()
+    previous_master_key = str(get_env("MASTER_KEY_PREVIOUS")).strip()
     if previous_master_key:
         candidates.append(Fernet(_normalize_fernet_key(previous_master_key)))
-
-    # Backward-compatibility for old deployments that derived Fernet key from SECRET_KEY.
-    legacy_secret = str(os.getenv("SECRET_KEY") or "").strip()
-    if legacy_secret and legacy_secret not in {master_key, previous_master_key}:
-        candidates.append(Fernet(_normalize_fernet_key(legacy_secret)))
 
     return candidates
 
 
 def _get_primary_fernet() -> Fernet:
-    master_key = str(os.getenv("MASTER_KEY") or "").strip()
-    if not master_key:
-        raise RuntimeError("MASTER_KEY environment variable is required for sensitive system config encryption.")
-    return Fernet(_normalize_fernet_key(master_key))
+    return Fernet(_normalize_fernet_key(get_required_env("MASTER_KEY")))
 
 
 def has_stored_secret_value(value: str | None) -> bool:

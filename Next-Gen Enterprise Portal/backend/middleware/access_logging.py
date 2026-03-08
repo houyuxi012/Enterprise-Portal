@@ -13,10 +13,10 @@ Logs include:
 """
 import time
 import asyncio
-from datetime import datetime
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from core.time_utils import utc_now_iso
 from middleware.trace_context import get_trace_id
 
 
@@ -64,7 +64,7 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
                 log_entry = LogEntry(
                     trace_id=trace_id,
                     request_id=trace_id,
-                    timestamp=datetime.utcnow().isoformat() + "Z",
+                    timestamp=utc_now_iso(),
                     level=level,
                     log_type="ACCESS",
                     source="access",
@@ -91,7 +91,7 @@ class AccessLoggingMiddleware(BaseHTTPMiddleware):
                         "ip_address": client_ip,
                         "user_agent": request.headers.get("User-Agent", ""),
                         "latency_ms": latency_ms,
-                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "timestamp": utc_now_iso(),
                     }
                 )
         except Exception as e:

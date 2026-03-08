@@ -9,6 +9,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
+from core.runtime_secrets import get_env
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def _build_alembic_config() -> Config:
     config = Config(str(backend_root / "alembic.ini"))
     config.set_main_option("script_location", str(backend_root / "db_migrations"))
 
-    database_url = os.getenv("DATABASE_URL", "").strip()
+    database_url = get_env("DATABASE_URL").strip()
     if database_url:
         config.set_main_option("sqlalchemy.url", database_url)
 

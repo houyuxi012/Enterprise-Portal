@@ -24,6 +24,8 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
+from core.time_utils import utc_now
+
 logger = logging.getLogger(__name__)
 
 
@@ -233,7 +235,7 @@ class LokiLogWriter(LogWriter):
                     "log_type": entry.log_type,
                     "level": entry.level
                 }
-                ts_ns = str(int(datetime.utcnow().timestamp() * 1e9))
+                ts_ns = str(int(utc_now().timestamp() * 1e9))
                 loki_payload["streams"].append({
                     "stream": stream_labels,
                     "values": [[ts_ns, entry.to_loki_line()]]

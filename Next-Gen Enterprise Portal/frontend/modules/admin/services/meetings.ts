@@ -1,10 +1,13 @@
 import ApiClient, {
   type AdminMeetingCreatePayload,
   type AdminMeetingDTO,
+  type AdminMeetingListResponseDTO,
   type AdminMeetingListParams,
 } from '@/shared/services/api';
+import type { UserOption } from '@/types';
 
 export type MeetingType = 'online' | 'offline';
+export type MeetingStatus = 'upcoming' | 'inProgress' | 'finished';
 
 export interface LocalMeetingRecord {
   id: number;
@@ -15,7 +18,11 @@ export interface LocalMeetingRecord {
   meetingRoom: string;
   meetingId: string;
   organizer: string;
+  organizerUserId?: number | null;
+  organizerUser?: UserOption | null;
   attendees: string[];
+  attendeeUserIds: number[];
+  attendeeUsers: UserOption[];
   createdAt: string;
   updatedAt: string;
 }
@@ -27,8 +34,8 @@ export interface CreateLocalMeetingInput {
   meetingType: MeetingType;
   meetingRoom: string;
   meetingId?: string;
-  organizer: string;
-  attendees: string[];
+  organizerUserId: number;
+  attendeeUserIds: number[];
 }
 
 export interface ListMeetingFilters {
@@ -36,6 +43,26 @@ export interface ListMeetingFilters {
   meetingType?: MeetingType;
   startFrom?: string;
   startTo?: string;
+  organizerUserId?: number;
+  attendeeUserId?: number;
+  status?: MeetingStatus;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedMeetingSummary {
+  total: number;
+  upcoming: number;
+  online: number;
+  offline: number;
+}
+
+export interface PaginatedMeetingResult {
+  total: number;
+  limit: number;
+  offset: number;
+  items: LocalMeetingRecord[];
+  summary: PaginatedMeetingSummary;
 }
 
 const mapMeetingRecord = (record: AdminMeetingDTO): LocalMeetingRecord => ({
@@ -47,7 +74,21 @@ const mapMeetingRecord = (record: AdminMeetingDTO): LocalMeetingRecord => ({
   meetingRoom: record.meeting_room,
   meetingId: record.meeting_id,
   organizer: record.organizer,
+  organizerUserId: record.organizer_user_id,
+  organizerUser: record.organizer_user
+    ? {
+      id: record.organizer_user.id,
+      username: record.organizer_user.username,
+      name: record.organizer_user.name ?? undefined,
+    }
+    : null,
   attendees: record.attendees,
+  attendeeUserIds: record.attendee_user_ids || [],
+  attendeeUsers: (record.attendee_users || []).map((user) => ({
+    id: user.id,
+    username: user.username,
+    name: user.name ?? undefined,
+  })),
   createdAt: record.created_at,
   updatedAt: record.updated_at,
 });
@@ -59,8 +100,8 @@ const mapCreatePayload = (input: CreateLocalMeetingInput): AdminMeetingCreatePay
   meeting_type: input.meetingType,
   meeting_room: input.meetingRoom.trim(),
   meeting_id: input.meetingId?.trim() || undefined,
-  organizer: input.organizer.trim(),
-  attendees: input.attendees.map((item) => item.trim()).filter(Boolean),
+  organizer_user_id: input.organizerUserId,
+  attendee_user_ids: input.attendeeUserIds,
 });
 
 const mapListParams = (filters?: ListMeetingFilters): AdminMeetingListParams | undefined => {
@@ -73,13 +114,31 @@ const mapListParams = (filters?: ListMeetingFilters): AdminMeetingListParams | u
     meeting_type: filters.meetingType,
     start_from: filters.startFrom,
     start_to: filters.startTo,
+    organizer_user_id: filters.organizerUserId,
+    attendee_user_id: filters.attendeeUserId,
+    status: filters.status,
+    limit: filters.limit,
+    offset: filters.offset,
   };
 };
 
+const mapPaginatedMeetings = (payload: AdminMeetingListResponseDTO): PaginatedMeetingResult => ({
+  total: payload.total,
+  limit: payload.limit,
+  offset: payload.offset,
+  items: payload.items.map(mapMeetingRecord),
+  summary: {
+    total: payload.summary?.total ?? payload.total,
+    upcoming: payload.summary?.upcoming ?? 0,
+    online: payload.summary?.online ?? 0,
+    offline: payload.summary?.offline ?? 0,
+  },
+});
+
 class MeetingService {
-  async listMeetings(filters?: ListMeetingFilters): Promise<LocalMeetingRecord[]> {
+  async listMeetings(filters?: ListMeetingFilters): Promise<PaginatedMeetingResult> {
     const meetings = await ApiClient.getAdminMeetings(mapListParams(filters));
-    return meetings.map(mapMeetingRecord);
+    return mapPaginatedMeetings(meetings);
   }
 
   async createMeeting(input: CreateLocalMeetingInput): Promise<LocalMeetingRecord> {
