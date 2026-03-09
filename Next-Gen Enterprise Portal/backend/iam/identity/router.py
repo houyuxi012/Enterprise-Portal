@@ -151,6 +151,7 @@ async def get_me(
         account_type=getattr(user, "account_type", "PORTAL"),
         name=user.name,
         avatar=resolved_avatar,
+        locale=getattr(user, "locale", None),
         auth_source=getattr(user, "auth_source", "local"),
         is_active=user.is_active,
         password_violates_policy=getattr(user, "password_violates_policy", False),

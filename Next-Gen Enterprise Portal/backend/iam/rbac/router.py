@@ -2,6 +2,7 @@
 RBAC Router - 用户/角色/权限管理路由
 /iam/admin/users, /iam/admin/roles, /iam/admin/permissions
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ router = APIRouter(
     tags=["iam-rbac"],
     dependencies=[Depends(verify_admin_aud)],
 )
+logger = logging.getLogger("rbac_router")
 PORTAL_APP_ID = "portal"
 RESERVED_ROLE_CODES = {"user", "portaladmin", "portal_admin", "superadmin"}
 
@@ -38,6 +40,18 @@ def _is_protected_system_admin(user: models.User) -> bool:
     account_type = (getattr(user, "account_type", "PORTAL") or "PORTAL").upper()
     username = (getattr(user, "username", "") or "").strip().lower()
     return account_type == "SYSTEM" and username == "admin"
+
+
+def _normalize_user_locale(locale: str | None) -> str | None:
+    raw = str(locale or "").strip()
+    if not raw:
+        return None
+    normalized = raw.replace("_", "-").lower()
+    if normalized.startswith("zh"):
+        return "zh-CN"
+    if normalized.startswith("en"):
+        return "en-US"
+    raise HTTPException(status_code=400, detail="Unsupported locale")
 
 
 async def _load_roles_by_ids(db: AsyncSession, role_ids: List[int], app_id: str = PORTAL_APP_ID) -> List[models.Role]:
@@ -126,6 +140,7 @@ async def create_user(
         is_active=user_data.is_active,
         name=user_data.name,
         avatar=user_data.avatar,
+        locale=_normalize_user_locale(user_data.locale),
     )
     assigned_role_codes: List[str] = []
 
@@ -227,7 +242,10 @@ async def update_user(
             if email_exists.scalars().first():
                 raise HTTPException(status_code=400, detail="Email already registered")
 
-    allowed_fields = {"username", "email", "is_active", "name", "avatar"}
+    if "locale" in update_data:
+        update_data["locale"] = _normalize_user_locale(update_data["locale"])
+
+    allowed_fields = {"username", "email", "is_active", "name", "avatar", "locale"}
     for key in list(update_data.keys()):
         if key in allowed_fields:
             setattr(user, key, update_data[key])
@@ -448,6 +466,26 @@ async def reset_password(
         ip_address=ip, trace_id=trace_id
     )
     await db.commit()
+
+    if user.email:
+        try:
+            from modules.iam.services.email_service import send_password_reset_notice
+
+            await send_password_reset_notice(
+                user.email,
+                user.username,
+                db,
+                force_change_password=force_change_after_reset,
+                locale=getattr(user, "locale", None),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Password reset notice delivery failed for user_id=%s username=%s: %s",
+                user.id,
+                user.username,
+                exc,
+            )
+
     return {
         "message": f"Password for {user.username} has been reset",
         "new_password": new_pwd if auto_generated else None,

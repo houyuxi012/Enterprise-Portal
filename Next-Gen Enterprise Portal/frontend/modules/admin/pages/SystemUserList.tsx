@@ -22,6 +22,7 @@ type SystemUserFormValues = {
     password?: string;
     email: string;
     role_ids: number[];
+    locale?: 'zh-CN' | 'en-US';
 };
 
 type ApiErrorShape = {
@@ -56,6 +57,13 @@ const SystemUserList: React.FC = () => {
     const currentLocale = getCurrentLocale();
 
     const [form] = AppForm.useForm<SystemUserFormValues>();
+    const localeOptions = [
+        { value: 'zh-CN', label: t('systemUserList.locale.zhCN') },
+        { value: 'en-US', label: t('systemUserList.locale.enUS') },
+    ];
+
+    const renderLocaleLabel = (locale?: string | null): string =>
+        locale === 'en-US' ? t('systemUserList.locale.enUS') : locale === 'zh-CN' ? t('systemUserList.locale.zhCN') : t('systemUserList.locale.default');
 
     useEffect(() => {
         fetchData();
@@ -114,7 +122,8 @@ const SystemUserList: React.FC = () => {
             username: user.username,
             email: user.email,
             password: '',
-            role_ids: user.roles?.map(r => r.id) || []
+            role_ids: user.roles?.map(r => r.id) || [],
+            locale: user.locale || undefined,
         });
         setIsEditorOpen(true);
     };
@@ -132,6 +141,7 @@ const SystemUserList: React.FC = () => {
                 const payload: UserUpdatePayload = {
                     email: values.email,
                     role_ids: values.role_ids,
+                    locale: values.locale || null,
                 };
                 await ApiClient.updateUser(editingUser.id, payload);
                 message.success(t('systemUserList.messages.updateSuccess'));
@@ -141,6 +151,7 @@ const SystemUserList: React.FC = () => {
                     password: values.password ?? '',
                     email: values.email,
                     role_ids: values.role_ids,
+                    locale: values.locale,
                 };
                 await ApiClient.createUser(payload);
                 message.success(t('systemUserList.messages.createSuccess'));
@@ -245,6 +256,15 @@ const SystemUserList: React.FC = () => {
             key: 'email',
             render: (text: string) => (
                 <span className="text-slate-500">{text}</span>
+            ),
+        },
+        {
+            title: t('systemUserList.table.locale'),
+            dataIndex: 'locale',
+            key: 'locale',
+            width: 140,
+            render: (value?: string | null) => (
+                <span className="text-slate-500">{renderLocaleLabel(value)}</span>
             ),
         },
         {
@@ -412,6 +432,17 @@ const SystemUserList: React.FC = () => {
                                 value: role.id,
                                 label: getLocalizedRoleMeta(role, currentLocale).name,
                             }))}
+                        />
+                    </AppForm.Item>
+
+                    <AppForm.Item
+                        label={t('systemUserList.form.locale')}
+                        name="locale"
+                    >
+                        <Select
+                            allowClear
+                            placeholder={t('systemUserList.form.localePlaceholder')}
+                            options={localeOptions}
                         />
                     </AppForm.Item>
                 </AppForm>

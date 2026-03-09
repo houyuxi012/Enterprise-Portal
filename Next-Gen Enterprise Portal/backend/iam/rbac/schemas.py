@@ -71,6 +71,7 @@ class UserOut(BaseModel):
     is_active: bool = True
     name: Optional[str] = None
     avatar: Optional[str] = None
+    locale: Optional[str] = None
     auth_source: Optional[str] = "local"
     roles: List[RoleOut] = Field(default_factory=list)
 
@@ -87,6 +88,7 @@ class UserCreate(BaseModel):
     role_ids: List[int] = Field(default_factory=list)
     name: Optional[str] = None
     avatar: Optional[str] = None
+    locale: Optional[str] = None
 
     class Config:
         extra = "forbid"
@@ -100,6 +102,7 @@ class UserUpdate(BaseModel):
     role_ids: Optional[List[int]] = None
     name: Optional[str] = None
     avatar: Optional[str] = None
+    locale: Optional[str] = None
 
     class Config:
         extra = "forbid"

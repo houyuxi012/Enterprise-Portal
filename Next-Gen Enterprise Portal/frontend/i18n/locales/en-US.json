@@ -331,15 +331,54 @@
     },
     "filters": {
       "all": "All",
-      "searchPlaceholder": "Search by subject / organizer / room",
+      "searchPlaceholder": "Search by subject / organizer / room / meeting software",
       "type": "Type",
       "status": "Status"
     },
     "actions": {
       "back": "Back to Home",
       "refresh": "Refresh",
+      "create": "Create Meeting",
       "resetFilters": "Clear Filters",
       "viewDetail": "View Details"
+    },
+    "messages": {
+      "createSuccess": "Meeting created",
+      "createFailed": "Failed to create meeting"
+    },
+    "modal": {
+      "title": "Create Meeting",
+      "tip": "For online meetings, provide the meeting software and the meeting ID / link. For offline meetings, provide the room and meeting ID."
+    },
+    "form": {
+      "subject": "Meeting Subject",
+      "subjectPlaceholder": "e.g. Product Weekly / Project Retrospective",
+      "startTime": "Start Time",
+      "startTimePlaceholder": "Select a start time",
+      "duration": "Duration (minutes)",
+      "meetingType": "Meeting Type",
+      "meetingTypePlaceholder": "Select a meeting type",
+      "room": "Room",
+      "roomPlaceholder": "e.g. 18F Xinghai Room",
+      "meetingId": "Meeting ID",
+      "meetingIdPlaceholder": "e.g. Tencent Meeting 904-123-456",
+      "attendees": "Attendees",
+      "attendeesPlaceholder": "Type a name and press Enter to add multiple attendees",
+      "meetingSoftware": "Meeting Software",
+      "meetingSoftwarePlaceholder": "e.g. Tencent Meeting / Feishu Meeting / Teams",
+      "onlineMeetingId": "Meeting ID / Meeting Link",
+      "onlineMeetingIdPlaceholder": "e.g. 904-123-456 or https://meeting.tencent.com/xxx"
+    },
+    "validation": {
+      "subject": "Please enter a meeting subject",
+      "startTime": "Please select a start time",
+      "duration": "Please enter a duration",
+      "meetingType": "Please select a meeting type",
+      "room": "Please enter the room",
+      "meetingId": "Please enter the meeting ID",
+      "attendees": "Please add at least one attendee",
+      "meetingSoftware": "Please enter the meeting software",
+      "onlineMeetingId": "Please enter the meeting ID or meeting link"
     },
     "sections": {
       "timeline": "Timeline",
@@ -365,7 +404,13 @@
       "meetingId": "Meeting ID",
       "organizerHint": "Meeting owner and agenda sponsor",
       "attendeeCount": "{{count}} attendees",
-      "noAttendees": "No attendee information is available for this meeting yet"
+      "noAttendees": "No attendee information is available for this meeting yet",
+      "meetingSoftware": "Meeting Software",
+      "onlineMeetingId": "Meeting ID / Meeting Link"
+    },
+    "labels": {
+      "meetingIdOrLink": "Meeting ID / Link",
+      "meetingIdShort": "ID"
     }
   },
   "meetingLocal": {
@@ -374,7 +419,7 @@
       "subtitle": "Create and maintain the admin-side local meeting ledger with a stable data model for future third-party integrations."
     },
     "filters": {
-      "search": "Search by subject / room / meeting ID / organizer / attendee",
+      "search": "Search by subject / room / meeting software / meeting ID / organizer / attendee",
       "type": "Meeting Type",
       "organizer": "Organizer",
       "attendee": "Attendee",
@@ -390,7 +435,8 @@
       "viewDetail": "View Details",
       "copyMeetingId": "Copy Meeting ID",
       "copyAttendees": "Copy Attendees",
-      "copy": "Copy"
+      "copy": "Copy",
+      "copyMeetingEntry": "Copy Meeting ID / Link"
     },
     "status": {
       "upcoming": "Upcoming",
@@ -407,7 +453,9 @@
       "copyFailed": "Copy failed, please try again later",
       "copyMeetingIdSuccess": "Meeting ID copied",
       "copyRoomSuccess": "Meeting room copied",
-      "copyAttendeesSuccess": "Attendees copied"
+      "copyAttendeesSuccess": "Attendees copied",
+      "copyVenueSuccess": "Meeting venue copied",
+      "copyMeetingEntrySuccess": "Meeting ID / link copied"
     },
     "table": {
       "subject": "Subject",
@@ -418,7 +466,9 @@
       "room": "Room",
       "meetingId": "Meeting ID",
       "organizer": "Organizer",
-      "attendees": "Attendees"
+      "attendees": "Attendees",
+      "roomOrSoftware": "Room / Meeting Software",
+      "meetingIdOrLink": "Meeting ID / Meeting Link"
     },
     "units": {
       "minutes": " min"
@@ -438,8 +488,8 @@
       "editTitle": "Edit Meeting"
     },
     "form": {
-      "tip": "If Meeting ID is left blank, the system will generate a unique identifier when saving.",
-      "editTip": "You can edit the meeting directly. Keeping the same Meeting ID avoids breaking external references.",
+      "tip": "For online meetings, provide the meeting software and the meeting ID / link. For offline meetings, provide the room and meeting ID.",
+      "editTip": "You can edit the meeting directly. Online meetings require meeting software and meeting ID / link. Offline meetings require room and meeting ID.",
       "subject": "Meeting Subject",
       "subjectPlaceholder": "Example: Q2 Operations Review",
       "organizer": "Organizer",
@@ -450,11 +500,15 @@
       "meetingType": "Meeting Type",
       "meetingTypePlaceholder": "Select meeting type",
       "room": "Meeting Room",
-      "roomPlaceholder": "Example: 18F Xinghai Room / Tencent Meeting 904-123",
+      "roomPlaceholder": "e.g. 18F Xinghai Room",
       "meetingId": "Meeting ID",
-      "meetingIdPlaceholder": "Optional, auto-generated if left blank",
+      "meetingIdPlaceholder": "e.g. Tencent Meeting 904-123-456",
       "attendees": "Attendees",
-      "attendeesPlaceholder": "Select attendees from User Center"
+      "attendeesPlaceholder": "Select attendees from User Center",
+      "meetingSoftware": "Meeting Software",
+      "meetingSoftwarePlaceholder": "e.g. Tencent Meeting / Feishu Meeting / Teams",
+      "onlineMeetingId": "Meeting ID / Meeting Link",
+      "onlineMeetingIdPlaceholder": "e.g. 904-123-456 or https://meeting.tencent.com/xxx"
     },
     "validation": {
       "subject": "Please enter the meeting subject",
@@ -463,7 +517,10 @@
       "duration": "Please enter the duration",
       "meetingType": "Please select the meeting type",
       "room": "Please enter the meeting room",
-      "attendees": "Please provide at least one attendee"
+      "meetingId": "Please enter the meeting ID",
+      "attendees": "Please provide at least one attendee",
+      "meetingSoftware": "Please enter the meeting software",
+      "onlineMeetingId": "Please enter the meeting ID or meeting link"
     },
     "empty": "There are no local meetings yet. Create one to get started.",
     "emptyFiltered": "No meetings match the current filters.",
@@ -479,7 +536,9 @@
       "createdAt": "Created At",
       "attendees": "Attendees",
       "attendeeCount": "{{count}} attendees",
-      "editCurrent": "Edit This Meeting"
+      "editCurrent": "Edit This Meeting",
+      "meetingSoftware": "Meeting Software",
+      "onlineMeetingId": "Meeting ID / Meeting Link"
     }
   },
   "meetingSync": {
@@ -1236,6 +1295,7 @@
       "roles": "Roles",
       "status": "Status",
       "email": "Email",
+      "locale": "Locale",
       "actions": "Actions",
       "empty": "No user data",
       "noRoles": "No roles"
@@ -1282,7 +1342,14 @@
       "emailInvalid": "Please enter a valid email",
       "emailPlaceholder": "Enter email",
       "roles": "Assign Roles",
-      "rolesPlaceholder": "Select roles"
+      "rolesPlaceholder": "Select roles",
+      "locale": "Locale",
+      "localePlaceholder": "Select the user's notification language"
+    },
+    "locale": {
+      "default": "Default (Simplified Chinese)",
+      "zhCN": "Simplified Chinese",
+      "enUS": "English"
     }
   },
   "knowledgeBase": {
@@ -2865,24 +2932,164 @@
         "testMessage": "Used by Twilio; Aliyun/Tencent use template parameters"
       },
       "defaultTestMessage": "[Next-Gen Enterprise Portal] SMS gateway test message"
+    },
+    "templates": {
+      "emailTemplate": "Default Email Template",
+      "emailTemplateHelp": "Select the default template referenced by email notifications.",
+      "emailTemplatePlaceholder": "Select an email template",
+      "manageEmail": "Open notification templates to manage email templates",
+      "smsTemplate": "Default SMS Template",
+      "smsTemplateHelp": "Select the default template referenced by SMS notifications.",
+      "smsTemplatePlaceholder": "Select an SMS template",
+      "manageSms": "Open notification templates to manage SMS templates",
+      "imTemplate": "Default IM Template",
+      "imTemplateHelp": "Select the default template referenced by Telegram / instant messaging notifications.",
+      "imTemplatePlaceholder": "Select an instant messaging template",
+      "manageIm": "Open notification templates to manage instant messaging templates",
+      "empty": "No template available. Create or enable one in the notification templates page first."
     }
   },
   "notificationTemplates": {
     "title": "Notification Templates",
-    "subtitle": "Manage email and SMS template content for system notifications",
+    "subtitle": "Manage email, SMS, and instant messaging templates with create, edit, and enable controls",
+    "sections": {
+      "libraryTitle": "Template Library",
+      "libraryDescription": "Maintain template content and variables here, then select defaults directly from the notification services page."
+    },
+    "fields": {
+      "codeLabel": "Template Code",
+      "variableCountLabel": "Variable Count",
+      "variableCount_one": "{{count}} variable",
+      "variableCount_other": "{{count}} variables",
+      "subjectLabel": "Email Subject",
+      "variablesLabel": "Template Variables",
+      "noVariables": "No variables",
+      "contentLabel": "Template Content",
+      "templateLabel": "Template",
+      "statusLabel": "Status",
+      "actionsLabel": "Actions"
+    },
+    "status": {
+      "builtin": "Built-in",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "actions": {
+      "create": "Create Template",
+      "edit": "Edit Template",
+      "delete": "Delete Template",
+      "save": "Save Template",
+      "cancel": "Cancel",
+      "deleteConfirmTitle": "Delete this template?",
+      "deleteConfirmDescription": "This action cannot be undone. Confirm the template is no longer referenced by any workflow.",
+      "preview": "Preview Template"
+    },
+    "messages": {
+      "loadFailed": "Failed to load notification templates",
+      "createSuccess": "Notification template created",
+      "updateSuccess": "Notification template saved",
+      "saveFailed": "Failed to save notification template",
+      "enableSuccess": "Notification template enabled",
+      "disableSuccess": "Notification template disabled",
+      "statusFailed": "Failed to update notification template status",
+      "deleteSuccess": "Notification template deleted",
+      "deleteFailed": "Failed to delete notification template",
+      "previewFailed": "Failed to preview notification template",
+      "previewReady": "Template preview generated",
+      "previewValidationWarning": "Template preview generated, but variable declarations still need attention",
+      "serverValidationFailed": "Server-side validation failed. Resolve template variable issues before saving.",
+      "serverValidationWarning": "Template saved, but the server still detected unused declared variables."
+    },
+    "modal": {
+      "createTitle": "Create Notification Template",
+      "editTitle": "Edit Notification Template"
+    },
+    "form": {
+      "category": "Template Category",
+      "code": "Template Code",
+      "codePlaceholder": "e.g. email_verification_code",
+      "name": "Template Name",
+      "namePlaceholder": "Enter a template name",
+      "enabled": "Enable Status",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe what this template is used for",
+      "subject": "Email Subject",
+      "subjectPlaceholder": "Enter email subject",
+      "variables": "Template Variables",
+      "variablesHelp": "Press Enter or comma to add variables quickly.",
+      "variablesPlaceholder": "e.g. user_name, code, expires_at",
+      "content": "Template Content",
+      "contentPlaceholder": "Enter template body and use {{variable}} placeholders where needed.",
+      "localizedTitle": "Localized Content",
+      "localizedHelp": "Default fields remain the compatibility fallback. Use these locale overrides to manage Simplified Chinese and English separately.",
+      "localizedName": "Localized Template Name",
+      "localizedNamePlaceholder": "Leave empty to fall back to the default template name",
+      "localizedDescription": "Localized Description",
+      "localizedDescriptionPlaceholder": "Leave empty to fall back to the default description",
+      "localizedSubject": "Localized Email Subject",
+      "localizedSubjectPlaceholder": "Leave empty to fall back to the default email subject",
+      "localizedContent": "Localized Template Content",
+      "localizedContentPlaceholder": "Leave empty to fall back to the default template content",
+      "localizedFallbackHint": "If this locale is empty, the default content above will be used.",
+      "localeTabs": {
+        "zhCN": "Simplified Chinese",
+        "enUS": "English"
+      }
+    },
+    "validation": {
+      "categoryRequired": "Please select a template category",
+      "codeRequired": "Please enter a template code",
+      "codePattern": "Template code must be 3-64 chars and use lowercase letters, numbers, underscores, or hyphens",
+      "nameRequired": "Please enter a template name",
+      "subjectRequired": "Email templates require a subject",
+      "contentRequired": "Please enter template content",
+      "title": "Placeholder Validation",
+      "placeholderCount_one": "{{count}} placeholder",
+      "placeholderCount_other": "{{count}} placeholders",
+      "invalidVariables": "Invalid variable names detected",
+      "missingVariables": "Some placeholders are not declared in variables",
+      "unusedVariables": "Some declared variables are not used in the template",
+      "ready": "Variable declarations are complete. The template is ready to save or preview.",
+      "declaredVariables": "Declared Variables",
+      "placeholderVariables": "Template Placeholders",
+      "noDeclaredVariables": "No declared variables",
+      "noPlaceholders": "No placeholders found in the template body",
+      "serverTitle": "Server Validation Summary",
+      "serverChecked": "Server checked",
+      "serverReady": "Server-side validation passed. The template is safe to save.",
+      "serverEmpty": "Run preview or save to show the server validation summary."
+    },
     "empty": {
-      "title": "Notification Template Management",
-      "description": "Template management is under development. It will support custom templates for email verification, password reset, and system alerts with variable replacement and multilingual support.",
-      "tag": "Coming Soon"
-    }
-  },
-  "thirdPartyNotifications": {
-    "title": "Third-party Notifications",
-    "subtitle": "Integrate notification channels such as WeCom, DingTalk, and Feishu",
-    "empty": {
-      "title": "Third-party Notification Integration",
-      "description": "Third-party notification integration is under development. It will support WeCom bots, DingTalk webhooks, Feishu bots, and other enterprise channels for cross-platform event delivery.",
-      "tag": "Coming Soon"
+      "category": "No templates in this category yet"
+    },
+    "categories": {
+      "email": {
+        "title": "Email Templates",
+        "description": "Rich email scenarios for verification codes, password reset, and system notifications."
+      },
+      "sms": {
+        "title": "SMS Templates",
+        "description": "Short message scenarios for login verification, reset notices, and service reminders."
+      },
+      "im": {
+        "title": "Instant Messaging Templates",
+        "description": "Message templates for WeCom, DingTalk, Feishu, and similar bot or group channels."
+      }
+    },
+    "emptyDescription": "No template description provided",
+    "preview": {
+      "title": "Template Preview",
+      "sampleHint": "Preview uses generated sample variable values and will not send any real message.",
+      "sampleTag": "Sample Render",
+      "subject": "Preview Subject",
+      "content": "Preview Content",
+      "variables": "Sample Variables",
+      "noVariables": "No sample variables",
+      "empty": "Click \"Preview Template\" to generate sample content",
+      "variableEditorTitle": "Preview Variables",
+      "variableEditorHelp": "Override sample values here, then run preview again to render the result.",
+      "variablePlaceholder": "Leave empty to use the system sample value",
+      "noEditableVariables": "This template has no editable preview variables"
     }
   },
   "mfaSettingsPage": {

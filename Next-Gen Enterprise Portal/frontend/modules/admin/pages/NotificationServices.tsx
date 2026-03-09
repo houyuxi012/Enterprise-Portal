@@ -3,6 +3,11 @@ import { Alert, Card, Form, Input, InputNumber, Switch, Button, message, Tabs, D
 import { MailOutlined, MessageOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
+import notificationTemplateService, {
+    NOTIFICATION_TEMPLATE_ACTIVE_CATEGORY_STORAGE_KEY,
+    type NotificationTemplateRecord,
+} from '@/modules/admin/services/notificationTemplates';
+import type { NotificationTemplateCategory, NotificationTemplateLocale } from '@/shared/services/api';
 
 interface SmtpConfig {
     smtp_host: string;
@@ -11,6 +16,7 @@ interface SmtpConfig {
     smtp_password: string;
     smtp_use_tls: boolean;
     smtp_sender: string;
+    notification_email_template_id?: number;
 }
 
 interface TelegramConfig {
@@ -20,6 +26,7 @@ interface TelegramConfig {
     telegram_parse_mode: string;
     telegram_disable_web_page_preview: boolean;
     telegram_test_message: string;
+    notification_im_template_id?: number;
 }
 
 type SmsProvider = 'aliyun' | 'tencent' | 'twilio';
@@ -46,6 +53,7 @@ interface SmsConfig {
     twilio_auth_token: string;
     twilio_from_number: string;
     twilio_messaging_service_sid: string;
+    notification_sms_template_id?: number;
 }
 
 interface NotificationHealthState {
@@ -92,11 +100,22 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
 };
 
 const MASKED_VALUE = '__MASKED__';
+const ACTIVE_ADMIN_TAB_STORAGE_KEY = 'activeAdminTab';
+
+const normalizeTemplateLocale = (locale: string | undefined): NotificationTemplateLocale => (
+    String(locale || '').toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN'
+);
+
+const getLocalizedTemplateLabel = (
+    template: NotificationTemplateRecord,
+    locale: NotificationTemplateLocale,
+): string => String(template.name_i18n?.[locale] || template.name || '').trim();
 
 const isMaskedValue = (value: unknown): boolean => String(value ?? '').trim() === MASKED_VALUE;
 
 const NotificationServices: React.FC = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const currentTemplateLocale = normalizeTemplateLocale(i18n.resolvedLanguage || i18n.language);
     const [smtpForm] = Form.useForm();
     const [telegramForm] = Form.useForm();
     const [smsForm] = Form.useForm();
@@ -111,6 +130,7 @@ const NotificationServices: React.FC = () => {
     const [telegramConfigured, setTelegramConfigured] = useState(false);
     const [smsConfigured, setSmsConfigured] = useState(false);
     const [health, setHealth] = useState<NotificationHealthState | null>(null);
+    const [notificationTemplates, setNotificationTemplates] = useState<NotificationTemplateRecord[]>([]);
     const [secretPresence, setSecretPresence] = useState({
         smtpPassword: false,
         telegramBotToken: false,
@@ -123,10 +143,30 @@ const NotificationServices: React.FC = () => {
         loadNotificationConfig();
     }, []);
 
+    const emailTemplateOptions = notificationTemplates
+        .filter((template) => template.category === 'email' && template.is_enabled)
+        .map((template) => ({ value: template.id, label: getLocalizedTemplateLabel(template, currentTemplateLocale) }));
+    const smsTemplateOptions = notificationTemplates
+        .filter((template) => template.category === 'sms' && template.is_enabled)
+        .map((template) => ({ value: template.id, label: getLocalizedTemplateLabel(template, currentTemplateLocale) }));
+    const imTemplateOptions = notificationTemplates
+        .filter((template) => template.category === 'im' && template.is_enabled)
+        .map((template) => ({ value: template.id, label: getLocalizedTemplateLabel(template, currentTemplateLocale) }));
+
+    const openTemplateLibrary = (category: NotificationTemplateCategory): void => {
+        window.localStorage.setItem(ACTIVE_ADMIN_TAB_STORAGE_KEY, 'notification_templates');
+        window.localStorage.setItem(NOTIFICATION_TEMPLATE_ACTIVE_CATEGORY_STORAGE_KEY, category);
+        window.location.href = '/admin';
+    };
+
     const loadNotificationConfig = async () => {
         try {
-            const data = await ApiClient.getSystemConfig();
+            const [data, templates] = await Promise.all([
+                ApiClient.getSystemConfig(),
+                notificationTemplateService.listTemplates(),
+            ]);
             const config = data;
+            setNotificationTemplates(templates);
             const host = config['smtp_host'] || '';
             const smtpPasswordMasked = isMaskedValue(config['smtp_password']);
             const telegramTokenMasked = isMaskedValue(config['telegram_bot_token']);
@@ -143,6 +183,7 @@ const NotificationServices: React.FC = () => {
                 smtp_use_tls: (config['smtp_use_tls'] || 'true') === 'true',
                 smtp_sender: config['smtp_sender'] || config['smtp_username'] || '',
                 smtp_test_email: config['smtp_test_email'] || config['smtp_sender'] || config['smtp_username'] || '',
+                notification_email_template_id: config['notification_email_template_id'] ? Number(config['notification_email_template_id']) : undefined,
             });
             telegramForm.setFieldsValue({
                 telegram_bot_enabled: (config['telegram_bot_enabled'] || 'false') === 'true',
@@ -151,6 +192,7 @@ const NotificationServices: React.FC = () => {
                 telegram_parse_mode: config['telegram_parse_mode'] || 'none',
                 telegram_disable_web_page_preview: (config['telegram_disable_web_page_preview'] || 'true') === 'true',
                 telegram_test_message: t('notificationServices.telegram.defaultTestMessage'),
+                notification_im_template_id: config['notification_im_template_id'] ? Number(config['notification_im_template_id']) : undefined,
             });
             const smsProvider = (config['sms_provider'] || '') as SmsProvider | '';
             smsForm.setFieldsValue({
@@ -175,6 +217,7 @@ const NotificationServices: React.FC = () => {
                 twilio_auth_token: twilioSecretMasked ? '' : (config['twilio_auth_token'] || ''),
                 twilio_from_number: config['twilio_from_number'] || '',
                 twilio_messaging_service_sid: config['twilio_messaging_service_sid'] || '',
+                notification_sms_template_id: config['notification_sms_template_id'] ? Number(config['notification_sms_template_id']) : undefined,
             });
             setSecretPresence({
                 smtpPassword: smtpPasswordMasked || Boolean(config['smtp_password']),
@@ -220,6 +263,7 @@ const NotificationServices: React.FC = () => {
                 smtp_use_tls: values.smtp_use_tls ? 'true' : 'false',
                 smtp_sender: values.smtp_sender || values.smtp_username,
                 smtp_test_email: values.smtp_test_email || '',
+                notification_email_template_id: values.notification_email_template_id ? String(values.notification_email_template_id) : '',
             };
             if (values.smtp_password) {
                 pairs.smtp_password = values.smtp_password;
@@ -254,7 +298,10 @@ const NotificationServices: React.FC = () => {
                 setSmtpTesting(false);
                 return;
             }
-            await ApiClient.testSmtp(toEmail);
+            await ApiClient.testSmtp({
+                to_email: toEmail,
+                template_id: values.notification_email_template_id || undefined,
+            });
             message.success(t('notificationServices.messages.smtpTestSuccess'));
         } catch (err: unknown) {
             message.error(resolveErrorMessage(err, t('notificationServices.messages.smtpTestFailed')));
@@ -277,6 +324,7 @@ const NotificationServices: React.FC = () => {
                 telegram_chat_id: values.telegram_chat_id || '',
                 telegram_parse_mode: values.telegram_parse_mode || 'MarkdownV2',
                 telegram_disable_web_page_preview: values.telegram_disable_web_page_preview ? 'true' : 'false',
+                notification_im_template_id: values.notification_im_template_id ? String(values.notification_im_template_id) : '',
             };
             if (values.telegram_bot_token) {
                 pairs.telegram_bot_token = values.telegram_bot_token;
@@ -309,6 +357,7 @@ const NotificationServices: React.FC = () => {
                 parse_mode: values.telegram_parse_mode || undefined,
                 disable_web_page_preview: Boolean(values.telegram_disable_web_page_preview),
                 message: values.telegram_test_message || t('notificationServices.telegram.defaultTestMessage'),
+                template_id: values.notification_im_template_id || undefined,
             });
             message.success(t('notificationServices.messages.telegramTestSuccess'));
         } catch (err: unknown) {
@@ -362,6 +411,7 @@ const NotificationServices: React.FC = () => {
                 sms_template_code: values.sms_template_code || '',
                 sms_template_param: values.sms_template_param || '',
                 sms_region_id: values.sms_region_id || '',
+                notification_sms_template_id: values.notification_sms_template_id ? String(values.notification_sms_template_id) : '',
                 tencent_secret_id: values.tencent_secret_id || '',
                 tencent_sdk_app_id: values.tencent_sdk_app_id || '',
                 tencent_sign_name: values.tencent_sign_name || '',
@@ -422,6 +472,7 @@ const NotificationServices: React.FC = () => {
                 provider: values.sms_provider,
                 test_phone: values.sms_test_phone,
                 test_message: values.sms_test_message || undefined,
+                template_id: values.notification_sms_template_id || undefined,
                 sms_access_key_id: values.sms_access_key_id || undefined,
                 sms_access_key_secret: values.sms_access_key_secret || undefined,
                 sms_sign_name: values.sms_sign_name || undefined,
@@ -547,7 +598,22 @@ const NotificationServices: React.FC = () => {
                                         >
                                             <Input placeholder={t('notificationServices.smtp.placeholders.testEmail')} />
                                         </Form.Item>
+                                        <Form.Item
+                                            name="notification_email_template_id"
+                                            label={<span className="font-semibold">{t('notificationServices.templates.emailTemplate')}</span>}
+                                            help={t('notificationServices.templates.emailTemplateHelp')}
+                                        >
+                                            <Select
+                                                allowClear
+                                                options={emailTemplateOptions}
+                                                placeholder={t('notificationServices.templates.emailTemplatePlaceholder')}
+                                                notFoundContent={t('notificationServices.templates.empty')}
+                                            />
+                                        </Form.Item>
                                     </div>
+                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('email')}>
+                                        {t('notificationServices.templates.manageEmail')}
+                                    </Button>
                                     <Divider />
                                     <Space>
                                         <Button
@@ -643,6 +709,18 @@ const NotificationServices: React.FC = () => {
                                                 unCheckedChildren={t('notificationServices.labels.disabled')}
                                             />
                                         </Form.Item>
+                                        <Form.Item
+                                            name="notification_im_template_id"
+                                            label={<span className="font-semibold">{t('notificationServices.templates.imTemplate')}</span>}
+                                            help={t('notificationServices.templates.imTemplateHelp')}
+                                        >
+                                            <Select
+                                                allowClear
+                                                options={imTemplateOptions}
+                                                placeholder={t('notificationServices.templates.imTemplatePlaceholder')}
+                                                notFoundContent={t('notificationServices.templates.empty')}
+                                            />
+                                        </Form.Item>
                                     </div>
                                     <Form.Item
                                         name="telegram_test_message"
@@ -651,6 +729,9 @@ const NotificationServices: React.FC = () => {
                                     >
                                         <Input.TextArea rows={3} maxLength={500} placeholder={t('notificationServices.telegram.placeholders.testMessage')} />
                                     </Form.Item>
+                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('im')}>
+                                        {t('notificationServices.templates.manageIm')}
+                                    </Button>
                                     <Divider />
                                     <Space>
                                         <Button
@@ -843,6 +924,23 @@ const NotificationServices: React.FC = () => {
                                             <Input placeholder={t('notificationServices.sms.placeholders.testMessage')} />
                                         </Form.Item>
                                     </div>
+                                    <div className="grid grid-cols-2 gap-x-6">
+                                        <Form.Item
+                                            name="notification_sms_template_id"
+                                            label={<span className="font-semibold">{t('notificationServices.templates.smsTemplate')}</span>}
+                                            help={t('notificationServices.templates.smsTemplateHelp')}
+                                        >
+                                            <Select
+                                                allowClear
+                                                options={smsTemplateOptions}
+                                                placeholder={t('notificationServices.templates.smsTemplatePlaceholder')}
+                                                notFoundContent={t('notificationServices.templates.empty')}
+                                            />
+                                        </Form.Item>
+                                    </div>
+                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('sms')}>
+                                        {t('notificationServices.templates.manageSms')}
+                                    </Button>
                                     <Divider />
                                     <Space>
                                         <Button

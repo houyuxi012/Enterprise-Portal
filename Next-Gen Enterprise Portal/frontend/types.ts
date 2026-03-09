@@ -118,6 +118,7 @@ export interface User {
   account_type?: 'PORTAL' | 'SYSTEM';
   name?: string;
   avatar?: string;
+  locale?: 'zh-CN' | 'en-US' | null;
   auth_source?: 'local' | 'ldap' | 'ad' | 'oidc';
   role?: string; // Deprecated
   roles: Role[];

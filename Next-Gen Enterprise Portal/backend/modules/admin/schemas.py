@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DepartmentBase(BaseModel):
@@ -89,6 +89,7 @@ class LogForwardingConfig(LogForwardingConfigBase):
 MeetingType = Literal["online", "offline"]
 MeetingSource = Literal["local", "third_party"]
 AdminMeetingStatus = Literal["upcoming", "inProgress", "finished"]
+NotificationTemplateCategory = Literal["email", "sms", "im"]
 
 
 class AdminMeetingBase(BaseModel):
@@ -154,6 +155,80 @@ class AdminMeetingListResponse(BaseModel):
     offset: int = 0
     items: list[AdminMeeting]
     summary: AdminMeetingListSummary
+
+
+class NotificationTemplateBase(BaseModel):
+    code: str
+    name: str
+    name_i18n: dict[str, str] = Field(default_factory=dict)
+    description: Optional[str] = None
+    description_i18n: dict[str, str] = Field(default_factory=dict)
+    category: NotificationTemplateCategory
+    subject: Optional[str] = None
+    subject_i18n: dict[str, str] = Field(default_factory=dict)
+    content: str
+    content_i18n: dict[str, str] = Field(default_factory=dict)
+    variables: list[str] = Field(default_factory=list)
+    is_enabled: bool = True
+
+
+class NotificationTemplateCreate(NotificationTemplateBase):
+    pass
+
+
+class NotificationTemplateUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    name_i18n: Optional[dict[str, str]] = None
+    description: Optional[str] = None
+    description_i18n: Optional[dict[str, str]] = None
+    category: Optional[NotificationTemplateCategory] = None
+    subject: Optional[str] = None
+    subject_i18n: Optional[dict[str, str]] = None
+    content: Optional[str] = None
+    content_i18n: Optional[dict[str, str]] = None
+    variables: Optional[list[str]] = None
+    is_enabled: Optional[bool] = None
+
+
+class NotificationTemplateStatusUpdate(BaseModel):
+    is_enabled: bool
+
+
+class NotificationTemplateValidation(BaseModel):
+    declared_variables: list[str] = Field(default_factory=list)
+    placeholder_variables: list[str] = Field(default_factory=list)
+    invalid_declared_variables: list[str] = Field(default_factory=list)
+    missing_declared_variables: list[str] = Field(default_factory=list)
+    unused_declared_variables: list[str] = Field(default_factory=list)
+
+
+class NotificationTemplatePreviewRequest(NotificationTemplateBase):
+    preview_variables: dict[str, str] = Field(default_factory=dict)
+    preview_locale: Optional[str] = None
+
+
+class NotificationTemplatePreview(BaseModel):
+    subject: Optional[str] = None
+    content: str
+    variables: dict[str, str] = Field(default_factory=dict)
+
+
+class NotificationTemplatePreviewResponse(BaseModel):
+    validation: NotificationTemplateValidation
+    preview: NotificationTemplatePreview
+
+
+class NotificationTemplate(NotificationTemplateBase):
+    id: int
+    is_builtin: bool = False
+    created_by: Optional[int] = None
+    updated_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class CarouselItemBase(BaseModel):

@@ -903,7 +903,7 @@ class IdentityService:
                 try:
                     from modules.iam.services.email_service import send_email_otp
 
-                    await send_email_otp(user.email, user.username, db)
+                    await send_email_otp(user.email, user.username, db, locale=getattr(user, "locale", None))
                 except Exception as e:
                     if set(enabled_mfa_methods) == {"email"}:
                         raise HTTPException(

@@ -73,6 +73,7 @@ class User(Base):
     password_change_required = Column(Boolean, default=False)
     password_changed_at = Column(DateTime(timezone=True), nullable=True, default=utc_now)
     auth_source = Column(String(50), nullable=False, default="local", index=True)
+    locale = Column(String(16), nullable=True)
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
     email_mfa_enabled = Column(Boolean, default=False, nullable=False)

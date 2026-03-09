@@ -66,6 +66,7 @@ class UserBase(BaseModel):
     account_type: Optional[str] = "PORTAL"
     name: Optional[str] = None
     avatar: Optional[str] = None
+    locale: Optional[Literal["zh-CN", "en-US"]] = None
     is_active: Optional[bool] = True
     role: Optional[str] = "user"
     auth_source: Optional[str] = "local"
@@ -82,6 +83,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
     role_ids: Optional[list[int]] = None
+    locale: Optional[Literal["zh-CN", "en-US"]] = None
     is_active: Optional[bool] = None
 
 
@@ -108,6 +110,7 @@ class UserMeResponse(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     avatar: Optional[str] = None
+    locale: Optional[Literal["zh-CN", "en-US"]] = None
     auth_source: Optional[str] = "local"
     is_active: bool = True
     roles: list[RoleOut] = []

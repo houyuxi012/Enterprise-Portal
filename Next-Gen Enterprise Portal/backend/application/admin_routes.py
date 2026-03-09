@@ -11,6 +11,7 @@ from modules.admin.routers import (
     employees,
     logs,
     meetings,
+    notification_templates,
     system,
 )
 from modules.portal.routers import announcements, carousel, kb, news, notifications, tools, upload
@@ -25,6 +26,7 @@ def register_admin_routes(router: APIRouter) -> None:
     router.include_router(ai_admin.router)
     router.include_router(admin_tasks.router)
     router.include_router(meetings.router)
+    router.include_router(notification_templates.router)
     router.include_router(kb.router)
     router.include_router(notifications.router)
     router.include_router(notifications.admin_router)

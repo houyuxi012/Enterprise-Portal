@@ -15,6 +15,7 @@ from modules.admin.models import (
     BusinessLog,
     Department,
     LogForwardingConfig,
+    NotificationTemplate,
     SystemLog,
 )
 from modules.iam.models import (
@@ -77,6 +78,7 @@ __all__ = [
     "AdminMeeting",
     "AdminMeetingAttendee",
     "LogForwardingConfig",
+    "NotificationTemplate",
     "CarouselItem",
     "FileMetadata",
     "AIProvider",

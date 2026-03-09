@@ -138,6 +138,7 @@ export interface UserCreatePayload {
   email: string;
   role_ids?: number[];
   name?: string;
+  locale?: 'zh-CN' | 'en-US';
   is_active?: boolean;
 }
 
@@ -146,6 +147,7 @@ export interface UserUpdatePayload {
   role_ids?: number[];
   is_active?: boolean;
   name?: string;
+  locale?: 'zh-CN' | 'en-US' | null;
 }
 
 export interface ChangePasswordPayload {
@@ -218,6 +220,9 @@ export interface AIAuditLogEntry {
 }
 
 export type AdminMeetingType = 'online' | 'offline';
+export type NotificationTemplateCategory = 'email' | 'sms' | 'im';
+export type NotificationTemplateLocale = 'zh-CN' | 'en-US';
+export type NotificationTemplateI18nMap = Partial<Record<NotificationTemplateLocale, string>>;
 
 export interface AdminMeetingUserRefDTO {
   id: number;
@@ -278,6 +283,82 @@ export interface PortalTodayMeetingSummaryDTO {
   date: string;
   total: number;
   next_meeting?: PortalMeetingSummaryItemDTO | null;
+}
+
+export interface NotificationTemplateDTO {
+  id: number;
+  code: string;
+  name: string;
+  name_i18n: NotificationTemplateI18nMap;
+  description?: string | null;
+  description_i18n: NotificationTemplateI18nMap;
+  category: NotificationTemplateCategory;
+  subject?: string | null;
+  subject_i18n: NotificationTemplateI18nMap;
+  content: string;
+  content_i18n: NotificationTemplateI18nMap;
+  variables: string[];
+  is_enabled: boolean;
+  is_builtin: boolean;
+  created_by?: number | null;
+  updated_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationTemplateUpsertPayload {
+  code: string;
+  name: string;
+  name_i18n: NotificationTemplateI18nMap;
+  description?: string;
+  description_i18n: NotificationTemplateI18nMap;
+  category: NotificationTemplateCategory;
+  subject?: string;
+  subject_i18n: NotificationTemplateI18nMap;
+  content: string;
+  content_i18n: NotificationTemplateI18nMap;
+  variables: string[];
+  is_enabled: boolean;
+}
+
+export interface NotificationTemplatePreviewPayload extends NotificationTemplateUpsertPayload {
+  preview_variables?: Record<string, string>;
+  preview_locale?: string;
+}
+
+export type NotificationTemplateListParams = {
+  category?: NotificationTemplateCategory;
+  enabled?: boolean;
+};
+
+export interface NotificationTemplateValidationDTO {
+  declared_variables: string[];
+  placeholder_variables: string[];
+  invalid_declared_variables: string[];
+  missing_declared_variables: string[];
+  unused_declared_variables: string[];
+}
+
+export interface NotificationTemplatePreviewDTO {
+  subject?: string | null;
+  content: string;
+  variables: Record<string, string>;
+}
+
+export interface NotificationTemplatePreviewResponseDTO {
+  validation: NotificationTemplateValidationDTO;
+  preview: NotificationTemplatePreviewDTO;
+}
+
+export interface PortalMeetingCreatePayload {
+  subject: string;
+  start_time: string;
+  duration_minutes: number;
+  meeting_type: AdminMeetingType;
+  meeting_room?: string;
+  meeting_software?: string;
+  meeting_id: string;
+  attendees: string[];
 }
 
 export interface AdminMeetingCreatePayload {
@@ -585,6 +666,8 @@ export const ApiClient = {
     action_url?: string;
     user_ids?: number[];
     broadcast?: boolean;
+    template_id?: number;
+    template_variables?: Record<string, string>;
   }): Promise<{ notification_id: number; recipient_count: number }> => {
     const response = await api.post<{ notification_id: number; recipient_count: number }>('/notifications/push', data);
     return response.data;
@@ -1277,8 +1360,8 @@ export const ApiClient = {
   },
 
   // SMTP Test
-  testSmtp: async (toEmail: string): Promise<{ message: string }> => {
-    const response = await api.post('/admin/system/smtp/test', { to_email: toEmail });
+  testSmtp: async (payload: { to_email: string; template_id?: number }): Promise<{ message: string }> => {
+    const response = await api.post('/admin/system/smtp/test', payload);
     return response.data;
   },
 
@@ -1287,6 +1370,7 @@ export const ApiClient = {
     bot_token?: string;
     chat_id?: string;
     message?: string;
+    template_id?: number;
     parse_mode?: string;
     disable_web_page_preview?: boolean;
   }): Promise<{ message: string }> => {
@@ -1299,6 +1383,7 @@ export const ApiClient = {
     provider?: string;
     test_phone?: string;
     test_message?: string;
+    template_id?: number;
     sms_sign_name?: string;
     sms_template_code?: string;
     sms_template_param?: string;
@@ -1337,6 +1422,49 @@ export const ApiClient = {
   getAdminMeetings: async (params?: AdminMeetingListParams): Promise<AdminMeetingListResponseDTO> => {
     const response = await api.get<AdminMeetingListResponseDTO>('/meetings/', { params });
     return response.data;
+  },
+
+  getNotificationTemplates: async (
+    params?: NotificationTemplateListParams,
+  ): Promise<NotificationTemplateDTO[]> => {
+    const response = await api.get<NotificationTemplateDTO[]>('/notification-templates/', { params });
+    return response.data;
+  },
+
+  createNotificationTemplate: async (
+    payload: NotificationTemplateUpsertPayload,
+  ): Promise<NotificationTemplateDTO> => {
+    const response = await api.post<NotificationTemplateDTO>('/notification-templates/', payload);
+    return response.data;
+  },
+
+  previewNotificationTemplate: async (
+    payload: NotificationTemplatePreviewPayload,
+  ): Promise<NotificationTemplatePreviewResponseDTO> => {
+    const response = await api.post<NotificationTemplatePreviewResponseDTO>('/notification-templates/preview', payload);
+    return response.data;
+  },
+
+  updateNotificationTemplate: async (
+    templateId: number,
+    payload: NotificationTemplateUpsertPayload,
+  ): Promise<NotificationTemplateDTO> => {
+    const response = await api.put<NotificationTemplateDTO>(`/notification-templates/${templateId}`, payload);
+    return response.data;
+  },
+
+  updateNotificationTemplateStatus: async (
+    templateId: number,
+    isEnabled: boolean,
+  ): Promise<NotificationTemplateDTO> => {
+    const response = await api.patch<NotificationTemplateDTO>(`/notification-templates/${templateId}/status`, {
+      is_enabled: isEnabled,
+    });
+    return response.data;
+  },
+
+  deleteNotificationTemplate: async (templateId: number): Promise<void> => {
+    await api.delete(`/notification-templates/${templateId}`);
   },
 
   getPortalTodayMeetingSummary: async (

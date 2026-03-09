@@ -16,6 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
+from modules.admin.services.notification_templates import (
+    build_notification_sample_context,
+    build_sms_test_payload,
+    get_localized_notification_template_name,
+    get_system_config_map,
+    render_notification_template,
+    resolve_notification_template,
+)
 from modules.iam.services.system_config_security import (
     decrypt_sensitive_system_config_value,
     decrypt_system_config_map,
@@ -24,6 +32,7 @@ from modules.iam.services.system_config_security import (
     is_sensitive_system_config_key,
     sanitize_system_config_map_for_client,
 )
+from modules.iam.services.email_service import send_email_message
 from application.admin_app import (
     AuditService,
     LicenseService,
@@ -33,7 +42,6 @@ from application.admin_app import (
     cleanup_logs,
     license_settings,
     optimize_database,
-    send_email_otp,
     storage,
     test_ntp_connectivity,
     update_loki_retention,
@@ -83,6 +91,14 @@ NUMERIC_SECURITY_CONFIG_RULES: dict[str, tuple[int, int]] = {
     "platform_ntp_port": (1, 65535),
     "platform_ntp_sync_interval_minutes": (1, 10080),
 }
+
+
+def _parse_positive_int(value: object) -> int | None:
+    try:
+        parsed = int(str(value or "").strip())
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
 
 ENUM_SECURITY_CONFIG_RULES: dict[str, set[str]] = {
     "security_lockout_scope": {"account", "ip"},
@@ -897,24 +913,54 @@ async def test_smtp(
     current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
     """Send a test email using current SMTP configuration."""
-    # Determine recipient: request body or current user email or smtp_sender
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
-    to_email = body.get("to_email", "")
+    template_id = _parse_positive_int(body.get("template_id"))
+    to_email = str(body.get("to_email") or "").strip()
     if not to_email:
-        result = await db.execute(select(models.SystemConfig).filter(models.SystemConfig.key == "smtp_sender"))
-        cfg = result.scalars().first()
-        to_email = cfg.value if cfg else ""
+        config_map = await get_system_config_map(db, ["smtp_sender", "notification_email_template_id"])
+        to_email = str(config_map.get("smtp_sender") or "").strip()
+    else:
+        config_map = await get_system_config_map(db, ["notification_email_template_id"])
     if not to_email:
         raise HTTPException(status_code=400, detail="请指定测试收件地址")
+
+    selected_template = await resolve_notification_template(
+        db,
+        channel="email",
+        template_id=template_id,
+        config_map=config_map,
+    )
+    if selected_template is not None:
+        rendered = render_notification_template(
+            selected_template,
+            build_notification_sample_context(
+                current_user=current_user,
+                channel="email",
+                recipient=to_email,
+            ),
+        )
+        subject = str(rendered["subject"] or "SMTP Service Test").strip() or "SMTP Service Test"
+        text_body = str(rendered["content"] or "").strip()
+    else:
+        subject = "SMTP Service Test - Next-Gen Enterprise Portal"
+        text_body = (
+            "This is a test email sent from the notification service settings page.\n"
+            f"Recipient: {to_email}\n"
+            f"Operator: {current_user.username}\n"
+        )
+
     try:
-        await send_email_otp(to_email, "SMTP-Test", db)
+        await send_email_message(to_email, subject, db, text_body=text_body)
         AuditService.schedule_business_action(
             background_tasks=background_tasks,
             user_id=current_user.id,
             username=current_user.username,
             action="TEST_SMTP_SERVICE",
             target="通知服务",
-            detail=f"to={to_email}, status=success",
+            detail=(
+                f"to={to_email}, status=success, "
+                f"template={selected_template.code if selected_template is not None else 'none'}"
+            ),
             ip_address=request.client.host if request.client else "unknown",
             trace_id=request.headers.get("X-Request-ID"),
             domain="BUSINESS",
@@ -926,13 +972,24 @@ async def test_smtp(
             username=current_user.username,
             action="TEST_SMTP_SERVICE",
             target="通知服务",
-            detail=f"to={to_email}, status=failed, reason={str(e)}",
+            detail=(
+                f"to={to_email}, status=failed, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, "
+                f"reason={str(e)}"
+            ),
             ip_address=request.client.host if request.client else "unknown",
             trace_id=request.headers.get("X-Request-ID"),
             domain="BUSINESS",
         )
         raise HTTPException(status_code=500, detail=str(e))
-    return {"message": f"测试邮件已发送到 {to_email}"}
+    return {
+        "message": f"测试邮件已发送到 {to_email}",
+        "template": (
+            get_localized_notification_template_name(selected_template, locale=getattr(current_user, "locale", None))
+            if selected_template is not None
+            else None
+        ),
+    }
 
 
 @router.post("/telegram/test")
@@ -944,6 +1001,7 @@ async def test_telegram_bot(
 ):
     """Send a Telegram bot test message with current or provided config."""
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    template_id = _parse_positive_int(body.get("template_id"))
     bot_token = str(body.get("bot_token") or "").strip()
     chat_id = str(body.get("chat_id") or "").strip()
     parse_mode = str(body.get("parse_mode") or "").strip()
@@ -953,30 +1011,46 @@ async def test_telegram_bot(
         test_message = "【Next-Gen Enterprise Portal】Telegram Bot 测试消息"
 
     if not bot_token or not chat_id:
-        result = await db.execute(
-            select(models.SystemConfig).where(
-                models.SystemConfig.key.in_(
-                    [
-                        "telegram_bot_token",
-                        "telegram_chat_id",
-                        "telegram_parse_mode",
-                        "telegram_disable_web_page_preview",
-                    ]
-                )
-            )
+        config_map = await get_system_config_map(
+            db,
+            [
+                "telegram_bot_token",
+                "telegram_chat_id",
+                "telegram_parse_mode",
+                "telegram_disable_web_page_preview",
+                "notification_im_template_id",
+            ],
         )
-        config_map = decrypt_system_config_map({cfg.key: cfg.value for cfg in result.scalars().all()})
         bot_token = bot_token or str(config_map.get("telegram_bot_token") or "").strip()
         chat_id = chat_id or str(config_map.get("telegram_chat_id") or "").strip()
         parse_mode = parse_mode or str(config_map.get("telegram_parse_mode") or "").strip()
         if "telegram_disable_web_page_preview" in config_map:
             disable_web_page_preview = str(config_map.get("telegram_disable_web_page_preview")).strip().lower() == "true"
+    else:
+        config_map = await get_system_config_map(db, ["notification_im_template_id"])
 
     if not bot_token or not chat_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "TELEGRAM_CONFIG_REQUIRED", "message": "请先配置 Telegram Bot Token 和 Chat ID"},
         )
+
+    selected_template = await resolve_notification_template(
+        db,
+        channel="im",
+        template_id=template_id,
+        config_map=config_map,
+    )
+    if selected_template is not None:
+        rendered = render_notification_template(
+            selected_template,
+            build_notification_sample_context(
+                current_user=current_user,
+                channel="im",
+                recipient=chat_id,
+            ),
+        )
+        test_message = str(rendered["content"] or "").strip() or test_message
 
     safe_parse_mode = parse_mode if parse_mode in {"MarkdownV2", "HTML", "Markdown"} else ""
     telegram_payload: dict[str, object] = {
@@ -1027,12 +1101,22 @@ async def test_telegram_bot(
             username=current_user.username,
             action="TEST_TELEGRAM_BOT",
             target="通知服务",
-            detail=f"chat_id={masked_chat}, status=success",
+            detail=(
+                f"chat_id={masked_chat}, status=success, "
+                f"template={selected_template.code if selected_template is not None else 'none'}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",
         )
-        return {"message": "Telegram 测试消息发送成功"}
+        return {
+            "message": "Telegram 测试消息发送成功",
+            "template": (
+                get_localized_notification_template_name(selected_template, locale=getattr(current_user, "locale", None))
+                if selected_template is not None
+                else None
+            ),
+        }
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         AuditService.schedule_business_action(
@@ -1041,7 +1125,11 @@ async def test_telegram_bot(
             username=current_user.username,
             action="TEST_TELEGRAM_BOT",
             target="通知服务",
-            detail=f"chat_id={masked_chat}, status=failed, code={detail.get('code', 'UNKNOWN')}",
+            detail=(
+                f"chat_id={masked_chat}, status=failed, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, "
+                f"code={detail.get('code', 'UNKNOWN')}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",
@@ -1054,7 +1142,11 @@ async def test_telegram_bot(
             username=current_user.username,
             action="TEST_TELEGRAM_BOT",
             target="通知服务",
-            detail=f"chat_id={masked_chat}, status=failed, code=UNEXPECTED_ERROR, error={type(exc).__name__}",
+            detail=(
+                f"chat_id={masked_chat}, status=failed, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, "
+                f"code=UNEXPECTED_ERROR, error={type(exc).__name__}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",
@@ -1263,35 +1355,33 @@ async def test_sms_gateway(
 ):
     """Test SMS sending using configured provider: aliyun / tencent / twilio."""
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    template_id = _parse_positive_int(body.get("template_id"))
 
-    result = await db.execute(
-        select(models.SystemConfig).where(
-            models.SystemConfig.key.in_(
-                [
-                    "sms_provider",
-                    "sms_test_phone",
-                    "sms_access_key_id",
-                    "sms_access_key_secret",
-                    "sms_sign_name",
-                    "sms_template_code",
-                    "sms_template_param",
-                    "sms_region_id",
-                    "tencent_secret_id",
-                    "tencent_secret_key",
-                    "tencent_sdk_app_id",
-                    "tencent_sign_name",
-                    "tencent_template_id",
-                    "tencent_template_params",
-                    "tencent_region",
-                    "twilio_account_sid",
-                    "twilio_auth_token",
-                    "twilio_from_number",
-                    "twilio_messaging_service_sid",
-                ]
-            )
-        )
+    config_map = await get_system_config_map(
+        db,
+        [
+            "sms_provider",
+            "sms_test_phone",
+            "sms_access_key_id",
+            "sms_access_key_secret",
+            "sms_sign_name",
+            "sms_template_code",
+            "sms_template_param",
+            "sms_region_id",
+            "tencent_secret_id",
+            "tencent_secret_key",
+            "tencent_sdk_app_id",
+            "tencent_sign_name",
+            "tencent_template_id",
+            "tencent_template_params",
+            "tencent_region",
+            "twilio_account_sid",
+            "twilio_auth_token",
+            "twilio_from_number",
+            "twilio_messaging_service_sid",
+            "notification_sms_template_id",
+        ],
     )
-    config_map = decrypt_system_config_map({cfg.key: cfg.value for cfg in result.scalars().all()})
     payload: dict[str, Any] = {**config_map, **(body or {})}
 
     provider = str(payload.get("provider") or payload.get("sms_provider") or "").strip().lower()
@@ -1308,6 +1398,28 @@ async def test_sms_gateway(
             detail={"code": "SMS_CONFIG_REQUIRED", "message": "请填写测试手机号"},
         )
     payload["test_phone"] = test_phone
+
+    selected_template = await resolve_notification_template(
+        db,
+        channel="sms",
+        template_id=template_id,
+        config_map=config_map,
+    )
+    if selected_template is not None:
+        rendered_sms_payload = build_sms_test_payload(
+            selected_template,
+            build_notification_sample_context(
+                current_user=current_user,
+                channel="sms",
+                recipient=test_phone,
+            ),
+        )
+        if provider == "aliyun":
+            payload["sms_template_param"] = rendered_sms_payload["aliyun_template_param"]
+        elif provider == "tencent":
+            payload["tencent_template_params"] = rendered_sms_payload["tencent_template_params"]
+        elif provider == "twilio":
+            payload["test_message"] = rendered_sms_payload["twilio_message"]
 
     trace_id = request.headers.get("X-Request-ID")
     ip = request.client.host if request.client else "unknown"
@@ -1331,12 +1443,22 @@ async def test_sms_gateway(
             username=current_user.username,
             action="TEST_SMS_SERVICE",
             target="通知服务",
-            detail=f"provider={provider}, phone={masked_phone}, status=success, meta={send_result}",
+            detail=(
+                f"provider={provider}, phone={masked_phone}, status=success, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, meta={send_result}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",
         )
-        return {"message": f"{provider} 短信测试发送成功"}
+        return {
+            "message": f"{provider} 短信测试发送成功",
+            "template": (
+                get_localized_notification_template_name(selected_template, locale=getattr(current_user, "locale", None))
+                if selected_template is not None
+                else None
+            ),
+        }
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         AuditService.schedule_business_action(
@@ -1345,7 +1467,11 @@ async def test_sms_gateway(
             username=current_user.username,
             action="TEST_SMS_SERVICE",
             target="通知服务",
-            detail=f"provider={provider}, phone={masked_phone}, status=failed, code={detail.get('code', 'UNKNOWN')}",
+            detail=(
+                f"provider={provider}, phone={masked_phone}, status=failed, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, "
+                f"code={detail.get('code', 'UNKNOWN')}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",
@@ -1358,7 +1484,11 @@ async def test_sms_gateway(
             username=current_user.username,
             action="TEST_SMS_SERVICE",
             target="通知服务",
-            detail=f"provider={provider}, phone={masked_phone}, status=failed, code=UNEXPECTED_ERROR, error={type(exc).__name__}",
+            detail=(
+                f"provider={provider}, phone={masked_phone}, status=failed, "
+                f"template={selected_template.code if selected_template is not None else 'none'}, "
+                f"code=UNEXPECTED_ERROR, error={type(exc).__name__}"
+            ),
             ip_address=ip,
             trace_id=trace_id,
             domain="BUSINESS",

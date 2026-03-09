@@ -331,15 +331,54 @@
     },
     "filters": {
       "all": "全部",
-      "searchPlaceholder": "搜索会议主题 / 发起人 / 会议室",
+      "searchPlaceholder": "搜索会议主题 / 发起人 / 会议室 / 会议软件",
       "type": "会议类型",
       "status": "会议状态"
     },
     "actions": {
       "back": "返回首页",
       "refresh": "立即刷新",
+      "create": "创建会议",
       "resetFilters": "清空筛选",
       "viewDetail": "查看详情"
+    },
+    "messages": {
+      "createSuccess": "会议已创建",
+      "createFailed": "创建会议失败"
+    },
+    "modal": {
+      "title": "创建会议",
+      "tip": "线上会议请填写会议软件与会议 ID / 会议链接；线下会议请填写会议室与会议 ID。"
+    },
+    "form": {
+      "subject": "会议主题",
+      "subjectPlaceholder": "例如：产品周会 / 项目复盘",
+      "startTime": "开始时间",
+      "startTimePlaceholder": "选择会议开始时间",
+      "duration": "会议时长（分钟）",
+      "meetingType": "会议类型",
+      "meetingTypePlaceholder": "选择会议类型",
+      "room": "会议室",
+      "roomPlaceholder": "例如：18F 星海会议室",
+      "meetingId": "会议 ID",
+      "meetingIdPlaceholder": "例如：腾讯会议 904-123-456",
+      "attendees": "参会人",
+      "attendeesPlaceholder": "输入姓名后回车，可连续添加多位参会人",
+      "meetingSoftware": "会议软件",
+      "meetingSoftwarePlaceholder": "例如：腾讯会议 / 飞书会议 / Teams",
+      "onlineMeetingId": "会议 ID / 会议链接",
+      "onlineMeetingIdPlaceholder": "例如：904-123-456 或 https://meeting.tencent.com/xxx"
+    },
+    "validation": {
+      "subject": "请输入会议主题",
+      "startTime": "请选择开始时间",
+      "duration": "请输入会议时长",
+      "meetingType": "请选择会议类型",
+      "room": "请输入会议室",
+      "meetingId": "请输入会议 ID",
+      "attendees": "请至少填写一位参会人",
+      "meetingSoftware": "请输入会议软件",
+      "onlineMeetingId": "请输入会议 ID 或会议链接"
     },
     "sections": {
       "timeline": "时间线",
@@ -365,7 +404,13 @@
       "meetingId": "会议 ID",
       "organizerHint": "会议发起人与议程所有者",
       "attendeeCount": "{{count}} 人",
-      "noAttendees": "当前会议还没有参会人信息"
+      "noAttendees": "当前会议还没有参会人信息",
+      "meetingSoftware": "会议软件",
+      "onlineMeetingId": "会议 ID / 会议链接"
+    },
+    "labels": {
+      "meetingIdOrLink": "会议 ID / 链接",
+      "meetingIdShort": "ID"
     }
   },
   "meetingLocal": {
@@ -374,7 +419,7 @@
       "subtitle": "创建并维护后台本地会议台账，为后续接入三方会议平台预留统一数据面。"
     },
     "filters": {
-      "search": "按会议主题 / 会议室 / 会议 ID / 发起人 / 参会人搜索",
+      "search": "按会议主题 / 会议室 / 会议软件 / 会议 ID / 发起人 / 参会人搜索",
       "type": "会议类型",
       "organizer": "会议发起人",
       "attendee": "参会人",
@@ -390,7 +435,8 @@
       "viewDetail": "查看详情",
       "copyMeetingId": "复制会议 ID",
       "copyAttendees": "复制参会人",
-      "copy": "复制"
+      "copy": "复制",
+      "copyMeetingEntry": "复制会议 ID / 链接"
     },
     "status": {
       "upcoming": "即将开始",
@@ -407,7 +453,9 @@
       "copyFailed": "复制失败，请稍后重试",
       "copyMeetingIdSuccess": "会议 ID 已复制",
       "copyRoomSuccess": "会议室信息已复制",
-      "copyAttendeesSuccess": "参会人已复制"
+      "copyAttendeesSuccess": "参会人已复制",
+      "copyVenueSuccess": "会议信息已复制",
+      "copyMeetingEntrySuccess": "会议 ID / 链接已复制"
     },
     "table": {
       "subject": "会议主题",
@@ -418,7 +466,9 @@
       "room": "会议室",
       "meetingId": "会议 ID",
       "organizer": "会议发起人",
-      "attendees": "参会人"
+      "attendees": "参会人",
+      "roomOrSoftware": "会议室 / 会议软件",
+      "meetingIdOrLink": "会议 ID / 会议链接"
     },
     "units": {
       "minutes": "分钟"
@@ -438,8 +488,8 @@
       "editTitle": "编辑会议"
     },
     "form": {
-      "tip": "未填写会议 ID 时，系统会在保存时自动生成一个唯一标识。",
-      "editTip": "你可以直接修改会议信息；保留会议 ID 不变可避免外部引用失效。",
+      "tip": "线上会议请填写会议软件与会议 ID / 会议链接；线下会议请填写会议室与会议 ID。",
+      "editTip": "你可以直接修改会议信息；线上会议需维护会议软件与会议 ID / 会议链接，线下会议需维护会议室与会议 ID。",
       "subject": "会议主题",
       "subjectPlaceholder": "例如：Q2 经营复盘会",
       "organizer": "会议发起人",
@@ -450,11 +500,15 @@
       "meetingType": "会议类型",
       "meetingTypePlaceholder": "选择会议类型",
       "room": "会议室",
-      "roomPlaceholder": "例如：18F 星海会议室 / 腾讯会议 904-123",
+      "roomPlaceholder": "例如：18F 星海会议室",
       "meetingId": "会议 ID",
-      "meetingIdPlaceholder": "可选，留空时自动生成",
+      "meetingIdPlaceholder": "例如：腾讯会议 904-123-456",
       "attendees": "参会人",
-      "attendeesPlaceholder": "从用户中心选择参会人，可多选"
+      "attendeesPlaceholder": "从用户中心选择参会人，可多选",
+      "meetingSoftware": "会议软件",
+      "meetingSoftwarePlaceholder": "例如：腾讯会议 / 飞书会议 / Teams",
+      "onlineMeetingId": "会议 ID / 会议链接",
+      "onlineMeetingIdPlaceholder": "例如：904-123-456 或 https://meeting.tencent.com/xxx"
     },
     "validation": {
       "subject": "请输入会议主题",
@@ -463,7 +517,10 @@
       "duration": "请输入会议时长",
       "meetingType": "请选择会议类型",
       "room": "请输入会议室",
-      "attendees": "请至少填写一位参会人"
+      "meetingId": "请输入会议 ID",
+      "attendees": "请至少填写一位参会人",
+      "meetingSoftware": "请输入会议软件",
+      "onlineMeetingId": "请输入会议 ID 或会议链接"
     },
     "empty": "当前还没有本地会议，先创建一场会议。",
     "emptyFiltered": "当前筛选条件下没有会议。",
@@ -479,7 +536,9 @@
       "createdAt": "创建时间",
       "attendees": "参会人",
       "attendeeCount": "共 {{count}} 人",
-      "editCurrent": "编辑此会议"
+      "editCurrent": "编辑此会议",
+      "meetingSoftware": "会议软件",
+      "onlineMeetingId": "会议 ID / 会议链接"
     }
   },
   "meetingSync": {
@@ -1248,6 +1307,7 @@
       "roles": "角色",
       "status": "状态",
       "email": "邮箱",
+      "locale": "语言偏好",
       "actions": "操作",
       "empty": "暂无用户数据",
       "noRoles": "暂无角色",
@@ -1296,7 +1356,14 @@
       "emailInvalid": "请输入有效的邮箱地址",
       "emailPlaceholder": "请输入邮箱",
       "roles": "分配角色",
-      "rolesPlaceholder": "选择角色"
+      "rolesPlaceholder": "选择角色",
+      "locale": "语言偏好",
+      "localePlaceholder": "选择用户通知语言"
+    },
+    "locale": {
+      "default": "默认（简体中文）",
+      "zhCN": "简体中文",
+      "enUS": "English"
     }
   },
   "knowledgeBase": {
@@ -2879,24 +2946,164 @@
         "testMessage": "Twilio 使用该内容；阿里云/腾讯云使用模板参数"
       },
       "defaultTestMessage": "【Next-Gen Enterprise Portal】短信网关测试消息"
+    },
+    "templates": {
+      "emailTemplate": "默认邮件模板",
+      "emailTemplateHelp": "用于指定邮件通知默认引用的模板。",
+      "emailTemplatePlaceholder": "请选择邮件模板",
+      "manageEmail": "前往通知模板页管理邮件模板",
+      "smsTemplate": "默认短信模板",
+      "smsTemplateHelp": "用于指定短信通知默认引用的模板。",
+      "smsTemplatePlaceholder": "请选择短信模板",
+      "manageSms": "前往通知模板页管理短信模板",
+      "imTemplate": "默认即时通讯模板",
+      "imTemplateHelp": "用于指定 Telegram / 即时通讯通知默认引用的模板。",
+      "imTemplatePlaceholder": "请选择即时通讯模板",
+      "manageIm": "前往通知模板页管理即时通讯模板",
+      "empty": "暂无可选模板，请先在通知模板页创建或启用模板"
     }
   },
   "notificationTemplates": {
     "title": "通知模版",
-    "subtitle": "管理系统通知邮件和短信的模版内容",
+    "subtitle": "管理邮件、短信、即时通讯模板，并支持新增、编辑和启停用",
+    "sections": {
+      "libraryTitle": "模板库",
+      "libraryDescription": "在此维护通知模板内容和变量，发送配置页可直接选择默认模板。"
+    },
+    "fields": {
+      "codeLabel": "模板编码",
+      "variableCountLabel": "变量数量",
+      "variableCount_one": "{{count}} 个变量",
+      "variableCount_other": "{{count}} 个变量",
+      "subjectLabel": "邮件主题",
+      "variablesLabel": "模板变量",
+      "noVariables": "暂无变量",
+      "contentLabel": "模板内容",
+      "templateLabel": "模板信息",
+      "statusLabel": "状态",
+      "actionsLabel": "操作"
+    },
+    "status": {
+      "builtin": "内置模板",
+      "enabled": "已启用",
+      "disabled": "已停用"
+    },
+    "actions": {
+      "create": "新增模板",
+      "edit": "编辑模板",
+      "delete": "删除模板",
+      "save": "保存模板",
+      "cancel": "取消",
+      "deleteConfirmTitle": "确认删除该模板？",
+      "deleteConfirmDescription": "删除后不可恢复，请确认当前模板未被业务引用。",
+      "preview": "预览模板"
+    },
+    "messages": {
+      "loadFailed": "通知模板加载失败",
+      "createSuccess": "通知模板创建成功",
+      "updateSuccess": "通知模板保存成功",
+      "saveFailed": "通知模板保存失败",
+      "enableSuccess": "通知模板已启用",
+      "disableSuccess": "通知模板已停用",
+      "statusFailed": "通知模板状态更新失败",
+      "deleteSuccess": "通知模板已删除",
+      "deleteFailed": "通知模板删除失败",
+      "previewFailed": "模板预览失败",
+      "previewReady": "模板预览已生成",
+      "previewValidationWarning": "模板预览已生成，但仍有变量声明需要处理",
+      "serverValidationFailed": "服务端校验未通过，请先处理模板变量问题",
+      "serverValidationWarning": "模板已保存，但服务端仍检测到未使用的声明变量"
+    },
+    "modal": {
+      "createTitle": "新增通知模板",
+      "editTitle": "编辑通知模板"
+    },
+    "form": {
+      "category": "模板分类",
+      "code": "模板编码",
+      "codePlaceholder": "例如：email_verification_code",
+      "name": "模板名称",
+      "namePlaceholder": "请输入模板名称",
+      "enabled": "启用状态",
+      "description": "模板说明",
+      "descriptionPlaceholder": "请输入模板用途说明",
+      "subject": "邮件主题",
+      "subjectPlaceholder": "请输入邮件主题",
+      "variables": "模板变量",
+      "variablesHelp": "回车或逗号可快速添加变量名。",
+      "variablesPlaceholder": "例如：user_name, code, expires_at",
+      "content": "模板内容",
+      "contentPlaceholder": "请输入模板正文，支持使用 {{variable}} 变量占位。",
+      "localizedTitle": "多语言内容",
+      "localizedHelp": "默认内容继续作为兼容 fallback 使用；你可以在这里为简体中文和英文分别维护展示与渲染内容。",
+      "localizedName": "本地化模板名称",
+      "localizedNamePlaceholder": "留空则回退到默认模板名称",
+      "localizedDescription": "本地化模板说明",
+      "localizedDescriptionPlaceholder": "留空则回退到默认模板说明",
+      "localizedSubject": "本地化邮件主题",
+      "localizedSubjectPlaceholder": "留空则回退到默认邮件主题",
+      "localizedContent": "本地化模板内容",
+      "localizedContentPlaceholder": "留空则回退到默认模板内容",
+      "localizedFallbackHint": "该语言未填写时，将回退到上方默认内容。",
+      "localeTabs": {
+        "zhCN": "简体中文",
+        "enUS": "English"
+      }
+    },
+    "validation": {
+      "categoryRequired": "请选择模板分类",
+      "codeRequired": "请输入模板编码",
+      "codePattern": "模板编码仅支持小写字母、数字、下划线和中划线，长度 3-64",
+      "nameRequired": "请输入模板名称",
+      "subjectRequired": "邮件模板必须填写主题",
+      "contentRequired": "请输入模板内容",
+      "title": "变量占位校验",
+      "placeholderCount_one": "{{count}} 个占位变量",
+      "placeholderCount_other": "{{count}} 个占位变量",
+      "invalidVariables": "存在不合法的变量名",
+      "missingVariables": "存在未声明的占位变量",
+      "unusedVariables": "存在未使用的声明变量",
+      "ready": "模板变量声明完整，可直接保存或预览",
+      "declaredVariables": "已声明变量",
+      "placeholderVariables": "正文占位变量",
+      "noDeclaredVariables": "暂无声明变量",
+      "noPlaceholders": "正文中暂无占位变量",
+      "serverTitle": "服务端校验摘要",
+      "serverChecked": "已完成后端校验",
+      "serverReady": "服务端校验通过，可安全保存当前模板",
+      "serverEmpty": "点击“预览模板”或“保存模板”后显示服务端校验摘要"
+    },
     "empty": {
-      "title": "通知模版管理",
-      "description": "通知模版功能正在开发中，将支持自定义邮件验证码模版、密码重置模版、系统告警通知模版等，支持变量替换和多语言配置。",
-      "tag": "敬请期待"
-    }
-  },
-  "thirdPartyNotifications": {
-    "title": "三方通知",
-    "subtitle": "对接第三方系统的通知渠道，如企业微信、钉钉、飞书等",
-    "empty": {
-      "title": "三方通知对接",
-      "description": "三方通知功能正在开发中，将支持对接企业微信机器人、钉钉 Webhook、飞书机器人等主流企业通知渠道，实现系统事件的跨平台推送。",
-      "tag": "敬请期待"
+      "category": "当前分类下暂无模板"
+    },
+    "categories": {
+      "email": {
+        "title": "邮件模版",
+        "description": "用于验证码、密码重置、系统通知等富文本邮件场景。"
+      },
+      "sms": {
+        "title": "短信模版",
+        "description": "用于登录校验、重置通知和服务提醒等短信发送场景。"
+      },
+      "im": {
+        "title": "即时通讯模版",
+        "description": "用于企业微信、钉钉、飞书等机器人或群通知场景。"
+      }
+    },
+    "emptyDescription": "暂未填写模板说明",
+    "preview": {
+      "title": "模板预览",
+      "sampleHint": "预览使用系统生成的示例变量值，不会发送真实消息。",
+      "sampleTag": "示例渲染",
+      "subject": "预览主题",
+      "content": "预览内容",
+      "variables": "示例变量值",
+      "noVariables": "暂无示例变量",
+      "empty": "点击“预览模板”生成示例内容",
+      "variableEditorTitle": "预览变量",
+      "variableEditorHelp": "可覆盖示例值，再点击预览生成渲染结果。",
+      "variablePlaceholder": "留空则使用系统示例值",
+      "noEditableVariables": "当前模板没有可编辑的预览变量"
     }
   },
   "mfaSettingsPage": {

@@ -648,7 +648,7 @@ async def enable_email_mfa(
         )
     # Send a verification code first
     try:
-        await send_email_otp(user.email, user.username, db)
+        await send_email_otp(user.email, user.username, db, locale=getattr(user, "locale", None))
     except ValueError as e:
         await _audit_mfa_action(
             db=db,
@@ -798,7 +798,7 @@ async def send_email_mfa_code(
             detail={"code": "EMAIL_MFA_NOT_ENABLED", "message": "邮箱验证未启用"},
         )
     try:
-        await send_email_otp(user.email, user.username, db)
+        await send_email_otp(user.email, user.username, db, locale=getattr(user, "locale", None))
     except ValueError as e:
         await _audit_mfa_action(
             db=db,

@@ -123,6 +123,29 @@ class AdminMeetingAttendee(Base):
     user = relationship("User")
 
 
+class NotificationTemplate(Base):
+    __tablename__ = "notification_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(64), nullable=False, unique=True, index=True)
+    name = Column(String(128), nullable=False, index=True)
+    name_i18n = Column(JSON, nullable=False, default=dict)
+    description = Column(String(255), nullable=True)
+    description_i18n = Column(JSON, nullable=False, default=dict)
+    category = Column(String(16), nullable=False, index=True)
+    subject = Column(String(255), nullable=True)
+    subject_i18n = Column(JSON, nullable=False, default=dict)
+    content = Column(Text, nullable=False)
+    content_i18n = Column(JSON, nullable=False, default=dict)
+    variables = Column(JSON, nullable=False, default=list)
+    is_enabled = Column(Boolean, nullable=False, default=True, index=True)
+    is_builtin = Column(Boolean, nullable=False, default=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    updated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+
 class AIProvider(Base):
     __tablename__ = "ai_providers"
 
