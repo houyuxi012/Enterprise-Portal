@@ -15,6 +15,11 @@ from .schemas import (
     LogoutResponse,
     RoleOut,
     PasswordChangeRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetConfirmResponse,
+    PasswordResetRequestPayload,
+    PasswordResetRequestResponse,
+    PasswordResetValidateResponse,
     SessionScopeRequest,
     SessionRevokeResponse,
     OnlineUserSessionItem,
@@ -23,6 +28,11 @@ from iam.deps import get_db, PermissionChecker, verify_admin_aud
 from iam.rbac.service import RBACService
 from iam.audit.service import IAMAuditService
 from modules.admin.services.license_service import LicenseService
+from modules.iam.services.password_reset_service import (
+    confirm_password_reset,
+    request_password_reset,
+    validate_password_reset_token,
+)
 from modules.iam.services.password_policy import set_user_password
 import modules.models as models
 
@@ -159,6 +169,48 @@ async def get_me(
         roles=[RoleOut(**r) for r in roles],
         permissions=list(permissions_set),
         perm_version=perm_version
+    )
+
+
+@router.post("/password-reset/request", response_model=PasswordResetRequestResponse)
+async def request_reset_password(
+    request: Request,
+    payload: PasswordResetRequestPayload,
+    audience: str = Query(..., pattern="^(admin|portal)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    return await request_password_reset(
+        db,
+        request=request,
+        identifier=payload.identifier,
+        audience=audience,
+        locale=payload.locale,
+    )
+
+
+@router.get("/password-reset/validate", response_model=PasswordResetValidateResponse)
+async def validate_reset_password_token(
+    token: str = Query(..., min_length=16),
+    audience: str = Query(..., pattern="^(admin|portal)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    data = await validate_password_reset_token(db, token=token, audience=audience)
+    return PasswordResetValidateResponse(**data)
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetConfirmResponse)
+async def confirm_reset_password(
+    request: Request,
+    payload: PasswordResetConfirmRequest,
+    audience: str = Query(..., pattern="^(admin|portal)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    return await confirm_password_reset(
+        db,
+        request=request,
+        token=payload.token,
+        audience=audience,
+        new_password=payload.new_password,
     )
 
 

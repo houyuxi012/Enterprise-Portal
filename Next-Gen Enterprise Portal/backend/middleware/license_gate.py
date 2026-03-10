@@ -38,6 +38,7 @@ class LicenseGateMiddleware(BaseHTTPMiddleware):
     EXEMPT_PREFIXES = (
         "/api/v1/public/",
         "/api/v1/captcha/",
+        "/api/v1/iam/auth/password-reset/",
         "/api/v1/system/license/",
         "/api/v1/admin/system/license/",
     )

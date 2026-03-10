@@ -156,7 +156,30 @@
       "iam_directory_test": "Test Directory Connection",
       "iam_directory_sync_grace_mark": "Sync Grace Period Mark",
       "iam_directory_sync_delete_skip": "Sync Whitelist Skip",
-      "iam_directory_sync_user_removed_grace": "Sync Grace Expired Delete"
+      "iam_directory_sync_user_removed_grace": "Sync Grace Expired Delete",
+      "iam_privacy_consent_accept": "Accept Privacy Policy",
+      "iam_mfa_email_enable": "Enable Email Verification",
+      "iam_mfa_email_verify_enable": "Verify and Enable Email Verification",
+      "iam_mfa_email_disable": "Disable Email Verification",
+      "iam_mfa_email_send_code": "Send Email Verification Code",
+      "iam_mfa_challenge_verify": "Verify MFA Challenge",
+      "iam_mfa_totp_setup": "Set Up TOTP Authenticator",
+      "iam_mfa_totp_verify_setup": "Verify TOTP Setup",
+      "iam_mfa_totp_disable": "Disable TOTP Verification",
+      "iam_mfa_webauthn_register": "Register Security Key",
+      "iam_mfa_webauthn_delete": "Delete Security Key",
+      "iam_mfa_admin_batch_reset": "Batch Reset MFA"
+    },
+    "resourceTypes": {
+      "session": "Session",
+      "mfa": "MFA",
+      "privacy_consent": "Privacy Consent",
+      "user": "User",
+      "role": "Role",
+      "permission": "Permission",
+      "directory": "Directory",
+      "license": "License",
+      "webauthn_credential": "Security Key"
     }
   },
   "license": {
@@ -205,7 +228,8 @@
       "iam_audit": "IAM Audit",
       "session_security": "Session Security Policy",
       "customization_manage": "Customization Management",
-      "mfa_settings": "MFA Settings"
+      "mfa_settings": "MFA Settings",
+      "meeting_manage": "Meeting Management"
     },
     "eventsCard": {
       "title": "License Import History",
@@ -346,6 +370,8 @@
       "createSuccess": "Meeting created",
       "createFailed": "Failed to create meeting"
     },
+    "licenseBlockedTitle": "Meeting Feature Unlicensed",
+    "licenseBlocked": "The current license does not include meeting management. Portal meeting capabilities are unavailable.",
     "modal": {
       "title": "Create Meeting",
       "tip": "For online meetings, provide the meeting software and the meeting ID / link. For offline meetings, provide the room and meeting ID."
@@ -471,7 +497,8 @@
       "meetingIdOrLink": "Meeting ID / Meeting Link"
     },
     "units": {
-      "minutes": " min"
+      "minutes": " min",
+      "people": " people"
     },
     "metrics": {
       "total": "Local Meetings",
@@ -527,6 +554,7 @@
     "drawer": {
       "title": "Meeting Details",
       "summary": "Review the core meeting data in one place and quickly copy important fields.",
+      "type": "Meeting Type",
       "startTime": "Start Time",
       "duration": "Duration",
       "room": "Meeting Room",
@@ -536,6 +564,7 @@
       "createdAt": "Created At",
       "attendees": "Attendees",
       "attendeeCount": "{{count}} attendees",
+      "emptyAttendees": "No attendees",
       "editCurrent": "Edit This Meeting",
       "meetingSoftware": "Meeting Software",
       "onlineMeetingId": "Meeting ID / Meeting Link"
@@ -718,6 +747,7 @@
       "meetingManagement": "Meeting Management",
       "meetingLocal": "Local Registry",
       "meetingSync": "Third-Party Sync",
+      "meetingManagementLicenseRequired": "Meeting management license feature is required",
       "apps": "App Center",
       "tools": "App Management",
       "appPermissions": "App Permissions",
@@ -741,12 +771,15 @@
       "passwordPolicy": "Password Policy",
       "mfaSettings": "MFA Settings",
       "mfaSettingsLicenseRequired": "MFA settings license feature is required",
+      "notification": "Notification Management",
+      "notificationTemplates": "Notification Templates",
+      "notificationServices": "Notification Services",
       "system": "System Management",
       "customization": "Customization",
       "customizationLicenseRequired": "Unlicensed: view default configuration only, editing is disabled",
       "platformSettings": "Platform Settings",
-      "license": "License",
-      "aboutUs": "About Us"
+      "operationsManagement": "Operations Management",
+      "license": "License"
     },
     "userMenu": {
       "version": "System Version",
@@ -894,6 +927,40 @@
       "privacyPolicyUpdated": "The privacy policy has changed. Refresh the page, review it again, and confirm your consent."
     }
   },
+  "passwordReset": {
+    "requestTitle": "Forgot Password",
+    "resetTitle": "Reset Password",
+    "requestDescription": "Enter your corporate email or account. If the account exists and has a bound email address, a reset link will be sent there.",
+    "resetHintTitle": "Reset link verified",
+    "resetHintDescription": "Resetting account {{username}}, bound email {{email}}. The link expires at {{expiresAt}}.",
+    "requestSubmit": "Send Reset Email",
+    "resetSubmit": "Reset Password",
+    "form": {
+      "identifier": "Corporate Email / Account",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "placeholders": {
+        "identifier": "Enter corporate email or account",
+        "newPassword": "Enter new password",
+        "confirmPassword": "Enter the new password again"
+      }
+    },
+    "validation": {
+      "identifierRequired": "Please enter corporate email or account",
+      "newPasswordRequired": "Please enter a new password",
+      "newPasswordMin": "New password must be at least 6 characters",
+      "confirmPasswordRequired": "Please confirm the new password"
+    },
+    "messages": {
+      "requestSuccess": "If the account exists and has a bound email address, the reset link has been sent.",
+      "requestFailed": "Failed to send the reset email. Please try again later.",
+      "resetSuccess": "Password reset successful. Sign in with the new password.",
+      "resetFailed": "Failed to reset the password. Please try again later.",
+      "tokenInvalidTitle": "Reset link unavailable",
+      "tokenInvalid": "The reset link is invalid or expired. Request a new one.",
+      "passwordMismatch": "The two new passwords do not match"
+    }
+  },
   "appRoot": {
     "footerDefault": "© 2025 Hou Yuxi. All Rights Reserved.",
     "comingSoon": "Coming Soon",
@@ -1008,6 +1075,9 @@
     "title": "Business Logs",
     "subtitle": "Audit key business operations and security events",
     "empty": "No business logs",
+    "messages": {
+      "loadFailed": "Failed to load business logs"
+    },
     "stats": {
       "total": "Total Operations",
       "today": "Today",
@@ -1144,7 +1214,24 @@
       "license_install": "Install License",
       "license_verify_failed": "License Verification Failed",
       "license_expired": "License Expired",
-      "license_revocation_install": "Install Revocation List"
+      "license_revocation_install": "Install Revocation List",
+      "admin_read_meetings": "Read Meeting List",
+      "admin_create_meeting": "Admin Create Meeting",
+      "admin_update_meeting": "Admin Update Meeting",
+      "admin_delete_meeting": "Admin Delete Meeting",
+      "portal_read_today_meeting_summary": "Read Today's Meeting Summary",
+      "portal_read_today_meetings": "Read Today's Meetings",
+      "portal_create_meeting": "Portal Create Meeting",
+      "create_notification_template": "Create Notification Template",
+      "update_notification_template": "Update Notification Template",
+      "update_notification_template_status": "Update Notification Template Status",
+      "delete_notification_template": "Delete Notification Template"
+    },
+    "targets": {
+      "meeting_list": "Meeting List",
+      "meeting_today_summary": "Today's Meeting Summary",
+      "meeting_today_list": "Today's Meetings",
+      "meeting_record": "Meeting #{{id}}"
     }
   },
   "userList": {
@@ -1169,6 +1256,7 @@
       "name": "Name",
       "account": "Account",
       "email": "Email",
+      "mfa": "MFA",
       "status": "Status",
       "source": "Source",
       "actions": "Actions",
@@ -1562,7 +1650,8 @@
       "other": "Other"
     },
     "form": {
-      "icon": "App Icon (custom image preferred)",
+      "icon": "App Icon",
+      "iconHint": "Recommended: PNG/JPG format, 256 x 256 square icon",
       "uploadIcon": "Upload Icon",
       "color": "Color Theme (applies when no image)",
       "iconName": "Icon Name (Lucide Icon, used when no image)",
@@ -1909,6 +1998,10 @@
       "title": "AI Audit Logs",
       "subtitle": "Full-chain audit for AI calls used in compliance and incident review"
     },
+    "messages": {
+      "loadFailed": "Failed to load AI audit logs",
+      "statsLoadFailed": "Failed to load AI audit statistics"
+    },
     "stats": {
       "totalRequests7d": "Requests (7d)",
       "successRate": "Success Rate",
@@ -2054,6 +2147,7 @@
       "business": "Business Audit",
       "ai": "AI Audit",
       "iam": "IAM Audit",
+      "access": "Access Log",
       "diskThreshold": "Database Disk Safety Threshold",
       "maxDiskUsage": "Max Disk Usage"
     },
@@ -2062,6 +2156,7 @@
       "business": "User operation audit and content changes",
       "ai": "AI conversations, generation records, token usage",
       "iam": "User login, role assignment, permission changes",
+      "access": "Access audit data including sessions, paths, and response status",
       "maxDiskUsage": "When exceeded, oldest logs are removed until usage drops below threshold"
     },
     "validation": {
@@ -2243,6 +2338,9 @@
       "title": "Access Logs",
       "subtitle": "HTTP request access records (stored in Loki)"
     },
+    "messages": {
+      "loadFailed": "Failed to load access logs"
+    },
     "stats": {
       "totalRequests": "Total Requests",
       "successRate": "Success Rate",
@@ -2315,7 +2413,9 @@
         "desc": "Next: 14:00 Product Weekly",
         "next": "Next: {{time}} {{subject}}",
         "empty": "No meetings today",
-        "allCompleted": "Today's meetings are finished"
+        "allCompleted": "Today's meetings are finished",
+        "licenseBlocked": "The current license does not include meeting management.",
+        "licenseBlockedShort": "--"
       },
       "workHours": {
         "label": "Work Hours",
@@ -2369,30 +2469,6 @@
     },
     "newsDetail": {
       "summaryHint": "(This currently displays summary content. Full details can be extended as needed.)"
-    }
-  },
-  "aboutUsPage": {
-    "badge": "Zero Trust · Identity-Driven Security · End-to-End Audit",
-    "titlePrefix": "About",
-    "titleMain": "Next-Gen Enterprise Portal",
-    "description": "We are committed to building the next-generation enterprise collaboration ecosystem. With AI-driven solutions, every employee can unlock their potential in the digital workspace.",
-    "stats": {
-      "zeroTrust": {
-        "value": "Zero Trust",
-        "label": "MFA + RBAC authorization"
-      },
-      "multiModel": {
-        "value": "Model Aggregation",
-        "label": "Multi-vendor AI engine integration"
-      },
-      "knowledgeBase": {
-        "value": "Smart Knowledge Base",
-        "label": "RAG-based vector retrieval"
-      },
-      "audit": {
-        "value": "Full-Chain Audit",
-        "label": "Fine-grained behavior and AI accountability"
-      }
     }
   },
   "versionModal": {
@@ -2570,6 +2646,226 @@
       "dailyTokenLimitExtra": "Set max daily token consumption allowed for this model",
       "dailyRequestLimit": "Daily Request Limit (0 means unlimited)",
       "dailyRequestLimitExtra": "Set max daily request count allowed for this model"
+    }
+  },
+  "operationsManagementPage": {
+    "page": {
+      "title": "Operations Management",
+      "subtitle": "Use existing system APIs to inspect host, resource, notification, and storage status",
+      "refresh": "Refresh Status"
+    },
+    "tabs": {
+      "serverMonitoring": "Server Monitoring",
+      "backupRestore": "Backup & Restore"
+    },
+    "messages": {
+      "refreshed": "Operations overview refreshed",
+      "partialLoaded": "Some operations data failed to load. {{count}} interfaces did not return successfully.",
+      "backupCreated": "Backup created: {{name}}",
+      "backupCreateFailed": "Failed to create backup",
+      "backupRestored": "System configuration restored from backup: {{name}}",
+      "backupRestoreFailed": "Failed to restore backup",
+      "backupDeleted": "Backup deleted: {{name}}",
+      "backupDeleteFailed": "Failed to delete backup",
+      "backupPreviewFailed": "Failed to load backup diff preview",
+      "backupConfigSaved": "Backup schedule configuration saved",
+      "backupConfigSaveFailed": "Failed to save backup schedule configuration",
+      "copySuccess": "Device ID copied",
+      "copyFailed": "Failed to copy device ID"
+    },
+    "server": {
+      "kpis": {
+        "cpu": "CPU Usage",
+        "memory": "Memory Usage",
+        "disk": "Disk Usage",
+        "storage": "Object Storage Usage"
+      },
+      "overview": {
+        "title": "Runtime Overview",
+        "running": "Running Normally",
+        "productVersion": "Product / Version",
+        "accessAddress": "Access Address",
+        "databaseStatus": "Database Status",
+        "licenseExpiry": "License Expiry",
+        "authorizedUnit": "Authorized Unit",
+        "deviceId": "Device ID",
+        "buildRef": "Build Reference"
+      },
+      "config": {
+        "title": "Configuration",
+        "os": "Server OS",
+        "architecture": "CPU Architecture",
+        "cpuModel": "CPU Model",
+        "cpuTopology": "CPU Topology",
+        "memory": "Memory",
+        "disk": "Disk",
+        "diskFs": "File System",
+        "hostname": "Hostname"
+      },
+      "runtime": {
+        "title": "Runtime State",
+        "applyStatus": "Platform Apply Status",
+        "hookStatus": "Runtime Hook Status",
+        "appliedAt": "Last Applied At",
+        "reloadRequired": "Reload Required",
+        "networkTraffic": "Network Throughput",
+        "storageObjects": "Object Storage Objects",
+        "notConfigured": "Not Configured",
+        "configured": "Configured",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "services": {
+        "database": "Database",
+        "notificationCenter": "Notification Center",
+        "platformApply": "Platform Apply",
+        "platformHook": "Runtime Hook",
+        "objectStorage": "Object Storage",
+        "smtp": "SMTP",
+        "telegram": "Telegram",
+        "sms": "SMS"
+      },
+      "tables": {
+        "platformServices": "Platform Service Status",
+        "notificationChannels": "Notification Channel Status",
+        "name": "Name",
+        "status": "Status",
+        "detail": "Detail"
+      },
+      "status": {
+        "healthy": "Healthy",
+        "warning": "Warning",
+        "processing": "Processing",
+        "failed": "Failed",
+        "disabled": "Disabled",
+        "notConfigured": "Not Configured",
+        "unknown": "Unknown"
+      }
+    },
+    "backup": {
+      "actions": {
+        "backupNow": "Run Backup Now",
+        "scheduleConfig": "Backup Schedule & Config",
+        "refresh": "Refresh"
+      },
+      "summary": {
+        "storageUsage": "Object Storage Usage",
+        "objectCount": "Object Count",
+        "backupCount": "Backup Count"
+      },
+      "plan": {
+        "title": "Backup Plan Summary",
+        "status": "Plan Status",
+        "schedule": "Schedule",
+        "nextWindow": "Next Execution Window",
+        "retention": "Retention",
+        "retentionValue": "Retain backups for {{days}} days",
+        "targetType": "Target Type",
+        "targetPath": "Target Path",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "notConfigured": "Not Configured",
+        "notScheduled": "Not Scheduled",
+        "dailyAt": "Daily at {{hour}}",
+        "weeklyAt": "Every {{weekday}} at {{hour}}"
+      },
+      "frequency": {
+        "daily": "Daily",
+        "weekly": "Weekly"
+      },
+      "weekdays": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      },
+      "targetType": {
+        "local": "Server Local",
+        "network": "Network Storage"
+      },
+      "context": {
+        "title": "Current Environment Context",
+        "currentVersion": "Current Version",
+        "schemaVersion": "Database Schema Version",
+        "buildId": "Build Reference",
+        "availableStorage": "Available Storage",
+        "accessAddress": "Access Address"
+      },
+      "alert": {
+        "message": "This release now supports backup, listing, deletion, and restore for system configuration snapshots. Business data, log archives, and object storage contents are still outside the restore scope on this page."
+      },
+      "drawer": {
+        "title": "Backup Schedule & Config",
+        "description": "These settings are persisted as real backup planning parameters. This release only saves the plan and does not trigger online backup execution directly.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "fields": {
+          "enabled": "Enable Scheduled Backup",
+          "frequency": "Frequency",
+          "weekday": "Weekday",
+          "hour": "Hour",
+          "retentionDays": "Retention Days",
+          "targetType": "Target Type",
+          "targetPath": "Target Path"
+        },
+        "placeholders": {
+          "targetPath": "For example: /data/backups or \\\\nas\\portal\\backup"
+        },
+        "validation": {
+          "frequencyRequired": "Select a backup frequency",
+          "weekdayRequired": "Select a weekday",
+          "hourRequired": "Enter the execution hour",
+          "retentionRequired": "Enter retention days",
+          "targetTypeRequired": "Select a target type",
+          "targetPathRequired": "Enter a target path"
+        }
+      },
+      "empty": {
+        "title": "Backup & Restore APIs Pending",
+        "description": "The backend does not currently expose online backup jobs, backup file listing, or restore task APIs."
+      },
+      "table": {
+        "title": "Backup File List",
+        "name": "Backup Name",
+        "size": "Backup Size",
+        "time": "Backup Time",
+        "version": "Backup Version",
+        "pathType": "Path Type",
+        "path": "Path",
+        "actions": "Actions",
+        "empty": "No system configuration backups available"
+      },
+      "record": {
+        "preview": "Preview Diff",
+        "restore": "Restore",
+        "delete": "Delete",
+        "deleteConfirm": "Delete this backup file?"
+      },
+      "preview": {
+        "title": "Restore Diff Preview",
+        "description": "Only configuration keys that will be created or overwritten by this restore are shown here. Sensitive values remain masked.",
+        "masked": "Masked",
+        "summary": {
+          "createCount": "Keys to Create",
+          "updateCount": "Keys to Overwrite",
+          "unchangedCount": "Unchanged Keys",
+          "totalKeys": "Snapshot Keys"
+        },
+        "status": {
+          "create": "Create",
+          "update": "Overwrite"
+        },
+        "table": {
+          "key": "Config Key",
+          "status": "Restore Impact",
+          "currentValue": "Current Value",
+          "backupValue": "Backup Value",
+          "empty": "This backup already matches current system configuration."
+        }
+      }
     }
   },
   "systemSettingsPage": {
@@ -2823,7 +3119,7 @@
         "username": "Username / Email",
         "password": "Password / App Password",
         "sender": "Sender Address",
-        "tls": "Enable TLS",
+        "tls": "Enable SSL / TLS",
         "testEmail": "Test Email Recipient"
       },
       "validation": {
@@ -2957,6 +3253,8 @@
       "libraryDescription": "Maintain template content and variables here, then select defaults directly from the notification services page."
     },
     "fields": {
+      "attributeLabel": "Template Attribute",
+      "descriptionLabel": "Template Description",
       "codeLabel": "Template Code",
       "variableCountLabel": "Variable Count",
       "variableCount_one": "{{count}} variable",
@@ -2971,6 +3269,7 @@
     },
     "status": {
       "builtin": "Built-in",
+      "custom": "Custom",
       "enabled": "Enabled",
       "disabled": "Disabled"
     },
@@ -3016,10 +3315,15 @@
       "subject": "Email Subject",
       "subjectPlaceholder": "Enter email subject",
       "variables": "Template Variables",
-      "variablesHelp": "Press Enter or comma to add variables quickly.",
       "variablesPlaceholder": "e.g. user_name, code, expires_at",
+      "defaultLocale": "Default Locale",
+      "defaultFlag": "Default",
+      "defaultLocalePlaceholder": "Choose the locale used as fallback",
+      "defaultLocaleHint": "If this locale is set as default, saving will also sync it as the system fallback.",
       "content": "Template Content",
       "contentPlaceholder": "Enter template body and use {{variable}} placeholders where needed.",
+      "editorTitle": "Content and Locales",
+      "editorHelp": "Manage localized content in one place. Use the default locale above to define the system fallback, while the Chinese and English tabs control rendered display content.",
       "localizedTitle": "Localized Content",
       "localizedHelp": "Default fields remain the compatibility fallback. Use these locale overrides to manage Simplified Chinese and English separately.",
       "localizedName": "Localized Template Name",
@@ -3030,7 +3334,9 @@
       "localizedSubjectPlaceholder": "Leave empty to fall back to the default email subject",
       "localizedContent": "Localized Template Content",
       "localizedContentPlaceholder": "Leave empty to fall back to the default template content",
-      "localizedFallbackHint": "If this locale is empty, the default content above will be used.",
+      "localizedHtmlContent": "Localized Template Content (HTML supported)",
+      "localizedHtmlContentPlaceholder": "Enter HTML email content with {{variable}} placeholders and inline styles.",
+      "localizedFallbackHint": "If this locale is empty, the currently selected default locale will be used as fallback.",
       "localeTabs": {
         "zhCN": "Simplified Chinese",
         "enUS": "English"
@@ -3083,6 +3389,7 @@
       "sampleTag": "Sample Render",
       "subject": "Preview Subject",
       "content": "Preview Content",
+      "emailRender": "Email Render Preview",
       "variables": "Sample Variables",
       "noVariables": "No sample variables",
       "empty": "Click \"Preview Template\" to generate sample content",
@@ -3532,6 +3839,9 @@
       "code6": "Please enter a 6-digit code"
     },
     "emailMfa": {
+      "disableCodeLabel": "Latest email code",
+      "disableCodeHint": "Enter the latest 6-digit verification code just sent to your bound email address.",
+      "sendCode": "Send code",
       "messages": {
         "codeSentSuccess": "Verification code has been sent to your email",
         "sendFailed": "Failed to send verification code",

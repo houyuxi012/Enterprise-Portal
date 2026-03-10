@@ -39,6 +39,7 @@ class SystemLogBase(BaseModel):
 
 class SystemLog(SystemLogBase):
     id: int
+    source: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -90,6 +91,7 @@ MeetingType = Literal["online", "offline"]
 MeetingSource = Literal["local", "third_party"]
 AdminMeetingStatus = Literal["upcoming", "inProgress", "finished"]
 NotificationTemplateCategory = Literal["email", "sms", "im"]
+NotificationTemplateLocale = Literal["zh-CN", "en-US"]
 
 
 class AdminMeetingBase(BaseModel):
@@ -97,17 +99,18 @@ class AdminMeetingBase(BaseModel):
     start_time: datetime
     duration_minutes: int
     meeting_type: MeetingType
-    meeting_room: str
+    meeting_room: str | None = None
+    meeting_software: str | None = None
     organizer_user_id: int
     attendee_user_ids: list[int] = []
 
 
 class AdminMeetingCreate(AdminMeetingBase):
-    meeting_id: Optional[str] = None
+    meeting_id: str
 
 
 class AdminMeetingUpdate(AdminMeetingBase):
-    meeting_id: Optional[str] = None
+    meeting_id: str
 
 
 class AdminMeetingUserRef(BaseModel):
@@ -125,7 +128,8 @@ class AdminMeeting(BaseModel):
     start_time: datetime
     duration_minutes: int
     meeting_type: MeetingType
-    meeting_room: str
+    meeting_room: str | None = None
+    meeting_software: str | None = None
     meeting_id: str
     organizer: str
     organizer_user_id: Optional[int] = None
@@ -160,6 +164,7 @@ class AdminMeetingListResponse(BaseModel):
 class NotificationTemplateBase(BaseModel):
     code: str
     name: str
+    default_locale: NotificationTemplateLocale = "zh-CN"
     name_i18n: dict[str, str] = Field(default_factory=dict)
     description: Optional[str] = None
     description_i18n: dict[str, str] = Field(default_factory=dict)
@@ -179,6 +184,7 @@ class NotificationTemplateCreate(NotificationTemplateBase):
 class NotificationTemplateUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
+    default_locale: Optional[NotificationTemplateLocale] = None
     name_i18n: Optional[dict[str, str]] = None
     description: Optional[str] = None
     description_i18n: Optional[dict[str, str]] = None
@@ -211,6 +217,7 @@ class NotificationTemplatePreviewRequest(NotificationTemplateBase):
 class NotificationTemplatePreview(BaseModel):
     subject: Optional[str] = None
     content: str
+    html_content: Optional[str] = None
     variables: dict[str, str] = Field(default_factory=dict)
 
 

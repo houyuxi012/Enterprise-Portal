@@ -150,6 +150,13 @@ class DatetimeAndStringConstraintTests(TestCase):
             (BusinessLog, "trace_id"): 128,
             (BusinessLog, "source"): 32,
             (BusinessLog, "domain"): 32,
+            (AdminMeeting, "subject"): 255,
+            (AdminMeeting, "meeting_type"): 20,
+            (AdminMeeting, "meeting_room"): 255,
+            (AdminMeeting, "meeting_software"): 128,
+            (AdminMeeting, "meeting_id"): 128,
+            (AdminMeeting, "organizer"): 255,
+            (AdminMeeting, "source"): 20,
             (LogForwardingConfig, "type"): 32,
             (LogForwardingConfig, "endpoint"): 1024,
             (AIProvider, "name"): 128,
@@ -166,9 +173,7 @@ class DatetimeAndStringConstraintTests(TestCase):
             (NewsItem, "author"): 128,
             (NewsItem, "image"): 512,
             (QuickTool, "name"): 128,
-            (QuickTool, "icon_name"): 64,
             (QuickTool, "url"): 1024,
-            (QuickTool, "color"): 32,
             (QuickTool, "category"): 64,
             (QuickTool, "description"): 255,
             (QuickTool, "image"): 512,
@@ -205,6 +210,10 @@ class DatetimeAndStringConstraintTests(TestCase):
         for model, column_name in text_columns:
             with self.subTest(model=model.__name__, column=column_name):
                 self.assertIsInstance(model.__table__.c[column_name].type, Text)
+
+    def test_online_meeting_uses_separate_software_field(self):
+        self.assertTrue(AdminMeeting.__table__.c.meeting_room.nullable)
+        self.assertTrue(AdminMeeting.__table__.c.meeting_software.nullable)
 
     def test_core_models_do_not_use_unbounded_string_columns(self):
         model_classes = (

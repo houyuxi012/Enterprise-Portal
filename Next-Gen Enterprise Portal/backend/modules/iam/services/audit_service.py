@@ -153,6 +153,7 @@ class AuditService:
         """
         Log generic business action (e.g. CREATE_NEWS, UPDATE_USER).
         Uses BusinessLog model + sidecar LogSink.
+        Returns the DB model instance for callers that need to refresh/return it.
         """
         try:
             # If trace_id not provided, try to get from context or generate one
@@ -219,5 +220,7 @@ class AuditService:
             except Exception as e:
                 logger.warning(f"LogSink emit failed (non-blocking): {e}")
             
+            return log_entry
         except Exception as e:
             logger.error(f"Failed to log business action: {e}")
+            return None

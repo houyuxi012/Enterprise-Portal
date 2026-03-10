@@ -35,6 +35,8 @@ interface UseAppRenderersOptions {
   customizationLicenseBlockedMessage: string;
   mfaSettingsLicenseBlocked: boolean;
   mfaSettingsLicenseBlockedMessage: string;
+  meetingManagementLicenseBlocked: boolean;
+  meetingManagementLicenseBlockedMessage: string;
   employees: Employee[];
   newsList: NewsItem[];
   onDirectoryLicenseStateChange: (blocked: boolean, messageText: string) => void;
@@ -73,6 +75,8 @@ export const useAppRenderers = ({
   customizationLicenseBlockedMessage,
   mfaSettingsLicenseBlocked,
   mfaSettingsLicenseBlockedMessage,
+  meetingManagementLicenseBlocked,
+  meetingManagementLicenseBlockedMessage,
   employees,
   newsList,
   onDirectoryLicenseStateChange,
@@ -126,6 +130,8 @@ export const useAppRenderers = ({
         customizationLicenseMessage={customizationLicenseBlockedMessage}
         mfaSettingsLicenseBlocked={mfaSettingsLicenseBlocked}
         mfaSettingsLicenseMessage={mfaSettingsLicenseBlockedMessage}
+        meetingManagementLicenseBlocked={meetingManagementLicenseBlocked}
+        meetingManagementLicenseMessage={meetingManagementLicenseBlockedMessage}
         employeesCount={employees.length}
         newsCount={newsList.length}
         onDirectoryLicenseStateChange={onDirectoryLicenseStateChange}
@@ -144,6 +150,8 @@ export const useAppRenderers = ({
       customizationLicenseBlockedMessage,
       mfaSettingsLicenseBlocked,
       mfaSettingsLicenseBlockedMessage,
+      meetingManagementLicenseBlocked,
+      meetingManagementLicenseBlockedMessage,
       employees.length,
       newsList.length,
       onDirectoryLicenseStateChange,

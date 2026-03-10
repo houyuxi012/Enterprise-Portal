@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Col, Descriptions, message, Modal, Row, Space, Table, Tag, Typography, Upload } from 'antd';
+import { App, Card, Col, Descriptions, Row, Space, Tag, Typography, Upload } from 'antd';
 import { UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import ApiClient from '@/services/api';
-import AppButton from '@/shared/components/AppButton';
 import AuthService from '@/services/auth';
 import { LicenseClaimsResponse, LicenseEventItem, LicenseStatus } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { AppButton, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 
 const { Text } = Typography;
 const PRODUCT_MODEL = 'NGEPv3.0-HYX-PS';
@@ -83,6 +83,7 @@ const parseRevocationDocument = (raw: string, t: (key: string) => string) => {
 
 const LicenseManagement: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message, modal } = App.useApp();
     const [loading, setLoading] = useState(false);
     const [statusData, setStatusData] = useState<LicenseStatus | null>(null);
     const [claimsData, setClaimsData] = useState<LicenseClaimsResponse | null>(null);
@@ -218,7 +219,7 @@ const LicenseManagement: React.FC = () => {
             message.success(fileName ? t('license.upload.successWithFile', { fileName }) : t('license.upload.success'));
             setEventPage(1);
             await fetchLicenseData(1, eventPageSize);
-            Modal.confirm({
+            modal.confirm({
                 title: t('license.effectiveModal.title'),
                 content: t('license.effectiveModal.content'),
                 okText: t('license.effectiveModal.okText'),
@@ -262,61 +263,65 @@ const LicenseManagement: React.FC = () => {
     };
 
     return (
-        <div className="space-y-4 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            <div className="flex justify-between items-center mb-2 max-w-[1440px] mx-auto w-full">
-                <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('license.title')}</h2>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{t('license.subtitle')}</p>
-                </div>
-                <Space>
-                    <Upload
-                        showUploadList={false}
-                        disabled={loading}
-                        accept=".bin,.json,application/octet-stream,application/json,text/plain"
-                        beforeUpload={async (file) => {
-                            try {
-                                const buffer = await file.arrayBuffer();
-                                const text = new TextDecoder('utf-8').decode(buffer);
-                                const parsed = parseRevocationDocument(text, t);
-                                await importRevocationDocument(parsed, file.name);
-                            } catch {
-                                message.error(t('license.upload.revocationParseFailed'));
-                            }
-                            return false;
-                        }}
-                    >
-                        <AppButton intent="secondary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                            {t('license.upload.revocationButton')}
-                        </AppButton>
-                    </Upload>
-                    <Upload
-                        showUploadList={false}
-                        disabled={loading}
-                        accept=".bin,.json,application/octet-stream,application/json,text/plain"
-                        beforeUpload={async (file) => {
-                            try {
-                                const buffer = await file.arrayBuffer();
-                                const text = new TextDecoder('utf-8').decode(buffer);
-                                const parsed = parseLicenseDocument(text, t);
-                                await importLicenseDocument(parsed.payload, parsed.signature, file.name);
-                            } catch {
-                                message.error(t('license.upload.parseFailed'));
-                            }
-                            return false;
-                        }}
-                    >
-                        <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                            {t('license.upload.button')}
-                        </AppButton>
-                    </Upload>
-                </Space>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('license.title')}
+                subtitle={t('license.subtitle')}
+                action={
+                    <Space>
+                        <Upload
+                            showUploadList={false}
+                            disabled={loading}
+                            accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                            beforeUpload={async (file) => {
+                                try {
+                                    const buffer = await file.arrayBuffer();
+                                    const text = new TextDecoder('utf-8').decode(buffer);
+                                    const parsed = parseRevocationDocument(text, t);
+                                    await importRevocationDocument(parsed, file.name);
+                                } catch {
+                                    message.error(t('license.upload.revocationParseFailed'));
+                                }
+                                return false;
+                            }}
+                        >
+                            <AppButton intent="secondary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
+                                {t('license.upload.revocationButton')}
+                            </AppButton>
+                        </Upload>
+                        <Upload
+                            showUploadList={false}
+                            disabled={loading}
+                            accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                            beforeUpload={async (file) => {
+                                try {
+                                    const buffer = await file.arrayBuffer();
+                                    const text = new TextDecoder('utf-8').decode(buffer);
+                                    const parsed = parseLicenseDocument(text, t);
+                                    await importLicenseDocument(parsed.payload, parsed.signature, file.name);
+                                } catch {
+                                    message.error(t('license.upload.parseFailed'));
+                                }
+                                return false;
+                            }}
+                        >
+                            <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
+                                {t('license.upload.button')}
+                            </AppButton>
+                        </Upload>
+                    </Space>
+                }
+            />
 
-            <div className="max-w-[1440px] mx-auto">
-                <Card
-                    title={<span className="font-bold"><SafetyCertificateOutlined className="mr-2" />{t('license.statusCard.title')}</span>}
-                    className="rounded-2xl border border-slate-100 shadow-sm"
-                >
+            <Card
+                title={
+                    <Space size={8}>
+                        <SafetyCertificateOutlined />
+                        <span>{t('license.statusCard.title')}</span>
+                    </Space>
+                }
+                className="admin-card"
+            >
                     <Descriptions column={3} size="small">
                         <Descriptions.Item label={t('license.statusCard.installStatus')}>
                             <Tag color={statusColor(statusData?.status)}>{statusLabel(statusData?.status)}</Tag>
@@ -342,20 +347,18 @@ const LicenseManagement: React.FC = () => {
                         <Descriptions.Item label={t('license.statusCard.expiresAt')}>{formatDateTime(statusData?.expires_at)}</Descriptions.Item>
                         <Descriptions.Item label={t('license.statusCard.limitUsers')}>{statusData?.limits?.users ?? '-'}</Descriptions.Item>
                     </Descriptions>
-                </Card>
-            </div>
+            </Card>
 
-            <div className="max-w-[1440px] mx-auto">
-                <Card title={t('license.claimsCard.title')} className="rounded-2xl border border-slate-100 shadow-sm">
+            <Card title={t('license.claimsCard.title')} className="admin-card">
                     <Row gutter={[16, 16]}>
                         <Col span={24}>
-                            <div className="text-xs text-slate-500">{t('license.claimsCard.featureCount')}</div>
-                            <div className="text-base font-semibold text-slate-800 dark:text-white">
+                            <Text type="secondary">{t('license.claimsCard.featureCount')}</Text>
+                            <div className="text-base font-semibold">
                                 {statusData?.features_count ?? featuresView.length}
                             </div>
                         </Col>
                         <Col span={24}>
-                            <div className="mb-2 text-xs text-slate-500">{t('license.claimsCard.enabledFeatures')}</div>
+                            <div className="mb-2"><Text type="secondary">{t('license.claimsCard.enabledFeatures')}</Text></div>
                             <div className="flex flex-wrap gap-2">
                                 {featuresView.length > 0 ? (
                                     featuresView.map((feature) => (
@@ -367,12 +370,10 @@ const LicenseManagement: React.FC = () => {
                             </div>
                         </Col>
                     </Row>
-                </Card>
-            </div>
+            </Card>
 
-            <div className="max-w-[1440px] mx-auto">
-                <Card title={t('license.eventsCard.title')} className="rounded-2xl border border-slate-100 shadow-sm">
-                    <Table<LicenseEventItem>
+            <Card title={t('license.eventsCard.title')} className="admin-card">
+                    <AppTable<LicenseEventItem>
                         rowKey="id"
                         size="middle"
                         pagination={{
@@ -402,7 +403,7 @@ const LicenseManagement: React.FC = () => {
                                 dataIndex: 'created_at',
                                 key: 'created_at',
                                 width: 220,
-                                render: (value: string) => <span className="text-xs text-slate-500">{formatDateTime(value)}</span>,
+                                render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
                             },
                             {
                                 title: t('license.eventsCard.columns.licenseId'),
@@ -410,7 +411,7 @@ const LicenseManagement: React.FC = () => {
                                 key: 'license_id',
                                 width: 260,
                                 render: (value: string | null | undefined) => (
-                                    <span className="font-mono text-xs text-slate-700">{formatLicenseId(value)}</span>
+                                    <Text code>{formatLicenseId(value)}</Text>
                                 ),
                             },
                             {
@@ -443,13 +444,12 @@ const LicenseManagement: React.FC = () => {
                                 dataIndex: 'reason',
                                 key: 'reason',
                                 render: (value: string | null | undefined) => (
-                                    <span className="text-slate-500">{eventReasonLabel(value)}</span>
+                                    <Text type="secondary">{eventReasonLabel(value)}</Text>
                                 ),
                             },
                         ]}
                     />
-                </Card>
-            </div>
+            </Card>
         </div>
     );
 };

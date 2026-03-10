@@ -13,12 +13,12 @@ const {
   announcements: AnnouncementList,
   systemSettings: SystemSettings,
   platformSettings: PlatformSettings,
+  operationsManagement: OperationsManagement,
   license: LicenseManagement,
   security: SecuritySettings,
   mfaSettings: MfaSettings,
   notificationServices: NotificationServices,
   notificationTemplates: NotificationTemplates,
-  thirdPartyNotifications: ThirdPartyNotifications,
   passwordPolicy: PasswordPolicy,
   systemUsers: SystemUserList,
   onlineUsers: OnlineUsers,
@@ -29,7 +29,6 @@ const {
   organizations: OrganizationList,
   businessLogs: BusinessLogs,
   accessLogs: AccessLogs,
-  aboutUs: AboutUs,
   logForwarding: LogForwarding,
   logStorage: LogStorage,
   aiAudit: AIAudit,
@@ -57,6 +56,8 @@ export interface AdminRouterManagerProps {
   customizationLicenseMessage: string;
   mfaSettingsLicenseBlocked: boolean;
   mfaSettingsLicenseMessage: string;
+  meetingManagementLicenseBlocked: boolean;
+  meetingManagementLicenseMessage: string;
   employeesCount: number;
   newsCount: number;
   onDirectoryLicenseStateChange: (blocked: boolean, messageText: string) => void;
@@ -75,6 +76,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
   customizationLicenseMessage,
   mfaSettingsLicenseBlocked,
   mfaSettingsLicenseMessage,
+  meetingManagementLicenseBlocked,
+  meetingManagementLicenseMessage,
   employeesCount,
   newsCount,
   onDirectoryLicenseStateChange,
@@ -94,6 +97,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
     customizationLicenseMessage={customizationLicenseMessage}
     mfaSettingsLicenseBlocked={mfaSettingsLicenseBlocked}
     mfaSettingsLicenseMessage={mfaSettingsLicenseMessage}
+    meetingManagementLicenseBlocked={meetingManagementLicenseBlocked}
+    meetingManagementLicenseMessage={meetingManagementLicenseMessage}
   >
     {effectiveAdminTab === 'dashboard' && <AdminDashboard employeeCount={employeesCount} newsCount={newsCount} />}
     {effectiveAdminTab === 'news' && <NewsList />}
@@ -119,6 +124,7 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
       />
     )}
     {effectiveAdminTab === 'platform_settings' && <PlatformSettings />}
+    {effectiveAdminTab === 'ops_management' && <OperationsManagement />}
     {effectiveAdminTab === 'license' && <LicenseManagement />}
     {effectiveAdminTab === 'security' && <SecuritySettings />}
     {effectiveAdminTab === 'password_policy' && <PasswordPolicy />}
@@ -136,10 +142,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
     {effectiveAdminTab === 'ai_usage' && <ModelUsagePage />}
     {effectiveAdminTab === 'kb_manage' && <KnowledgeBase />}
     {effectiveAdminTab === 'todos' && <AdminTodoList />}
-    {effectiveAdminTab === 'about_us' && <AboutUs />}
     {effectiveAdminTab === 'notification_services' && <NotificationServices />}
     {effectiveAdminTab === 'notification_templates' && <NotificationTemplates />}
-    {effectiveAdminTab === 'third_party_notifications' && <ThirdPartyNotifications />}
   </AdminLayout>
 );
 

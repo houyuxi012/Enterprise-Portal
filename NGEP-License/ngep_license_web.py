@@ -567,6 +567,7 @@ INDEX_HTML = """<!doctype html>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="session.security"><span id="feat_session_security">会话安全策略</span></label>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="customization.manage"><span id="feat_customization_manage">客户化管理</span></label>
                 <label class="feature-item"><input type="checkbox" data-feature="1" value="mfa.settings"><span id="feat_mfa_settings">多因素认证设置</span></label>
+                <label class="feature-item"><input type="checkbox" data-feature="1" value="meeting.manage"><span id="feat_meeting_manage">会议管理</span></label>
               </div>
               <label id="lbl_issue_custom_features" style="margin-top:10px;">自定义功能（每行一个，可选）</label>
               <textarea id="issue_custom_features" placeholder="feature.x&#10;module.y"></textarea>
@@ -727,6 +728,7 @@ INDEX_HTML = """<!doctype html>
         feat_session_security: '会话安全策略',
         feat_customization_manage: '客户化管理',
         feat_mfa_settings: '多因素认证设置',
+        feat_meeting_manage: '会议管理',
         lbl_issue_custom_features: '自定义功能（每行一个，可选）',
         lbl_issue_extra_limits: '额外 limits JSON（对象）',
         btn_issue: '签发 License',
@@ -833,6 +835,7 @@ INDEX_HTML = """<!doctype html>
         feat_session_security: 'Session Security Policy',
         feat_customization_manage: 'Customization Management',
         feat_mfa_settings: 'MFA Settings',
+        feat_meeting_manage: 'Meeting Management',
         lbl_issue_custom_features: 'Custom Features (one per line, optional)',
         lbl_issue_extra_limits: 'Extra Limits JSON (object)',
         btn_issue: 'Issue License',
@@ -1205,7 +1208,7 @@ INDEX_HTML = """<!doctype html>
       $('issue_license_id').value = 'HYX-ABCDE-FGHIJ-KLMNO-PQRST-UVWXY';
       $('issue_product_model').value = 'NGEPv3.0-HYX-PS';
       $('issue_expires_at').value = '2027-12-31T23:59:59Z';
-      setIssueFeatureSelection(['ldap', 'sso', 'ai.audit', 'rbac.advanced']);
+      setIssueFeatureSelection(['ldap', 'sso', 'ai.audit', 'rbac.advanced', 'meeting.manage']);
       $('issue_custom_features').value = '';
       $('issue_limits_json').value = '{"projects":50}';
     }

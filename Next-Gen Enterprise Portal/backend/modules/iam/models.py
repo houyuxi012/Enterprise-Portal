@@ -116,6 +116,27 @@ class UserPasswordHistory(Base):
     changed_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        CheckConstraint("audience IN ('admin', 'portal')", name="ck_password_reset_tokens_audience"),
+        CheckConstraint("char_length(trim(token_hash)) = 64", name="ck_password_reset_tokens_hash_length"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    audience = Column(String(16), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    used_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    requested_ip = Column(String(64), nullable=True)
+    requested_user_agent = Column(String(512), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+
+    user = relationship("User", backref="password_reset_tokens")
+
+
 class DirectoryConfig(Base):
     __tablename__ = "directory_configs"
     __table_args__ = (

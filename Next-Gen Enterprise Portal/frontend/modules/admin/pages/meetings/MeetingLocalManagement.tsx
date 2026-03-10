@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Col, Empty, message, Popconfirm, Row, Space, Tag, Typography } from 'antd';
+import { App, Card, Col, Descriptions, Empty, List, Popconfirm, Row, Space, Statistic, Tag, Typography } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined, CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -53,8 +53,15 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
   return typeof errorMessage === 'string' && errorMessage.trim() ? errorMessage : fallback;
 };
 
+const resolveMeetingVenue = (meeting: Pick<LocalMeetingRecord, 'meetingType' | 'meetingRoom' | 'meetingSoftware'>): string => (
+  meeting.meetingType === 'online'
+    ? (meeting.meetingSoftware || meeting.meetingRoom)
+    : meeting.meetingRoom
+);
+
 const MeetingLocalManagement: React.FC = () => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [meetings, setMeetings] = useState<LocalMeetingRecord[]>([]);
   const [summary, setSummary] = useState<PaginatedMeetingSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(false);
@@ -179,6 +186,7 @@ const MeetingLocalManagement: React.FC = () => {
       durationMinutes: values.durationMinutes,
       meetingType: values.meetingType,
       meetingRoom: values.meetingRoom,
+      meetingSoftware: values.meetingSoftware,
       meetingId: values.meetingId,
       organizerUserId: values.organizerUserId,
       attendeeUserIds: values.attendeeUserIds,
@@ -288,10 +296,12 @@ const MeetingLocalManagement: React.FC = () => {
       key: 'subject',
       width: 220,
       render: (value: string, record) => (
-        <div className="min-w-[180px]">
-          <div className="font-semibold text-slate-800">{value}</div>
-          <div className="text-xs text-slate-400 mt-1">{t('meetingLocal.table.createdAt', '创建于')} {dayjs(record.createdAt).format('YYYY-MM-DD HH:mm')}</div>
-        </div>
+        <Space direction="vertical" size={2} className="min-w-[180px]">
+          <Text strong>{value}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('meetingLocal.table.createdAt', '创建于')} {dayjs(record.createdAt).format('YYYY-MM-DD HH:mm')}
+          </Text>
+        </Space>
       ),
     },
     {
@@ -320,13 +330,14 @@ const MeetingLocalManagement: React.FC = () => {
       ),
     },
     {
-      title: t('meetingLocal.table.room', '会议室'),
+      title: t('meetingLocal.table.roomOrSoftware', '会议室 / 会议软件'),
       dataIndex: 'meetingRoom',
-      key: 'meetingRoom',
+      key: 'meetingVenue',
       width: 180,
+      render: (_: string, record) => resolveMeetingVenue(record),
     },
     {
-      title: t('meetingLocal.table.meetingId', '会议 ID'),
+      title: t('meetingLocal.table.meetingIdOrLink', '会议 ID / 会议链接'),
       dataIndex: 'meetingId',
       key: 'meetingId',
       width: 220,
@@ -386,6 +397,20 @@ const MeetingLocalManagement: React.FC = () => {
       ),
     },
   ];
+
+  const detailMeetingVenueLabel = detailMeeting?.meetingType === 'online'
+    ? t('meetingLocal.drawer.meetingSoftware', '会议软件')
+    : t('meetingLocal.drawer.room', '会议室');
+  const detailMeetingVenueValue = detailMeeting ? resolveMeetingVenue(detailMeeting) : '';
+  const detailMeetingIdLabel = detailMeeting?.meetingType === 'online'
+    ? t('meetingLocal.drawer.onlineMeetingId', '会议 ID / 会议链接')
+    : t('meetingLocal.drawer.meetingId', '会议 ID');
+  const detailMeetingIdActionLabel = detailMeeting?.meetingType === 'online'
+    ? t('meetingLocal.actions.copyMeetingEntry', '复制会议 ID / 链接')
+    : t('meetingLocal.actions.copyMeetingId', '复制会议 ID');
+  const detailMeetingIdCopySuccess = detailMeeting?.meetingType === 'online'
+    ? t('meetingLocal.messages.copyMeetingEntrySuccess', '会议 ID / 链接已复制')
+    : t('meetingLocal.messages.copyMeetingIdSuccess', '会议 ID 已复制');
 
   const summaryCards = [
     {
@@ -531,22 +556,17 @@ const MeetingLocalManagement: React.FC = () => {
       <Row gutter={[16, 16]}>
         {summaryCards.map((item) => (
           <Col xs={24} sm={12} xl={6} key={item.key}>
-            <Card className={`border ${item.accentClass} bg-gradient-to-br shadow-sm`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm text-slate-500">{item.label}</div>
-                  <div className="mt-3 text-3xl font-bold text-slate-900">{item.value}</div>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm">
-                  {item.icon}
-                </div>
-              </div>
+            <Card className={`admin-card ${item.accentClass}`}>
+              <Space align="start" className="w-full justify-between">
+                <Statistic title={item.label} value={item.value} />
+                <div>{item.icon}</div>
+              </Space>
             </Card>
           </Col>
         ))}
       </Row>
 
-      <Card className="border-0 shadow-sm">
+      <Card className="admin-card">
         <AppTable<LocalMeetingRecord>
           rowKey="id"
           loading={loading}
@@ -588,6 +608,7 @@ const MeetingLocalManagement: React.FC = () => {
           durationMinutes: editingMeeting.durationMinutes,
           meetingType: editingMeeting.meetingType,
           meetingRoom: editingMeeting.meetingRoom,
+          meetingSoftware: editingMeeting.meetingSoftware,
           meetingId: editingMeeting.meetingId,
           organizerUserId: editingMeeting.organizerUserId ?? undefined,
           attendeeUserIds: editingMeeting.attendeeUserIds,
@@ -611,7 +632,7 @@ const MeetingLocalManagement: React.FC = () => {
       >
         {detailMeeting ? (
           <div className="space-y-4">
-            <Card className="border-0 bg-slate-50 shadow-none">
+            <Card className="admin-card admin-card-subtle">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -623,99 +644,110 @@ const MeetingLocalManagement: React.FC = () => {
                     <Tag>{dayjs(detailMeeting.startTime).format('YYYY-MM-DD HH:mm')}</Tag>
                     <Tag>{`${detailMeeting.durationMinutes}${t('meetingLocal.units.minutes', '分钟')}`}</Tag>
                   </div>
-                  <div className="mt-3 text-sm text-slate-500">
+                  <Text type="secondary" className="mt-3 block">
                     {t('meetingLocal.drawer.summary', '集中查看当前会议的核心信息，并支持快速复制关键字段。')}
-                  </div>
+                  </Text>
                 </div>
                 <AppButton
                   intent="secondary"
                   icon={<CopyOutlined />}
                   onClick={() => {
-                    void handleCopy(detailMeeting.meetingId, t('meetingLocal.messages.copyMeetingIdSuccess', '会议 ID 已复制'));
+                    void handleCopy(detailMeeting.meetingId, detailMeetingIdCopySuccess);
                   }}
                 >
-                  {t('meetingLocal.actions.copyMeetingId', '复制会议 ID')}
+                  {detailMeetingIdActionLabel}
                 </AppButton>
               </div>
             </Card>
 
-            <Card className="border-0 shadow-sm">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.startTime', '开始时间')}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {dayjs(detailMeeting.startTime).format('YYYY-MM-DD HH:mm')}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.duration', '会议时长')}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {detailMeeting.durationMinutes}
-                    {t('meetingLocal.units.minutes', '分钟')}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.room', '会议室')}
-                  </div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-900">{detailMeeting.meetingRoom}</span>
+            <Card className="admin-card">
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title={t('meetingLocal.drawer.startTime', '开始时间')}
+                    value={dayjs(detailMeeting.startTime).format('YYYY-MM-DD HH:mm')}
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title={t('meetingLocal.drawer.duration', '会议时长')}
+                    value={detailMeeting.durationMinutes}
+                    suffix={t('meetingLocal.units.minutes', '分钟')}
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Statistic
+                    title={t('meetingLocal.drawer.attendees', '参会人')}
+                    value={detailMeeting.attendees.length}
+                    suffix={t('meetingLocal.units.people', '人')}
+                  />
+                </Col>
+              </Row>
+            </Card>
+
+            <Card className="admin-card">
+              <Descriptions
+                bordered
+                column={1}
+                size="middle"
+                colon={false}
+                labelStyle={{ width: '34%' }}
+              >
+                <Descriptions.Item label={t('meetingLocal.drawer.type', '会议类型')}>
+                  <Tag color={detailMeeting.meetingType === 'online' ? 'blue' : 'gold'}>
+                    {detailMeeting.meetingType === 'online'
+                      ? t('meetingLocal.types.online', '线上')
+                      : t('meetingLocal.types.offline', '线下')}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label={detailMeetingVenueLabel}>
+                  <Space wrap>
+                    <Text strong>{detailMeetingVenueValue}</Text>
                     <AppButton
                       intent="tertiary"
                       icon={<CopyOutlined />}
                       onClick={() => {
-                        void handleCopy(detailMeeting.meetingRoom, t('meetingLocal.messages.copyRoomSuccess', '会议室信息已复制'));
+                        void handleCopy(detailMeetingVenueValue, t('meetingLocal.messages.copyVenueSuccess', '会议信息已复制'));
                       }}
                     >
                       {t('meetingLocal.actions.copy', '复制')}
                     </AppButton>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.meetingId', '会议 ID')}
-                  </div>
-                  <div className="mt-2 break-all text-sm font-semibold text-slate-900">{detailMeeting.meetingId}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.organizer', '会议发起人')}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">{detailMeeting.organizer}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.updatedAt', '最后更新时间')}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {dayjs(detailMeeting.updatedAt).format('YYYY-MM-DD HH:mm')}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.createdAt', '创建时间')}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {dayjs(detailMeeting.createdAt).format('YYYY-MM-DD HH:mm')}
-                  </div>
-                </div>
-              </div>
+                  </Space>
+                </Descriptions.Item>
+                <Descriptions.Item label={detailMeetingIdLabel}>
+                  <Space wrap>
+                    <Text strong className="break-all">{detailMeeting.meetingId}</Text>
+                    <AppButton
+                      intent="tertiary"
+                      icon={<CopyOutlined />}
+                      onClick={() => {
+                        void handleCopy(detailMeeting.meetingId, detailMeetingIdCopySuccess);
+                      }}
+                    >
+                      {detailMeetingIdActionLabel}
+                    </AppButton>
+                  </Space>
+                </Descriptions.Item>
+                <Descriptions.Item label={t('meetingLocal.drawer.organizer', '会议发起人')}>
+                  <Text strong>{detailMeeting.organizer}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label={t('meetingLocal.drawer.updatedAt', '最后更新时间')}>
+                  <Text strong>{dayjs(detailMeeting.updatedAt).format('YYYY-MM-DD HH:mm')}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label={t('meetingLocal.drawer.createdAt', '创建时间')}>
+                  <Text strong>{dayjs(detailMeeting.createdAt).format('YYYY-MM-DD HH:mm')}</Text>
+                </Descriptions.Item>
+              </Descriptions>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="admin-card">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {t('meetingLocal.drawer.attendees', '参会人')}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-500">
+                <Space direction="vertical" size={2}>
+                  <Text strong>{t('meetingLocal.drawer.attendees', '参会人')}</Text>
+                  <Text type="secondary">
                     {t('meetingLocal.drawer.attendeeCount', '共 {{count}} 人', { count: detailMeeting.attendees.length })}
-                  </div>
-                </div>
+                  </Text>
+                </Space>
                 <AppButton
                   intent="secondary"
                   icon={<CopyOutlined />}
@@ -726,11 +758,16 @@ const MeetingLocalManagement: React.FC = () => {
                   {t('meetingLocal.actions.copyAttendees', '复制参会人')}
                 </AppButton>
               </div>
-              <Space size={[8, 8]} wrap>
-                {detailMeeting.attendees.map((attendee) => (
-                  <Tag key={`${detailMeeting.id}-${attendee}`}>{attendee}</Tag>
-                ))}
-              </Space>
+              <List
+                size="small"
+                dataSource={detailMeeting.attendees}
+                locale={{ emptyText: t('meetingLocal.drawer.emptyAttendees', '暂无参会人') }}
+                renderItem={(attendee) => (
+                  <List.Item key={`${detailMeeting.id}-${attendee}`}>
+                    <Text>{attendee}</Text>
+                  </List.Item>
+                )}
+              />
             </Card>
           </div>
         ) : null}

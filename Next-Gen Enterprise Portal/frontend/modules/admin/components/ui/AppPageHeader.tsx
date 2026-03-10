@@ -1,4 +1,5 @@
 import React from 'react';
+import { Flex, Typography } from 'antd';
 
 export interface AppPageHeaderProps {
     /** 页面标题 */
@@ -32,19 +33,25 @@ const AppPageHeader: React.FC<AppPageHeaderProps> = ({
     className = '',
 }) => {
     return (
-        <div className={`app-page-header flex justify-between items-center mb-6 ${className}`.trim()}>
-            <div className="flex-1">
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight m-0">
+        <Flex
+            align="flex-start"
+            justify="space-between"
+            gap={16}
+            wrap
+            className={`app-page-header ${className}`.trim()}
+        >
+            <div className="app-page-header__content">
+                <Typography.Title level={2} className="app-page-header__title">
                     {title}
-                </h1>
-                {subtitle && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-0">
+                </Typography.Title>
+                {subtitle ? (
+                    <Typography.Paragraph className="app-page-header__subtitle">
                         {subtitle}
-                    </p>
-                )}
+                    </Typography.Paragraph>
+                ) : null}
             </div>
-            {action && <div className="flex-shrink-0">{action}</div>}
-        </div>
+            {action ? <div className="app-page-header__action">{action}</div> : null}
+        </Flex>
     );
 };
 

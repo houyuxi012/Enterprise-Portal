@@ -4,6 +4,7 @@ import { Lock, Eye, EyeOff, Loader2, ArrowRight, Fingerprint, Globe, Sparkles, S
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
+import ForgotPasswordModal from '@/shared/components/ForgotPasswordModal';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
@@ -55,7 +56,7 @@ const parseError = (error: unknown) => {
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const { t, i18n } = useTranslation();
-    const { login, logout } = useAuth();
+    const { login, logout, refreshCurrentUser } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -65,6 +66,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
     const [systemConfigLoaded, setSystemConfigLoaded] = useState(false);
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+    const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+    const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null);
     const [privacyAccepted, setPrivacyAccepted] = useState(() => getCachedAdminPrivacyConsent());
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
@@ -107,6 +110,17 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     }, []);
 
     React.useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const resetToken = params.get('reset_token');
+        const audience = params.get('audience');
+        if (!resetToken || (audience && audience !== 'admin')) {
+            return;
+        }
+        setPasswordResetToken(resetToken);
+        setIsForgotPasswordOpen(true);
+    }, []);
+
+    React.useEffect(() => {
         if (!systemConfigLoaded) {
             return;
         }
@@ -114,6 +128,21 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     }, [privacyAccepted, systemConfig, systemConfigLoaded]);
 
     const shouldRequirePrivacyConsent = isPrivacyConsentRequired(systemConfig);
+
+    const clearPasswordResetParams = React.useCallback(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('reset_token');
+        url.searchParams.delete('audience');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }, []);
+
+    const handleCloseForgotPassword = React.useCallback(() => {
+        if (passwordResetToken) {
+            clearPasswordResetParams();
+            setPasswordResetToken(null);
+        }
+        setIsForgotPasswordOpen(false);
+    }, [clearPasswordResetParams, passwordResetToken]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -223,8 +252,12 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 message.error(msg);
                 return;
             }
+            const currentUser = await refreshCurrentUser();
+            if (!currentUser) {
+                throw new Error(t('loginAdmin.messages.loginFailedNetwork'));
+            }
             message.success(t('loginAdmin.messages.loginSuccess'));
-            window.location.reload();
+            onLoginSuccess();
         } catch (err: unknown) {
             const { detail } = parseError(err);
             const msg = detail || t('mfa.invalidCode', '验证码错误或已过期');
@@ -261,6 +294,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                     challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
                     allowCredentials: (options.allowCredentials || []).map((credential: WebAuthnCredentialDescriptor) => ({
                         ...credential,
+                        type: credential.type as PublicKeyCredentialType,
+                        transports: credential.transports as AuthenticatorTransport[] | undefined,
                         id: Uint8Array.from(
                             atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')),
                             (char) => char.charCodeAt(0),
@@ -287,8 +322,12 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             };
 
             await AuthService.verifyMfaWebAuthn(mfaToken, webauthnResponse);
+            const currentUser = await refreshCurrentUser();
+            if (!currentUser) {
+                throw new Error(t('loginAdmin.messages.loginFailedNetwork'));
+            }
             message.success(t('loginAdmin.messages.loginSuccess'));
-            window.location.reload();
+            onLoginSuccess();
         } catch (err: unknown) {
             const { detail } = parseError(err);
             const msg = detail || t('mfa.webauthnFailed', '安全密钥验证失败');
@@ -478,7 +517,17 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                         <div className="space-y-2">
                             <div className="flex justify-between ml-1">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('loginAdmin.passwordLabel')}</label>
-                                <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700">{t('loginAdmin.forgotPassword')}</a>
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setPasswordResetToken(null);
+                                        setIsForgotPasswordOpen(true);
+                                    }}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                                >
+                                    {t('loginAdmin.forgotPassword')}
+                                </a>
                             </div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
@@ -598,6 +647,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                     htmlClassName="[&_a]:text-blue-500 dark:[&_a]:text-blue-400 [&_blockquote]:border-slate-300 dark:[&_blockquote]:border-slate-700 [&_code]:bg-slate-100 dark:[&_code]:bg-slate-800 [&_pre]:bg-slate-100 dark:[&_pre]:bg-slate-800"
                 />
             </AppModal>
+            <ForgotPasswordModal
+                open={isForgotPasswordOpen}
+                audience="admin"
+                resetToken={passwordResetToken}
+                initialIdentifier={username}
+                onClose={handleCloseForgotPassword}
+            />
         </div>
     );
 };

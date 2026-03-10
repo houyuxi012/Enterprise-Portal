@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { App, Modal, Input, Form } from 'antd';
 import { ShieldCheck, ShieldOff, Loader2, Copy, CheckCircle2, Lock, KeyRound, Mail, Key, Trash2, Plus, Fingerprint } from 'lucide-react';
-import ApiClient from '@/services/api';
+import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -62,6 +62,8 @@ const PortalSecurity: React.FC = () => {
     const [emailDisableModalOpen, setEmailDisableModalOpen] = useState(false);
     const [emailDisabling, setEmailDisabling] = useState(false);
     const [emailDisablePassword, setEmailDisablePassword] = useState('');
+    const [emailDisableCode, setEmailDisableCode] = useState('');
+    const [emailDisableSending, setEmailDisableSending] = useState(false);
 
     // Disable flow state
     const [disableModalOpen, setDisableModalOpen] = useState(false);
@@ -172,18 +174,38 @@ const PortalSecurity: React.FC = () => {
             message.error(t('portalSecurity.emailMfa.messages.passwordRequired'));
             return;
         }
+        if (emailDisableCode.length !== 6) {
+            message.error(t('portalSecurity.messages.codeRequired'));
+            return;
+        }
         setEmailDisabling(true);
         try {
-            await ApiClient.disableEmailMfa(emailDisablePassword, 'portal');
+            await ApiClient.disableEmailMfa(emailDisablePassword, emailDisableCode, 'portal');
+            await refreshCurrentUser();
+            await loadStatus();
             message.success(t('portalSecurity.emailMfa.messages.disabled'));
             setEmailMfaEnabled(false);
             setEmailDisableModalOpen(false);
             setEmailDisablePassword('');
+            setEmailDisableCode('');
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
             message.error(detail?.message || t('portalSecurity.messages.actionFailed'));
         } finally {
             setEmailDisabling(false);
+        }
+    };
+
+    const handleSendDisableEmailCode = async () => {
+        setEmailDisableSending(true);
+        try {
+            await ApiClient.sendEmailMfaCode('portal');
+            message.success(t('portalSecurity.emailMfa.messages.codeSentSuccess'));
+        } catch (err: any) {
+            const detail = err?.response?.data?.detail;
+            message.error(detail?.message || t('portalSecurity.emailMfa.messages.sendFailed'));
+        } finally {
+            setEmailDisableSending(false);
         }
     };
 
@@ -269,13 +291,24 @@ const PortalSecurity: React.FC = () => {
                 publicKey: {
                     ...options,
                     challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+                    rp: {
+                        id: options.rp?.id,
+                        name: options.rp?.name || window.location.hostname,
+                    },
+                    pubKeyCredParams: options.pubKeyCredParams || [{ type: 'public-key', alg: -7 }],
                     user: {
                         ...options.user,
+                        displayName: options.user.displayName || options.user.name,
                         id: Uint8Array.from(atob(options.user.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
                     },
-                    excludeCredentials: (options.excludeCredentials || []).map((c: any) => ({
-                        ...c,
-                        id: Uint8Array.from(atob(c.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+                    excludeCredentials: (options.excludeCredentials || []).map((credential: WebAuthnCredentialDescriptor) => ({
+                        ...credential,
+                        type: credential.type as PublicKeyCredentialType,
+                        transports: credential.transports as AuthenticatorTransport[] | undefined,
+                        id: Uint8Array.from(
+                            atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')),
+                            (char) => char.charCodeAt(0),
+                        ),
                     })),
                 }
             }) as PublicKeyCredential | null;
@@ -632,7 +665,11 @@ const PortalSecurity: React.FC = () => {
                         )}
                         {emailMfaEnabled && (
                             <button
-                                onClick={() => { setEmailDisablePassword(''); setEmailDisableModalOpen(true); }}
+                                onClick={() => {
+                                    setEmailDisablePassword('');
+                                    setEmailDisableCode('');
+                                    setEmailDisableModalOpen(true);
+                                }}
                                 className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold hover:bg-rose-50 hover:text-rose-600 transition-all dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
                             >
                                 <span className="flex items-center space-x-2">
@@ -824,7 +861,7 @@ const PortalSecurity: React.FC = () => {
                 confirmLoading={emailDisabling}
                 okText={t('common.confirm', '确认关闭')}
                 cancelText={t('common.cancel', '取消')}
-                okButtonProps={{ danger: true, disabled: !emailDisablePassword }}
+                okButtonProps={{ danger: true, disabled: !emailDisablePassword || emailDisableCode.length !== 6 }}
             >
                 <div className="space-y-4 pt-2">
                     <p className="text-sm text-slate-500">{t('portalSecurity.emailMfa.disableConfirm', '关闭后登录将不再通过邮箱验证，确认关闭？')}</p>
@@ -836,6 +873,33 @@ const PortalSecurity: React.FC = () => {
                             onChange={(e) => setEmailDisablePassword(e.target.value)}
                             autoFocus
                         />
+                    </div>
+                    <div>
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                            <label className="block text-xs font-bold text-slate-500">
+                                {t('portalSecurity.emailMfa.disableCodeLabel', '最新邮箱验证码')}
+                            </label>
+                            <button
+                                type="button"
+                                onClick={handleSendDisableEmailCode}
+                                disabled={emailDisableSending || emailDisabling}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                                {emailDisableSending
+                                    ? t('common.loading', '加载中...')
+                                    : t('portalSecurity.emailMfa.sendCode', '发送验证码')}
+                            </button>
+                        </div>
+                        <Input
+                            placeholder={t('portalSecurity.placeholders.code6')}
+                            value={emailDisableCode}
+                            onChange={(e) => setEmailDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            maxLength={6}
+                            inputMode="numeric"
+                        />
+                        <p className="mt-2 text-xs text-slate-400">
+                            {t('portalSecurity.emailMfa.disableCodeHint', '请输入刚刚发送到绑定邮箱的最新 6 位验证码。')}
+                        </p>
                     </div>
                 </div>
             </Modal>

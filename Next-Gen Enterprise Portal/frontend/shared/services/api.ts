@@ -3,7 +3,6 @@ import type { AxiosResponse } from 'axios';
 import {
   Employee,
   NewsItem,
-  QuickTool,
   Announcement,
   CarouselItem,
   User,
@@ -16,8 +15,16 @@ import {
   AISecurityPolicy,
   AIModelOption,
   SystemInfo,
-  SystemVersion,
-  LicenseStatus,
+  SystemResources,
+  StorageStats,
+  SystemBackupRecord,
+  SystemBackupPreview,
+  SystemHardwareInfo,
+    SystemVersion,
+    SystemLog,
+    BusinessLog,
+    LogForwardingConfig,
+    LicenseStatus,
   LicenseClaimsResponse,
   LicenseEventListResponse,
   LicenseRevocationInstallResponse,
@@ -82,13 +89,10 @@ api.interceptors.response.use(
   }
 );
 
-// We need an interface for QuickToolDTO because backend returns icon_name string, active types expects ReactNode
 export interface QuickToolDTO {
   id: number;
   name: string;
-  icon_name: string;
   url: string;
-  color: string;
   category: string;
   description: string;
   image?: string;
@@ -98,9 +102,7 @@ export interface QuickToolDTO {
 
 export interface QuickToolUpsertPayload {
   name: string;
-  icon_name: string;
   url: string;
-  color: string;
   category?: string;
   description?: string;
   image?: string;
@@ -155,6 +157,28 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+export interface PasswordResetRequestPayload {
+  identifier: string;
+  locale?: 'zh-CN' | 'en-US';
+}
+
+export interface PasswordResetRequestResponse {
+  message: string;
+}
+
+export interface PasswordResetValidateResponse {
+  message: string;
+  audience: 'portal' | 'admin';
+  username: string;
+  email_masked?: string | null;
+  expires_at: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  token: string;
+  new_password: string;
+}
+
 export interface DepartmentCreatePayload {
   name: string;
   parent_id?: number | null;
@@ -181,7 +205,7 @@ export interface AccessLogEntry {
 }
 
 export interface LogForwardingUpsertPayload {
-  type: 'SYSLOG' | 'WEBHOOK';
+  type: 'SYSLOG';
   endpoint: string;
   port?: number | string;
   secret_token?: string;
@@ -236,7 +260,8 @@ export interface AdminMeetingDTO {
   start_time: string;
   duration_minutes: number;
   meeting_type: AdminMeetingType;
-  meeting_room: string;
+  meeting_room?: string | null;
+  meeting_software?: string | null;
   meeting_id: string;
   organizer: string;
   attendees: string[];
@@ -270,7 +295,8 @@ export interface PortalMeetingSummaryItemDTO {
   start_time: string;
   duration_minutes: number;
   meeting_type: AdminMeetingType;
-  meeting_room: string;
+  meeting_room?: string | null;
+  meeting_software?: string | null;
   meeting_id: string;
   organizer: string;
 }
@@ -289,6 +315,7 @@ export interface NotificationTemplateDTO {
   id: number;
   code: string;
   name: string;
+  default_locale: NotificationTemplateLocale;
   name_i18n: NotificationTemplateI18nMap;
   description?: string | null;
   description_i18n: NotificationTemplateI18nMap;
@@ -309,6 +336,7 @@ export interface NotificationTemplateDTO {
 export interface NotificationTemplateUpsertPayload {
   code: string;
   name: string;
+  default_locale: NotificationTemplateLocale;
   name_i18n: NotificationTemplateI18nMap;
   description?: string;
   description_i18n: NotificationTemplateI18nMap;
@@ -342,6 +370,7 @@ export interface NotificationTemplateValidationDTO {
 export interface NotificationTemplatePreviewDTO {
   subject?: string | null;
   content: string;
+  html_content?: string | null;
   variables: Record<string, string>;
 }
 
@@ -366,8 +395,9 @@ export interface AdminMeetingCreatePayload {
   start_time: string;
   duration_minutes: number;
   meeting_type: AdminMeetingType;
-  meeting_room: string;
-  meeting_id?: string;
+  meeting_room?: string;
+  meeting_software?: string;
+  meeting_id: string;
   organizer_user_id: number;
   attendee_user_ids: number[];
 }
@@ -503,9 +533,9 @@ export interface KBQueryResponse {
 }
 
 export interface WebAuthnCredentialDescriptor {
-  type: string;
+  type: PublicKeyCredentialType;
   id: string;
-  transports?: string[];
+  transports?: AuthenticatorTransport[];
 }
 
 export interface WebAuthnRegisterOptions {
@@ -520,14 +550,14 @@ export interface WebAuthnRegisterOptions {
     displayName?: string;
   };
   pubKeyCredParams?: Array<{
-    type: string;
+    type: PublicKeyCredentialType;
     alg: number;
   }>;
   timeout?: number;
   excludeCredentials?: WebAuthnCredentialDescriptor[];
-  authenticatorSelection?: Record<string, unknown>;
-  attestation?: string;
-  extensions?: Record<string, unknown>;
+  authenticatorSelection?: AuthenticatorSelectionCriteria;
+  attestation?: AttestationConveyancePreference;
+  extensions?: AuthenticationExtensionsClientInputs;
 }
 
 export interface WebAuthnRegisterCredentialPayload {
@@ -555,8 +585,8 @@ export interface WebAuthnAuthOptions {
   timeout?: number;
   rpId?: string;
   allowCredentials?: WebAuthnCredentialDescriptor[];
-  userVerification?: string;
-  extensions?: Record<string, unknown>;
+  userVerification?: UserVerificationRequirement;
+  extensions?: AuthenticationExtensionsClientInputs;
 }
 
 export const ApiClient = {
@@ -900,6 +930,41 @@ export const ApiClient = {
     return response.data;
   },
 
+  requestPasswordReset: async (
+    payload: PasswordResetRequestPayload,
+    audience: 'portal' | 'admin',
+  ): Promise<PasswordResetRequestResponse> => {
+    const response = await axios.post<PasswordResetRequestResponse>(
+      `${API_BASE_URL}/iam/auth/password-reset/request`,
+      payload,
+      { params: { audience } },
+    );
+    return response.data;
+  },
+
+  validatePasswordResetToken: async (
+    token: string,
+    audience: 'portal' | 'admin',
+  ): Promise<PasswordResetValidateResponse> => {
+    const response = await axios.get<PasswordResetValidateResponse>(
+      `${API_BASE_URL}/iam/auth/password-reset/validate`,
+      { params: { token, audience } },
+    );
+    return response.data;
+  },
+
+  confirmPasswordReset: async (
+    payload: PasswordResetConfirmPayload,
+    audience: 'portal' | 'admin',
+  ): Promise<ApiMessageResponse> => {
+    const response = await axios.post<ApiMessageResponse>(
+      `${API_BASE_URL}/iam/auth/password-reset/confirm`,
+      payload,
+      { params: { audience } },
+    );
+    return response.data;
+  },
+
   sessionPing: async (audience: 'admin' | 'portal'): Promise<{
     message: string;
     audience: 'admin' | 'portal';
@@ -1008,7 +1073,7 @@ export const ApiClient = {
   },
 
   // Log Management
-  getSystemLogs: async (params?: { level?: string; limit?: number; offset?: number }): Promise<SystemLog[]> => {
+  getSystemLogs: async (params?: { level?: string; module?: string; exclude_module?: string; source?: string; limit?: number; offset?: number }): Promise<SystemLog[]> => {
     const response = await api.get<SystemLog[]>('/logs/system', { params });
     return response.data;
   },
@@ -1093,14 +1158,50 @@ export const ApiClient = {
   },
 
   // System Resources
-  getSystemResources: async () => {
-
-    const response = await api.get('/admin/system/resources');
+  getSystemResources: async (): Promise<SystemResources> => {
+    const response = await api.get<SystemResources>('/admin/system/resources');
     return response.data;
   },
 
-  getStorageStats: async (): Promise<import('../types').StorageStats> => {
-    const response = await api.get('/admin/system/storage');
+  getStorageStats: async (): Promise<StorageStats> => {
+    const response = await api.get<StorageStats>('/admin/system/storage');
+    return response.data;
+  },
+
+  getSystemBackups: async (): Promise<SystemBackupRecord[]> => {
+    const response = await api.get<SystemBackupRecord[]>('/admin/system/backups');
+    return response.data;
+  },
+
+  createSystemBackup: async (): Promise<SystemBackupRecord> => {
+    const response = await api.post<SystemBackupRecord>('/admin/system/backups', {});
+    return response.data;
+  },
+
+  getSystemBackupPreview: async (backupName: string): Promise<SystemBackupPreview> => {
+    const response = await api.get<SystemBackupPreview>(
+      `/admin/system/backups/${encodeURIComponent(backupName)}/preview`,
+    );
+    return response.data;
+  },
+
+  restoreSystemBackup: async (backupName: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>(
+      `/admin/system/backups/${encodeURIComponent(backupName)}/restore`,
+      {},
+    );
+    return response.data;
+  },
+
+  deleteSystemBackup: async (backupName: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(
+      `/admin/system/backups/${encodeURIComponent(backupName)}`,
+    );
+    return response.data;
+  },
+
+  getSystemHardware: async (): Promise<SystemHardwareInfo> => {
+    const response = await api.get<SystemHardwareInfo>('/admin/system/hardware');
     return response.data;
   },
 
@@ -1159,7 +1260,7 @@ export const ApiClient = {
     return response.data;
   },
 
-  getAIAuditStats: async (days: number = 7): Promise<{
+  getAIAuditStats: async (days: number = 7, source: 'db' | 'loki' | 'all' = 'all'): Promise<{
     period_days: number;
     total_requests: number;
     success_count: number;
@@ -1186,7 +1287,7 @@ export const ApiClient = {
     total_tokens_prev?: number;
     trend_percentage?: number;
   }> => {
-    const response = await api.get('/logs/ai-audit/stats/summary', { params: { days } });
+    const response = await api.get('/logs/ai-audit/stats/summary', { params: { days, source } });
     return response.data;
   },
 
@@ -1303,9 +1404,13 @@ export const ApiClient = {
     return response.data;
   },
 
-  disableEmailMfa: async (password: string, audience: 'portal' | 'admin' = 'portal'): Promise<{ message: string }> => {
+  disableEmailMfa: async (
+    password: string,
+    emailCode: string,
+    audience: 'portal' | 'admin' = 'portal',
+  ): Promise<{ message: string }> => {
     const response = await api.delete('/mfa/email', {
-      data: { password, totp_code: '' },
+      data: { password, email_code: emailCode },
       params: { audience },
     });
     return response.data;
@@ -1478,6 +1583,11 @@ export const ApiClient = {
     params?: PortalTodayMeetingSummaryParams,
   ): Promise<PortalMeetingListItemDTO[]> => {
     const response = await api.get<PortalMeetingListItemDTO[]>('/meetings/', { params });
+    return response.data;
+  },
+
+  createPortalMeeting: async (payload: PortalMeetingCreatePayload): Promise<PortalMeetingListItemDTO> => {
+    const response = await api.post<PortalMeetingListItemDTO>('/meetings/', payload);
     return response.data;
   },
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Card, Col, Empty, Input, List, Row, Select, Switch, Tag, Typography, message } from 'antd';
+import { Alert, App, Card, Col, Empty, Input, List, Row, Select, Space, Switch, Tag, Typography } from 'antd';
 import { LinkOutlined, SyncOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,12 @@ type ProviderKey = (typeof providerCards)[number];
 type SyncMode = 'manual' | 'scheduled' | 'webhook';
 type SyncScope = 'meetings' | 'meetings_rooms' | 'full';
 type RoomMapping = 'name' | 'external_id' | 'hybrid';
+type TaskPlaceholder = {
+  key: string;
+  title: string;
+  status: 'ready' | 'pending' | 'planning';
+  description: string;
+};
 
 interface SyncDraft {
   provider: ProviderKey;
@@ -41,6 +47,7 @@ const defaultDraft: SyncDraft = {
 
 const MeetingThirdPartySync: React.FC = () => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [draft, setDraft] = useState<SyncDraft>(defaultDraft);
 
   useEffect(() => {
@@ -72,7 +79,7 @@ const MeetingThirdPartySync: React.FC = () => {
     message.info(t('meetingSync.messages.testPlaceholder', '测试连接入口已预留，后续会接入真实联通性检查。'));
   };
 
-  const taskPlaceholders = useMemo(() => {
+  const taskPlaceholders = useMemo<TaskPlaceholder[]>(() => {
     const providerLabel = t(`meetingSync.providers.${draft.provider}`, draft.provider);
     return [
       {
@@ -110,7 +117,7 @@ const MeetingThirdPartySync: React.FC = () => {
           provider: providerLabel,
         }),
       },
-    ] as const;
+    ];
   }, [draft.clientId, draft.clientSecret, draft.enabled, draft.provider, draft.roomMapping, t]);
 
   const getTaskTagColor = (status: string): string => {
@@ -136,19 +143,19 @@ const MeetingThirdPartySync: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="admin-page admin-page-spaced">
       <AppPageHeader
         title={t('meetingSync.page.title', '会议管理 / 三方同步')}
         subtitle={t('meetingSync.page.subtitle', '用于对接外部会议平台、同步会议信息和会议室资源。当前入口先预留。')}
         action={(
-          <div className="flex items-center gap-3">
+          <Space size="middle">
             <AppButton intent="secondary" icon={<LinkOutlined />} onClick={handleTestConnection}>
               {t('meetingSync.actions.testConnection', '测试连接')}
             </AppButton>
             <AppButton intent="primary" icon={<SyncOutlined />} onClick={handleSaveDraft}>
               {t('meetingSync.actions.saveDraft', '保存草稿')}
             </AppButton>
-          </div>
+          </Space>
         )}
       />
 
@@ -165,13 +172,13 @@ const MeetingThirdPartySync: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={15}>
-          <Card className="border-0 shadow-sm">
+          <Card className="admin-card">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <Title level={5} className="!mb-2">
                   {t('meetingSync.sections.config', '平台配置')}
                 </Title>
-                <Paragraph className="!mb-0 text-slate-500">
+                <Paragraph type="secondary" className="!mb-0">
                   {t('meetingSync.sections.configHint', '先保存平台接入草稿，后续接后端持久化时可直接平移字段。')}
                 </Paragraph>
               </div>
@@ -196,13 +203,13 @@ const MeetingThirdPartySync: React.FC = () => {
                 />
               </Col>
               <Col xs={24} md={12}>
-                <div className="flex h-full flex-col justify-end rounded-2xl bg-slate-50 px-4 py-3">
+                <Card size="small" className="admin-card-subtle h-full">
                   <Text strong>{t('meetingSync.form.syncEnabled', '同步开关')}</Text>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <Space className="mt-3 flex w-full justify-between" size="middle">
                     <Text type="secondary">{t('meetingSync.form.syncEnabledHint', '仅保存草稿，不会立刻触发同步任务')}</Text>
                     <Switch checked={draft.enabled} onChange={(checked) => handleDraftChange('enabled', checked)} />
-                  </div>
-                </div>
+                  </Space>
+                </Card>
               </Col>
               <Col xs={24} md={12}>
                 <Text strong>{t('meetingSync.form.apiBaseUrl', '平台地址')}</Text>
@@ -286,42 +293,42 @@ const MeetingThirdPartySync: React.FC = () => {
         </Col>
 
         <Col xs={24} xl={9}>
-          <Card className="border-0 shadow-sm">
+          <Card className="admin-card">
             <div className="mb-5">
               <Title level={5} className="!mb-2">
                 {t('meetingSync.sections.tasks', '同步任务占位')}
               </Title>
-              <Paragraph className="!mb-0 text-slate-500">
+              <Paragraph type="secondary" className="!mb-0">
                 {t('meetingSync.sections.tasksHint', '先把同步链路拆成几个明确阶段，后续接任务引擎时直接替换占位数据。')}
               </Paragraph>
             </div>
-            <List
+            <List<TaskPlaceholder>
               dataSource={taskPlaceholders}
               renderItem={(task) => (
                 <List.Item className="!px-0">
-                  <div className="w-full rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <Card size="small" className="admin-card-subtle w-full">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold text-slate-900">{task.title}</div>
-                        <div className="mt-2 text-sm text-slate-500">{task.description}</div>
+                        <Text strong>{task.title}</Text>
+                        <Paragraph type="secondary" className="!mt-2 !mb-0">{task.description}</Paragraph>
                       </div>
                       <Tag color={getTaskTagColor(task.status)}>{getTaskStatusLabel(task.status)}</Tag>
                     </div>
-                  </div>
+                  </Card>
                 </List.Item>
               )}
             />
           </Card>
 
-          <Card className="mt-4 border-dashed border-slate-200 shadow-none bg-slate-50/80">
+          <Card className="admin-card-subtle mt-4">
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={t('meetingSync.empty', '当前尚未配置任何三方会议同步器。')}
             >
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
+              <Space size="small">
                 <LinkOutlined />
-                {t('meetingSync.hint', '接口预留完成后，可在此处配置平台凭据与同步规则。')}
-              </div>
+                <Text type="secondary">{t('meetingSync.hint', '接口预留完成后，可在此处配置平台凭据与同步规则。')}</Text>
+              </Space>
             </Empty>
           </Card>
         </Col>

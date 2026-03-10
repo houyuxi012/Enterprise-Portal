@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Key } from 'lucide-react';
 import { User, Role } from '@/types';
 import ApiClient, { type UserCreatePayload, type UserUpdatePayload } from '@/services/api';
-import { message, Select, Switch, Input, Popconfirm, Card } from 'antd';
+import { App, Avatar, Card, Col, Input, Popconfirm, Row, Select, Space, Switch, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
     AppButton,
@@ -16,6 +16,8 @@ import {
 } from '@/modules/admin/components/ui';
 import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI18n';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
+
+const { Text } = Typography;
 
 type SystemUserFormValues = {
     username: string;
@@ -38,7 +40,7 @@ const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
     if (typeof detail === 'string' && detail.trim()) {
         return detail;
     }
-    if (detail && typeof detail.message === 'string' && detail.message.trim()) {
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) {
         return detail.message;
     }
     return fallback;
@@ -46,6 +48,7 @@ const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
 
 const SystemUserList: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
@@ -195,20 +198,15 @@ const SystemUserList: React.FC = () => {
             key: 'username',
             width: 200,
             render: (text: string, record: User) => (
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-medium text-slate-600 dark:text-slate-300 text-sm overflow-hidden">
-                        {hasAdminAccess(record) ? (
-                            <img src="/images/admin-avatar.svg" alt="Admin" className="w-full h-full object-cover" />
-                        ) : (
-                            record.avatar ? (
-                                <img src={record.avatar} alt={record.username} className="w-full h-full object-cover" />
-                            ) : (
-                                String(text || 'U')[0].toUpperCase()
-                            )
-                        )}
-                    </div>
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{text}</span>
-                </div>
+                <Space size="middle">
+                    <Avatar
+                        size={36}
+                        src={hasAdminAccess(record) ? '/images/admin-avatar.svg' : record.avatar || undefined}
+                    >
+                        {String(text || 'U')[0].toUpperCase()}
+                    </Avatar>
+                    <Text strong>{text}</Text>
+                </Space>
             ),
         },
         {
@@ -217,7 +215,7 @@ const SystemUserList: React.FC = () => {
             key: 'roles',
             width: 200,
             render: (roles: Role[]) => (
-                <div className="flex flex-wrap gap-1">
+                <Space size={[4, 4]} wrap>
                     {roles && roles.length > 0 ? roles.map(role => (
                         <AppTag
                             key={role.id}
@@ -226,9 +224,9 @@ const SystemUserList: React.FC = () => {
                             {getLocalizedRoleMeta(role, currentLocale).name}
                         </AppTag>
                     )) : (
-                        <span className="text-slate-400 text-sm">{t('systemUserList.table.noRoles')}</span>
+                        <Text type="secondary">{t('systemUserList.table.noRoles')}</Text>
                     )}
-                </div>
+                </Space>
             ),
         },
         {
@@ -237,7 +235,7 @@ const SystemUserList: React.FC = () => {
             key: 'is_active',
             width: 120,
             render: (isActive: boolean, record: User) => (
-                <div className="flex items-center gap-2">
+                <Space size="small">
                     <Switch
                         checked={isActive}
                         onChange={(checked) => handleStatusChange(record, checked)}
@@ -247,25 +245,21 @@ const SystemUserList: React.FC = () => {
                     <AppTag status={isActive ? 'success' : 'default'}>
                         {isActive ? t('systemUserList.status.active') : t('systemUserList.status.inactive')}
                     </AppTag>
-                </div>
+                </Space>
             ),
         },
         {
             title: t('systemUserList.table.email'),
             dataIndex: 'email',
             key: 'email',
-            render: (text: string) => (
-                <span className="text-slate-500">{text}</span>
-            ),
+            render: (text: string) => <Text type="secondary">{text}</Text>,
         },
         {
             title: t('systemUserList.table.locale'),
             dataIndex: 'locale',
             key: 'locale',
             width: 140,
-            render: (value?: string | null) => (
-                <span className="text-slate-500">{renderLocaleLabel(value)}</span>
-            ),
+            render: (value?: string | null) => <Text type="secondary">{renderLocaleLabel(value)}</Text>,
         },
         {
             title: t('systemUserList.table.actions'),
@@ -273,12 +267,12 @@ const SystemUserList: React.FC = () => {
             width: 140,
             align: 'right',
             render: (_: unknown, record: User) => (
-                <div className="flex justify-end gap-1">
+                <Space size="small">
                     <AppButton
                         intent="tertiary"
                         iconOnly
                         size="sm"
-                        icon={<Edit size={15} />}
+                        icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
                         title={t('common.buttons.edit')}
                     />
@@ -294,7 +288,7 @@ const SystemUserList: React.FC = () => {
                             intent="tertiary"
                             iconOnly
                             size="sm"
-                            icon={<Key size={15} />}
+                            icon={<KeyOutlined />}
                             title={
                                 ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
                                     ? t('systemUserList.actions.resetPasswordDisabledExternal')
@@ -312,7 +306,7 @@ const SystemUserList: React.FC = () => {
                             intent="tertiary"
                             iconOnly
                             size="sm"
-                            icon={<Trash2 size={15} />}
+                            icon={<DeleteOutlined />}
                             title={t('systemUserList.actions.builtinAdminDeleteDenied')}
                             disabled
                         />
@@ -329,24 +323,24 @@ const SystemUserList: React.FC = () => {
                                 intent="danger"
                                 iconOnly
                                 size="sm"
-                                icon={<Trash2 size={15} />}
+                                icon={<DeleteOutlined />}
                                 title={t('common.buttons.delete')}
                             />
                         </Popconfirm>
                     )}
-                </div>
+                </Space>
             ),
         },
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             {/* Page Header */}
             <AppPageHeader
                 title={t('systemUserList.page.title')}
                 subtitle={t('systemUserList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         {t('systemUserList.page.create')}
                     </AppButton>
                 }
@@ -363,7 +357,7 @@ const SystemUserList: React.FC = () => {
             </AppFilterBar>
 
             {/* Data Table */}
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Card className="admin-card overflow-hidden">
                 <AppTable
                     columns={columns}
                     dataSource={filteredUsers}
@@ -388,63 +382,73 @@ const SystemUserList: React.FC = () => {
                     onFinish={handleSubmit}
                     initialValues={{ role_ids: [] }}
                 >
-                    <AppForm.Item
-                        label={t('systemUserList.form.username')}
-                        name="username"
-                        rules={[{ required: true, message: t('systemUserList.form.usernameRequired') }]}
-                    >
-                        <Input
-                            placeholder={t('systemUserList.form.usernamePlaceholder')}
-                            disabled={!!editingUser}
-                        />
-                    </AppForm.Item>
-
-                    {!editingUser && (
-                        <AppForm.Item
-                            label={t('systemUserList.form.password')}
-                            name="password"
-                            rules={[{ required: true, message: t('systemUserList.form.passwordRequired') }]}
-                        >
-                            <Input.Password placeholder={t('systemUserList.form.passwordPlaceholder')} />
-                        </AppForm.Item>
-                    )}
-
-                    <AppForm.Item
-                        label={t('systemUserList.form.email')}
-                        name="email"
-                        rules={[
-                            { required: true, message: t('systemUserList.form.emailRequired') },
-                            { type: 'email', message: t('systemUserList.form.emailInvalid') }
-                        ]}
-                    >
-                        <Input placeholder={t('systemUserList.form.emailPlaceholder')} />
-                    </AppForm.Item>
-
-                    <AppForm.Item
-                        label={t('systemUserList.form.roles')}
-                        name="role_ids"
-                    >
-                        <Select
-                            mode="multiple"
-                            placeholder={t('systemUserList.form.rolesPlaceholder')}
-                            optionLabelProp="label"
-                            options={roles.map(role => ({
-                                value: role.id,
-                                label: getLocalizedRoleMeta(role, currentLocale).name,
-                            }))}
-                        />
-                    </AppForm.Item>
-
-                    <AppForm.Item
-                        label={t('systemUserList.form.locale')}
-                        name="locale"
-                    >
-                        <Select
-                            allowClear
-                            placeholder={t('systemUserList.form.localePlaceholder')}
-                            options={localeOptions}
-                        />
-                    </AppForm.Item>
+                    <Card size="small" className="admin-card-subtle">
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item
+                                    label={t('systemUserList.form.username')}
+                                    name="username"
+                                    rules={[{ required: true, message: t('systemUserList.form.usernameRequired') }]}
+                                >
+                                    <Input
+                                        placeholder={t('systemUserList.form.usernamePlaceholder')}
+                                        disabled={!!editingUser}
+                                    />
+                                </AppForm.Item>
+                            </Col>
+                            {!editingUser && (
+                                <Col xs={24} md={12}>
+                                    <AppForm.Item
+                                        label={t('systemUserList.form.password')}
+                                        name="password"
+                                        rules={[{ required: true, message: t('systemUserList.form.passwordRequired') }]}
+                                    >
+                                        <Input.Password placeholder={t('systemUserList.form.passwordPlaceholder')} />
+                                    </AppForm.Item>
+                                </Col>
+                            )}
+                            <Col xs={24} md={12}>
+                                <AppForm.Item
+                                    label={t('systemUserList.form.email')}
+                                    name="email"
+                                    rules={[
+                                        { required: true, message: t('systemUserList.form.emailRequired') },
+                                        { type: 'email', message: t('systemUserList.form.emailInvalid') }
+                                    ]}
+                                >
+                                    <Input placeholder={t('systemUserList.form.emailPlaceholder')} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item
+                                    label={t('systemUserList.form.locale')}
+                                    name="locale"
+                                >
+                                    <Select
+                                        allowClear
+                                        placeholder={t('systemUserList.form.localePlaceholder')}
+                                        options={localeOptions}
+                                    />
+                                </AppForm.Item>
+                            </Col>
+                            <Col span={24}>
+                                <AppForm.Item
+                                    label={t('systemUserList.form.roles')}
+                                    name="role_ids"
+                                >
+                                    <Select
+                                        mode="multiple"
+                                        placeholder={t('systemUserList.form.rolesPlaceholder')}
+                                        optionLabelProp="label"
+                                        options={roles.map(role => ({
+                                            value: role.id,
+                                            label: getLocalizedRoleMeta(role, currentLocale).name,
+                                        }))}
+                                    />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
+                    </Card>
                 </AppForm>
             </AppModal>
         </div>

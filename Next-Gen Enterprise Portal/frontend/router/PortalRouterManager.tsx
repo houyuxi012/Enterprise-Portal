@@ -1,13 +1,11 @@
 import React, { lazy } from 'react';
-import { Mail, Monitor, Moon, Sun, Laptop, Sparkles, Languages } from 'lucide-react';
+import { Mail, Monitor, Moon, Sun, Laptop, Sparkles, Languages, AppWindow } from 'lucide-react';
 import { AppLanguage } from '../i18n';
 import { AppView } from '../modules/portal/types/views';
 import { Employee, NewsItem, QuickToolDTO, Todo } from '../types';
 import ApiClient from '../services/api';
 import type { User as AuthUser } from '../shared/services/auth';
 import { moduleRouteRegistry } from '../app/router';
-import { getColorClass } from '@/shared/utils/colorMap';
-import { getIcon } from '@/shared/utils/iconMap';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import { AvatarWithFallback } from '../shared/components';
 
@@ -219,11 +217,11 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
                 }}
                 className="group flex flex-col items-center p-8 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-3 transition-all duration-500 shadow-xl shadow-slate-200/20 dark:shadow-none"
               >
-                <div className={`w-16 h-16 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden`}>
+                <div className="w-16 h-16 rounded-organic flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-200">
                   {tool.image ? (
                     <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
                   ) : (
-                    getIcon(tool.icon_name, { size: 32 })
+                    <AppWindow size={32} />
                   )}
                 </div>
                 <h3 className="text-sm font-black text-center text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{tool.name}</h3>
@@ -386,11 +384,11 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
                     href={tool.url}
                     className="group flex flex-col items-center p-6 mica rounded-organic hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-2 transition-all duration-500 shadow-lg"
                   >
-                    <div className={`w-12 h-12 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform overflow-hidden`}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform overflow-hidden bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-200">
                       {tool.image ? (
                         <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
                       ) : (
-                        getIcon(tool.icon_name, { size: 24 })
+                        <AppWindow size={24} />
                       )}
                     </div>
                     <h3 className="text-xs font-black text-center text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{tool.name}</h3>

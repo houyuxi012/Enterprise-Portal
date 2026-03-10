@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
-import secrets
 from typing import Iterable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
@@ -9,16 +8,22 @@ from sqlalchemy import Select, asc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from application.admin_app import AuditService
+from application.admin_app import AuditService, LicenseService
 from core.database import get_db
 from core.dependencies import get_current_user
-from core.time_utils import utc_now
 import modules.models as models
 import modules.schemas as schemas
+
+async def _require_meeting_license(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "meeting.manage")
+
 
 router = APIRouter(
     prefix="/meetings",
     tags=["meetings"],
+    dependencies=[Depends(_require_meeting_license)],
 )
 
 
@@ -75,6 +80,7 @@ def _serialize_portal_meeting_summary(meeting: models.AdminMeeting) -> schemas.P
         duration_minutes=meeting.duration_minutes,
         meeting_type=meeting.meeting_type,
         meeting_room=meeting.meeting_room,
+        meeting_software=meeting.meeting_software,
         meeting_id=meeting.meeting_id,
         organizer=_resolve_organizer(meeting),
     )
@@ -88,39 +94,35 @@ def _serialize_portal_meeting_list_item(meeting: models.AdminMeeting) -> schemas
     )
 
 
-def _build_meeting_id() -> str:
-    stamp = utc_now().strftime("%Y%m%d%H%M%S")
-    suffix = secrets.token_hex(2).upper()
-    return f"MEET-{stamp}-{suffix}"
-
-
-async def _generate_unique_meeting_id(db: AsyncSession) -> str:
-    while True:
-        candidate = _build_meeting_id()
-        existing = await db.execute(
-            select(models.AdminMeeting.id).where(models.AdminMeeting.meeting_id == candidate)
-        )
-        if existing.scalar_one_or_none() is None:
-            return candidate
-
-
 def _validate_create_payload(
     payload: schemas.PortalMeetingCreate,
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, str | None, str | None, list[str]]:
     subject = _normalize_string(payload.subject)
+    meeting_id = _normalize_string(payload.meeting_id)
     meeting_room = _normalize_string(payload.meeting_room)
+    meeting_software = _normalize_string(payload.meeting_software)
     attendees = _normalize_attendees(payload.attendees)
 
     if not subject:
         raise HTTPException(status_code=400, detail="会议主题不能为空")
-    if not meeting_room:
-        raise HTTPException(status_code=400, detail="会议室不能为空")
+    if payload.meeting_type == "online":
+        if not meeting_id:
+            raise HTTPException(status_code=400, detail="会议 ID / 会议链接不能为空")
+        if not meeting_software:
+            raise HTTPException(status_code=400, detail="会议软件不能为空")
+        meeting_room = ""
+    else:
+        if not meeting_id:
+            raise HTTPException(status_code=400, detail="会议 ID 不能为空")
+        if not meeting_room:
+            raise HTTPException(status_code=400, detail="会议室不能为空")
+        meeting_software = ""
     if payload.duration_minutes <= 0:
         raise HTTPException(status_code=400, detail="会议时长必须大于 0")
     if not attendees:
         raise HTTPException(status_code=400, detail="请至少填写一位参会人")
 
-    return subject, meeting_room, attendees
+    return subject, meeting_id, meeting_room or None, meeting_software or None, attendees
 
 
 def _resolve_meeting_window(
@@ -244,9 +246,14 @@ async def create_portal_meeting(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    subject, meeting_room, attendees = _validate_create_payload(payload)
-    meeting_id = await _generate_unique_meeting_id(db)
+    subject, meeting_id, meeting_room, meeting_software, attendees = _validate_create_payload(payload)
     organizer = _normalize_string(current_user.name or current_user.username or "portal-user")
+
+    existing = await db.execute(
+        select(models.AdminMeeting.id).where(models.AdminMeeting.meeting_id == meeting_id)
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="会议 ID 已存在，请更换后重试")
 
     meeting = models.AdminMeeting(
         subject=subject,
@@ -254,6 +261,7 @@ async def create_portal_meeting(
         duration_minutes=payload.duration_minutes,
         meeting_type=payload.meeting_type,
         meeting_room=meeting_room,
+        meeting_software=meeting_software,
         meeting_id=meeting_id,
         organizer=organizer,
         organizer_user_id=current_user.id,

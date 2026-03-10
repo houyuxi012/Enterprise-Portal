@@ -6,6 +6,7 @@ interface UseAdminTabGateOptions {
   activeAdminTab: AdminTabKey;
   adminLicenseGateMode: LicenseGateMode;
   mfaSettingsLicenseBlocked: boolean;
+  meetingManagementLicenseBlocked: boolean;
   setActiveAdminTab: (tab: AdminTabKey) => void;
   syncAdminTabPath: (tab: string) => AdminTabKey;
 }
@@ -19,14 +20,16 @@ export const useAdminTabGate = ({
   activeAdminTab,
   adminLicenseGateMode,
   mfaSettingsLicenseBlocked,
+  meetingManagementLicenseBlocked,
   setActiveAdminTab,
   syncAdminTabPath,
 }: UseAdminTabGateOptions): UseAdminTabGateResult => {
   const effectiveAdminTab = useMemo<AdminTabKey>(() => {
     if (adminLicenseGateMode === 'blocked') return 'license';
     if (activeAdminTab === 'mfa_settings' && mfaSettingsLicenseBlocked) return 'license';
+    if ((activeAdminTab === 'meeting_local' || activeAdminTab === 'meeting_sync') && meetingManagementLicenseBlocked) return 'license';
     return activeAdminTab;
-  }, [adminLicenseGateMode, activeAdminTab, mfaSettingsLicenseBlocked]);
+  }, [adminLicenseGateMode, activeAdminTab, mfaSettingsLicenseBlocked, meetingManagementLicenseBlocked]);
 
   const handleAdminTabChange = useCallback((tab: string) => {
     if (adminLicenseGateMode === 'blocked' && tab !== 'license') {
@@ -37,8 +40,12 @@ export const useAdminTabGate = ({
       setActiveAdminTab('license');
       return;
     }
+    if ((tab === 'meeting_local' || tab === 'meeting_sync') && meetingManagementLicenseBlocked) {
+      setActiveAdminTab('license');
+      return;
+    }
     syncAdminTabPath(tab);
-  }, [adminLicenseGateMode, mfaSettingsLicenseBlocked, setActiveAdminTab, syncAdminTabPath]);
+  }, [adminLicenseGateMode, mfaSettingsLicenseBlocked, meetingManagementLicenseBlocked, setActiveAdminTab, syncAdminTabPath]);
 
   return {
     effectiveAdminTab,

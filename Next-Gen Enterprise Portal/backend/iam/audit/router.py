@@ -150,7 +150,7 @@ async def list_audit_logs(
                 "result": item.result,
                 "reason": item.reason,
                 "trace_id": item.trace_id,
-                "source": "DB",
+                                    "source": "db",
                 "_epoch": to_epoch_ms(item.timestamp)
             }
             db_records.append(log_dict)
@@ -222,7 +222,7 @@ async def list_audit_logs(
                                     "result": log_line.get("result"),
                                     "reason": log_line.get("reason"),
                                     "trace_id": log_line.get("trace_id"),
-                                    "source": "Loki",
+                                    "source": "loki",
                                     "_epoch": to_epoch_ms(ts)
                                 }
                                 loki_records.append(log_dict)
@@ -242,7 +242,7 @@ async def list_audit_logs(
             merge_key = build_merge_key(record)
             if merge_key in merged_map:
                 merged_record = record.copy()
-                merged_record["source"] = "DB+Loki"
+                merged_record["source"] = "db,loki"
                 merged_map[merge_key] = merged_record
             else:
                 merged_map[merge_key] = record

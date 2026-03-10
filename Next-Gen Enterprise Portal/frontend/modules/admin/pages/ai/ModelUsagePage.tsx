@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Modal, Form, InputNumber, message, Progress, Tag, Select, Switch, Card } from 'antd';
-import { EditOutlined, BarChartOutlined } from '@ant-design/icons';
+import { App, Card, Form, InputNumber, Progress, Select, Space, Switch, Tag, Typography } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppModal, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+
+const { Text } = Typography;
 
 const ModelUsagePage: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [timeRange, setTimeRange] = useState<number>(30 * 24); // Default 30 Days
@@ -63,15 +66,15 @@ const ModelUsagePage: React.FC = () => {
             dataIndex: 'model_name',
             key: 'model_name',
             render: (text: string, record: any) => (
-                <div className="flex items-center space-x-2">
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
+                <Space size="small">
+                    <Text strong>{text}</Text>
                     {!record.is_active && (
                         <Tag color="default" variant="filled" className="text-xs">{t('modelUsagePage.status.history')}</Tag>
                     )}
                     {record.is_active && (
                         <Tag color="blue" variant="filled" className="text-xs">{t('modelUsagePage.status.configured')}</Tag>
                     )}
-                </div>
+                </Space>
             )
         },
         {
@@ -79,14 +82,14 @@ const ModelUsagePage: React.FC = () => {
             dataIndex: 'period_tokens',
             key: 'period_tokens',
             width: 150,
-            render: (val: number) => <span className="font-black text-slate-800 dark:text-white">{val?.toLocaleString() || 0}</span>,
+            render: (val: number) => <Text strong>{val?.toLocaleString() || 0}</Text>,
             sorter: (a: any, b: any) => (a.period_tokens || 0) - (b.period_tokens || 0),
         },
         {
             title: t('modelUsagePage.table.peakDailyTokens'),
             dataIndex: 'peak_daily_tokens',
             key: 'peak_daily_tokens',
-            render: (val: number) => <span className="font-medium">{val?.toLocaleString() || 0}</span>,
+            render: (val: number) => <Text>{val?.toLocaleString() || 0}</Text>,
             sorter: (a: any, b: any) => (a.peak_daily_tokens || 0) - (b.peak_daily_tokens || 0),
         },
         {
@@ -104,12 +107,12 @@ const ModelUsagePage: React.FC = () => {
 
                 return (
                     <div className="w-full">
-                        <div className="flex justify-between text-xs mb-1 text-slate-500 dark:text-slate-400">
-                            <span>{val.toLocaleString()}</span>
-                            <span className={percent >= 100 ? 'text-rose-500 font-bold' : ''}>
+                        <Space className="mb-1 flex w-full justify-between">
+                            <Text type="secondary">{val.toLocaleString()}</Text>
+                            <Text strong={percent >= 100} style={percent >= 100 ? { color: '#f43f5e' } : undefined}>
                                 {t('modelUsagePage.table.peakRatio', { percent: percent.toFixed(1) })}
-                            </span>
-                        </div>
+                            </Text>
+                        </Space>
                         <Progress percent={percent} size="small" status={percent >= 100 ? 'exception' : 'active'} strokeColor={percent >= 100 ? '#f43f5e' : (percent > 80 ? '#f59e0b' : '#10b981')} showInfo={false} />
                     </div>
                 );
@@ -119,7 +122,7 @@ const ModelUsagePage: React.FC = () => {
             title: t('modelUsagePage.table.todayTokens'),
             dataIndex: 'current_daily_tokens',
             key: 'current_daily_tokens',
-            render: (val: number) => <span className="font-medium text-blue-600 dark:text-blue-400">{val?.toLocaleString() || 0}</span>
+            render: (val: number) => <Text>{val?.toLocaleString() || 0}</Text>
         },
         {
             title: t('modelUsagePage.table.actions'),
@@ -133,38 +136,35 @@ const ModelUsagePage: React.FC = () => {
     const filteredData = showAllModels ? data : data.filter(item => item.is_active);
 
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-                        <BarChartOutlined className="text-blue-600" />
-                        {t('modelUsagePage.page.title')}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('modelUsagePage.page.subtitle')}</p>
-                </div>
-                <div className="flex items-center space-x-4">
-                    <Select
-                        value={timeRange}
-                        onChange={setTimeRange}
-                        style={{ width: 140 }}
-                        className="font-bold"
-                        options={[
-                            { label: t('modelUsagePage.filters.last1h'), value: 1 },
-                            { label: t('modelUsagePage.filters.last24h'), value: 24 },
-                            { label: t('modelUsagePage.filters.last7d'), value: 7 * 24 },
-                            { label: t('modelUsagePage.filters.last30d'), value: 30 * 24 },
-                            { label: t('modelUsagePage.filters.last90d'), value: 90 * 24 },
-                        ]}
-                    />
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{t('modelUsagePage.filters.showHistory')}</span>
-                        <Switch checked={showAllModels} onChange={setShowAllModels} />
-                    </div>
-                </div>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('modelUsagePage.page.title')}
+                subtitle={t('modelUsagePage.page.subtitle')}
+                action={
+                    <Space>
+                        <Select
+                            value={timeRange}
+                            onChange={setTimeRange}
+                            style={{ width: 140 }}
+                            className="font-bold"
+                            options={[
+                                { label: t('modelUsagePage.filters.last1h'), value: 1 },
+                                { label: t('modelUsagePage.filters.last24h'), value: 24 },
+                                { label: t('modelUsagePage.filters.last7d'), value: 7 * 24 },
+                                { label: t('modelUsagePage.filters.last30d'), value: 30 * 24 },
+                                { label: t('modelUsagePage.filters.last90d'), value: 90 * 24 },
+                            ]}
+                        />
+                        <Space size="small">
+                            <Text type="secondary">{t('modelUsagePage.filters.showHistory')}</Text>
+                            <Switch checked={showAllModels} onChange={setShowAllModels} />
+                        </Space>
+                    </Space>
+                }
+            />
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
-                <Table
+            <Card className="admin-card overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={filteredData}
                     rowKey="model_name"
@@ -175,7 +175,7 @@ const ModelUsagePage: React.FC = () => {
                 />
             </Card>
 
-            <Modal
+            <AppModal
                 title={t('modelUsagePage.modal.title', { modelName: editingModel?.model_name || '-' })}
                 open={isModalOpen}
                 onOk={handleSave}
@@ -198,7 +198,7 @@ const ModelUsagePage: React.FC = () => {
                         <InputNumber style={{ width: '100%' }} min={0} size="large" />
                     </Form.Item>
                 </Form>
-            </Modal>
+            </AppModal>
         </div>
     );
 };

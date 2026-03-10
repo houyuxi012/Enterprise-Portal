@@ -1,0 +1,42 @@
+name: Frontend Admin UI Guard
+
+on:
+  pull_request:
+    paths:
+      - "Next-Gen Enterprise Portal/frontend/**"
+      - ".github/workflows/frontend-admin-ui-guard.yml"
+      - ".github/pull_request_template.md"
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "release/**"
+    paths:
+      - "Next-Gen Enterprise Portal/frontend/**"
+      - ".github/workflows/frontend-admin-ui-guard.yml"
+      - ".github/pull_request_template.md"
+  workflow_dispatch:
+
+jobs:
+  admin-ui-guard:
+    name: admin-ui-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: "Next-Gen Enterprise Portal/frontend/package-lock.json"
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix "Next-Gen Enterprise Portal/frontend"
+
+      - name: Run admin UI ESLint guard
+        run: npm --prefix "Next-Gen Enterprise Portal/frontend" run guard:admin-ui

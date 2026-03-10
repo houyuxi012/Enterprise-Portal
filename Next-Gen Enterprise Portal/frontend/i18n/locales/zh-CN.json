@@ -156,7 +156,30 @@
       "iam_directory_test": "测试身份源连接",
       "iam_directory_sync_grace_mark": "同步标记宽限删除",
       "iam_directory_sync_delete_skip": "同步跳过白名单用户",
-      "iam_directory_sync_user_removed_grace": "同步宽限期满删除用户"
+      "iam_directory_sync_user_removed_grace": "同步宽限期满删除用户",
+      "iam_privacy_consent_accept": "同意隐私政策",
+      "iam_mfa_email_enable": "开启邮箱验证",
+      "iam_mfa_email_verify_enable": "验证并开启邮箱验证",
+      "iam_mfa_email_disable": "关闭邮箱验证",
+      "iam_mfa_email_send_code": "发送邮箱验证码",
+      "iam_mfa_challenge_verify": "验证多因素认证挑战",
+      "iam_mfa_totp_setup": "配置 TOTP 验证器",
+      "iam_mfa_totp_verify_setup": "验证 TOTP 绑定",
+      "iam_mfa_totp_disable": "关闭 TOTP 验证",
+      "iam_mfa_webauthn_register": "注册安全密钥",
+      "iam_mfa_webauthn_delete": "删除安全密钥",
+      "iam_mfa_admin_batch_reset": "批量重置多因素认证"
+    },
+    "resourceTypes": {
+      "session": "会话",
+      "mfa": "多因素认证",
+      "privacy_consent": "隐私同意",
+      "user": "用户",
+      "role": "角色",
+      "permission": "权限",
+      "directory": "身份源",
+      "license": "授权许可",
+      "webauthn_credential": "安全密钥"
     }
   },
   "license": {
@@ -205,7 +228,8 @@
       "iam_audit": "IAM 审计",
       "session_security": "会话安全策略",
       "customization_manage": "客户化管理",
-      "mfa_settings": "多因素认证设置"
+      "mfa_settings": "多因素认证设置",
+      "meeting_manage": "会议管理"
     },
     "eventsCard": {
       "title": "授权导入记录",
@@ -346,6 +370,8 @@
       "createSuccess": "会议已创建",
       "createFailed": "创建会议失败"
     },
+    "licenseBlockedTitle": "会议功能未授权",
+    "licenseBlocked": "当前授权未包含会议管理功能，门户前台会议能力暂不可用。",
     "modal": {
       "title": "创建会议",
       "tip": "线上会议请填写会议软件与会议 ID / 会议链接；线下会议请填写会议室与会议 ID。"
@@ -471,7 +497,8 @@
       "meetingIdOrLink": "会议 ID / 会议链接"
     },
     "units": {
-      "minutes": "分钟"
+      "minutes": "分钟",
+      "people": "人"
     },
     "metrics": {
       "total": "本地会议总数",
@@ -527,6 +554,7 @@
     "drawer": {
       "title": "会议详情",
       "summary": "集中查看当前会议的核心信息，并支持快速复制关键字段。",
+      "type": "会议类型",
       "startTime": "开始时间",
       "duration": "会议时长",
       "room": "会议室",
@@ -536,6 +564,7 @@
       "createdAt": "创建时间",
       "attendees": "参会人",
       "attendeeCount": "共 {{count}} 人",
+      "emptyAttendees": "暂无参会人",
       "editCurrent": "编辑此会议",
       "meetingSoftware": "会议软件",
       "onlineMeetingId": "会议 ID / 会议链接"
@@ -718,6 +747,7 @@
       "meetingManagement": "会议管理",
       "meetingLocal": "本地管理",
       "meetingSync": "三方同步",
+      "meetingManagementLicenseRequired": "需要会议管理功能授权",
       "apps": "应用中心",
       "tools": "应用管理",
       "appPermissions": "应用权限",
@@ -741,12 +771,15 @@
       "passwordPolicy": "密码策略",
       "mfaSettings": "多因素设置",
       "mfaSettingsLicenseRequired": "需要多因素认证功能授权",
+      "notification": "通知管理",
+      "notificationTemplates": "通知模版",
+      "notificationServices": "通知服务",
       "system": "系统管理",
       "customization": "客户化管理",
       "customizationLicenseRequired": "未授权：仅可查看默认配置，无法修改",
       "platformSettings": "平台设置",
-      "license": "授权许可",
-      "aboutUs": "关于我们"
+      "operationsManagement": "运维管理",
+      "license": "授权许可"
     },
     "userMenu": {
       "version": "系统版本",
@@ -895,6 +928,40 @@
       "privacyPolicyUpdated": "隐私政策已更新，请刷新页面后重新阅读并同意"
     }
   },
+  "passwordReset": {
+    "requestTitle": "忘记密码",
+    "resetTitle": "重置密码",
+    "requestDescription": "请输入企业邮箱或企业账号。如果账户存在且已绑定邮箱，系统会向该邮箱发送重置链接。",
+    "resetHintTitle": "重置链接已验证",
+    "resetHintDescription": "当前重置账户：{{username}}，绑定邮箱：{{email}}。链接有效期至 {{expiresAt}}。",
+    "requestSubmit": "发送重置邮件",
+    "resetSubmit": "重置密码",
+    "form": {
+      "identifier": "企业邮箱 / 企业账号",
+      "newPassword": "新密码",
+      "confirmPassword": "确认新密码",
+      "placeholders": {
+        "identifier": "请输入企业邮箱或企业账号",
+        "newPassword": "请输入新密码",
+        "confirmPassword": "请再次输入新密码"
+      }
+    },
+    "validation": {
+      "identifierRequired": "请输入企业邮箱或企业账号",
+      "newPasswordRequired": "请输入新密码",
+      "newPasswordMin": "新密码长度至少为 6 位",
+      "confirmPasswordRequired": "请再次输入新密码"
+    },
+    "messages": {
+      "requestSuccess": "如果账户存在且已绑定邮箱，重置链接已发送，请检查邮箱",
+      "requestFailed": "发送重置邮件失败，请稍后重试",
+      "resetSuccess": "密码重置成功，请使用新密码登录",
+      "resetFailed": "密码重置失败，请稍后重试",
+      "tokenInvalidTitle": "重置链接不可用",
+      "tokenInvalid": "重置链接无效或已过期，请重新申请。",
+      "passwordMismatch": "两次输入的新密码不一致"
+    }
+  },
   "appRoot": {
     "footerDefault": "© 侯钰熙. All Rights Reserved.",
     "comingSoon": "即将上线",
@@ -1008,6 +1075,9 @@
     "title": "业务日志",
     "subtitle": "审计关键业务操作与安全记录",
     "empty": "暂无业务日志",
+    "messages": {
+      "loadFailed": "加载业务日志失败"
+    },
     "stats": {
       "total": "操作总数",
       "today": "今日操作",
@@ -1144,7 +1214,24 @@
       "license_install": "导入授权许可",
       "license_verify_failed": "授权校验失败",
       "license_expired": "授权过期",
-      "license_revocation_install": "导入吊销列表"
+      "license_revocation_install": "导入吊销列表",
+      "admin_read_meetings": "查看会议列表",
+      "admin_create_meeting": "后台创建会议",
+      "admin_update_meeting": "后台更新会议",
+      "admin_delete_meeting": "后台删除会议",
+      "portal_read_today_meeting_summary": "查看今日会议摘要",
+      "portal_read_today_meetings": "查看今日会议列表",
+      "portal_create_meeting": "门户创建会议",
+      "create_notification_template": "创建通知模板",
+      "update_notification_template": "更新通知模板",
+      "update_notification_template_status": "更新通知模板状态",
+      "delete_notification_template": "删除通知模板"
+    },
+    "targets": {
+      "meeting_list": "会议列表",
+      "meeting_today_summary": "今日会议摘要",
+      "meeting_today_list": "今日会议列表",
+      "meeting_record": "会议 #{{id}}"
     }
   },
   "userList": {
@@ -1169,6 +1256,7 @@
       "name": "姓名",
       "account": "账户",
       "email": "邮箱",
+      "mfa": "MFA",
       "status": "状态",
       "source": "来源",
       "actions": "操作",
@@ -1576,7 +1664,8 @@
       "other": "其他"
     },
     "form": {
-      "icon": "应用图标 (优先显示自定义图片)",
+      "icon": "应用图标",
+      "iconHint": "建议 PNG/JPG 格式，建议使用 256 × 256 像素方形图标",
       "uploadIcon": "上传图标",
       "color": "颜色主题 (无图片时生效)",
       "iconName": "图标名称 (Lucide Icon, 无图片时生效)",
@@ -1923,6 +2012,10 @@
       "title": "AI 审计日志",
       "subtitle": "AI 调用全链路审计，用于合规追责与复盘"
     },
+    "messages": {
+      "loadFailed": "加载 AI 审计日志失败",
+      "statsLoadFailed": "加载 AI 审计统计失败"
+    },
     "stats": {
       "totalRequests7d": "7 日请求总数",
       "successRate": "成功率",
@@ -2068,6 +2161,7 @@
       "business": "业务审计",
       "ai": "AI 审计",
       "iam": "IAM 审计",
+      "access": "访问日志",
       "diskThreshold": "数据库磁盘安全阈值",
       "maxDiskUsage": "最大磁盘占用"
     },
@@ -2076,6 +2170,7 @@
       "business": "用户操作审计、内容变更等",
       "ai": "AI 对话、生成记录、Token 消耗等",
       "iam": "包含用户登录、角色分配、权限变更等",
+      "access": "访问会话、请求路径与响应状态等访问审计数据",
       "maxDiskUsage": "超出后将自动删除最早的日志，直到磁盘占用降至设定值以下"
     },
     "validation": {
@@ -2257,6 +2352,9 @@
       "title": "访问日志",
       "subtitle": "HTTP 请求访问记录 (存储于 Loki)"
     },
+    "messages": {
+      "loadFailed": "加载访问日志失败"
+    },
     "stats": {
       "totalRequests": "请求总数",
       "successRate": "成功率",
@@ -2329,7 +2427,9 @@
         "desc": "下一场：14:00 产品周会",
         "next": "下一场：{{time}} {{subject}}",
         "empty": "今日暂无会议",
-        "allCompleted": "今日会议已结束"
+        "allCompleted": "今日会议已结束",
+        "licenseBlocked": "当前授权未包含会议管理功能。",
+        "licenseBlockedShort": "--"
       },
       "workHours": {
         "label": "工时完成",
@@ -2383,30 +2483,6 @@
     },
     "newsDetail": {
       "summaryHint": "（此处主要展示摘要内容，实际详情内容可根据需求进一步扩展字段）"
-    }
-  },
-  "aboutUsPage": {
-    "badge": "零信任架构 · 身份驱动安全 · 全链路审计",
-    "titlePrefix": "关于",
-    "titleMain": "Next-Gen Enterprise Portal",
-    "description": "我们致力于构建下一代企业级智慧协作生态，通过 AI 驱动的技术方案，让每一位员工都能在数字空间中释放无限潜能。",
-    "stats": {
-      "zeroTrust": {
-        "value": "零信任架构",
-        "label": "双重认证与 RBAC 权限"
-      },
-      "multiModel": {
-        "value": "大模型聚合",
-        "label": "多厂商 AI 引擎接入"
-      },
-      "knowledgeBase": {
-        "value": "智能知识库",
-        "label": "基于 RAG 的向量检索"
-      },
-      "audit": {
-        "value": "全链路审计",
-        "label": "细粒度行为与 AI 追责"
-      }
     }
   },
   "versionModal": {
@@ -2584,6 +2660,226 @@
       "dailyTokenLimitExtra": "设置该模型允许的最大单日 Token 消耗量",
       "dailyRequestLimit": "每日调用次数限额 (0表示无限制)",
       "dailyRequestLimitExtra": "设置该模型允许的最大单日请求次数"
+    }
+  },
+  "operationsManagementPage": {
+    "page": {
+      "title": "运维管理",
+      "subtitle": "基于系统现有接口统一查看主机、资源、通知与存储状态",
+      "refresh": "刷新状态"
+    },
+    "tabs": {
+      "serverMonitoring": "服务器监控",
+      "backupRestore": "备份与恢复"
+    },
+    "messages": {
+      "refreshed": "运维概览已刷新",
+      "partialLoaded": "部分运维数据加载失败，当前有 {{count}} 个接口未成功返回",
+      "backupCreated": "已生成备份：{{name}}",
+      "backupCreateFailed": "立即备份失败",
+      "backupRestored": "已从备份恢复系统配置：{{name}}",
+      "backupRestoreFailed": "备份恢复失败",
+      "backupDeleted": "已删除备份：{{name}}",
+      "backupDeleteFailed": "删除备份失败",
+      "backupPreviewFailed": "备份差异预览加载失败",
+      "backupConfigSaved": "备份计划配置已保存",
+      "backupConfigSaveFailed": "备份计划配置保存失败",
+      "copySuccess": "设备 ID 已复制",
+      "copyFailed": "设备 ID 复制失败"
+    },
+    "server": {
+      "kpis": {
+        "cpu": "CPU 使用率",
+        "memory": "内存使用率",
+        "disk": "磁盘使用率",
+        "storage": "对象存储使用率"
+      },
+      "overview": {
+        "title": "运行概览",
+        "running": "正常运行中",
+        "productVersion": "产品 / 版本",
+        "accessAddress": "访问地址",
+        "databaseStatus": "数据库状态",
+        "licenseExpiry": "许可证到期时间",
+        "authorizedUnit": "授权单位",
+        "deviceId": "设备 ID",
+        "buildRef": "构建标识"
+      },
+      "config": {
+        "title": "配置信息",
+        "os": "服务器操作系统",
+        "architecture": "CPU 架构",
+        "cpuModel": "CPU 型号",
+        "cpuTopology": "CPU 拓扑",
+        "memory": "内存",
+        "disk": "磁盘",
+        "diskFs": "文件系统",
+        "hostname": "主机名"
+      },
+      "runtime": {
+        "title": "运行时状态",
+        "applyStatus": "平台配置应用状态",
+        "hookStatus": "运行时 Hook 状态",
+        "appliedAt": "最近应用时间",
+        "reloadRequired": "是否需要重载",
+        "networkTraffic": "网络吞吐",
+        "storageObjects": "对象存储对象数",
+        "notConfigured": "未配置",
+        "configured": "已配置",
+        "yes": "是",
+        "no": "否"
+      },
+      "services": {
+        "database": "数据库",
+        "notificationCenter": "通知中心",
+        "platformApply": "平台配置应用",
+        "platformHook": "运行时 Hook",
+        "objectStorage": "对象存储",
+        "smtp": "SMTP 邮件",
+        "telegram": "Telegram",
+        "sms": "短信"
+      },
+      "tables": {
+        "platformServices": "平台服务状态",
+        "notificationChannels": "通知通道状态",
+        "name": "名称",
+        "status": "状态",
+        "detail": "详情"
+      },
+      "status": {
+        "healthy": "正常",
+        "warning": "告警",
+        "processing": "同步中",
+        "failed": "失败",
+        "disabled": "已禁用",
+        "notConfigured": "未配置",
+        "unknown": "未知"
+      }
+    },
+    "backup": {
+      "actions": {
+        "backupNow": "立即备份",
+        "scheduleConfig": "备份计划与配置",
+        "refresh": "刷新"
+      },
+      "summary": {
+        "storageUsage": "对象存储使用率",
+        "objectCount": "对象数量",
+        "backupCount": "备份数量"
+      },
+      "plan": {
+        "title": "备份计划摘要",
+        "status": "计划状态",
+        "schedule": "计划周期",
+        "nextWindow": "下一次执行窗口",
+        "retention": "保留策略",
+        "retentionValue": "保留 {{days}} 天备份",
+        "targetType": "目标类型",
+        "targetPath": "目标路径",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "notConfigured": "未配置",
+        "notScheduled": "未计划",
+        "dailyAt": "每天 {{hour}} 执行",
+        "weeklyAt": "每周{{weekday}} {{hour}} 执行"
+      },
+      "frequency": {
+        "daily": "每天",
+        "weekly": "每周"
+      },
+      "weekdays": {
+        "monday": "周一",
+        "tuesday": "周二",
+        "wednesday": "周三",
+        "thursday": "周四",
+        "friday": "周五",
+        "saturday": "周六",
+        "sunday": "周日"
+      },
+      "targetType": {
+        "local": "服务器本地",
+        "network": "网络存储"
+      },
+      "context": {
+        "title": "当前环境上下文",
+        "currentVersion": "当前版本",
+        "schemaVersion": "数据库版本",
+        "buildId": "构建标识",
+        "availableStorage": "可用存储",
+        "accessAddress": "访问地址"
+      },
+      "alert": {
+        "message": "当前版本已接入系统配置快照的备份、列出、删除与恢复。业务数据、日志归档和对象存储内容暂不在本页恢复范围内。"
+      },
+      "drawer": {
+        "title": "备份计划与配置",
+        "description": "这里保存的是实际备份计划参数，当前版本仅保存配置，不会直接触发在线备份执行。",
+        "cancel": "取消",
+        "save": "保存配置",
+        "fields": {
+          "enabled": "启用定时备份",
+          "frequency": "执行频率",
+          "weekday": "执行星期",
+          "hour": "执行小时",
+          "retentionDays": "保留天数",
+          "targetType": "目标类型",
+          "targetPath": "目标路径"
+        },
+        "placeholders": {
+          "targetPath": "例如：/data/backups 或 \\\\nas\\portal\\backup"
+        },
+        "validation": {
+          "frequencyRequired": "请选择执行频率",
+          "weekdayRequired": "请选择执行星期",
+          "hourRequired": "请输入执行小时",
+          "retentionRequired": "请输入保留天数",
+          "targetTypeRequired": "请选择目标类型",
+          "targetPathRequired": "请输入目标路径"
+        }
+      },
+      "empty": {
+        "title": "备份与恢复接口待接入",
+        "description": "后端当前未暴露在线备份任务、备份文件列表和恢复作业接口。"
+      },
+      "table": {
+        "title": "备份文件列表",
+        "name": "备份名称",
+        "size": "备份大小",
+        "time": "备份时间",
+        "version": "备份版本",
+        "pathType": "路径类型",
+        "path": "路径",
+        "actions": "操作",
+        "empty": "暂无系统配置快照备份"
+      },
+      "record": {
+        "preview": "预览差异",
+        "restore": "恢复",
+        "delete": "删除",
+        "deleteConfirm": "确认删除这个备份文件吗？"
+      },
+      "preview": {
+        "title": "恢复前差异预览",
+        "description": "仅展示本次恢复会新增或覆盖的系统配置键；敏感项不会显示明文。",
+        "masked": "已隐藏",
+        "summary": {
+          "createCount": "新增键数",
+          "updateCount": "覆盖键数",
+          "unchangedCount": "未变化键数",
+          "totalKeys": "快照总键数"
+        },
+        "status": {
+          "create": "新增",
+          "update": "覆盖"
+        },
+        "table": {
+          "key": "配置键",
+          "status": "恢复影响",
+          "currentValue": "当前值",
+          "backupValue": "备份值",
+          "empty": "当前备份与系统配置一致，无需恢复差异。"
+        }
+      }
     }
   },
   "systemSettingsPage": {
@@ -2837,7 +3133,7 @@
         "username": "用户名 / 邮箱",
         "password": "密码 / 授权码",
         "sender": "发件人地址",
-        "tls": "启用 TLS 加密",
+        "tls": "启用 SSL / TLS",
         "testEmail": "接收测试邮箱"
       },
       "validation": {
@@ -2971,6 +3267,8 @@
       "libraryDescription": "在此维护通知模板内容和变量，发送配置页可直接选择默认模板。"
     },
     "fields": {
+      "attributeLabel": "模板属性",
+      "descriptionLabel": "模板说明",
       "codeLabel": "模板编码",
       "variableCountLabel": "变量数量",
       "variableCount_one": "{{count}} 个变量",
@@ -2985,6 +3283,7 @@
     },
     "status": {
       "builtin": "内置模板",
+      "custom": "外部创建",
       "enabled": "已启用",
       "disabled": "已停用"
     },
@@ -3030,10 +3329,15 @@
       "subject": "邮件主题",
       "subjectPlaceholder": "请输入邮件主题",
       "variables": "模板变量",
-      "variablesHelp": "回车或逗号可快速添加变量名。",
       "variablesPlaceholder": "例如：user_name, code, expires_at",
+      "defaultLocale": "默认语言",
+      "defaultFlag": "默认",
+      "defaultLocalePlaceholder": "请选择默认作为 fallback 的语言",
+      "defaultLocaleHint": "若此语言被设为默认语言，保存时会同步作为系统 fallback。",
       "content": "模板内容",
       "contentPlaceholder": "请输入模板正文，支持使用 {{variable}} 变量占位。",
+      "editorTitle": "模板内容与多语言",
+      "editorHelp": "在同一处维护多语言内容；通过上方默认语言指定系统 fallback，简体中文与英文页签分别维护展示与渲染内容。",
       "localizedTitle": "多语言内容",
       "localizedHelp": "默认内容继续作为兼容 fallback 使用；你可以在这里为简体中文和英文分别维护展示与渲染内容。",
       "localizedName": "本地化模板名称",
@@ -3044,7 +3348,9 @@
       "localizedSubjectPlaceholder": "留空则回退到默认邮件主题",
       "localizedContent": "本地化模板内容",
       "localizedContentPlaceholder": "留空则回退到默认模板内容",
-      "localizedFallbackHint": "该语言未填写时，将回退到上方默认内容。",
+      "localizedHtmlContent": "本地化模板内容（支持 HTML）",
+      "localizedHtmlContentPlaceholder": "请输入 HTML 邮件内容，支持 {{variable}} 占位与内联样式。",
+      "localizedFallbackHint": "该语言未填写时，将回退到当前选中的默认语言内容。",
       "localeTabs": {
         "zhCN": "简体中文",
         "enUS": "English"
@@ -3097,6 +3403,7 @@
       "sampleTag": "示例渲染",
       "subject": "预览主题",
       "content": "预览内容",
+      "emailRender": "邮件渲染预览",
       "variables": "示例变量值",
       "noVariables": "暂无示例变量",
       "empty": "点击“预览模板”生成示例内容",
@@ -3568,6 +3875,9 @@
       "code6": "请输入 6 位验证码"
     },
     "emailMfa": {
+      "disableCodeLabel": "最新邮箱验证码",
+      "disableCodeHint": "请输入刚刚发送到绑定邮箱的最新 6 位验证码。",
+      "sendCode": "发送验证码",
       "messages": {
         "codeSentSuccess": "验证码已发送到您的邮箱",
         "sendFailed": "发送失败",

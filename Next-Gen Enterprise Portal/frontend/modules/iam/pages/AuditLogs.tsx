@@ -1,27 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Select, Button, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip, Input } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, SafetyCertificateOutlined, KeyOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
-import ApiClient from '@/services/api';
+import ApiClient, { type IAMAuditLogItem } from '@/services/api';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
-interface AuditLog {
-    id: number;
-    timestamp: string;
-    user_id?: number;
-    username?: string;
-    action: string;
-    target_type: string;
-    target_id?: number;
-    target_name?: string;
-    detail?: any;
-    ip_address?: string;
-    user_agent?: string;
-    result?: string;
-    reason?: string;
-    trace_id?: string;
-    source?: string;
-}
+type AuditLog = IAMAuditLogItem;
 
 interface LogStats {
     loginCount: number;
@@ -54,6 +38,14 @@ const getActionCategoryKey = (action: string): string => {
     return 'other';
 };
 
+const normalizeResourceKey = (value: string) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+const normalizeSourceParts = (source?: string): string[] => {
+    const raw = String(source || 'db').replace(/\+/g, ',').toLowerCase();
+    const parts = raw.split(',').map((item) => item.trim()).filter(Boolean);
+    return parts.length > 0 ? [...new Set(parts)] : ['db'];
+};
+
 const AuditLogs: React.FC = () => {
     const { t } = useTranslation();
     const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -71,6 +63,8 @@ const AuditLogs: React.FC = () => {
     const [sourceFilter, setSourceFilter] = useState<string>('all');
 
     const getActionLabel = (action: string) => t(`iamAudit.actions.${normalizeActionKey(action)}`, { defaultValue: action });
+    const getResourceTypeLabel = (resourceType: string) =>
+        t(`iamAudit.resourceTypes.${normalizeResourceKey(resourceType)}`, { defaultValue: resourceType || '-' });
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -182,7 +176,7 @@ const AuditLogs: React.FC = () => {
             key: 'target_type',
             width: 120,
             render: (text: string) => (
-                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">{text || '-'}</span>
+                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">{getResourceTypeLabel(text)}</span>
             ),
         },
         {
@@ -215,7 +209,25 @@ const AuditLogs: React.FC = () => {
             dataIndex: 'source',
             key: 'source',
             width: 100,
-            render: (source: string) => <Tag color={source === 'DB' ? 'blue' : 'purple'}>{source || t('iamAudit.source.db')}</Tag>,
+            render: (source: string) => {
+                const sources = normalizeSourceParts(source);
+                if (sources.length > 1) {
+                    return (
+                        <span className="flex gap-1">
+                            {sources.map((item, index) => (
+                                <Tag key={`${item}-${index}`} color={item === 'loki' ? 'purple' : 'blue'}>
+                                    {item === 'loki' ? t('iamAudit.source.loki') : t('iamAudit.source.db')}
+                                </Tag>
+                            ))}
+                        </span>
+                    );
+                }
+                return (
+                    <Tag color={sources[0] === 'loki' ? 'purple' : 'blue'}>
+                        {sources[0] === 'loki' ? t('iamAudit.source.loki') : t('iamAudit.source.db')}
+                    </Tag>
+                );
+            },
         },
         {
             title: t('iamAudit.table.operation'),
@@ -356,7 +368,7 @@ const AuditLogs: React.FC = () => {
                                 <Tag color="blue">{getActionLabel(selectedLog.action)}</Tag>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('iamAudit.drawer.resource')}>
-                                <code className="text-xs">{selectedLog.target_type}</code>
+                                <code className="text-xs">{getResourceTypeLabel(selectedLog.target_type)}</code>
                                 {selectedLog.target_id && ` : ${selectedLog.target_id}`}
                                 {selectedLog.target_name && ` (${selectedLog.target_name})`}
                             </Descriptions.Item>

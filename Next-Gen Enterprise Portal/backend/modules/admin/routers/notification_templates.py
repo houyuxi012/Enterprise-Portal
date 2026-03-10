@@ -13,7 +13,9 @@ from core.dependencies import PermissionChecker
 from modules.admin.services.notification_templates import (
     analyze_notification_template_definition,
     build_notification_sample_context,
+    get_notification_email_branding,
     normalize_notification_template_i18n_map,
+    normalize_notification_template_locale,
     render_notification_template,
 )
 import modules.models as models
@@ -52,6 +54,7 @@ def _serialize_template(template: models.NotificationTemplate) -> schemas.Notifi
         id=template.id,
         code=template.code,
         name=template.name,
+        default_locale=normalize_notification_template_locale(getattr(template, "default_locale", None)) or "zh-CN",
         name_i18n=normalize_notification_template_i18n_map(template.name_i18n),
         description=template.description,
         description_i18n=normalize_notification_template_i18n_map(template.description_i18n),
@@ -113,6 +116,9 @@ def _validate_template_payload(
 ) -> dict[str, object]:
     code = _normalize_string(payload.code if payload.code is not None else getattr(existing, "code", ""))
     name = _normalize_string(payload.name if payload.name is not None else getattr(existing, "name", ""))
+    default_locale = normalize_notification_template_locale(
+        payload.default_locale if payload.default_locale is not None else getattr(existing, "default_locale", "zh-CN")
+    ) or "zh-CN"
     name_i18n = normalize_notification_template_i18n_map(
         payload.name_i18n if payload.name_i18n is not None else getattr(existing, "name_i18n", {})
     )
@@ -176,6 +182,7 @@ def _validate_template_payload(
     return {
         "code": code,
         "name": name,
+        "default_locale": default_locale,
         "name_i18n": name_i18n,
         "description": description or None,
         "description_i18n": description_i18n,
@@ -189,8 +196,9 @@ def _validate_template_payload(
     }
 
 
-def _build_preview_response(
+async def _build_preview_response(
     *,
+    db: AsyncSession,
     payload: schemas.NotificationTemplatePreviewRequest,
 ) -> schemas.NotificationTemplatePreviewResponse:
     analysis = analyze_notification_template_definition(
@@ -204,6 +212,7 @@ def _build_preview_response(
     template_like = models.NotificationTemplate(
         code=payload.code,
         name=payload.name,
+        default_locale=normalize_notification_template_locale(payload.default_locale) or "zh-CN",
         name_i18n=normalize_notification_template_i18n_map(payload.name_i18n),
         description=payload.description,
         description_i18n=normalize_notification_template_i18n_map(payload.description_i18n),
@@ -222,17 +231,25 @@ def _build_preview_response(
         if _normalize_string(key)
     }
     preview_context = build_notification_sample_context(channel=payload.category)
+    email_branding = await get_notification_email_branding(db) if payload.category == "email" else None
+    if payload.category == "email":
+        preview_context = build_notification_sample_context(
+            channel=payload.category,
+            public_base_url=str((email_branding or {}).get("public_base_url") or ""),
+        )
     preview_context.update(preview_variables)
     rendered = render_notification_template(
         template_like,
         preview_context,
         locale=payload.preview_locale,
+        email_branding=email_branding,
     )
     return schemas.NotificationTemplatePreviewResponse(
         validation=schemas.NotificationTemplateValidation(**analysis),
         preview=schemas.NotificationTemplatePreview(
             subject=str(rendered["subject"] or "").strip() or None,
             content=str(rendered["content"] or ""),
+            html_content=str(rendered.get("html_content") or "").strip() or None,
             variables={key: str(value) for key, value in rendered["variables"].items()},
         ),
     )
@@ -253,9 +270,10 @@ async def list_notification_templates(
 @router.post("/preview", response_model=schemas.NotificationTemplatePreviewResponse)
 async def preview_notification_template(
     payload: schemas.NotificationTemplatePreviewRequest,
+    db: AsyncSession = Depends(get_db),
     _: models.User = Depends(PermissionChecker("sys:settings:edit")),
 ):
-    return _build_preview_response(payload=payload)
+    return await _build_preview_response(db=db, payload=payload)
 
 
 @router.post("/", response_model=schemas.NotificationTemplate, status_code=status.HTTP_201_CREATED)

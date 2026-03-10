@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Divider, Form, Input, InputNumber, Select, Space, Switch, Tabs, Upload, message } from 'antd';
-import { ApiOutlined, ClockCircleOutlined, GlobalOutlined, SaveOutlined, SafetyCertificateOutlined, UploadOutlined } from '@ant-design/icons';
+import { App, Card, Divider, Form, Input, InputNumber, Select, Space, Switch, Tabs, Upload } from 'antd';
+import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
+import { AppButton, AppPageHeader } from '@/modules/admin/components/ui';
 
 const PLATFORM_CONFIG_KEYS = [
     'platform_domain',
@@ -61,6 +62,7 @@ const resolveApiDetailMessage = (error: unknown): string | undefined => {
 
 const PlatformSettings: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [form] = Form.useForm<PlatformSettingsFormValues>();
     const [applying, setApplying] = useState(false);
     const [ntpTesting, setNtpTesting] = useState(false);
@@ -89,7 +91,7 @@ const PlatformSettings: React.FC = () => {
         fetchConfig();
     }, [form, t]);
 
-    const handleUploadTextToField = async (field: string, file: File) => {
+    const handleUploadTextToField = async (field: PlatformConfigKey, file: File) => {
         try {
             const content = await file.text();
             form.setFieldValue(field, content);
@@ -172,13 +174,11 @@ const PlatformSettings: React.FC = () => {
     };
 
     return (
-        <div>
-            <div className="mb-6">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800">{t('platformSettingsPage.page.title')}</h2>
-                    <p className="text-sm text-slate-500 mt-1">{t('platformSettingsPage.page.subtitle')}</p>
-                </div>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('platformSettingsPage.page.title')}
+                subtitle={t('platformSettingsPage.page.subtitle')}
+            />
 
             <Form
                 form={form}
@@ -197,14 +197,9 @@ const PlatformSettings: React.FC = () => {
                     items={[
                         {
                             key: 'domain',
-                            label: (
-                                <span className="flex items-center space-x-2">
-                                    <GlobalOutlined />
-                                    <span>{t('platformSettingsPage.sections.domain')}</span>
-                                </span>
-                            ),
+                            label: t('platformSettingsPage.sections.domain'),
                             children: (
-                                <Card className="shadow-sm border-slate-200">
+                                <Card className="admin-card">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6">
                                         <Form.Item
                                             name="platform_domain"
@@ -227,29 +222,24 @@ const PlatformSettings: React.FC = () => {
                                     </div>
                                     <Divider />
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveOnly}
                                             loading={applying}
                                             disabled={ntpTesting}
                                         >
                                             {t('platformSettingsPage.page.saveButton')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
                                 </Card>
                             ),
                         },
                         {
                             key: 'ssl',
-                            label: (
-                                <span className="flex items-center space-x-2">
-                                    <SafetyCertificateOutlined />
-                                    <span>{t('platformSettingsPage.sections.ssl')}</span>
-                                </span>
-                            ),
+                            label: t('platformSettingsPage.sections.ssl'),
                             children: (
-                                <Card className="shadow-sm border-slate-200">
+                                <Card className="admin-card">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6">
                                         <Form.Item
                                             name="platform_ssl_enabled"
@@ -282,9 +272,9 @@ const PlatformSettings: React.FC = () => {
                                                 return false;
                                             }}
                                         >
-                                            <Button icon={<UploadOutlined />}>
+                                            <AppButton intent="secondary" icon={<UploadOutlined />}>
                                                 {t('platformSettingsPage.actions.uploadCert')}
-                                            </Button>
+                                            </AppButton>
                                         </Upload>
                                         <Upload
                                             showUploadList={false}
@@ -293,36 +283,31 @@ const PlatformSettings: React.FC = () => {
                                                 return false;
                                             }}
                                         >
-                                            <Button icon={<UploadOutlined />}>
+                                            <AppButton intent="secondary" icon={<UploadOutlined />}>
                                                 {t('platformSettingsPage.actions.uploadKey')}
-                                            </Button>
+                                            </AppButton>
                                         </Upload>
                                     </Space>
                                     <Divider />
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveOnly}
                                             loading={applying}
                                             disabled={ntpTesting}
                                         >
                                             {t('platformSettingsPage.page.saveButton')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
                                 </Card>
                             ),
                         },
                         {
                             key: 'snmp',
-                            label: (
-                                <span className="flex items-center space-x-2">
-                                    <ApiOutlined />
-                                    <span>{t('platformSettingsPage.sections.snmp')}</span>
-                                </span>
-                            ),
+                            label: t('platformSettingsPage.sections.snmp'),
                             children: (
-                                <Card className="shadow-sm border-slate-200">
+                                <Card className="admin-card">
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6">
                                         <Form.Item
                                             name="platform_snmp_enabled"
@@ -366,29 +351,24 @@ const PlatformSettings: React.FC = () => {
                                     </div>
                                     <Divider />
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveOnly}
                                             loading={applying}
                                             disabled={ntpTesting}
                                         >
                                             {t('platformSettingsPage.page.saveButton')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
                                 </Card>
                             ),
                         },
                         {
                             key: 'ntp',
-                            label: (
-                                <span className="flex items-center space-x-2">
-                                    <ClockCircleOutlined />
-                                    <span>{t('platformSettingsPage.sections.ntp')}</span>
-                                </span>
-                            ),
+                            label: t('platformSettingsPage.sections.ntp'),
                             children: (
-                                <Card className="shadow-sm border-slate-200">
+                                <Card className="admin-card">
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6">
                                         <Form.Item
                                             name="platform_ntp_enabled"
@@ -418,22 +398,23 @@ const PlatformSettings: React.FC = () => {
                                     </div>
                                     <Divider />
                                     <Space>
-                                        <Button
+                                        <AppButton
+                                            intent="secondary"
                                             onClick={handleTestNtpConnectivity}
                                             loading={ntpTesting}
                                             disabled={applying}
                                         >
                                             {t('platformSettingsPage.actions.testNtp')}
-                                        </Button>
-                                        <Button
-                                            type="primary"
+                                        </AppButton>
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveOnly}
                                             loading={applying}
                                             disabled={ntpTesting}
                                         >
                                             {t('platformSettingsPage.page.saveButton')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
                                 </Card>
                             ),

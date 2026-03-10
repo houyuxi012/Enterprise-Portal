@@ -2,6 +2,7 @@
 import time
 import json
 import traceback
+import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from starlette.requests import Request
@@ -10,6 +11,7 @@ from starlette.concurrency import iterate_in_threadpool
 from sqlalchemy.orm import Session
 from core.database import SessionLocal
 from core.time_utils import utc_now_iso
+from middleware.trace_context import get_trace_id
 import modules.models as models
 import datetime
 import logging
@@ -88,6 +90,35 @@ class SystemLoggingMiddleware(BaseHTTPMiddleware):
                     )
                     db.add(sys_log)
                     await db.commit()
+
+                    try:
+                        from modules.admin.services.log_sink import get_log_sink, LogEntry
+
+                        sink = get_log_sink()
+                        if sink:
+                            asyncio.create_task(
+                                sink.emit(
+                                    LogEntry(
+                                        trace_id=get_trace_id() or "",
+                                        request_id=get_trace_id() or "",
+                                        timestamp=utc_now_iso(),
+                                        level=level_str,
+                                        log_type="SYSTEM",
+                                        source="api.access",
+                                        action="HTTP_REQUEST",
+                                        status="SUCCESS" if response.status_code < 400 else "FAIL",
+                                        ip_address=log_data["ip"],
+                                        detail=f"{request.method} {request.url.path} - {response.status_code}",
+                                        path=log_data["path"],
+                                        method=log_data["method"],
+                                        status_code=log_data["status"],
+                                        user_agent=log_data["ua"],
+                                        latency_ms=int(process_time * 1000),
+                                    )
+                                )
+                            )
+                    except Exception:
+                        pass
 
                     try:
                         from modules.admin.services.log_forwarder import emit_log_fire_and_forget

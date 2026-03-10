@@ -12,8 +12,8 @@ export const ADMIN_TAB_KEYS = [
   'meeting_sync',
   'settings',
   'platform_settings',
+  'ops_management',
   'license',
-  'about_us',
   'org',
   'roles',
   'system_logs',
@@ -35,7 +35,6 @@ export const ADMIN_TAB_KEYS = [
   'todos',
   'notification_templates',
   'notification_services',
-  'third_party_notifications',
 ] as const;
 
 export type AdminTabKey = (typeof ADMIN_TAB_KEYS)[number];

@@ -310,6 +310,12 @@ async def disable_mfa(
             detail={"code": "INVALID_PASSWORD", "message": "密码错误"},
         )
 
+    if not payload.totp_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "TOTP_CODE_REQUIRED", "message": "请输入当前 TOTP 验证码"},
+        )
+
     # Verify current TOTP code
     if not user.totp_secret:
         raise HTTPException(

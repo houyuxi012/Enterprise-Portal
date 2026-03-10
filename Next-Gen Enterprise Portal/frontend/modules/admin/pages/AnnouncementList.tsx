@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Popconfirm, message, Switch, AutoComplete, Tooltip, Card } from 'antd';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import {
+    App,
+    Input,
+    Select,
+    Popconfirm,
+    Switch,
+    AutoComplete,
+    Tooltip,
+    Card,
+    Col,
+    Row,
+    Space,
+    Typography,
+} from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Announcement } from '@/types';
 import ApiClient, { type AnnouncementUpsertPayload } from '@/services/api';
@@ -16,6 +29,7 @@ import {
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { Text } = Typography;
 
 const TAG_CODES = ['announcement', 'maintenance', 'warning', 'update', 'activity', 'recruitment'] as const;
 
@@ -38,6 +52,7 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
 
 const AnnouncementList: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Announcement | null>(null);
@@ -147,7 +162,7 @@ const AnnouncementList: React.FC = () => {
             title: t('announcementList.table.title'),
             dataIndex: 'title',
             key: 'title',
-            render: (text: string) => <span className="font-black text-slate-800 dark:text-slate-200">{text}</span>
+            render: (text: string) => <Text strong>{text}</Text>,
         },
         {
             title: t('announcementList.table.content'),
@@ -156,7 +171,7 @@ const AnnouncementList: React.FC = () => {
             ellipsis: { showTitle: false },
             render: (content: string) => (
                 <Tooltip placement="topLeft" title={content}>
-                    <span className="text-slate-500 text-sm">{content}</span>
+                    <Text type="secondary">{content}</Text>
                 </Tooltip>
             ),
         },
@@ -174,50 +189,47 @@ const AnnouncementList: React.FC = () => {
             key: 'is_urgent',
             width: 100,
             render: (urgent: boolean) => (
-                urgent ?
-                    <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-lg text-xs font-black border border-rose-100 flex items-center w-fit">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5 animate-pulse"></span>
-                        {t('announcementList.status.urgent')}
-                    </span> :
-                    <span className="text-xs font-bold text-slate-400">{t('announcementList.status.normal')}</span>
-            )
+                <AppTag status={urgent ? 'error' : 'default'}>
+                    {urgent ? t('announcementList.status.urgent') : t('announcementList.status.normal')}
+                </AppTag>
+            ),
         },
         {
             title: t('announcementList.table.publishTime'),
             key: 'time',
             width: 120,
             render: (_: string, record: Announcement) => (
-                <span className="text-xs font-bold text-slate-400">{formatPublishTime(record)}</span>
-            )
+                <Text type="secondary">{formatPublishTime(record)}</Text>
+            ),
         },
         {
             title: t('announcementList.table.actions'),
             key: 'action',
             width: 160,
             render: (_: unknown, record: Announcement) => (
-                <div className="flex gap-2">
-                    <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)}>{t('common.buttons.edit')}</AppButton>
+                <Space size="small">
+                    <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>{t('common.buttons.edit')}</AppButton>
                     <Popconfirm title={t('announcementList.confirm.deleteTitle')} onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>{t('common.buttons.delete')}</AppButton>
+                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>{t('common.buttons.delete')}</AppButton>
                     </Popconfirm>
-                </div>
+                </Space>
             ),
         },
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('announcementList.page.title')}
                 subtitle={t('announcementList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         {t('announcementList.page.publishButton')}
                     </AppButton>
                 }
             />
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Card className="admin-card overflow-hidden">
                 <AppTable
                     columns={columns}
                     dataSource={announcements}
@@ -241,34 +253,40 @@ const AnnouncementList: React.FC = () => {
                     <AppForm.Item name="content" label={t('announcementList.form.content')} rules={[{ required: true, message: t('announcementList.form.validation.contentRequired') }]}>
                         <TextArea rows={4} placeholder={t('announcementList.form.placeholders.content')} />
                     </AppForm.Item>
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item name="tag" label={t('announcementList.form.tag')} rules={[{ required: true, message: t('announcementList.form.validation.tagRequired') }]}>
-                            <AutoComplete
-                                options={[
-                                    { value: 'announcement', label: t('announcementList.tags.announcement') },
-                                    { value: 'maintenance', label: t('announcementList.tags.maintenance') },
-                                    { value: 'warning', label: t('announcementList.tags.warning') },
-                                    { value: 'update', label: t('announcementList.tags.update') },
-                                    { value: 'activity', label: t('announcementList.tags.activity') },
-                                    { value: 'recruitment', label: t('announcementList.tags.recruitment') }
-                                ]}
-                                placeholder={t('announcementList.form.placeholders.tag')}
-                            />
-                        </AppForm.Item>
-                        <AppForm.Item name="color" label={t('announcementList.form.color')} rules={[{ required: true, message: t('announcementList.form.validation.colorRequired') }]}>
-                            <Select placeholder={t('announcementList.form.placeholders.color')}>
-                                <Option value="blue">{t('announcementList.colors.blue')}</Option>
-                                <Option value="yellow">{t('announcementList.colors.yellow')}</Option>
-                                <Option value="red">{t('announcementList.colors.red')}</Option>
-                                <Option value="green">{t('announcementList.colors.green')}</Option>
-                            </Select>
-                        </AppForm.Item>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item name="is_urgent" label={t('announcementList.form.urgent')} valuePropName="checked">
-                            <Switch checkedChildren={t('announcementList.status.urgent')} unCheckedChildren={t('announcementList.status.normalShort')} />
-                        </AppForm.Item>
-                    </div>
+                    <Card size="small" className="admin-card-subtle">
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item name="tag" label={t('announcementList.form.tag')} rules={[{ required: true, message: t('announcementList.form.validation.tagRequired') }]}>
+                                    <AutoComplete
+                                        options={[
+                                            { value: 'announcement', label: t('announcementList.tags.announcement') },
+                                            { value: 'maintenance', label: t('announcementList.tags.maintenance') },
+                                            { value: 'warning', label: t('announcementList.tags.warning') },
+                                            { value: 'update', label: t('announcementList.tags.update') },
+                                            { value: 'activity', label: t('announcementList.tags.activity') },
+                                            { value: 'recruitment', label: t('announcementList.tags.recruitment') }
+                                        ]}
+                                        placeholder={t('announcementList.form.placeholders.tag')}
+                                    />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item name="color" label={t('announcementList.form.color')} rules={[{ required: true, message: t('announcementList.form.validation.colorRequired') }]}>
+                                    <Select placeholder={t('announcementList.form.placeholders.color')}>
+                                        <Option value="blue">{t('announcementList.colors.blue')}</Option>
+                                        <Option value="yellow">{t('announcementList.colors.yellow')}</Option>
+                                        <Option value="red">{t('announcementList.colors.red')}</Option>
+                                        <Option value="green">{t('announcementList.colors.green')}</Option>
+                                    </Select>
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item name="is_urgent" label={t('announcementList.form.urgent')} valuePropName="checked">
+                                    <Switch checkedChildren={t('announcementList.status.urgent')} unCheckedChildren={t('announcementList.status.normalShort')} />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
+                    </Card>
                 </AppForm>
             </AppModal>
         </div>

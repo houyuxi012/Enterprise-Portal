@@ -63,6 +63,7 @@ function AppTable<T extends object = any>({
             pagination={paginationConfig}
             rowClassName={mergedRowClassName}
             locale={emptyLocale}
+            size={rest.size ?? 'middle'}
             scroll={{ x: 'max-content' }}
             {...rest}
         />

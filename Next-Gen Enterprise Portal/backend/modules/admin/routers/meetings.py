@@ -2,30 +2,36 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Iterable
-import secrets
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import Select, String, and_, asc, cast, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from application.admin_app import AuditService
+from application.admin_app import AuditService, LicenseService
 from core.database import get_db
 from core.dependencies import PermissionChecker
-from core.time_utils import utc_now
 import modules.models as models
 import modules.schemas as schemas
-
-router = APIRouter(
-    prefix="/meetings",
-    tags=["meetings"],
-)
 
 
 MEETING_TYPE_LABELS = {
     "online": "线上",
     "offline": "线下",
 }
+
+
+async def _require_meeting_license(
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await LicenseService.require_feature(db, "meeting.manage")
+
+
+router = APIRouter(
+    prefix="/meetings",
+    tags=["meetings"],
+    dependencies=[Depends(_require_meeting_license)],
+)
 
 
 def _normalize_string(value: str) -> str:
@@ -97,6 +103,7 @@ def _serialize_admin_meeting(meeting: models.AdminMeeting) -> schemas.AdminMeeti
         duration_minutes=meeting.duration_minutes,
         meeting_type=meeting.meeting_type,
         meeting_room=meeting.meeting_room,
+        meeting_software=meeting.meeting_software,
         meeting_id=meeting.meeting_id,
         organizer=organizer_label,
         organizer_user_id=meeting.organizer_user_id,
@@ -111,22 +118,6 @@ def _serialize_admin_meeting(meeting: models.AdminMeeting) -> schemas.AdminMeeti
     )
 
 
-def _build_meeting_id() -> str:
-    stamp = utc_now().strftime("%Y%m%d%H%M%S")
-    suffix = secrets.token_hex(2).upper()
-    return f"MEET-{stamp}-{suffix}"
-
-
-async def _generate_unique_meeting_id(db: AsyncSession) -> str:
-    while True:
-        candidate = _build_meeting_id()
-        existing = await db.execute(
-            select(models.AdminMeeting.id).where(models.AdminMeeting.meeting_id == candidate)
-        )
-        if existing.scalar_one_or_none() is None:
-            return candidate
-
-
 async def _load_users_by_ids(db: AsyncSession, user_ids: list[int]) -> dict[int, models.User]:
     if not user_ids:
         return {}
@@ -138,10 +129,12 @@ async def _load_users_by_ids(db: AsyncSession, user_ids: list[int]) -> dict[int,
 
 async def _validate_payload(
     db: AsyncSession,
-    payload: schemas.AdminMeetingCreate,
-) -> tuple[str, models.User, str, list[models.User]]:
+    payload: schemas.AdminMeetingCreate | schemas.AdminMeetingUpdate,
+) -> tuple[str, str, models.User, str | None, str | None, list[models.User]]:
     subject = _normalize_string(payload.subject)
+    meeting_id = _normalize_string(payload.meeting_id)
     meeting_room = _normalize_string(payload.meeting_room)
+    meeting_software = _normalize_string(payload.meeting_software)
     attendee_user_ids = _normalize_user_ids(payload.attendee_user_ids)
     user_ids = _normalize_user_ids([payload.organizer_user_id, *attendee_user_ids])
     users_by_id = await _load_users_by_ids(db, user_ids)
@@ -152,14 +145,24 @@ async def _validate_payload(
         raise HTTPException(status_code=400, detail="会议主题不能为空")
     if organizer_user is None:
         raise HTTPException(status_code=400, detail="会议发起人不能为空")
-    if not meeting_room:
-        raise HTTPException(status_code=400, detail="会议室不能为空")
+    if payload.meeting_type == "online":
+        if not meeting_id:
+            raise HTTPException(status_code=400, detail="会议 ID / 会议链接不能为空")
+        if not meeting_software:
+            raise HTTPException(status_code=400, detail="会议软件不能为空")
+        meeting_room = ""
+    else:
+        if not meeting_id:
+            raise HTTPException(status_code=400, detail="会议 ID 不能为空")
+        if not meeting_room:
+            raise HTTPException(status_code=400, detail="会议室不能为空")
+        meeting_software = ""
     if payload.duration_minutes <= 0:
         raise HTTPException(status_code=400, detail="会议时长必须大于 0")
     if not attendee_users or len(attendee_users) != len(attendee_user_ids):
         raise HTTPException(status_code=400, detail="请至少填写一位参会人")
 
-    return subject, organizer_user, meeting_room, attendee_users
+    return subject, meeting_id, organizer_user, meeting_room or None, meeting_software or None, attendee_users
 
 
 def _meeting_load_options():
@@ -170,7 +173,16 @@ def _meeting_load_options():
 
 
 def _meeting_end_time_expression():
-    return models.AdminMeeting.start_time + func.make_interval(mins=models.AdminMeeting.duration_minutes)
+    # SQLAlchemy's func() wrapper only supports positional args here.
+    return models.AdminMeeting.start_time + func.make_interval(
+        0,
+        0,
+        0,
+        0,
+        0,
+        models.AdminMeeting.duration_minutes,
+        0,
+    )
 
 
 def _meeting_status_condition(status_value: schemas.AdminMeetingStatus | None):
@@ -178,9 +190,10 @@ def _meeting_status_condition(status_value: schemas.AdminMeetingStatus | None):
         return None
 
     now_expression = func.now()
-    meeting_end_time = _meeting_end_time_expression()
     if status_value == "upcoming":
         return models.AdminMeeting.start_time > now_expression
+
+    meeting_end_time = _meeting_end_time_expression()
     if status_value == "inProgress":
         return and_(
             models.AdminMeeting.start_time <= now_expression,
@@ -207,6 +220,7 @@ def _apply_meeting_filters(
             or_(
                 models.AdminMeeting.subject.ilike(search_term),
                 models.AdminMeeting.meeting_room.ilike(search_term),
+                models.AdminMeeting.meeting_software.ilike(search_term),
                 models.AdminMeeting.meeting_id.ilike(search_term),
                 models.AdminMeeting.organizer.ilike(search_term),
                 cast(models.AdminMeeting.attendees, String).ilike(search_term),
@@ -336,10 +350,7 @@ async def create_admin_meeting(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("admin:access")),
 ):
-    subject, organizer_user, meeting_room, attendee_users = await _validate_payload(db, payload)
-
-    normalized_meeting_id = _normalize_string(payload.meeting_id)
-    meeting_id = normalized_meeting_id or await _generate_unique_meeting_id(db)
+    subject, meeting_id, organizer_user, meeting_room, meeting_software, attendee_users = await _validate_payload(db, payload)
 
     existing = await db.execute(
         select(models.AdminMeeting.id).where(models.AdminMeeting.meeting_id == meeting_id)
@@ -353,6 +364,7 @@ async def create_admin_meeting(
         duration_minutes=payload.duration_minutes,
         meeting_type=payload.meeting_type,
         meeting_room=meeting_room,
+        meeting_software=meeting_software,
         meeting_id=meeting_id,
         organizer=_format_user_label(organizer_user),
         organizer_user_id=organizer_user.id,
@@ -367,6 +379,7 @@ async def create_admin_meeting(
     db.add(meeting)
     await db.commit()
     await db.refresh(meeting)
+    meeting = await _fetch_meeting_or_404(db, meeting.id)
 
     AuditService.schedule_business_action(
         background_tasks=background_tasks,
@@ -395,10 +408,7 @@ async def update_admin_meeting(
     current_user: models.User = Depends(PermissionChecker("admin:access")),
 ):
     meeting = await _fetch_meeting_or_404(db, meeting_pk)
-    subject, organizer_user, meeting_room, attendee_users = await _validate_payload(db, payload)
-
-    normalized_meeting_id = _normalize_string(payload.meeting_id)
-    next_meeting_id = normalized_meeting_id or meeting.meeting_id
+    subject, next_meeting_id, organizer_user, meeting_room, meeting_software, attendee_users = await _validate_payload(db, payload)
     if next_meeting_id != meeting.meeting_id:
         existing = await db.execute(
             select(models.AdminMeeting.id).where(
@@ -414,6 +424,7 @@ async def update_admin_meeting(
     meeting.duration_minutes = payload.duration_minutes
     meeting.meeting_type = payload.meeting_type
     meeting.meeting_room = meeting_room
+    meeting.meeting_software = meeting_software
     meeting.meeting_id = next_meeting_id
     meeting.organizer = _format_user_label(organizer_user)
     meeting.organizer_user_id = organizer_user.id

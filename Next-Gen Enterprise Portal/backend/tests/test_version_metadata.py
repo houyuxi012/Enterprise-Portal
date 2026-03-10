@@ -231,3 +231,43 @@ class SystemInfoEndpointTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["license_status"], "missing")
         self.assertEqual(payload["authorized_unit"], "-")
         self.assertFalse(payload["license_expired"])
+
+
+class SystemHardwareEndpointTests(IsolatedAsyncioTestCase):
+    async def test_get_system_hardware_returns_snapshot_without_mac_address(self):
+        hardware_snapshot = {
+            "system": {
+                "os": "Linux",
+                "release": "6.12.0",
+                "version": "#1 SMP",
+                "machine": "x86_64",
+            },
+            "cpu": {
+                "logical_count": 16,
+                "physical_count": 8,
+                "model": "Intel(R) Xeon(R)",
+            },
+            "memory": {
+                "total_bytes": 34359738368,
+            },
+            "disk": {
+                "total_bytes": 536870912000,
+                "device": "/dev/vda1",
+                "fstype": "xfs",
+            },
+            "host": {
+                "hostname": "portal-host-01",
+                "machine_id": "machine-id-001",
+                "mac": "001122334455",
+            },
+        }
+
+        with patch.object(system_router, "_get_hardware_fingerprint_payload", return_value=hardware_snapshot):
+            payload = await system_router.get_system_hardware(None)
+
+        self.assertEqual(payload["system"]["os"], "Linux")
+        self.assertEqual(payload["cpu"]["logical_count"], 16)
+        self.assertEqual(payload["disk"]["fstype"], "xfs")
+        self.assertEqual(payload["host"]["hostname"], "portal-host-01")
+        self.assertEqual(payload["host"]["machine_id"], "machine-id-001")
+        self.assertNotIn("mac", payload["host"])

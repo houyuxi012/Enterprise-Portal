@@ -7,6 +7,30 @@ const DEFAULT_CONFIG_FILE = 'scripts/structure-guard.config.json';
 const DEFAULT_MODE = 'normal';
 const DEFAULT_OUTPUT = 'plain';
 
+function toPosixPath(value) {
+  return value.split(path.sep).join('/');
+}
+
+function walkFiles(rootDir) {
+  const files = [];
+  const queue = [rootDir];
+  while (queue.length > 0) {
+    const current = queue.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const absPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        queue.push(absPath);
+        continue;
+      }
+      if (entry.isFile()) {
+        files.push(absPath);
+      }
+    }
+  }
+  return files;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -156,6 +180,89 @@ function validateModeConfig(modeConfig) {
     }
     new RegExp(rule.pattern, rule.flags ?? '');
   }
+
+  if (modeConfig.fileRules !== undefined) {
+    if (!Array.isArray(modeConfig.fileRules)) {
+      throw new Error('invalid config: "fileRules" must be an array when provided');
+    }
+    for (const rule of modeConfig.fileRules) {
+      if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+        throw new Error('invalid config: each fileRules item must be an object');
+      }
+      if (typeof rule.pathPattern !== 'string' || rule.pathPattern.trim() === '') {
+        throw new Error('invalid config: each fileRules item needs non-empty "pathPattern"');
+      }
+      new RegExp(rule.pathPattern, rule.pathFlags ?? '');
+      for (const fieldName of ['excludePathPatterns', 'requiredContentPatterns', 'forbiddenContentPatterns']) {
+        const fieldValue = rule[fieldName];
+        if (fieldValue === undefined) continue;
+        if (!Array.isArray(fieldValue)) {
+          throw new Error(`invalid config: fileRules "${fieldName}" must be an array when provided`);
+        }
+        for (const nestedRule of fieldValue) {
+          if (!nestedRule || typeof nestedRule !== 'object' || Array.isArray(nestedRule)) {
+            throw new Error(`invalid config: fileRules "${fieldName}" items must be objects`);
+          }
+          if (typeof nestedRule.pattern !== 'string' || nestedRule.pattern.trim() === '') {
+            throw new Error(`invalid config: fileRules "${fieldName}" items need non-empty "pattern"`);
+          }
+          if (typeof nestedRule.message !== 'string' || nestedRule.message.trim() === '') {
+            throw new Error(`invalid config: fileRules "${fieldName}" items need non-empty "message"`);
+          }
+          if (nestedRule.flags !== undefined && typeof nestedRule.flags !== 'string') {
+            throw new Error(`invalid config: fileRules "${fieldName}" item "flags" must be a string when provided`);
+          }
+          new RegExp(nestedRule.pattern, nestedRule.flags ?? '');
+        }
+      }
+    }
+  }
+}
+
+function collectFileRuleViolations(root, fileRules = []) {
+  if (!Array.isArray(fileRules) || fileRules.length === 0) {
+    return { violations: [], matchedFileCount: 0 };
+  }
+
+  const allFiles = walkFiles(root);
+  const violations = [];
+  let matchedFileCount = 0;
+
+  for (const rule of fileRules) {
+    const pathRe = new RegExp(rule.pathPattern, rule.pathFlags ?? '');
+    const excludeRes = (rule.excludePathPatterns || []).map((item) => new RegExp(item.pattern, item.flags ?? ''));
+    const requiredRes = (rule.requiredContentPatterns || []).map((item) => ({
+      re: new RegExp(item.pattern, item.flags ?? ''),
+      message: item.message,
+    }));
+    const forbiddenRes = (rule.forbiddenContentPatterns || []).map((item) => ({
+      re: new RegExp(item.pattern, item.flags ?? ''),
+      message: item.message,
+    }));
+
+    for (const absPath of allFiles) {
+      const relativePath = toPosixPath(path.relative(root, absPath));
+      if (!pathRe.test(relativePath)) continue;
+      if (excludeRes.some((re) => re.test(relativePath))) continue;
+
+      matchedFileCount += 1;
+      const source = fs.readFileSync(absPath, 'utf8');
+
+      for (const item of requiredRes) {
+        if (!item.re.test(source)) {
+          violations.push(`${relativePath}: ${item.message}`);
+        }
+      }
+
+      for (const item of forbiddenRes) {
+        if (item.re.test(source)) {
+          violations.push(`${relativePath}: ${item.message}`);
+        }
+      }
+    }
+  }
+
+  return { violations, matchedFileCount };
 }
 
 function runGuard() {
@@ -194,6 +301,9 @@ function runGuard() {
     }
   }
 
+  const fileRuleResult = collectFileRuleViolations(root, modeConfig.fileRules);
+  violations.push(...fileRuleResult.violations);
+
   const payload = {
     tool: 'frontend-structure-guard',
     status: violations.length > 0 ? 'fail' : 'pass',
@@ -206,6 +316,7 @@ function runGuard() {
       importCount: importLines,
       maxAppLines: modeConfig.maxAppLines,
       maxAppImports: modeConfig.maxAppImports,
+      matchedScopedFiles: fileRuleResult.matchedFileCount,
     },
     violations,
   };

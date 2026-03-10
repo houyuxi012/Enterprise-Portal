@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, message, Switch, InputNumber, Divider, Select } from 'antd';
+import { App, Card, Col, Input, InputNumber, Row, Select, Switch } from 'antd';
 import { SaveOutlined, SafetyCertificateOutlined, GlobalOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppForm, AppPageHeader } from '@/modules/admin/components/ui';
 
 type LockoutScope = 'account' | 'ip';
 
@@ -21,7 +21,8 @@ type SecuritySettingsFormValues = {
 
 const SecuritySettings: React.FC = () => {
     const { t } = useTranslation();
-    const [form] = Form.useForm<SecuritySettingsFormValues>();
+    const { message } = App.useApp();
+    const [form] = AppForm.useForm<SecuritySettingsFormValues>();
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -35,7 +36,7 @@ const SecuritySettings: React.FC = () => {
                     security_login_max_retries: config.security_login_max_retries ? parseInt(config.security_login_max_retries) : 5,
                     security_lockout_duration: config.security_lockout_duration ? parseInt(config.security_lockout_duration) : 15,
                     security_lockout_scope: ['account', 'ip'].includes((config.security_lockout_scope || '').toLowerCase())
-                        ? (config.security_lockout_scope || '').toLowerCase()
+                        ? ((config.security_lockout_scope || '').toLowerCase() as LockoutScope)
                         : 'account',
                     max_concurrent_sessions: config.max_concurrent_sessions ? parseInt(config.max_concurrent_sessions) : 0,
                     login_session_timeout_minutes: config.login_session_timeout_minutes ? parseInt(config.login_session_timeout_minutes) : 30,
@@ -81,29 +82,28 @@ const SecuritySettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-4 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
-                <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('securitySettingsPage.page.title')}</h2>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide">{t('securitySettingsPage.page.subtitle')}</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<SaveOutlined />}
-                    onClick={() => form.submit()}
-                    loading={loading}
-                >
-                    {t('securitySettingsPage.page.saveButton')}
-                </AppButton>
+        <div className="admin-page admin-page-spaced">
+            <div className="mx-auto w-full max-w-4xl">
+                <AppPageHeader
+                    title={t('securitySettingsPage.page.title')}
+                    subtitle={t('securitySettingsPage.page.subtitle')}
+                    action={(
+                        <AppButton
+                            intent="primary"
+                            icon={<SaveOutlined />}
+                            onClick={() => form.submit()}
+                            loading={loading}
+                        >
+                            {t('securitySettingsPage.page.saveButton')}
+                        </AppButton>
+                    )}
+                />
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-[1.25rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">
-                <Form
+            <div className="mx-auto w-full max-w-4xl">
+                <AppForm
                     form={form}
-                    layout="vertical"
                     onFinish={handleSave}
-                    className="space-y-5"
                     initialValues={{
                         security_login_max_retries: 5,
                         security_lockout_duration: 15,
@@ -116,112 +116,117 @@ const SecuritySettings: React.FC = () => {
                         login_captcha_threshold: 3,
                     }}
                 >
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
-
-                            <SafetyCertificateOutlined className="mr-2" /> {t('securitySettingsPage.sections.loginProtection')}
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            <Form.Item
+                    <div className="space-y-6">
+                        <Card
+                            className="admin-card"
+                            title={<span className="inline-flex items-center gap-2"><SafetyCertificateOutlined />{t('securitySettingsPage.sections.loginProtection')}</span>}
+                        >
+                            <Row gutter={[16, 0]}>
+                                <Col xs={24} md={8}>
+                                    <AppForm.Item
                                 name="security_login_max_retries"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.maxRetries')}</span>}
+                                label={t('securitySettingsPage.form.maxRetries')}
                             >
-                                <InputNumber min={3} max={10} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={3} max={10} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={8}>
+                                    <AppForm.Item
                                 name="security_lockout_duration"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.lockoutDuration')}</span>}
+                                label={t('securitySettingsPage.form.lockoutDuration')}
                             >
-                                <InputNumber min={5} max={1440} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={5} max={1440} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={8}>
+                                    <AppForm.Item
                                 name="security_lockout_scope"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.lockoutScope')}</span>}
-                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.lockoutScopeHelp')}</span>}
+                                label={t('securitySettingsPage.form.lockoutScope')}
+                                help={t('securitySettingsPage.form.lockoutScopeHelp')}
                             >
                                 <Select
                                     options={[
                                         { value: 'account', label: t('securitySettingsPage.form.options.lockByAccount') },
                                         { value: 'ip', label: t('securitySettingsPage.form.options.lockByIp') },
                                     ]}
-                                    className="w-full"
                                 />
-                            </Form.Item>
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={8}>
+                                    <AppForm.Item
                                 name="login_captcha_threshold"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.captchaThreshold')}</span>}
+                                label={t('securitySettingsPage.form.captchaThreshold')}
                             >
-                                <InputNumber min={1} max={20} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
-                        </div>
-                    </div>
+                                <InputNumber min={1} max={20} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
+                            </Row>
+                        </Card>
 
-                    <Divider className="my-2 border-slate-100 dark:border-slate-700" />
-
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
-                            <SafetyCertificateOutlined className="mr-2" /> {t('securitySettingsPage.sections.sessionCaptcha')}
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                            <Form.Item
+                        <Card
+                            className="admin-card"
+                            title={<span className="inline-flex items-center gap-2"><SafetyCertificateOutlined />{t('securitySettingsPage.sections.sessionCaptcha')}</span>}
+                        >
+                            <Row gutter={[16, 0]}>
+                                <Col xs={24} md={12} xl={6}>
+                                    <AppForm.Item
                                 name="max_concurrent_sessions"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.maxConcurrentSessions')}</span>}
+                                label={t('securitySettingsPage.form.maxConcurrentSessions')}
                             >
-                                <InputNumber min={0} max={100} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={12} xl={6}>
+                                    <AppForm.Item
                                 name="login_session_timeout_minutes"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.sessionTimeoutMinutes')}</span>}
+                                label={t('securitySettingsPage.form.sessionTimeoutMinutes')}
                             >
-                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={5} max={43200} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={12} xl={6}>
+                                    <AppForm.Item
                                 name="admin_session_timeout_minutes"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.adminSessionTimeoutMinutes')}</span>}
+                                label={t('securitySettingsPage.form.adminSessionTimeoutMinutes')}
                             >
-                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={5} max={43200} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
 
-                            <Form.Item
+                                <Col xs={24} md={12} xl={6}>
+                                    <AppForm.Item
                                 name="login_session_absolute_timeout_minutes"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.absoluteTimeoutMinutes')}</span>}
-                                help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.absoluteTimeoutHelp')}</span>}
+                                label={t('securitySettingsPage.form.absoluteTimeoutMinutes')}
+                                help={t('securitySettingsPage.form.absoluteTimeoutHelp')}
                             >
-                                <InputNumber min={5} max={43200} className="w-full rounded-lg" size="middle" />
-                            </Form.Item>
+                                <InputNumber min={5} max={43200} style={{ width: '100%' }} />
+                                    </AppForm.Item>
+                                </Col>
+                            </Row>
+                        </Card>
 
-                        </div>
-                    </div>
-
-                    <Divider className="my-2 border-slate-100 dark:border-slate-700" />
-
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 flex items-center">
-
-                            <GlobalOutlined className="mr-2" /> {t('securitySettingsPage.sections.networkAccess')}
-                        </h3>
-
-                        <Form.Item
+                        <Card
+                            className="admin-card"
+                            title={<span className="inline-flex items-center gap-2"><GlobalOutlined />{t('securitySettingsPage.sections.networkAccess')}</span>}
+                        >
+                            <AppForm.Item
                             name="security_ip_allowlist"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300 text-xs">{t('securitySettingsPage.form.ipAllowlist')}</span>}
-                            help={<span className="text-[10px] text-slate-400">{t('securitySettingsPage.form.ipAllowlistHelp')}</span>}
+                            label={t('securitySettingsPage.form.ipAllowlist')}
+                            help={t('securitySettingsPage.form.ipAllowlistHelp')}
                         >
                             <Input.TextArea
                                 rows={2}
-                                className="rounded-lg bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20 text-xs"
                                 placeholder={t('securitySettingsPage.form.placeholders.ipAllowlist')}
                             />
-                        </Form.Item>
+                            </AppForm.Item>
+                        </Card>
                     </div>
-
-                </Form>
+                </AppForm>
             </div>
         </div>
     );

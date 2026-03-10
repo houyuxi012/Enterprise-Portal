@@ -1,16 +1,17 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, message, Modal } from 'antd';
+import { App, Card, Descriptions, Space, Tag, Typography } from 'antd';
 import { ReloadOutlined, BugOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { SystemLog } from '@/types';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppFilterBar, AppModal, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 
-const { Option } = Select;
+const { Text } = Typography;
 
 const ApplicationLogs: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const [logs, setLogs] = useState<SystemLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [level, setLevel] = useState<string | undefined>(undefined);
@@ -32,7 +33,7 @@ const ApplicationLogs: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchLogs();
+        void fetchLogs();
     }, [level]);
 
     const formatTime = (value: string) => {
@@ -45,52 +46,54 @@ const ApplicationLogs: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const getLevelTag = (currentLevel: string) => {
+        let color = 'blue';
+        let icon = <InfoCircleOutlined />;
+        if (currentLevel === 'WARN') { color = 'gold'; icon = <ExclamationCircleOutlined />; }
+        if (currentLevel === 'ERROR') { color = 'red'; icon = <BugOutlined />; }
+        if (currentLevel === 'CRITICAL') { color = 'purple'; icon = <BugOutlined />; }
+
+        return (
+            <Tag color={color} icon={icon}>
+                {currentLevel}
+            </Tag>
+        );
+    };
+
     const columns = [
         {
             title: t('applicationLogsPage.table.time'),
             dataIndex: 'timestamp',
             key: 'timestamp',
             width: 180,
-            render: (text: string) => <span className="font-mono text-xs text-slate-500">{formatTime(text)}</span>
+            render: (text: string) => <Text code>{formatTime(text)}</Text>
         },
         {
             title: t('applicationLogsPage.table.level'),
             dataIndex: 'level',
             key: 'level',
             width: 100,
-            render: (level: string) => {
-                let color = 'blue';
-                let icon = <InfoCircleOutlined />;
-                if (level === 'WARN') { color = 'gold'; icon = <ExclamationCircleOutlined />; }
-                if (level === 'ERROR') { color = 'red'; icon = <BugOutlined />; }
-                if (level === 'CRITICAL') { color = 'purple'; icon = <BugOutlined />; }
-
-                return (
-                    <Tag color={color} icon={icon} className="rounded-lg px-2 py-1 font-bold">
-                        {level}
-                    </Tag>
-                );
-            }
+            render: (currentLevel: string) => getLevelTag(currentLevel),
         },
         {
             title: t('applicationLogsPage.table.module'),
             dataIndex: 'module',
             key: 'module',
             width: 150,
-            render: (text: string) => (
-                <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 rounded px-2 py-1">
-                    {text}
-                </span>
-            )
+            render: (text: string) => <Tag>{text}</Tag>,
         },
         {
             title: t('applicationLogsPage.table.message'),
             dataIndex: 'message',
             key: 'message',
             render: (text: string) => (
-                <span className="font-mono text-xs text-slate-700 truncate block max-w-lg cursor-pointer hover:text-blue-600" title={text}>
-                    {text.length > 80 ? text.substring(0, 80) + '...' : text}
-                </span>
+                <Text
+                    ellipsis={{ tooltip: text }}
+                    className="block max-w-lg cursor-pointer"
+                    code
+                >
+                    {text}
+                </Text>
             ),
             onCell: (record: SystemLog) => ({
                 onClick: () => handleViewDetail(record),
@@ -107,84 +110,84 @@ const ApplicationLogs: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('applicationLogsPage.page.title')}</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">{t('applicationLogsPage.page.subtitle')}</p>
-                </div>
-                <div className="flex gap-3">
-                    <Select
-                        placeholder={t('applicationLogsPage.filters.levelPlaceholder')}
-                        allowClear
-                        className="w-40"
-                        onChange={(value) => setLevel(value)}
-                    >
-                        <Option value="INFO">{t('applicationLogsPage.filters.info')}</Option>
-                        <Option value="WARN">{t('applicationLogsPage.filters.warn')}</Option>
-                        <Option value="ERROR">{t('applicationLogsPage.filters.error')}</Option>
-                    </Select>
-                    <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>{t('common.buttons.refresh')}</AppButton>
-                </div>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('applicationLogsPage.page.title')}
+                subtitle={t('applicationLogsPage.page.subtitle')}
+            />
 
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <Table
+            <AppFilterBar>
+                <AppFilterBar.Select
+                    value={level}
+                    width={180}
+                    placeholder={t('applicationLogsPage.filters.levelPlaceholder')}
+                    options={[
+                        { value: 'INFO', label: t('applicationLogsPage.filters.info') },
+                        { value: 'WARN', label: t('applicationLogsPage.filters.warn') },
+                        { value: 'ERROR', label: t('applicationLogsPage.filters.error') },
+                    ]}
+                    onChange={(value) => setLevel(typeof value === 'string' ? value : undefined)}
+                />
+                <AppFilterBar.Action>
+                    <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={() => { void fetchLogs(); }} loading={loading}>
+                        {t('common.buttons.refresh')}
+                    </AppButton>
+                </AppFilterBar.Action>
+            </AppFilterBar>
+
+            <Card className="admin-card">
+                <AppTable<SystemLog>
                     dataSource={logs}
                     columns={columns}
                     rowKey="id"
                     loading={loading}
-                    className="ant-table-custom"
                     locale={{ emptyText: t('applicationLogsPage.table.empty') }}
                     pagination={{ pageSize: 20 }}
                 />
-            </div>
+            </Card>
 
-            {/* Detail Modal */}
-            <Modal
+            <AppModal
                 title={
-                    <div className="flex items-center space-x-2">
-                        <BugOutlined className="text-slate-400" />
+                    <Space size="small">
+                        <BugOutlined />
                         <span>{t('applicationLogsPage.modal.title')}</span>
-                    </div>
+                    </Space>
                 }
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 footer={[<AppButton key="close" intent="secondary" onClick={() => setIsModalOpen(false)}>{t('applicationLogsPage.modal.close')}</AppButton>]}
                 width={800}
-                className="rounded-2xl"
             >
                 {selectedLog && (
                     <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl text-xs font-mono border border-slate-100">
-                            <div>
-                                <span className="text-slate-400 block mb-1">{t('applicationLogsPage.modal.time')}</span>
-                                <span className="font-bold text-slate-700">{formatTime(selectedLog.timestamp)}</span>
-                            </div>
-                            <div>
-                                <span className="text-slate-400 block mb-1">{t('applicationLogsPage.modal.level')}</span>
-                                <Tag color={selectedLog.level === 'ERROR' ? 'red' : 'blue'}>{selectedLog.level}</Tag>
-                            </div>
-                            <div>
-                                <span className="text-slate-400 block mb-1">{t('applicationLogsPage.modal.module')}</span>
-                                <span className="font-bold text-slate-700">{selectedLog.module}</span>
-                            </div>
-                            <div>
-                                <span className="text-slate-400 block mb-1">{t('applicationLogsPage.modal.id')}</span>
-                                <span className="font-bold text-slate-700">#{selectedLog.id}</span>
-                            </div>
-                        </div>
+                        <Descriptions bordered size="middle" column={2} colon={false}>
+                            <Descriptions.Item label={t('applicationLogsPage.modal.time')}>
+                                <Text strong>{formatTime(selectedLog.timestamp)}</Text>
+                            </Descriptions.Item>
+                            <Descriptions.Item label={t('applicationLogsPage.modal.level')}>
+                                {getLevelTag(selectedLog.level)}
+                            </Descriptions.Item>
+                            <Descriptions.Item label={t('applicationLogsPage.modal.module')}>
+                                <Text strong>{selectedLog.module}</Text>
+                            </Descriptions.Item>
+                            <Descriptions.Item label={t('applicationLogsPage.modal.id')}>
+                                <Text strong>#{selectedLog.id}</Text>
+                            </Descriptions.Item>
+                        </Descriptions>
 
-                        <div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">{t('applicationLogsPage.modal.detail')}</span>
-                            <div className="bg-slate-900 text-slate-50 p-4 rounded-xl font-mono text-xs overflow-auto max-h-[400px] whitespace-pre-wrap leading-relaxed shadow-inner">
+                        <Card
+                            size="small"
+                            title={t('applicationLogsPage.modal.detail')}
+                            className="admin-card admin-card-subtle"
+                        >
+                            {/* eslint-disable-next-line admin-ui/no-admin-page-visual-utilities -- raw application log payload needs terminal-style monospace contrast */}
+                            <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-50">
                                 {selectedLog.message}
-                            </div>
-                        </div>
+                            </pre>
+                        </Card>
                     </div>
                 )}
-            </Modal>
+            </AppModal>
         </div>
     );
 };

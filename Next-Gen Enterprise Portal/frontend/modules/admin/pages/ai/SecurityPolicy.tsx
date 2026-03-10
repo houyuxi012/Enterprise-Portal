@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message } from 'antd';
+import { App, Card, Col, Input, Row, Select, Space, Switch, Tag, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { AISecurityPolicy } from '@/types';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppForm, AppModal, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+
+const { Text } = Typography;
 
 const SecurityPolicy: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [policies, setPolicies] = useState<AISecurityPolicy[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingPolicy, setEditingPolicy] = useState<AISecurityPolicy | null>(null);
-    const [form] = Form.useForm();
+    const [form] = AppForm.useForm();
 
     const fetchPolicies = async () => {
         setLoading(true);
@@ -95,7 +98,7 @@ const SecurityPolicy: React.FC = () => {
             title: t('securityPolicy.table.name'),
             dataIndex: 'name',
             key: 'name',
-            render: (text: string) => <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
+            render: (text: string) => <Text strong>{text}</Text>
         },
         {
             title: t('securityPolicy.table.ruleType'),
@@ -122,9 +125,7 @@ const SecurityPolicy: React.FC = () => {
             dataIndex: 'content',
             key: 'content',
             render: (text: string) => (
-                <code className="text-xs bg-slate-100 dark:bg-slate-900 p-1 rounded text-slate-600 block max-w-xs truncate">
-                    {text}
-                </code>
+                <Text code ellipsis className="block max-w-xs">{text}</Text>
             )
         },
         {
@@ -139,26 +140,24 @@ const SecurityPolicy: React.FC = () => {
             title: t('securityPolicy.table.actions'),
             key: 'actions',
             render: (_: any, record: AISecurityPolicy) => (
-                <div className="flex gap-1">
+                <Space size="small">
                     <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
-                </div>
+                </Space>
             )
         }
     ];
 
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('securityPolicy.page.title')}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('securityPolicy.page.subtitle')}</p>
-                </div>
-                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('securityPolicy.page.addButton')}</AppButton>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('securityPolicy.page.title')}
+                subtitle={t('securityPolicy.page.subtitle')}
+                action={<AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('securityPolicy.page.addButton')}</AppButton>}
+            />
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
-                <Table
+            <Card className="admin-card overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={policies}
                     rowKey="id"
@@ -169,65 +168,69 @@ const SecurityPolicy: React.FC = () => {
                 />
             </Card>
 
-            <Modal
+            <AppModal
                 title={editingPolicy ? t('securityPolicy.modal.editTitle') : t('securityPolicy.modal.createTitle')}
                 open={isModalVisible}
                 onOk={handleOk}
                 onCancel={() => setIsModalVisible(false)}
                 okText={t('common.buttons.save')}
                 cancelText={t('common.buttons.cancel')}
-                className="rounded-2xl overflow-hidden"
-                okButtonProps={{ className: "bg-indigo-600" }}
             >
-                <Form form={form} layout="vertical" className="mt-4">
-                    <Form.Item
+                <AppForm form={form} layout="vertical">
+                    <AppForm.Item
                         name="name"
                         label={t('securityPolicy.form.name')}
                         rules={[{ required: true, message: t('securityPolicy.form.validation.nameRequired') }]}
                     >
-                        <Input placeholder={t('securityPolicy.form.placeholders.name')} className="h-10 rounded-lg" />
-                    </Form.Item>
+                        <Input placeholder={t('securityPolicy.form.placeholders.name')} />
+                    </AppForm.Item>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Form.Item
+                    <Card size="small" className="admin-card-subtle">
+                    <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                        <AppForm.Item
                             name="type"
                             label={t('securityPolicy.form.ruleType')}
                             rules={[{ required: true, message: t('securityPolicy.form.validation.ruleTypeRequired') }]}
                         >
-                            <Select placeholder={t('securityPolicy.form.placeholders.ruleType')} className="h-10" popupClassName="rounded-xl">
+                            <Select placeholder={t('securityPolicy.form.placeholders.ruleType')}>
                                 <Select.Option value="keyword">{t('securityPolicy.ruleType.keyword')}</Select.Option>
                                 <Select.Option value="regex">{t('securityPolicy.ruleType.regex')}</Select.Option>
                                 <Select.Option value="length">{t('securityPolicy.ruleType.length')}</Select.Option>
                             </Select>
-                        </Form.Item>
+                        </AppForm.Item>
+                        </Col>
 
-                        <Form.Item
+                        <Col xs={24} md={12}>
+                        <AppForm.Item
                             name="action"
                             label={t('securityPolicy.form.action')}
                             rules={[{ required: true, message: t('securityPolicy.form.validation.actionRequired') }]}
                         >
-                            <Select placeholder={t('securityPolicy.form.placeholders.action')} className="h-10" popupClassName="rounded-xl">
+                            <Select placeholder={t('securityPolicy.form.placeholders.action')}>
                                 <Select.Option value="block">{t('securityPolicy.action.block')}</Select.Option>
                                 <Select.Option value="mask">{t('securityPolicy.action.mask')}</Select.Option>
                                 <Select.Option value="warn">{t('securityPolicy.action.warn')}</Select.Option>
                             </Select>
-                        </Form.Item>
-                    </div>
+                        </AppForm.Item>
+                        </Col>
+                    </Row>
 
-                    <Form.Item
+                    <AppForm.Item
                         name="content"
                         label={t('securityPolicy.form.content')}
                         tooltip={t('securityPolicy.form.contentTooltip')}
                         rules={[{ required: true, message: t('securityPolicy.form.validation.contentRequired') }]}
                     >
-                        <Input.TextArea rows={4} placeholder={t('securityPolicy.form.placeholders.content')} className="rounded-xl font-mono text-sm" />
-                    </Form.Item>
+                        <Input.TextArea rows={4} placeholder={t('securityPolicy.form.placeholders.content')} />
+                    </AppForm.Item>
 
-                    <Form.Item name="is_enabled" label={t('securityPolicy.form.enabled')} valuePropName="checked">
+                    <AppForm.Item name="is_enabled" label={t('securityPolicy.form.enabled')} valuePropName="checked">
                         <Switch />
-                    </Form.Item>
-                </Form>
-            </Modal>
+                    </AppForm.Item>
+                    </Card>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

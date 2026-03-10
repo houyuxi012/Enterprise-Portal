@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Input, DatePicker, Select, Popconfirm, message, Upload, Switch, Image, Card } from 'antd';
+import { App, Card, Col, DatePicker, Image, Input, Popconfirm, Row, Select, Space, Switch, Tag, Typography, Upload } from 'antd';
 import type { GetProp, UploadFile, UploadProps } from 'antd';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { NewsItem } from '@/types';
 import ApiClient from '@/services/api';
@@ -29,6 +28,7 @@ const getBase64 = (file: FileType): Promise<string> =>
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { Text, Title } = Typography;
 
 const CATEGORY_CODES = ['announcement', 'activity', 'policy', 'culture'] as const;
 
@@ -64,6 +64,7 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
 
 const NewsList: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const [news, setNews] = useState<NewsItem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
@@ -206,25 +207,23 @@ const NewsList: React.FC = () => {
             key: 'image',
             width: 80,
             render: (image: string) => (
-                <div className="w-12 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-                    <img src={image} alt={t('newsList.table.coverAlt')} className="w-full h-full object-cover" />
-                </div>
-            )
+                <Image src={image} alt={t('newsList.table.coverAlt')} width={48} height={32} preview={false} style={{ borderRadius: 8, objectFit: 'cover' }} />
+            ),
         },
         {
             title: t('newsList.table.title'),
             dataIndex: 'title',
             key: 'title',
             render: (text: string, record: NewsItem) => (
-                <div className="flex items-center space-x-2">
+                <Space size={8}>
                     {record.is_top && (
-                        <span className="bg-rose-50 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-100">
+                        <Tag color="red">
                             {t('newsList.table.topBadge')}
-                        </span>
+                        </Tag>
                     )}
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
-                </div>
-            )
+                    <Text strong>{text}</Text>
+                </Space>
+            ),
         },
         {
             title: t('newsList.table.category'),
@@ -232,9 +231,9 @@ const NewsList: React.FC = () => {
             key: 'category',
             width: 100,
             render: (category: string) => (
-                <span className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                <Tag color="blue">
                     {t(`newsList.categories.${normalizeCategory(category)}`, { defaultValue: category })}
-                </span>
+                </Tag>
             ),
         },
         {
@@ -243,40 +242,40 @@ const NewsList: React.FC = () => {
             key: 'date',
             width: 120,
             render: (date: string) => (
-                <span className="text-slate-500 font-medium text-xs">{date}</span>
-            )
+                <Text type="secondary">{date}</Text>
+            ),
         },
         {
             title: t('newsList.table.actions'),
             key: 'action',
             width: 160,
             render: (_: unknown, record: NewsItem) => (
-                <div className="flex gap-2">
+                <Space size={8}>
                     <AppButton
                         intent="tertiary"
                         size="sm"
-                        icon={<Edit size={14} />}
+                        icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
                     >
                         {t('common.buttons.edit')}
                     </AppButton>
                     <Popconfirm title={t('newsList.confirm.deleteTitle')} onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>
+                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>
                             {t('common.buttons.delete')}
                         </AppButton>
                     </Popconfirm>
-                </div>
+                </Space>
             ),
         },
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('newsList.page.title')}
                 subtitle={t('newsList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         {t('newsList.page.publishButton')}
                     </AppButton>
                 }
@@ -291,7 +290,7 @@ const NewsList: React.FC = () => {
                 />
             </AppFilterBar>
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Card className="admin-card overflow-hidden">
                 <AppTable
                     columns={columns}
                     dataSource={filteredNews}
@@ -311,15 +310,13 @@ const NewsList: React.FC = () => {
                 okText={t('newsList.modal.okText')}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
-                    {/* Hidden Author Field */}
                     <AppForm.Item name="author" hidden>
                         <Input />
                     </AppForm.Item>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Left Column: Image Upload */}
-                        <div className="md:col-span-1 space-y-4">
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t('newsList.modal.sections.cover')}</h3>
+                    <Row gutter={16}>
+                        <Col xs={24} md={8}>
+                            <Card size="small" className="admin-card-subtle" title={<Title level={5} style={{ margin: 0 }}>{t('newsList.modal.sections.cover')}</Title>}>
                             <AppForm.Item name="image" rules={[{ required: true, message: t('newsList.form.validation.imageRequired') }]} noStyle>
                                 <Input hidden />
                             </AppForm.Item>
@@ -362,22 +359,23 @@ const NewsList: React.FC = () => {
                                 />
                             )}
 
-                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mt-4">
+                                <Card size="small" className="admin-card-subtle" styles={{ body: { padding: 12 } }}>
                                 <AppForm.Item name="is_top" label={t('newsList.form.topPromotion')} valuePropName="checked" className="mb-0">
                                     <Switch checkedChildren={t('newsList.form.switch.on')} unCheckedChildren={t('newsList.form.switch.off')} />
                                 </AppForm.Item>
-                                <p className="text-xs text-slate-400 mt-2">{t('newsList.form.topPromotionHint')}</p>
-                            </div>
-                        </div>
+                                    <Text type="secondary">{t('newsList.form.topPromotionHint')}</Text>
+                                </Card>
+                            </Card>
+                        </Col>
 
-                        {/* Right Column: Info & Content */}
-                        <div className="md:col-span-2 space-y-4">
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t('newsList.modal.sections.basic')}</h3>
+                        <Col xs={24} md={16}>
+                            <Card size="small" className="admin-card-subtle" title={<Title level={5} style={{ margin: 0 }}>{t('newsList.modal.sections.basic')}</Title>}>
                             <AppForm.Item name="title" label={t('newsList.form.title')} rules={[{ required: true, message: t('newsList.form.validation.titleRequired') }]}>
                                 <Input placeholder={t('newsList.form.placeholders.title')} />
                             </AppForm.Item>
 
-                            <div className="grid grid-cols-2 gap-4">
+                                <Row gutter={16}>
+                                    <Col xs={24} md={12}>
                                 <AppForm.Item name="category" label={t('newsList.form.category')} rules={[{ required: true, message: t('newsList.form.validation.categoryRequired') }]}>
                                     <Select placeholder={t('newsList.form.placeholders.category')}>
                                         <Option value="announcement">{t('newsList.categories.announcement')}</Option>
@@ -386,13 +384,16 @@ const NewsList: React.FC = () => {
                                         <Option value="culture">{t('newsList.categories.culture')}</Option>
                                     </Select>
                                 </AppForm.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
                                 <AppForm.Item name="date" label={t('newsList.form.publishDate')} rules={[{ required: true, message: t('newsList.form.validation.dateRequired') }]}>
                                     <DatePicker style={{ width: '100%' }} />
                                 </AppForm.Item>
-                            </div>
+                                    </Col>
+                                </Row>
 
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pt-2">{t('newsList.modal.sections.content')}</h3>
-                            <AppForm.Item name="summary" label={t('newsList.form.summary')} rules={[{ required: true, message: t('newsList.form.validation.summaryRequired') }]}>
+                                <Card size="small" className="admin-card-subtle" title={<Title level={5} style={{ margin: 0 }}>{t('newsList.modal.sections.content')}</Title>}>
+                            <AppForm.Item name="summary" label={t('newsList.form.summary')} rules={[{ required: true, message: t('newsList.form.validation.summaryRequired') }]} className="mb-0">
                                 <TextArea
                                     rows={6}
                                     placeholder={t('newsList.form.placeholders.summary')}
@@ -400,8 +401,10 @@ const NewsList: React.FC = () => {
                                     showCount
                                 />
                             </AppForm.Item>
-                        </div>
-                    </div>
+                                </Card>
+                            </Card>
+                        </Col>
+                    </Row>
                 </AppForm>
             </AppModal>
         </div>

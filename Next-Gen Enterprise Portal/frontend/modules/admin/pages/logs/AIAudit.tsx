@@ -1,34 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Tag, DatePicker, Select, Space, Drawer, Descriptions, Statistic, Card, Row, Col, Tooltip } from 'antd';
-import { ReloadOutlined, InfoCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, StopOutlined, ClockCircleOutlined, RobotOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
+import { App, Card, Col, Descriptions, Row, Space, Statistic, Tag, Tooltip, Typography } from 'antd';
+import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, StopOutlined, ClockCircleOutlined, RobotOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import ApiClient, { type AIAuditQueryParams } from '@/services/api';
+import ApiClient, { type AIAuditLogEntry, type AIAuditQueryParams } from '@/services/api';
 import dayjs from 'dayjs';
+import { AppButton, AppDrawer, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 
-interface AIAuditLog {
-    id: number;
-    event_id: string;
-    ts: string;
-    actor_type: string;
-    actor_id?: number;
-    actor_ip?: string;
-    action: string;
-    provider?: string;
-    model?: string;
-    input_policy_result?: string;
-    output_policy_result?: string;
-    policy_hits?: string;
-    latency_ms?: number;
-    tokens_in?: number;
-    tokens_out?: number;
-    status: string;
-    error_code?: string;
-    error_reason?: string;
-    prompt_hash?: string;
-    output_hash?: string;
-    prompt_preview?: string;
-    source?: string;
-}
+const { Text } = Typography;
+
+type AIAuditLog = AIAuditLogEntry;
 
 interface AuditStats {
     period_days: number;
@@ -49,8 +29,15 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode }> = 
     TIMEOUT: { color: 'volcano', icon: <ClockCircleOutlined /> },
 };
 
+const normalizeSourceParts = (source?: string): string[] => {
+    const raw = String(source || 'db').replace(/\+/g, ',').toLowerCase();
+    const parts = raw.split(',').map((item) => item.trim()).filter(Boolean);
+    return parts.length > 0 ? [...new Set(parts)] : ['db'];
+};
+
 const AIAudit: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [logs, setLogs] = useState<AIAuditLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState<AuditStats | null>(null);
@@ -79,6 +66,7 @@ const AIAudit: React.FC = () => {
             setLogs(data);
         } catch (error) {
             console.error('Failed to fetch AI audit logs:', error);
+            message.error(t('aiAudit.messages.loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -90,12 +78,13 @@ const AIAudit: React.FC = () => {
             setStats(data);
         } catch (error) {
             console.error('Failed to fetch AI audit stats:', error);
+            message.error(t('aiAudit.messages.statsLoadFailed'));
         }
     };
 
     useEffect(() => {
-        fetchLogs();
-        fetchStats();
+        void fetchLogs();
+        void fetchStats();
     }, [sourceFilter]);
 
     const handleViewDetail = async (record: AIAuditLog) => {
@@ -116,7 +105,7 @@ const AIAudit: React.FC = () => {
             dataIndex: 'ts',
             key: 'ts',
             width: 180,
-            render: (ts: string) => <span className="text-xs text-slate-500">{dayjs(ts).format('YYYY-MM-DD HH:mm:ss')}</span>
+            render: (ts: string) => <Text type="secondary">{dayjs(ts).format('YYYY-MM-DD HH:mm:ss')}</Text>
         },
         {
             title: t('aiAudit.table.user'),
@@ -124,9 +113,9 @@ const AIAudit: React.FC = () => {
             key: 'actor_id',
             width: 100,
             render: (id: number, record: AIAuditLog) => (
-                <span className="font-medium text-slate-700">
+                <Text>
                     {id ? `#${id}` : record.actor_type}
-                </span>
+                </Text>
             )
         },
         {
@@ -134,12 +123,12 @@ const AIAudit: React.FC = () => {
             key: 'model',
             width: 180,
             render: (_: unknown, record: AIAuditLog) => (
-                <div className="flex items-center gap-2">
-                    <RobotOutlined className="text-blue-500" />
-                    <span className="font-mono text-xs">{record.provider || '-'}</span>
-                    <span className="text-slate-400">/</span>
-                    <span className="font-mono text-xs text-slate-600">{record.model?.split('-').pop() || '-'}</span>
-                </div>
+                <Space size="small">
+                    <RobotOutlined />
+                    <Text code>{record.provider || '-'}</Text>
+                    <Text type="secondary">/</Text>
+                    <Text code>{record.model?.split('-').pop() || '-'}</Text>
+                </Space>
             )
         },
         {
@@ -172,9 +161,9 @@ const AIAudit: React.FC = () => {
             key: 'latency_ms',
             width: 80,
             render: (ms: number) => (
-                <span className={`font-mono text-xs ${ms > 3000 ? 'text-orange-500' : 'text-slate-500'}`}>
+                <Text code type={ms > 3000 ? undefined : 'secondary'} style={ms > 3000 ? { color: '#fa8c16' } : undefined}>
                     {ms ? `${ms}ms` : '-'}
-                </span>
+                </Text>
             )
         },
         {
@@ -182,9 +171,9 @@ const AIAudit: React.FC = () => {
             key: 'tokens',
             width: 100,
             render: (_: unknown, record: AIAuditLog) => (
-                <span className="font-mono text-xs text-slate-500">
+                <Text code>
                     {record.tokens_in || 0} / {record.tokens_out || 0}
-                </span>
+                </Text>
             )
         },
         {
@@ -193,23 +182,21 @@ const AIAudit: React.FC = () => {
             key: 'source',
             width: 100,
             render: (source: string) => {
-                const s = source?.toUpperCase() || 'DB';
-                // Handle combined source like 'db,loki'
-                if (s.includes(',')) {
-                    const sources = s.split(',');
+                const sources = normalizeSourceParts(source);
+                if (sources.length > 1) {
                     return (
-                        <span className="flex gap-1">
+                        <Space size={[4, 4]} wrap>
                             {sources.map((src, i) => (
-                                <Tag key={i} color={src.trim() === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-                                    {src.trim()}
+                                <Tag key={i} color={src === 'loki' ? 'purple' : 'cyan'} className="text-xs">
+                                    {src === 'loki' ? 'Loki' : 'DB'}
                                 </Tag>
                             ))}
-                        </span>
+                        </Space>
                     );
                 }
                 return (
-                    <Tag color={s === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-                        {s}
+                    <Tag color={sources[0] === 'loki' ? 'purple' : 'cyan'} className="text-xs">
+                        {sources[0] === 'loki' ? 'Loki' : 'DB'}
                     </Tag>
                 );
             }
@@ -219,31 +206,30 @@ const AIAudit: React.FC = () => {
             key: 'action',
             width: 80,
             render: (_: unknown, record: AIAuditLog) => (
-                <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
+                <AppButton intent="tertiary" size="sm" onClick={() => handleViewDetail(record)}>
                     {t('common.buttons.detail')}
-                </Button>
+                </AppButton>
             )
         }
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('aiAudit.page.title')}</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">{t('aiAudit.page.subtitle')}</p>
-                </div>
-                <Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    {t('common.buttons.refresh')}
-                </Button>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('aiAudit.page.title')}
+                subtitle={t('aiAudit.page.subtitle')}
+                action={
+                    <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={() => { void fetchLogs(); void fetchStats(); }} loading={loading}>
+                        {t('common.buttons.refresh')}
+                    </AppButton>
+                }
+            />
 
             {/* Stats Cards - AI Specific */}
             {stats && (
                 <Row gutter={16} className="mb-4">
                     <Col span={6}>
-                        <Card className="rounded-2xl shadow-sm">
+                        <Card className="admin-card">
                             <Statistic
                                 title={t('aiAudit.stats.totalRequests7d')}
                                 value={stats.total_requests}
@@ -253,7 +239,7 @@ const AIAudit: React.FC = () => {
                         </Card>
                     </Col>
                     <Col span={6}>
-                        <Card className="rounded-2xl shadow-sm">
+                        <Card className="admin-card">
                             <Statistic
                                 title={t('aiAudit.stats.successRate')}
                                 value={stats.success_rate}
@@ -263,7 +249,7 @@ const AIAudit: React.FC = () => {
                         </Card>
                     </Col>
                     <Col span={6}>
-                        <Card className="rounded-2xl shadow-sm">
+                        <Card className="admin-card">
                             <Statistic
                                 title={t('aiAudit.stats.blockedCount')}
                                 value={stats.blocked_count}
@@ -273,7 +259,7 @@ const AIAudit: React.FC = () => {
                         </Card>
                     </Col>
                     <Col span={6}>
-                        <Card className="rounded-2xl shadow-sm">
+                        <Card className="admin-card">
                             <Statistic
                                 title={t('aiAudit.stats.avgLatency')}
                                 value={stats.avg_latency_ms}
@@ -287,31 +273,28 @@ const AIAudit: React.FC = () => {
             )}
 
             {/* Filters */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
-                <DatePicker.RangePicker
+            <AppFilterBar>
+                <AppFilterBar.DateRange
                     value={dateRange}
                     onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-                    className="rounded-xl"
                     placeholder={[t('aiAudit.filters.startTime'), t('aiAudit.filters.endTime')]}
                 />
-                <Select
+                <AppFilterBar.Select
                     placeholder={t('aiAudit.filters.status')}
-                    allowClear
                     value={statusFilter}
                     onChange={setStatusFilter}
-                    className="w-32"
+                    width={140}
                     options={[
                         { value: 'SUCCESS', label: t('aiAudit.status.SUCCESS') },
                         { value: 'BLOCKED', label: t('aiAudit.status.BLOCKED') },
                         { value: 'ERROR', label: t('aiAudit.status.ERROR') },
                     ]}
                 />
-                <Select
+                <AppFilterBar.Select
                     placeholder={t('aiAudit.filters.provider')}
-                    allowClear
                     value={providerFilter}
                     onChange={setProviderFilter}
-                    className="w-32"
+                    width={160}
                     options={[
                         { value: 'gemini', label: 'Gemini' },
                         { value: 'openai', label: 'OpenAI' },
@@ -319,24 +302,27 @@ const AIAudit: React.FC = () => {
                         { value: 'qwen', label: 'Qwen' },
                     ]}
                 />
-                <Select
+                <AppFilterBar.Select
                     value={sourceFilter}
                     onChange={setSourceFilter}
-                    className="w-28"
+                    width={140}
+                    allowClear={false}
                     options={[
                         { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />DB</span> },
                         { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span> },
                         { value: 'all', label: t('common.status.all') },
                     ]}
                 />
-                <Button type="primary" onClick={fetchLogs} loading={loading} className="rounded-xl">
-                    {t('common.buttons.query')}
-                </Button>
-            </div>
+                <AppFilterBar.Action>
+                    <AppButton intent="primary" onClick={() => { void fetchLogs(); }} loading={loading}>
+                        {t('common.buttons.query')}
+                    </AppButton>
+                </AppFilterBar.Action>
+            </AppFilterBar>
 
             {/* Table */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <Table
+            <Card className="admin-card">
+                <AppTable
                     dataSource={logs}
                     columns={columns}
                     rowKey="event_id"
@@ -346,14 +332,15 @@ const AIAudit: React.FC = () => {
                     locale={{ emptyText: t('aiAudit.table.empty') }}
                     className="ant-table-custom"
                 />
-            </div>
+            </Card>
 
             {/* Detail Drawer */}
-            <Drawer
+            <AppDrawer
                 title={t('aiAudit.drawer.title')}
                 width={600}
                 open={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
+                hideFooter
             >
                 {selectedLog && (
                     <div className="space-y-6">
@@ -401,6 +388,7 @@ const AIAudit: React.FC = () => {
                             </Descriptions.Item>
                             {selectedLog.prompt_preview && (
                                 <Descriptions.Item label={t('aiAudit.drawer.promptPreview')}>
+                                    {/* eslint-disable-next-line admin-ui/no-admin-page-visual-utilities -- prompt preview must preserve raw multiline content formatting */}
                                     <pre className="text-xs bg-slate-50 p-2 rounded whitespace-pre-wrap">
                                         {selectedLog.prompt_preview}
                                     </pre>
@@ -414,7 +402,7 @@ const AIAudit: React.FC = () => {
                         </Descriptions>
                     </div>
                 )}
-            </Drawer>
+            </AppDrawer>
         </div>
     );
 };

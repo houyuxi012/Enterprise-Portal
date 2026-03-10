@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, ChevronRight, Folder, FolderOpen, Building2, Users } from 'lucide-react';
 import { Department, UserOption } from '@/types';
 import ApiClient, { type DepartmentCreatePayload, type DepartmentUpdatePayload } from '@/services/api';
-import { message, Tree, Empty, Input, Select, Popconfirm, Card, Descriptions, Tag, Statistic, Row, Col } from 'antd';
+import { App, Card, Col, Descriptions, Empty, Input, List, Popconfirm, Row, Select, Space, Statistic, Tag, Tree, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined } from '@ant-design/icons';
+import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, RightOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import {
     AppButton,
@@ -33,12 +32,15 @@ type ApiErrorShape = {
 const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
     const detail = (error as ApiErrorShape)?.response?.data?.detail;
     if (typeof detail === 'string' && detail.trim()) return detail;
-    if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
     return fallback;
 };
 
+const { Paragraph, Text, Title } = Typography;
+
 const OrganizationList: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [departments, setDepartments] = useState<Department[]>([]);
     const [treeData, setTreeData] = useState<DataNode[]>([]);
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
@@ -79,16 +81,12 @@ const OrganizationList: React.FC = () => {
     };
 
     const buildTreeData = (depts: Department[]): DataNode[] => {
-        return depts.map(dept => ({
+        return depts.map((dept) => ({
             title: (
-                <div className="flex items-center gap-2 py-1">
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{dept.name}</span>
-                    {dept.children && dept.children.length > 0 && (
-                        <Tag color="blue" className="m-0 text-[10px] px-1.5 py-0 rounded-full leading-4">
-                            {dept.children.length}
-                        </Tag>
-                    )}
-                </div>
+                <Space size={8}>
+                    <Text strong>{dept.name}</Text>
+                    {dept.children && dept.children.length > 0 && <Tag color="blue">{dept.children.length}</Tag>}
+                </Space>
             ),
             key: dept.id,
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
@@ -180,19 +178,16 @@ const OrganizationList: React.FC = () => {
     const allDepts = flattenDepts(departments);
 
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-                        <ApartmentOutlined className="text-blue-600" />
-                        {t('organizationList.page.title')}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('organizationList.page.subtitle')}</p>
-                </div>
-                <AppButton intent="primary" icon={<Plus size={16} />} onClick={() => openCreateModal(null)}>
-                    {t('organizationList.page.createRoot')}
-                </AppButton>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('organizationList.page.title')}
+                subtitle={t('organizationList.page.subtitle')}
+                action={
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => openCreateModal(null)}>
+                        {t('organizationList.page.createRoot')}
+                    </AppButton>
+                }
+            />
 
             <Row gutter={16}>
                 {/* Left: Tree Card */}
@@ -205,7 +200,7 @@ const OrganizationList: React.FC = () => {
                             </div>
                         }
                         extra={<Tag color="blue">{t('organizationList.tree.count', { count: countDepts(departments) })}</Tag>}
-                        className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4"
+                        className="admin-card mb-4"
                         styles={{ body: { padding: 12, minHeight: 500 } }}
                     >
                         {departments.length > 0 ? (
@@ -227,104 +222,160 @@ const OrganizationList: React.FC = () => {
                 {/* Right: Details Card */}
                 <Col xs={24} lg={16}>
                     <Card
-                        className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)]"
+                        className="admin-card"
                         styles={{ body: { minHeight: 500 } }}
                     >
                         {selectedDept ? (
-                            <div className="space-y-6">
-                                {/* Header */}
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-4">
-
-                                        <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white">{selectedDept.name}</h2>
-                                            <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
-                                                <span className="font-mono">ID: {selectedDept.id}</span>
-                                                {selectedDept.manager && (
-                                                    <Tag icon={<UserOutlined />} color="processing">{getManagerDisplay(selectedDept.manager)}</Tag>
-                                                )}
-                                            </div>
-                                        </div>
+                            <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div>
+                                        <Title level={4} style={{ marginBottom: 4 }}>
+                                            {selectedDept.name}
+                                        </Title>
+                                        <Space wrap size={8}>
+                                            <Text type="secondary" code>
+                                                ID: {selectedDept.id}
+                                            </Text>
+                                            {selectedDept.manager && (
+                                                <Tag icon={<UserOutlined />} color="processing">
+                                                    {getManagerDisplay(selectedDept.manager)}
+                                                </Tag>
+                                            )}
+                                        </Space>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => openEditModal(selectedDept)}>
+                                    <Space size={8}>
+                                        <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => openEditModal(selectedDept)}>
                                             {t('common.buttons.edit')}
                                         </AppButton>
-                                        <Popconfirm title={t('organizationList.confirm.deleteTitle')} description={t('organizationList.confirm.deleteDescription')} onConfirm={() => handleDelete(selectedDept.id)} okText={t('common.buttons.confirm')} cancelText={t('common.buttons.cancel')}>
-                                            <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>{t('common.buttons.delete')}</AppButton>
+                                        <Popconfirm
+                                            title={t('organizationList.confirm.deleteTitle')}
+                                            description={t('organizationList.confirm.deleteDescription')}
+                                            onConfirm={() => handleDelete(selectedDept.id)}
+                                            okText={t('common.buttons.confirm')}
+                                            cancelText={t('common.buttons.cancel')}
+                                        >
+                                            <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>
+                                                {t('common.buttons.delete')}
+                                            </AppButton>
                                         </Popconfirm>
-                                    </div>
+                                    </Space>
                                 </div>
 
-                                {/* Descriptions */}
-                                <Descriptions
-                                    bordered
-                                    size="small"
-                                    column={1}
-                                    className="rounded-xl overflow-hidden"
-                                    labelStyle={{ width: 120, fontWeight: 600 }}
-                                >
+                                <Descriptions bordered size="small" column={1} labelStyle={{ width: 120, fontWeight: 600 }}>
                                     <Descriptions.Item label={t('organizationList.detail.name')}>{selectedDept.name}</Descriptions.Item>
-                                    <Descriptions.Item label={t('organizationList.detail.manager')}>{selectedDept.manager ? getManagerDisplay(selectedDept.manager) : <span className="text-slate-400">{t('organizationList.detail.unset')}</span>}</Descriptions.Item>
+                                    <Descriptions.Item label={t('organizationList.detail.manager')}>
+                                        {selectedDept.manager ? getManagerDisplay(selectedDept.manager) : <Text type="secondary">{t('organizationList.detail.unset')}</Text>}
+                                    </Descriptions.Item>
                                     <Descriptions.Item label={t('organizationList.detail.parent')}>
                                         {selectedDept.parent_id
-                                            ? allDepts.find(d => d.id === selectedDept.parent_id)?.name || t('organizationList.detail.unknown')
-                                            : <Tag color="gold">{t('organizationList.detail.root')}</Tag>
-                                        }
+                                            ? allDepts.find((d) => d.id === selectedDept.parent_id)?.name || t('organizationList.detail.unknown')
+                                            : <Tag color="gold">{t('organizationList.detail.root')}</Tag>}
                                     </Descriptions.Item>
-                                    <Descriptions.Item label={t('organizationList.detail.description')}>{selectedDept.description || <span className="text-slate-400 italic">{t('organizationList.detail.noDescription')}</span>}</Descriptions.Item>
+                                    <Descriptions.Item label={t('organizationList.detail.description')}>
+                                        {selectedDept.description ? (
+                                            <Paragraph style={{ marginBottom: 0 }}>{selectedDept.description}</Paragraph>
+                                        ) : (
+                                            <Text type="secondary" italic>
+                                                {t('organizationList.detail.noDescription')}
+                                            </Text>
+                                        )}
+                                    </Descriptions.Item>
                                 </Descriptions>
 
-                                {/* Sub-departments */}
+                                <Row gutter={16}>
+                                    <Col xs={24} md={8}>
+                                        <Card size="small" className="admin-card-subtle">
+                                            <Statistic
+                                                title={t('organizationList.children.title')}
+                                                value={selectedDept.children?.length || 0}
+                                                prefix={<TeamOutlined />}
+                                            />
+                                        </Card>
+                                    </Col>
+                                    <Col xs={24} md={8}>
+                                        <Card size="small" className="admin-card-subtle">
+                                            <Statistic
+                                                title={t('organizationList.detail.manager')}
+                                                value={selectedDept.manager ? 1 : 0}
+                                                prefix={<UserOutlined />}
+                                            />
+                                        </Card>
+                                    </Col>
+                                    <Col xs={24} md={8}>
+                                        <Card size="small" className="admin-card-subtle">
+                                            <Statistic
+                                                title={t('organizationList.detail.parent')}
+                                                value={selectedDept.parent_id ? 1 : 0}
+                                                prefix={<ApartmentOutlined />}
+                                            />
+                                        </Card>
+                                    </Col>
+                                </Row>
+
                                 <Card
                                     title={
-                                        <div className="flex items-center gap-2">
-                                            <TeamOutlined className="text-blue-500" />
+                                        <Space size={8}>
+                                            <TeamOutlined />
                                             <span>{t('organizationList.children.title')}</span>
                                             <Tag color="blue">{selectedDept.children?.length || 0}</Tag>
-                                        </div>
+                                        </Space>
                                     }
                                     extra={
-                                        <AppButton intent="tertiary" size="sm" icon={<Plus size={12} />} onClick={() => openCreateModal(selectedDept.id)}>
+                                        <AppButton intent="tertiary" size="sm" icon={<PlusOutlined />} onClick={() => openCreateModal(selectedDept.id)}>
                                             {t('organizationList.children.add')}
                                         </AppButton>
                                     }
-                                    className="rounded-2xl"
+                                    className="admin-card admin-card-subtle"
                                     size="small"
                                 >
                                     {selectedDept.children && selectedDept.children.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {selectedDept.children.map(child => (
-                                                <div
-                                                    key={child.id}
-                                                    onClick={() => {
-                                                        setSelectedDept(child);
-                                                        setExpandedKeys(prev => [...new Set([...prev, selectedDept.id])]);
-                                                    }}
-                                                    className="bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl flex justify-between items-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors group"
+                                        <List
+                                            itemLayout="horizontal"
+                                            dataSource={selectedDept.children}
+                                            renderItem={(child) => (
+                                                <List.Item
+                                                    actions={[
+                                                        <AppButton
+                                                            key={`open-${child.id}`}
+                                                            intent="tertiary"
+                                                            size="sm"
+                                                            icon={<RightOutlined />}
+                                                            onClick={() => {
+                                                                setSelectedDept(child);
+                                                                setExpandedKeys((prev) => [...new Set([...prev, selectedDept.id])]);
+                                                            }}
+                                                        >
+                                                            {t('common.buttons.detail')}
+                                                        </AppButton>,
+                                                    ]}
                                                 >
-                                                    <div className="flex items-center gap-3">
-
-                                                        <span className="font-medium text-slate-700 dark:text-slate-200">{child.name}</span>
-                                                        {child.manager && <Tag>{getManagerDisplay(child.manager)}</Tag>}
-                                                    </div>
-                                                    <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
-                                                </div>
-                                            ))}
-                                        </div>
+                                                    <List.Item.Meta
+                                                        title={<Text strong>{child.name}</Text>}
+                                                        description={
+                                                            child.manager ? (
+                                                                <Tag>{getManagerDisplay(child.manager)}</Tag>
+                                                            ) : (
+                                                                <Text type="secondary">{t('organizationList.detail.unset')}</Text>
+                                                            )
+                                                        }
+                                                    />
+                                                </List.Item>
+                                            )}
+                                        />
                                     ) : (
                                         <Empty description={t('organizationList.children.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                                     )}
                                 </Card>
-                            </div>
+                            </Space>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400 py-20">
-                                <ApartmentOutlined style={{ fontSize: 48 }} className="text-slate-200 mb-4" />
-                                <p className="text-base mb-6">{t('organizationList.empty.selectHint')}</p>
-                                <AppButton intent="secondary" onClick={() => openCreateModal(null)} icon={<Plus size={16} />}>
+                            <Empty
+                                image={<ApartmentOutlined style={{ fontSize: 48, color: '#94a3b8' }} />}
+                                description={t('organizationList.empty.selectHint')}
+                            >
+                                <AppButton intent="secondary" onClick={() => openCreateModal(null)} icon={<PlusOutlined />}>
                                     {t('organizationList.page.createRoot')}
                                 </AppButton>
-                            </div>
+                            </Empty>
                         )}
                     </Card>
                 </Col>

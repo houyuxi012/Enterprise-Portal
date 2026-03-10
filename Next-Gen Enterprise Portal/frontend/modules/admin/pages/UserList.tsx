@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch } from 'antd';
+import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
@@ -17,6 +17,7 @@ import {
 } from '@/modules/admin/components/ui';
 
 const { Option } = Select;
+const { Text } = Typography;
 const GENDER_CODES = ['male', 'female'] as const;
 type GenderCode = (typeof GENDER_CODES)[number];
 
@@ -66,6 +67,15 @@ const UserList: React.FC = () => {
         return String(i18n.t(key, { lng: 'zh-CN' }));
     }, [normalizeGenderInput, i18n]);
 
+    const hasEmployeeMfaBinding = useCallback((employee: Employee): boolean => {
+        return Boolean(
+            employee.mfa_enabled
+            || employee.totp_enabled
+            || employee.email_mfa_enabled
+            || employee.webauthn_enabled
+        );
+    }, []);
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -101,12 +111,12 @@ const UserList: React.FC = () => {
     const buildTreeData = (depts: Department[]): DataNode[] => {
         return depts.map(dept => ({
             title: (
-                <div className="flex items-center gap-2 py-1">
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{dept.name}</span>
-                    <span className="text-xs text-slate-400">
+                <Space size={8}>
+                    <Text strong>{dept.name}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
                         ({countEmployeesInDept(dept, employees)})
-                    </span>
-                </div>
+                    </Text>
+                </Space>
             ),
             key: dept.name, // Use name as key for easier filtering since Employee has dept name
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
@@ -252,7 +262,7 @@ const UserList: React.FC = () => {
     const handleBatchResetMfa = () => {
         if (selectedRowKeys.length === 0) return;
         const selectedEmps = employees.filter(e => selectedRowKeys.includes(e.id));
-        const mfaUsers = selectedEmps.filter(e => e.totp_enabled);
+        const mfaUsers = selectedEmps.filter(hasEmployeeMfaBinding);
 
         modal.confirm({
             title: t('userList.batch.resetMfaTitle', { count: selectedRowKeys.length }),
@@ -435,11 +445,17 @@ const UserList: React.FC = () => {
                     modal.success({
                         title: t('userList.createResult.title'),
                         content: (
-                            <div className="space-y-2">
-                                <div>{t('userList.createResult.account')}：<span className="font-mono">{createdEmployee.account}</span></div>
-                                <div>{t('userList.createResult.initialPassword')}：<span className="font-mono font-semibold">{createdEmployee.portal_initial_password}</span></div>
-                                <div className="text-xs text-slate-500">{t('userList.createResult.hint')}</div>
-                            </div>
+                            <Space direction="vertical" size={8}>
+                                <Text>
+                                    {t('userList.createResult.account')}：
+                                    <Text code>{createdEmployee.account}</Text>
+                                </Text>
+                                <Text>
+                                    {t('userList.createResult.initialPassword')}：
+                                    <Text code strong>{createdEmployee.portal_initial_password}</Text>
+                                </Text>
+                                <Text type="secondary">{t('userList.createResult.hint')}</Text>
+                            </Space>
                         ),
                         okText: t('userList.createResult.okText'),
                     });
@@ -465,7 +481,6 @@ const UserList: React.FC = () => {
                     src={avatar}
                     size={40}
                     icon={<UserOutlined />}
-                    className="border border-slate-200"
                 >
                     {!avatar ? record.name?.[0] : null}
                 </Avatar>
@@ -475,36 +490,32 @@ const UserList: React.FC = () => {
             title: t('userList.table.name'),
             dataIndex: 'name',
             key: 'name',
-            render: (text: string) => (
-                <span className="font-medium text-slate-800 dark:text-slate-200">{text}</span>
-            ),
+            render: (text: string) => <Text strong>{text}</Text>,
         },
         {
             title: t('userList.table.account'),
             dataIndex: 'account',
             key: 'account',
-            render: (text: string) => (
-                <span className="font-mono text-slate-600 dark:text-slate-300">{text}</span>
-            ),
+            render: (text: string) => <Text code>{text}</Text>,
         },
         {
             title: t('userList.table.email'),
             dataIndex: 'email',
             key: 'email',
-            render: (text: string) => (
-                <span className="text-sm text-slate-600 dark:text-slate-400">{text || '-'}</span>
-            ),
+            render: (text: string) => <Text type="secondary">{text || '-'}</Text>,
         },
         {
-            title: 'MFA',
-            dataIndex: 'totp_enabled',
-            key: 'totp_enabled',
+            title: t('userList.table.mfa', 'MFA'),
+            key: 'mfa_enabled',
             width: 90,
-            render: (enabled: boolean) => (
-                <AppTag status={enabled ? 'success' : 'default'}>
-                    {enabled ? t('userList.mfa.bound', '已绑定') : t('userList.mfa.unbound', '未绑定')}
-                </AppTag>
-            ),
+            render: (_: unknown, record: Employee) => {
+                const enabled = hasEmployeeMfaBinding(record);
+                return (
+                    <AppTag status={enabled ? 'success' : 'default'}>
+                        {enabled ? t('userList.mfa.bound', '已绑定') : t('userList.mfa.unbound', '未绑定')}
+                    </AppTag>
+                );
+            },
         },
         {
             title: t('userList.table.status'),
@@ -512,7 +523,7 @@ const UserList: React.FC = () => {
             key: 'status',
             width: 100,
             render: (status: string, record: Employee) => (
-                <div className="flex items-center gap-2">
+                <Space size={8}>
                     <Switch
                         checked={status === 'Active'}
                         onChange={(checked) => handleStatusChange(record, checked)}
@@ -521,7 +532,7 @@ const UserList: React.FC = () => {
                     <AppTag status={status === 'Active' ? 'success' : 'default'}>
                         {status === 'Active' ? t('userList.status.active') : t('userList.status.inactive')}
                     </AppTag>
-                </div>
+                </Space>
             ),
         },
         {
@@ -581,7 +592,7 @@ const UserList: React.FC = () => {
     };
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             {/* Page Header */}
             <AppPageHeader
                 title={t('userList.page.title')}
@@ -603,7 +614,7 @@ const UserList: React.FC = () => {
                                 <span>{t('userList.deptTree.title')}</span>
                             </div>
                         }
-                        className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full mb-6 lg:mb-0"
+                        className="admin-card h-full mb-6 lg:mb-0"
                         styles={{ body: { padding: '12px 0 12px 12px' } }}
                     >
                         <div className="max-h-[600px] overflow-y-auto pr-2">
@@ -634,61 +645,61 @@ const UserList: React.FC = () => {
                 {/* Right Content: Filter & Table */}
                 <Col xs={24} lg={18}>
                     {/* Filter Bar */}
-                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4 p-1" styles={{ body: { padding: '12px 16px' } }}>
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                            <Input.Search
+                    <Card className="admin-card mb-4" styles={{ body: { padding: '12px 16px' } }}>
+                        <AppFilterBar className="justify-between">
+                            <AppFilterBar.Search
                                 placeholder={t('userList.filters.searchPlaceholder')}
-                                allowClear
                                 style={{ maxWidth: 320 }}
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
                             />
 
-                            {/* Batch Actions */}
                             {selectedRowKeys.length > 0 && (
-                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
-                                    <span className="text-sm text-slate-500 font-medium mr-2">
-                                        {t('userList.batch.selected', { count: selectedRowKeys.length })}
-                                    </span>
-                                    <AppButton
-                                        intent="secondary"
-                                        size="sm"
-                                        icon={<FolderOutlined />}
-                                        onClick={handleOpenBatchMoveModal}
-                                    >
-                                        {t('userList.batch.moveOrg')}
-                                    </AppButton>
-                                    <AppButton
-                                        intent="secondary"
-                                        size="sm"
-                                        icon={<KeyOutlined />}
-                                        onClick={handleBatchResetPassword}
-                                    >
-                                        {t('userList.batch.resetPwdButton')}
-                                    </AppButton>
-                                    <AppButton
-                                        intent="secondary"
-                                        size="sm"
-                                        icon={<SafetyOutlined />}
-                                        onClick={handleBatchResetMfa}
-                                    >
-                                        {t('userList.batch.resetMfaButton', '重置 MFA')}
-                                    </AppButton>
-                                    <AppButton
-                                        intent="danger"
-                                        size="sm"
-                                        icon={<DeleteOutlined />}
-                                        onClick={handleBatchDelete}
-                                    >
-                                        {t('common.buttons.delete')}
-                                    </AppButton>
-                                </div>
+                                <AppFilterBar.Action>
+                                    <Space wrap size={8}>
+                                        <Text type="secondary">
+                                            {t('userList.batch.selected', { count: selectedRowKeys.length })}
+                                        </Text>
+                                        <AppButton
+                                            intent="secondary"
+                                            size="sm"
+                                            icon={<FolderOutlined />}
+                                            onClick={handleOpenBatchMoveModal}
+                                        >
+                                            {t('userList.batch.moveOrg')}
+                                        </AppButton>
+                                        <AppButton
+                                            intent="secondary"
+                                            size="sm"
+                                            icon={<KeyOutlined />}
+                                            onClick={handleBatchResetPassword}
+                                        >
+                                            {t('userList.batch.resetPwdButton')}
+                                        </AppButton>
+                                        <AppButton
+                                            intent="secondary"
+                                            size="sm"
+                                            icon={<SafetyOutlined />}
+                                            onClick={handleBatchResetMfa}
+                                        >
+                                            {t('userList.batch.resetMfaButton', '重置 MFA')}
+                                        </AppButton>
+                                        <AppButton
+                                            intent="danger"
+                                            size="sm"
+                                            icon={<DeleteOutlined />}
+                                            onClick={handleBatchDelete}
+                                        >
+                                            {t('common.buttons.delete')}
+                                        </AppButton>
+                                    </Space>
+                                </AppFilterBar.Action>
                             )}
-                        </div>
+                        </AppFilterBar>
                     </Card>
 
                     {/* Data Table */}
-                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+                    <Card className="admin-card overflow-hidden">
                         <AppTable
                             rowSelection={rowSelection}
                             columns={columns}
@@ -844,10 +855,10 @@ const UserList: React.FC = () => {
                 okText={t('userList.moveModal.confirm')}
                 width={560}
             >
-                <div className="space-y-4">
-                    <div className="text-sm text-slate-500">
-                        {t('userList.moveModal.descPrefix')} <span className="font-semibold text-slate-700">{selectedRowKeys.length}</span> {t('userList.moveModal.descSuffix')}
-                    </div>
+                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                    <Text type="secondary">
+                        {t('userList.moveModal.descPrefix')} <Text strong>{selectedRowKeys.length}</Text> {t('userList.moveModal.descSuffix')}
+                    </Text>
                     <Select
                         showSearch
                         allowClear
@@ -860,7 +871,7 @@ const UserList: React.FC = () => {
                             label: dept.label,
                         }))}
                     />
-                </div>
+                </Space>
             </AppModal>
         </div>
     );

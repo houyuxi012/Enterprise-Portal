@@ -4,6 +4,7 @@ import os
 import time
 import uuid
 import platform
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -19,12 +20,14 @@ import modules.schemas as schemas
 from modules.admin.services.notification_templates import (
     build_notification_sample_context,
     build_sms_test_payload,
+    get_notification_email_branding,
     get_localized_notification_template_name,
     get_system_config_map,
     render_notification_template,
     resolve_notification_template,
 )
 from modules.iam.services.system_config_security import (
+    SYSTEM_CONFIG_MASKED_PLACEHOLDER,
     decrypt_sensitive_system_config_value,
     decrypt_system_config_map,
     encrypt_sensitive_system_config_value,
@@ -90,6 +93,9 @@ NUMERIC_SECURITY_CONFIG_RULES: dict[str, tuple[int, int]] = {
     "platform_snmp_port": (1, 65535),
     "platform_ntp_port": (1, 65535),
     "platform_ntp_sync_interval_minutes": (1, 10080),
+    "backup_schedule_hour": (0, 23),
+    "backup_schedule_weekday": (1, 7),
+    "backup_retention_days": (1, 3650),
 }
 
 
@@ -103,6 +109,9 @@ def _parse_positive_int(value: object) -> int | None:
 ENUM_SECURITY_CONFIG_RULES: dict[str, set[str]] = {
     "security_lockout_scope": {"account", "ip"},
     "platform_snmp_version": {"v2c", "v3"},
+    "backup_enabled": {"true", "false"},
+    "backup_schedule_frequency": {"daily", "weekly"},
+    "backup_target_type": {"local", "network"},
 }
 
 LOGIN_RUNTIME_POLICY_KEYS = {
@@ -160,6 +169,9 @@ CUSTOMIZATION_DEFAULT_CONFIG: Dict[str, str] = {
     "privacy_policy": "",
 }
 
+BACKUP_SNAPSHOT_KIND = "system_config_snapshot"
+BACKUP_EPHEMERAL_CONFIG_KEYS = PLATFORM_RUNTIME_STATUS_KEYS.union({"system_version", "system_build_id"})
+
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
@@ -215,6 +227,173 @@ async def _load_system_config_map(db: AsyncSession, keys: list[str] | set[str] |
 # Simple state for network speed calculation
 _last_net_io = None
 _last_net_time = None
+
+
+async def _upsert_raw_system_config_entries(db: AsyncSession, pairs: Dict[str, str | None]) -> None:
+    for key, value in pairs.items():
+        result = await db.execute(
+            select(models.SystemConfig).filter(models.SystemConfig.key == key)
+        )
+        existing = result.scalars().first()
+        if existing:
+            existing.value = value
+        else:
+            db.add(models.SystemConfig(key=key, value=value))
+
+
+def _require_backup_root(config_map: Dict[str, str], create: bool = False) -> Path:
+    target_path = str(config_map.get("backup_target_path") or "").strip()
+    if not target_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_PATH_REQUIRED", "message": "请先配置备份目标路径"},
+        )
+
+    backup_root = Path(target_path).expanduser()
+    if create:
+        backup_root.mkdir(parents=True, exist_ok=True)
+    if not backup_root.exists() or not backup_root.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_PATH_INVALID", "message": "备份目标路径不可用"},
+        )
+    return backup_root
+
+
+def _resolve_backup_file(backup_root: Path, backup_name: str) -> Path:
+    normalized_name = Path(backup_name).name
+    if not normalized_name or normalized_name != backup_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_NAME_INVALID", "message": "备份文件名不合法"},
+        )
+
+    backup_file = (backup_root / normalized_name).resolve()
+    root_resolved = backup_root.resolve()
+    if backup_file.parent != root_resolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_NAME_INVALID", "message": "备份文件名不合法"},
+        )
+    return backup_file
+
+
+def _build_backup_snapshot_name() -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"portal-config-backup-{timestamp}-{uuid.uuid4().hex[:8]}.json"
+
+
+def _read_backup_snapshot(backup_file: Path) -> Dict[str, Any]:
+    try:
+        payload = json.loads(backup_file.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "BACKUP_NOT_FOUND", "message": "备份文件不存在"},
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_FORMAT_INVALID", "message": "备份文件格式无效"},
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_FORMAT_INVALID", "message": "备份文件格式无效"},
+        )
+    return payload
+
+
+def _build_backup_entry(backup_file: Path, payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    stat = backup_file.stat()
+    snapshot = payload or _read_backup_snapshot(backup_file)
+    version_info = snapshot.get("version_info") if isinstance(snapshot.get("version_info"), dict) else {}
+    target_type = str(snapshot.get("target_type") or "local")
+    config_items = snapshot.get("system_config")
+    restorable = snapshot.get("backup_kind") == BACKUP_SNAPSHOT_KIND and isinstance(config_items, dict)
+
+    return {
+        "name": backup_file.name,
+        "size_bytes": stat.st_size,
+        "created_at": str(
+            snapshot.get("created_at")
+            or datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+        ),
+        "version": str(version_info.get("version") or "-"),
+        "schema_version": str(version_info.get("db_schema_version") or "-"),
+        "target_type": target_type,
+        "path": str(backup_file),
+        "kind": str(snapshot.get("backup_kind") or "unknown"),
+        "restorable": restorable,
+    }
+
+
+def _mask_backup_preview_value(key: str, value: Any) -> str:
+    text = "" if value is None else str(value)
+    if is_sensitive_system_config_key(key) and text:
+        return SYSTEM_CONFIG_MASKED_PLACEHOLDER
+    return text
+
+
+def _build_backup_preview(
+    backup_entry: Dict[str, Any],
+    snapshot_items: Dict[str, Any],
+    current_items: Dict[str, Any],
+) -> Dict[str, Any]:
+    create_count = 0
+    update_count = 0
+    unchanged_count = 0
+    diffs: list[Dict[str, Any]] = []
+
+    for key in sorted(snapshot_items.keys()):
+        snapshot_value = snapshot_items.get(key)
+        current_value = current_items.get(key)
+
+        if key not in current_items:
+            create_count += 1
+            status_label = "create"
+        elif current_value != snapshot_value:
+            update_count += 1
+            status_label = "update"
+        else:
+            unchanged_count += 1
+            continue
+
+        diffs.append(
+            {
+                "key": key,
+                "status": status_label,
+                "sensitive": is_sensitive_system_config_key(key),
+                "current_value": _mask_backup_preview_value(key, current_value),
+                "backup_value": _mask_backup_preview_value(key, snapshot_value),
+            }
+        )
+
+    return {
+        "backup": backup_entry,
+        "summary": {
+            "create_count": create_count,
+            "update_count": update_count,
+            "unchanged_count": unchanged_count,
+            "total_keys": len(snapshot_items),
+        },
+        "diffs": diffs,
+    }
+
+
+def _list_backup_entries(backup_root: Path) -> list[Dict[str, Any]]:
+    entries: list[Dict[str, Any]] = []
+    for backup_file in sorted(
+        backup_root.glob("portal-config-backup-*.json"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    ):
+        try:
+            entries.append(_build_backup_entry(backup_file))
+        except HTTPException:
+            logger.warning("Skipping invalid backup snapshot file: %s", backup_file)
+    return entries
 
 
 def _read_first_line(file_paths: list[str]) -> str:
@@ -931,16 +1110,20 @@ async def test_smtp(
         config_map=config_map,
     )
     if selected_template is not None:
+        email_branding = await get_notification_email_branding(db)
         rendered = render_notification_template(
             selected_template,
             build_notification_sample_context(
                 current_user=current_user,
                 channel="email",
                 recipient=to_email,
+                public_base_url=str((email_branding or {}).get("public_base_url") or ""),
             ),
+            email_branding=email_branding,
         )
         subject = str(rendered["subject"] or "SMTP Service Test").strip() or "SMTP Service Test"
         text_body = str(rendered["content"] or "").strip()
+        html_body = str(rendered.get("html_content") or "").strip() or None
     else:
         subject = "SMTP Service Test - Next-Gen Enterprise Portal"
         text_body = (
@@ -948,9 +1131,10 @@ async def test_smtp(
             f"Recipient: {to_email}\n"
             f"Operator: {current_user.username}\n"
         )
+        html_body = None
 
     try:
-        await send_email_message(to_email, subject, db, text_body=text_body)
+        await send_email_message(to_email, subject, db, text_body=text_body, html_body=html_body)
         AuditService.schedule_business_action(
             background_tasks=background_tasks,
             user_id=current_user.id,
@@ -1962,6 +2146,17 @@ async def get_system_info(
     }
 
 
+@router.get("/hardware", response_model=Dict[str, Any])
+async def get_system_hardware(
+    _: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    payload = _get_hardware_fingerprint_payload()
+    host_payload = dict(payload.get("host") or {})
+    host_payload.pop("mac", None)
+    payload["host"] = host_payload
+    return payload
+
+
 @router.get("/version", response_model=Dict[str, str | bool])
 async def get_system_version(
     _: models.User = Depends(PermissionChecker("sys:settings:view")),
@@ -2039,6 +2234,243 @@ async def get_storage_stats(
     Returns: used_bytes, total_bytes, free_bytes, used_percent, bucket_count, object_count.
     """
     return storage.get_stats()
+
+
+@router.get("/backups", response_model=list[Dict[str, Any]])
+async def list_system_backups(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    config_map = await _load_system_config_map(db)
+    target_path = str(config_map.get("backup_target_path") or "").strip()
+    if not target_path:
+        return []
+
+    backup_root = Path(target_path).expanduser()
+    if not backup_root.exists() or not backup_root.is_dir():
+        return []
+
+    entries = _list_backup_entries(backup_root)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="LIST_SYSTEM_BACKUPS",
+        target="系统配置快照备份",
+        detail=f"path={backup_root}, count={len(entries)}",
+        ip_address=ip,
+        trace_id=trace_id,
+        domain="SYSTEM",
+    )
+    return entries
+
+
+@router.post("/backups", response_model=Dict[str, Any])
+async def create_system_backup(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    config_map = await _load_system_config_map(db)
+    backup_root = _require_backup_root(config_map, create=True)
+
+    raw_config_result = await db.execute(select(models.SystemConfig).order_by(models.SystemConfig.key))
+    raw_config_entries = {
+        cfg.key: cfg.value
+        for cfg in raw_config_result.scalars().all()
+        if cfg.key not in BACKUP_EPHEMERAL_CONFIG_KEYS
+    }
+
+    version_info = _load_version_info()
+    snapshot_payload = {
+        "backup_kind": BACKUP_SNAPSHOT_KIND,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": {
+            "id": current_user.id,
+            "username": current_user.username,
+        },
+        "target_type": str(config_map.get("backup_target_type") or "local"),
+        "target_path": str(backup_root),
+        "version_info": version_info,
+        "system_config": raw_config_entries,
+    }
+
+    backup_file = backup_root / _build_backup_snapshot_name()
+    backup_file.write_text(
+        json.dumps(snapshot_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    entry = _build_backup_entry(backup_file, snapshot_payload)
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="CREATE_SYSTEM_BACKUP",
+        target="系统配置快照备份",
+        detail=f"name={entry['name']}, path={entry['path']}, keys={len(raw_config_entries)}",
+        ip_address=ip,
+        trace_id=trace_id,
+        domain="SYSTEM",
+    )
+    return entry
+
+
+@router.get("/backups/{backup_name}/preview", response_model=Dict[str, Any])
+async def preview_system_backup(
+    backup_name: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:view")),
+):
+    config_map = await _load_system_config_map(db)
+    backup_root = _require_backup_root(config_map, create=False)
+    backup_file = _resolve_backup_file(backup_root, backup_name)
+    snapshot_payload = _read_backup_snapshot(backup_file)
+
+    if snapshot_payload.get("backup_kind") != BACKUP_SNAPSHOT_KIND:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_KIND_UNSUPPORTED", "message": "当前仅支持系统配置快照预览"},
+        )
+
+    snapshot_items = snapshot_payload.get("system_config")
+    if not isinstance(snapshot_items, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_CONTENT_EMPTY", "message": "备份文件中没有可预览的系统配置"},
+        )
+
+    current_raw_result = await db.execute(select(models.SystemConfig).order_by(models.SystemConfig.key))
+    current_raw_items = {
+        cfg.key: cfg.value
+        for cfg in current_raw_result.scalars().all()
+        if cfg.key not in BACKUP_EPHEMERAL_CONFIG_KEYS
+    }
+    filtered_snapshot_items = {
+        str(key): value
+        for key, value in snapshot_items.items()
+        if str(key) not in BACKUP_EPHEMERAL_CONFIG_KEYS
+    }
+
+    preview_payload = _build_backup_preview(
+        backup_entry=_build_backup_entry(backup_file, snapshot_payload),
+        snapshot_items=filtered_snapshot_items,
+        current_items=current_raw_items,
+    )
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="PREVIEW_SYSTEM_BACKUP",
+        target="系统配置快照备份",
+        detail=(
+            f"name={backup_file.name}, "
+            f"create_count={preview_payload['summary']['create_count']}, "
+            f"update_count={preview_payload['summary']['update_count']}"
+        ),
+        ip_address=ip,
+        trace_id=trace_id,
+        domain="SYSTEM",
+    )
+    return preview_payload
+
+
+@router.post("/backups/{backup_name}/restore", response_model=Dict[str, str])
+async def restore_system_backup(
+    backup_name: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    config_map = await _load_system_config_map(db)
+    backup_root = _require_backup_root(config_map, create=False)
+    backup_file = _resolve_backup_file(backup_root, backup_name)
+    snapshot_payload = _read_backup_snapshot(backup_file)
+
+    if snapshot_payload.get("backup_kind") != BACKUP_SNAPSHOT_KIND:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_KIND_UNSUPPORTED", "message": "当前仅支持系统配置快照恢复"},
+        )
+
+    raw_items = snapshot_payload.get("system_config")
+    if not isinstance(raw_items, dict) or not raw_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "BACKUP_CONTENT_EMPTY", "message": "备份文件中没有可恢复的系统配置"},
+        )
+
+    restored_items = {
+        str(key): value
+        for key, value in raw_items.items()
+        if str(key) not in BACKUP_EPHEMERAL_CONFIG_KEYS
+    }
+    await _upsert_raw_system_config_entries(db, restored_items)
+    await db.commit()
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="RESTORE_SYSTEM_BACKUP",
+        target="系统配置快照备份",
+        detail=f"name={backup_file.name}, restored_keys={len(restored_items)}",
+        ip_address=ip,
+        trace_id=trace_id,
+        domain="SYSTEM",
+    )
+    return {"message": "系统配置已从备份恢复"}
+
+
+@router.delete("/backups/{backup_name}", response_model=Dict[str, str])
+async def delete_system_backup(
+    backup_name: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: models.User = Depends(PermissionChecker("sys:settings:edit")),
+):
+    config_map = await _load_system_config_map(db)
+    backup_root = _require_backup_root(config_map, create=False)
+    backup_file = _resolve_backup_file(backup_root, backup_name)
+    if not backup_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "BACKUP_NOT_FOUND", "message": "备份文件不存在"},
+        )
+
+    backup_file.unlink()
+
+    trace_id = request.headers.get("X-Request-ID")
+    ip = request.client.host if request.client else "unknown"
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="DELETE_SYSTEM_BACKUP",
+        target="系统配置快照备份",
+        detail=f"name={backup_file.name}, path={backup_file}",
+        ip_address=ip,
+        trace_id=trace_id,
+        domain="SYSTEM",
+    )
+    return {"message": "备份文件已删除"}
 
 
 @router.post("/optimize-storage")

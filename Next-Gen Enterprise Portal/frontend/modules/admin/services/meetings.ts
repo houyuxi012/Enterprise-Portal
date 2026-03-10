@@ -16,6 +16,7 @@ export interface LocalMeetingRecord {
   durationMinutes: number;
   meetingType: MeetingType;
   meetingRoom: string;
+  meetingSoftware: string;
   meetingId: string;
   organizer: string;
   organizerUserId?: number | null;
@@ -33,7 +34,8 @@ export interface CreateLocalMeetingInput {
   durationMinutes: number;
   meetingType: MeetingType;
   meetingRoom: string;
-  meetingId?: string;
+  meetingSoftware: string;
+  meetingId: string;
   organizerUserId: number;
   attendeeUserIds: number[];
 }
@@ -71,7 +73,8 @@ const mapMeetingRecord = (record: AdminMeetingDTO): LocalMeetingRecord => ({
   startTime: record.start_time,
   durationMinutes: record.duration_minutes,
   meetingType: record.meeting_type,
-  meetingRoom: record.meeting_room,
+  meetingRoom: record.meeting_room ?? '',
+  meetingSoftware: record.meeting_software ?? '',
   meetingId: record.meeting_id,
   organizer: record.organizer,
   organizerUserId: record.organizer_user_id,
@@ -98,8 +101,9 @@ const mapCreatePayload = (input: CreateLocalMeetingInput): AdminMeetingCreatePay
   start_time: input.startTime,
   duration_minutes: input.durationMinutes,
   meeting_type: input.meetingType,
-  meeting_room: input.meetingRoom.trim(),
-  meeting_id: input.meetingId?.trim() || undefined,
+  meeting_room: input.meetingType === 'offline' ? input.meetingRoom.trim() : undefined,
+  meeting_software: input.meetingType === 'online' ? input.meetingSoftware.trim() : undefined,
+  meeting_id: input.meetingId.trim(),
   organizer_user_id: input.organizerUserId,
   attendee_user_ids: input.attendeeUserIds,
 });

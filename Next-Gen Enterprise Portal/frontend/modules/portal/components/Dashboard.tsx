@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Calendar, Clock, ChevronRight, BellRing, UserCheck, Quote,
-  X, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo
+  X, Utensils, Wrench, FileText, UserPlus, Cpu, ListTodo, AppWindow,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import TodoService from '@/shared/services/todos';
@@ -11,8 +11,6 @@ import ApiClient, { QuickToolDTO } from '@/shared/services/api';
 import { NewsItem, Announcement, CarouselItem, Employee } from '@/types';
 import type { User as AuthUser } from '@/shared/services/auth';
 import portalMeetingService, { type PortalTodayMeetingSummary } from '@/modules/portal/services/meetings';
-import { getIcon } from '@/shared/utils/iconMap';
-import { getColorClass } from '@/shared/utils/colorMap';
 import { DAILY_QUOTES } from '@/shared/utils/constants';
 
 interface DashboardProps {
@@ -23,6 +21,30 @@ interface DashboardProps {
   employees?: Employee[];
   currentUser?: AuthUser | null;
 }
+
+type LicenseErrorDetail = {
+  code?: string;
+  message?: string;
+};
+
+const extractLicenseErrorDetail = (error: unknown): LicenseErrorDetail => {
+  if (!error || typeof error !== 'object') return {};
+  const response = (error as { response?: unknown }).response;
+  if (!response || typeof response !== 'object') return {};
+  const data = (response as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return {};
+  const detail = (data as { detail?: unknown }).detail;
+  if (!detail || typeof detail !== 'object') return {};
+  return {
+    code: typeof (detail as { code?: unknown }).code === 'string' ? (detail as { code?: string }).code : undefined,
+    message: typeof (detail as { message?: unknown }).message === 'string' ? (detail as { message?: string }).message : undefined,
+  };
+};
+
+const isMeetingLicenseBlockedError = (error: unknown): boolean => {
+  const detail = extractLicenseErrorDetail(error);
+  return detail.code === 'LICENSE_REQUIRED' || detail.code === 'LICENSE_READ_ONLY';
+};
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -54,6 +76,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [todayMeetingSummary, setTodayMeetingSummary] = useState<PortalTodayMeetingSummary>(
     portalMeetingService.getEmptyTodaySummary(),
   );
+  const [meetingLicenseBlocked, setMeetingLicenseBlocked] = useState(false);
+  const [meetingLicenseBlockedMessage, setMeetingLicenseBlockedMessage] = useState('');
   // Data State
   const [tools, setTools] = useState<QuickToolDTO[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -79,10 +103,19 @@ const Dashboard: React.FC<DashboardProps> = ({
     try {
       const summary = await portalMeetingService.getTodaySummary();
       setTodayMeetingSummary(summary);
+      setMeetingLicenseBlocked(false);
+      setMeetingLicenseBlockedMessage('');
     } catch (error) {
+      if (isMeetingLicenseBlockedError(error)) {
+        const detail = extractLicenseErrorDetail(error);
+        setTodayMeetingSummary(portalMeetingService.getEmptyTodaySummary());
+        setMeetingLicenseBlocked(true);
+        setMeetingLicenseBlockedMessage(detail.message || t('dashboardHome.cards.meeting.licenseBlocked'));
+        return;
+      }
       console.error('Failed to fetch today meeting summary', error);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -152,6 +185,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [i18n.resolvedLanguage]);
 
   const todayMeetingDesc = useMemo(() => {
+    if (meetingLicenseBlocked) {
+      return meetingLicenseBlockedMessage || t('dashboardHome.cards.meeting.licenseBlocked');
+    }
     if (!todayMeetingSummary.nextMeeting) {
       return todayMeetingSummary.total > 0
         ? t('dashboardHome.cards.meeting.allCompleted', '今日会议已结束')
@@ -162,7 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       time: dayjs(todayMeetingSummary.nextMeeting.startTime).format('HH:mm'),
       subject: todayMeetingSummary.nextMeeting.subject,
     });
-  }, [t, todayMeetingSummary.nextMeeting, todayMeetingSummary.total]);
+  }, [meetingLicenseBlocked, meetingLicenseBlockedMessage, t, todayMeetingSummary.nextMeeting, todayMeetingSummary.total]);
 
   useEffect(() => {
     if (carouselItems.length === 0) return;
@@ -296,10 +332,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           {
             icon: <Calendar size={18} />,
             label: t('dashboardHome.cards.meeting.label'),
-            val: t('dashboardHome.cards.meeting.value', { count: todayMeetingSummary.total }),
+            val: meetingLicenseBlocked
+              ? t('dashboardHome.cards.meeting.licenseBlockedShort', '--')
+              : t('dashboardHome.cards.meeting.value', { count: todayMeetingSummary.total }),
             color: 'purple',
             desc: todayMeetingDesc,
-            onClick: onNavigateToMeetings,
+            onClick: meetingLicenseBlocked ? undefined : onNavigateToMeetings,
           },
           {
             icon: <Clock size={18} />,
@@ -343,11 +381,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                   target="_blank"
                   className="mica group p-5 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 transition-all duration-500 border border-white/50 shadow-lg shadow-slate-200/20 dark:shadow-none"
                 >
-                  <div className={`w-10 h-10 ${!tool.image ? getColorClass(tool.color) : 'bg-white'} rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-white`}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-500 rim-glow overflow-hidden bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-200">
                     {tool.image ? (
                       <img src={tool.image} alt={tool.name} className="w-full h-full object-cover" />
                     ) : (
-                      getIcon(tool.icon_name, { size: 18 })
+                      <AppWindow size={18} />
                     )}
                   </div>
                   <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter block">{tool.name}</span>

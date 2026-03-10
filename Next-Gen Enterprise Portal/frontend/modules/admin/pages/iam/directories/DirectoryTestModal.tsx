@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Descriptions, Modal, Space, Typography } from 'antd';
+import { Alert, Card, Descriptions, Modal, Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { DirectoryTestResponse } from './types';
 
@@ -86,13 +86,13 @@ const DirectoryTestModal: React.FC<DirectoryTestModalProps> = ({
         ) : null}
 
         {!loading ? (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <Card size="small" className="admin-card admin-card-subtle">
             <div className="mb-2 flex items-center justify-between">
               <Text type="secondary">{t('directory.test.rawResult')}</Text>
               <Text copyable={{ text: detailJson }} />
             </div>
-            <pre className="m-0 max-h-56 overflow-auto text-xs text-slate-700">{detailJson}</pre>
-          </div>
+            <pre className="m-0 max-h-56 overflow-auto text-xs">{detailJson}</pre>
+          </Card>
         ) : null}
       </Space>
     </Modal>

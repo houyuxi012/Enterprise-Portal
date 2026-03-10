@@ -8,8 +8,9 @@ from types import ModuleType
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
+from fastapi import HTTPException
+
 from modules.admin.services import log_forwarder
-from modules.admin.services.log_forwarding_security import resolve_log_forwarding_secret_for_storage
 from modules.iam.services.system_config_security import SYSTEM_CONFIG_SECRET_PREFIX
 import modules.models as models
 import modules.schemas as schemas
@@ -111,30 +112,8 @@ class _FakeDB:
             item.id = len(self.added)
 
 
-class _FakeAsyncClient:
-    def __init__(self, *, response_status: int = 200):
-        self.response_status = response_status
-        self.calls: list[dict[str, object]] = []
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-    async def post(self, endpoint, json=None, headers=None):
-        self.calls.append(
-            {
-                "endpoint": endpoint,
-                "json": json,
-                "headers": headers or {},
-            }
-        )
-        return SimpleNamespace(status_code=self.response_status)
-
-
 class LogForwardingSecretHandlingTests(IsolatedAsyncioTestCase):
-    async def test_create_log_config_encrypts_secret_and_masks_response(self):
+    async def test_create_log_config_rejects_webhook_type(self):
         logs_router = _load_logs_router()
         db = _FakeDB()
         request = _make_request()
@@ -143,6 +122,34 @@ class LogForwardingSecretHandlingTests(IsolatedAsyncioTestCase):
             type="WEBHOOK",
             endpoint="https://example.invalid/hook",
             port=None,
+            secret_token="Plaintext-Forwarding-Token",
+            enabled=True,
+            log_types=["SYSTEM"],
+        )
+
+        with self.assertRaises(HTTPException) as exc_info:
+            await logs_router.create_log_config(
+                request=request,
+                background_tasks=SimpleNamespace(),
+                config=payload,
+                db=db,
+                _=None,
+                current_user=current_user,
+            )
+
+        self.assertEqual(exc_info.exception.status_code, 400)
+        self.assertEqual(exc_info.exception.detail, "Only SYSLOG forwarding is supported")
+        self.assertEqual(db.added, [])
+
+    async def test_create_log_config_encrypts_secret_and_masks_response(self):
+        logs_router = _load_logs_router()
+        db = _FakeDB()
+        request = _make_request()
+        current_user = SimpleNamespace(id=1, username="admin")
+        payload = schemas.LogForwardingConfigCreate(
+            type="SYSLOG",
+            endpoint="syslog.example.invalid",
+            port=514,
             secret_token="Plaintext-Forwarding-Token",
             enabled=True,
             log_types=["SYSTEM", "IAM"],
@@ -171,10 +178,19 @@ class LogForwardingSecretHandlingTests(IsolatedAsyncioTestCase):
         self.assertTrue(result["has_secret_token"])
         self.assertEqual(result["log_types"], ["SYSTEM", "IAM"])
 
-    async def test_read_log_configs_hides_secret_token_from_response(self):
+    async def test_read_log_configs_filters_out_webhook_configs(self):
         logs_router = _load_logs_router()
-        cfg = models.LogForwardingConfig(
+        syslog_cfg = models.LogForwardingConfig(
             id=7,
+            type="SYSLOG",
+            endpoint="syslog.example.invalid",
+            port=514,
+            secret_token=f"{SYSTEM_CONFIG_SECRET_PREFIX}encrypted-token",
+            enabled=False,
+            log_types='["ACCESS"]',
+        )
+        webhook_cfg = models.LogForwardingConfig(
+            id=8,
             type="WEBHOOK",
             endpoint="https://example.invalid/hook",
             port=None,
@@ -182,7 +198,7 @@ class LogForwardingSecretHandlingTests(IsolatedAsyncioTestCase):
             enabled=False,
             log_types='["ACCESS"]',
         )
-        db = _FakeDB([_ScalarResult([cfg])])
+        db = _FakeDB([_ScalarResult([syslog_cfg, webhook_cfg])])
 
         with patch.object(logs_router, "_record_log_query_audit", AsyncMock()):
             result = await logs_router.read_log_configs(
@@ -194,31 +210,25 @@ class LogForwardingSecretHandlingTests(IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["type"], "SYSLOG")
         self.assertNotIn("secret_token", result[0])
         self.assertTrue(result[0]["has_secret_token"])
         self.assertEqual(result[0]["log_types"], ["ACCESS"])
 
-    async def test_forward_to_webhook_uses_decrypted_secret_in_headers(self):
-        with patch.dict(os.environ, {"MASTER_KEY": "unit-test-master-key"}, clear=False):
-            encrypted_secret = resolve_log_forwarding_secret_for_storage("Forwarder-Secret")
-
+    async def test_forward_log_ignores_webhook_configs(self):
         cfg = models.LogForwardingConfig(
             id=9,
             type="WEBHOOK",
             endpoint="https://example.invalid/hook",
             port=None,
-            secret_token=encrypted_secret,
             enabled=True,
+            log_types='["SYSTEM"]',
         )
-        fake_client = _FakeAsyncClient()
 
         with (
-            patch.dict(os.environ, {"MASTER_KEY": "unit-test-master-key"}, clear=False),
-            patch("modules.admin.services.log_forwarder.httpx.AsyncClient", return_value=fake_client),
+            patch.object(log_forwarder, "_get_enabled_configs", AsyncMock(return_value=[cfg])),
+            patch.object(log_forwarder, "_forward_to_syslog", AsyncMock()) as forward_syslog,
         ):
-            await log_forwarder._forward_to_webhook(cfg, {"event": "test"})
+            await log_forwarder.forward_log("SYSTEM", {"event": "test"})
 
-        self.assertEqual(len(fake_client.calls), 1)
-        headers = fake_client.calls[0]["headers"]
-        self.assertEqual(headers["Authorization"], "Bearer Forwarder-Secret")
-        self.assertEqual(headers["X-Log-Token"], "Forwarder-Secret")
+        forward_syslog.assert_not_awaited()

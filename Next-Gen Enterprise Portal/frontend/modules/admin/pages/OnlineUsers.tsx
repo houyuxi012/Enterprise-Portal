@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Card, Input, Select, Space } from 'antd';
+import { App, Avatar, Card, Space, Typography } from 'antd';
 import { DisconnectOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { OnlineUserSession, SessionRevokeResult } from '@/types';
 import ApiClient from '@/services/api';
-import { AppButton, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
+import { AppButton, AppFilterBar, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
 
 type ApiErrorShape = {
   response?: {
@@ -25,9 +25,11 @@ const formatDateTime = (value?: string | null, locale: string = 'en-US'): string
 const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
   const detail = (error as ApiErrorShape)?.response?.data?.detail;
   if (typeof detail === 'string' && detail.trim()) return detail;
-  if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+  if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
   return fallback;
 };
+
+const { Text } = Typography;
 
 const OnlineUsers: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -58,7 +60,6 @@ const OnlineUsers: React.FC = () => {
 
   useEffect(() => {
     void fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audienceScope]);
 
   const filteredRows = useMemo(() => {
@@ -133,18 +134,21 @@ const OnlineUsers: React.FC = () => {
       dataIndex: 'username',
       key: 'username',
       render: (_value: string, record: OnlineUserSession) => (
-        <div className="flex items-center gap-3">
+        <Space align="center" size={12}>
           <Avatar
             src={record.avatar || undefined}
             icon={<UserOutlined />}
             size={36}
-            className="border border-slate-200"
           />
           <div className="min-w-0">
-            <div className="font-medium text-slate-800 truncate">{record.name || record.username}</div>
-            <div className="text-xs text-slate-500 font-mono truncate">{record.username}</div>
+            <Text strong ellipsis style={{ display: 'block', maxWidth: 220 }}>
+              {record.name || record.username}
+            </Text>
+            <Text type="secondary" code ellipsis style={{ display: 'block', maxWidth: 220 }}>
+              {record.username}
+            </Text>
           </div>
-        </div>
+        </Space>
       ),
     },
     {
@@ -170,7 +174,7 @@ const OnlineUsers: React.FC = () => {
       dataIndex: 'total_sessions',
       key: 'total_sessions',
       width: 100,
-      render: (value: number) => <span className="font-semibold text-slate-700">{value}</span>,
+      render: (value: number) => <Text strong>{value}</Text>,
     },
     {
       title: t('onlineUsers.table.status'),
@@ -207,47 +211,46 @@ const OnlineUsers: React.FC = () => {
   ];
 
   return (
-    <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+    <div className="admin-page admin-page-spaced">
       <AppPageHeader
         title={t('onlineUsers.page.title')}
         subtitle={t('onlineUsers.page.subtitle')}
         action={
           <Space>
-            <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchData}>
+            <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={() => void fetchData()}>
               {t('common.buttons.refresh')}
             </AppButton>
           </Space>
         }
       />
 
-      <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] mb-4 p-1" styles={{ body: { padding: '12px 16px' } }}>
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <Space wrap>
-            <Input.Search
-              allowClear
-              placeholder={t('onlineUsers.filters.searchPlaceholder')}
-              style={{ width: 320 }}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onSearch={() => void fetchData()}
-            />
-            <Select
-              value={audienceScope}
-              style={{ width: 180 }}
-              onChange={(value) => setAudienceScope(value)}
-              options={[
-                { label: t('onlineUsers.filters.allSessions'), value: 'all' },
-                { label: t('onlineUsers.filters.portalSessions'), value: 'portal' },
-                { label: t('onlineUsers.filters.adminSessions'), value: 'admin' },
-              ]}
-            />
-          </Space>
-
-          {selectedRowKeys.length > 0 && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
-              <span className="text-sm text-slate-500 font-medium mr-2">
+      <AppFilterBar>
+        <AppFilterBar.Search
+          placeholder={t('onlineUsers.filters.searchPlaceholder')}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onSearch={setSearchText}
+          style={{ width: 320 }}
+        />
+        <AppFilterBar.Select
+          value={audienceScope}
+          width={180}
+          allowClear={false}
+          onChange={(value) => setAudienceScope(value)}
+          options={[
+            { label: t('onlineUsers.filters.allSessions'), value: 'all' },
+            { label: t('onlineUsers.filters.portalSessions'), value: 'portal' },
+            { label: t('onlineUsers.filters.adminSessions'), value: 'admin' },
+          ]}
+        />
+        <AppFilterBar.Action>
+          <Space size={12}>
+            {selectedRowKeys.length > 0 && (
+              <Text type="secondary">
                 {t('onlineUsers.batch.selected', { count: selectedRowKeys.length })}
-              </span>
+              </Text>
+            )}
+            {selectedRowKeys.length > 0 && (
               <AppButton
                 intent="danger"
                 size="sm"
@@ -257,12 +260,12 @@ const OnlineUsers: React.FC = () => {
               >
                 {t('onlineUsers.batch.kickButton')}
               </AppButton>
-            </div>
-          )}
-        </div>
-      </Card>
+            )}
+          </Space>
+        </AppFilterBar.Action>
+      </AppFilterBar>
 
-      <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+      <Card className="admin-card overflow-hidden">
         <AppTable
           rowKey="user_id"
           loading={loading}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Input, Select, DatePicker } from 'antd';
+import { Flex, Input, Select, DatePicker } from 'antd';
 import type { InputProps } from 'antd';
 import type { SelectProps } from 'antd';
 import type { RangePickerProps } from 'antd/es/date-picker';
@@ -38,11 +38,14 @@ const AppFilterBar: React.FC<AppFilterBarProps> & {
     Action: React.FC<FilterActionProps>;
 } = ({ children, className = '' }) => {
     return (
-        <div
-            className={`app-filter-bar bg-white dark:bg-slate-800 rounded-xl p-4 mb-4 border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-3 ${className}`.trim()}
+        <Flex
+            align="center"
+            gap={12}
+            wrap
+            className={`app-filter-bar ${className}`.trim()}
         >
             {children}
-        </div>
+        </Flex>
     );
 };
 
@@ -105,7 +108,7 @@ const FilterDateRange: React.FC<FilterDateRangeProps> = ({
 
 const FilterAction: React.FC<FilterActionProps> = ({ children }) => {
     return (
-        <div className="app-filter-action flex items-center gap-2 ml-auto">
+        <div className="app-filter-action">
             {children}
         </div>
     );

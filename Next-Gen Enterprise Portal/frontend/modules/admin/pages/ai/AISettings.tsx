@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Switch, message, Upload, Select } from 'antd';
+import { App, Avatar, Card, Col, Form, Input, List, Row, Select, Space, Switch, Typography, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppPageHeader } from '@/modules/admin/components/ui';
+
+const { Text, Title } = Typography;
 
 const AISettings: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
     const [imageUrl, setImageUrl] = useState<string>('');
@@ -67,23 +70,25 @@ const AISettings: React.FC = () => {
     };
 
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('aiSettingsPage.page.title')}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('aiSettingsPage.page.subtitle')}</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<SaveOutlined />}
-                    onClick={() => form.submit()}
-                    loading={loading}
-                >{t('aiSettingsPage.page.saveButton')}</AppButton>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('aiSettingsPage.page.title')}
+                subtitle={t('aiSettingsPage.page.subtitle')}
+                action={
+                    <AppButton
+                        intent="primary"
+                        icon={<SaveOutlined />}
+                        onClick={() => form.submit()}
+                        loading={loading}
+                    >
+                        {t('aiSettingsPage.page.saveButton')}
+                    </AppButton>
+                }
+            />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Row gutter={[24, 24]}>
+                <Col xs={24} lg={16}>
+                    <Card className="admin-card overflow-hidden">
                         <Form
                             form={form}
                             layout="vertical"
@@ -134,7 +139,7 @@ const AISettings: React.FC = () => {
                                 label={t('aiSettingsPage.form.name')}
                                 rules={[{ required: true, message: t('aiSettingsPage.form.validation.nameRequired') }]}
                             >
-                                <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder={t('aiSettingsPage.form.placeholders.name')} className="h-10 rounded-lg" />
+                                <Input prefix={<RobotOutlined />} placeholder={t('aiSettingsPage.form.placeholders.name')} />
                             </Form.Item>
 
                             <Form.Item
@@ -142,7 +147,7 @@ const AISettings: React.FC = () => {
                                 label={t('aiSettingsPage.form.icon')}
                                 help={t('aiSettingsPage.form.iconHelp')}
                             >
-                                <div className="flex gap-3">
+                                <Space.Compact style={{ width: '100%' }}>
                                     <Input
                                         value={imageUrl}
                                         onChange={(e) => {
@@ -150,8 +155,7 @@ const AISettings: React.FC = () => {
                                             form.setFieldValue('ai_icon', e.target.value);
                                         }}
                                         placeholder={t('aiSettingsPage.form.placeholders.iconUrl')}
-                                        className="h-10 rounded-lg flex-1"
-                                        prefix={<UploadOutlined className="text-slate-400" />}
+                                        prefix={<UploadOutlined />}
                                     />
                                     <Upload
                                         accept="image/png"
@@ -178,44 +182,47 @@ const AISettings: React.FC = () => {
                                     >
                                         <AppButton intent="secondary" icon={<UploadOutlined />}>{t('aiSettingsPage.form.uploadPng')}</AppButton>
                                     </Upload>
-                                </div>
+                                </Space.Compact>
                             </Form.Item>
                         </Form>
                     </Card>
-                </div>
+                </Col>
 
-                <div className="lg:col-span-1">
-                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full">
-                        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-6">{t('aiSettingsPage.preview.title')}</h3>
+                <Col xs={24} lg={8}>
+                    <Card className="admin-card h-full">
+                        <Space direction="vertical" size="large" style={{ width: '100%', alignItems: 'center' }}>
+                            <Title level={5} style={{ margin: 0 }}>{t('aiSettingsPage.preview.title')}</Title>
 
-                            <div className="relative group cursor-pointer">
-                                <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 overflow-hidden transition-transform duration-300 group-hover:scale-110">
-                                    {imageUrl ? (
-                                        <img src={imageUrl} alt="AI Icon" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = ''; setImageUrl(''); }} />
-                                    ) : (
-                                        <SparklesIcon />
-                                    )}
-                                </div>
-                            </div>
+                            <Avatar
+                                size={64}
+                                src={imageUrl || undefined}
+                                icon={!imageUrl ? <SparklesIcon /> : undefined}
+                                shape="circle"
+                            />
 
-                            <h4 className="mt-4 font-bold text-slate-800 dark:text-white">
-                                {form.getFieldValue('ai_name') || t('aiSettingsPage.preview.defaultName')}
-                            </h4>
-                            <p className="text-xs text-slate-400 mt-1">{t('aiSettingsPage.preview.tip')}</p>
+                            <Space direction="vertical" size={4} style={{ width: '100%', textAlign: 'center' }}>
+                                <Text strong>{form.getFieldValue('ai_name') || t('aiSettingsPage.preview.defaultName')}</Text>
+                                <Text type="secondary">{t('aiSettingsPage.preview.tip')}</Text>
+                            </Space>
 
-                            <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-left w-full">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">{t('aiSettingsPage.preview.notesTitle')}</span>
-                                <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-2 list-disc list-inside">
-                                    <li>{t('aiSettingsPage.preview.notes.iconFormats')}</li>
-                                    <li>{t('aiSettingsPage.preview.notes.recommendedSize')}</li>
-                                    <li>{t('aiSettingsPage.preview.notes.toggleEffective')}</li>
-                                </ul>
-                            </div>
-                        </div>
+                            <Card size="small" className="admin-card-subtle" style={{ width: '100%' }}>
+                                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                                    <Text strong>{t('aiSettingsPage.preview.notesTitle')}</Text>
+                                    <List
+                                        size="small"
+                                        dataSource={[
+                                            t('aiSettingsPage.preview.notes.iconFormats'),
+                                            t('aiSettingsPage.preview.notes.recommendedSize'),
+                                            t('aiSettingsPage.preview.notes.toggleEffective'),
+                                        ]}
+                                        renderItem={(item) => <List.Item>{item}</List.Item>}
+                                    />
+                                </Space>
+                            </Card>
+                        </Space>
                     </Card>
-                </div>
-            </div>
+                </Col>
+            </Row>
         </div>
     );
 };

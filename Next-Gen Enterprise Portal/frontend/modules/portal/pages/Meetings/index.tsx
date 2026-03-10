@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Empty, Skeleton, Tag } from 'antd';
-import { ArrowLeft, CalendarClock, Clock3, MapPin, Monitor, RefreshCw, Search, Users, X } from 'lucide-react';
+import { Alert, App, Button, DatePicker, Drawer, Empty, Form, Input, InputNumber, Modal, Select, Skeleton, Tag } from 'antd';
+import { ArrowLeft, CalendarClock, Clock3, MapPin, Monitor, Plus, Search } from 'lucide-react';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
 import portalMeetingService, { type PortalMeetingListItem } from '@/modules/portal/services/meetings';
@@ -27,50 +28,112 @@ interface MeetingsPageProps {
   onBack?: () => void;
 }
 
+interface PortalMeetingFormValues {
+  subject: string;
+  startTime: Dayjs;
+  durationMinutes: number;
+  meetingType: 'online' | 'offline';
+  meetingRoom: string;
+  meetingSoftware: string;
+  meetingId: string;
+  attendees: string[];
+}
+
+type LicenseErrorDetail = {
+  code?: string;
+  message?: string;
+};
+
+const extractLicenseErrorDetail = (error: unknown): LicenseErrorDetail => {
+  if (!error || typeof error !== 'object') return {};
+  const response = (error as { response?: unknown }).response;
+  if (!response || typeof response !== 'object') return {};
+  const data = (response as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return {};
+  const detail = (data as { detail?: unknown }).detail;
+  if (!detail || typeof detail !== 'object') return {};
+  return {
+    code: typeof (detail as { code?: unknown }).code === 'string' ? (detail as { code?: string }).code : undefined,
+    message: typeof (detail as { message?: unknown }).message === 'string' ? (detail as { message?: string }).message : undefined,
+  };
+};
+
+const isMeetingLicenseBlockedError = (error: unknown): boolean => {
+  const detail = extractLicenseErrorDetail(error);
+  return detail.code === 'LICENSE_REQUIRED' || detail.code === 'LICENSE_READ_ONLY';
+};
+
+const buildDefaultMeetingStartTime = (): Dayjs => dayjs().add(30, 'minute').second(0).millisecond(0);
+
+const resolveMeetingVenue = (meeting: Pick<PortalMeetingListItem, 'meetingType' | 'meetingRoom' | 'meetingSoftware'>): string => (
+  meeting.meetingType === 'online'
+    ? (meeting.meetingSoftware || meeting.meetingRoom)
+    : meeting.meetingRoom
+);
+
 const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
+  const [form] = Form.useForm<PortalMeetingFormValues>();
+  const createMeetingType = Form.useWatch('meetingType', form) ?? 'online';
   const [meetings, setMeetings] = useState<PortalMeetingListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('');
   const [subjectQuery, setSubjectQuery] = useState('');
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'online' | 'offline'>('all');
   const [meetingStatusFilter, setMeetingStatusFilter] = useState<MeetingStatusFilter>('all');
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [meetingLicenseBlocked, setMeetingLicenseBlocked] = useState(false);
+  const [meetingLicenseBlockedMessage, setMeetingLicenseBlockedMessage] = useState('');
 
   const loadMeetings = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'initial') {
       setLoading(true);
-    } else {
-      setRefreshing(true);
     }
 
     try {
       const data = await portalMeetingService.listTodayMeetings();
       setMeetings(data);
       setLastUpdatedAt(dayjs().format('HH:mm:ss'));
+      setMeetingLicenseBlocked(false);
+      setMeetingLicenseBlockedMessage('');
+    } catch (error) {
+      if (isMeetingLicenseBlockedError(error)) {
+        const detail = extractLicenseErrorDetail(error);
+        setMeetings([]);
+        setMeetingLicenseBlocked(true);
+        setMeetingLicenseBlockedMessage(detail.message || t('portalMeetings.licenseBlocked'));
+        setSelectedMeetingId(null);
+        setCreateModalOpen(false);
+        return;
+      }
+      throw error;
     } finally {
       if (mode === 'initial') {
         setLoading(false);
-      } else {
-        setRefreshing(false);
       }
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
-    void loadMeetings('initial');
+    void loadMeetings('initial').catch((error) => {
+      console.error('Failed to fetch today meetings', error);
+    });
   }, [loadMeetings]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void loadMeetings('refresh');
+      if (document.visibilityState === 'visible' && !meetingLicenseBlocked) {
+        void loadMeetings('refresh').catch((error) => {
+          console.error('Failed to refresh today meetings', error);
+        });
       }
     }, POLL_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [loadMeetings]);
+  }, [loadMeetings, meetingLicenseBlocked]);
 
   const filteredMeetings = useMemo(() => {
     const normalizedQuery = subjectQuery.trim().toLowerCase();
@@ -78,7 +141,7 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
       const matchesQuery = !normalizedQuery
         || item.subject.toLowerCase().includes(normalizedQuery)
         || item.organizer.toLowerCase().includes(normalizedQuery)
-        || item.meetingRoom.toLowerCase().includes(normalizedQuery);
+        || resolveMeetingVenue(item).toLowerCase().includes(normalizedQuery);
       const matchesType = meetingTypeFilter === 'all' || item.meetingType === meetingTypeFilter;
       const matchesStatus = meetingStatusFilter === 'all' || getMeetingStatus(item) === meetingStatusFilter;
       return matchesQuery && matchesType && matchesStatus;
@@ -96,18 +159,72 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
 
   const hasActiveFilters = subjectQuery.trim().length > 0 || meetingTypeFilter !== 'all' || meetingStatusFilter !== 'all';
 
-  const handleResetFilters = (): void => {
-    setSubjectQuery('');
-    setMeetingTypeFilter('all');
-    setMeetingStatusFilter('all');
-  };
-
   const openMeetingDetail = (meetingId: string): void => {
     setSelectedMeetingId(meetingId);
   };
 
   const closeMeetingDetail = (): void => {
     setSelectedMeetingId(null);
+  };
+
+  const openCreateMeetingModal = (): void => {
+    if (meetingLicenseBlocked) {
+      message.warning(meetingLicenseBlockedMessage || t('portalMeetings.licenseBlocked'));
+      return;
+    }
+    form.setFieldsValue({
+      subject: '',
+      startTime: buildDefaultMeetingStartTime(),
+      durationMinutes: 60,
+      meetingType: 'online',
+      meetingRoom: '',
+      meetingSoftware: '',
+      meetingId: '',
+      attendees: [],
+    });
+    setCreateModalOpen(true);
+  };
+
+  const closeCreateMeetingModal = (): void => {
+    setCreateModalOpen(false);
+    form.resetFields();
+  };
+
+  const handleCreateMeeting = async (): Promise<void> => {
+    const values = await form.validateFields();
+    const attendees = values.attendees
+      .map((attendee) => String(attendee || '').trim())
+      .filter(Boolean);
+
+    setCreating(true);
+    try {
+      await portalMeetingService.createMeeting({
+        subject: values.subject.trim(),
+        startTime: values.startTime.toISOString(),
+        durationMinutes: values.durationMinutes,
+        meetingType: values.meetingType,
+        meetingRoom: values.meetingRoom.trim(),
+        meetingSoftware: values.meetingSoftware.trim(),
+        meetingId: values.meetingId.trim(),
+        attendees,
+      });
+      message.success(t('portalMeetings.messages.createSuccess', '会议已创建'));
+      closeCreateMeetingModal();
+      await loadMeetings('refresh');
+    } catch (error) {
+      if (isMeetingLicenseBlockedError(error)) {
+        const detail = extractLicenseErrorDetail(error);
+        setMeetingLicenseBlocked(true);
+        setMeetingLicenseBlockedMessage(detail.message || t('portalMeetings.licenseBlocked'));
+        setCreateModalOpen(false);
+        message.warning(detail.message || t('portalMeetings.licenseBlocked'));
+        return;
+      }
+      message.error(t('portalMeetings.messages.createFailed', '创建会议失败'));
+      throw error;
+    } finally {
+      setCreating(false);
+    }
   };
 
   const statusLabel = (meeting: PortalMeetingListItem): string => {
@@ -131,6 +248,26 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
     }
     return 'bg-blue-100 text-blue-700';
   };
+
+  const isOnlineMeeting = createMeetingType === 'online';
+  const createMeetingVenueLabel = isOnlineMeeting
+    ? t('portalMeetings.form.meetingSoftware', '会议软件')
+    : t('portalMeetings.form.room', '会议室');
+  const createMeetingVenuePlaceholder = isOnlineMeeting
+    ? t('portalMeetings.form.meetingSoftwarePlaceholder', '例如：腾讯会议 / 飞书会议 / Teams')
+    : t('portalMeetings.form.roomPlaceholder', '例如：18F 星海会议室');
+  const createMeetingVenueValidation = isOnlineMeeting
+    ? t('portalMeetings.validation.meetingSoftware', '请输入会议软件')
+    : t('portalMeetings.validation.room', '请输入会议室');
+  const createMeetingIdLabel = isOnlineMeeting
+    ? t('portalMeetings.form.onlineMeetingId', '会议 ID / 会议链接')
+    : t('portalMeetings.form.meetingId', '会议 ID');
+  const createMeetingIdPlaceholder = isOnlineMeeting
+    ? t('portalMeetings.form.onlineMeetingIdPlaceholder', '例如：904-123-456 或 https://meeting.tencent.com/xxx')
+    : t('portalMeetings.form.meetingIdPlaceholder', '例如：腾讯会议 904-123-456');
+  const createMeetingIdValidation = isOnlineMeeting
+    ? t('portalMeetings.validation.onlineMeetingId', '请输入会议 ID 或会议链接')
+    : t('portalMeetings.validation.meetingId', '请输入会议 ID');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-8 min-h-[80vh]">
@@ -169,13 +306,12 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
             </div>
           ))}
           <Button
-            onClick={() => {
-              void loadMeetings('refresh');
-            }}
-            className="!h-12 !rounded-full !border-slate-200 !px-5 !font-bold"
-            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+            onClick={openCreateMeetingModal}
+            disabled={meetingLicenseBlocked}
+            className="!h-12 !rounded-full !border-slate-950 !bg-slate-950 !px-5 !font-bold !text-white shadow-lg shadow-slate-900/15 transition-all hover:!border-slate-800 hover:!bg-slate-800 hover:!text-white"
+            icon={<Plus size={16} />}
           >
-            {t('portalMeetings.actions.refresh', '立即刷新')}
+            {t('portalMeetings.actions.create', '创建会议')}
           </Button>
         </div>
       </div>
@@ -199,176 +335,167 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
           </div>
 
           <div className="mt-6 space-y-4">
-            <div className="rounded-[1.5rem] bg-slate-50/80 p-4 dark:bg-slate-900/40">
-              <div className="flex flex-col gap-3">
-                <div className="relative flex-1">
-                  <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={subjectQuery}
-                    onChange={(event) => setSubjectQuery(event.target.value)}
-                    placeholder={t('portalMeetings.filters.searchPlaceholder', '搜索会议主题 / 发起人 / 会议室')}
-                    className="h-12 w-full rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
+            {meetingLicenseBlocked ? (
+              <>
+                <Alert
+                  showIcon
+                  type="warning"
+                  className="!rounded-2xl"
+                  message={t('portalMeetings.licenseBlockedTitle', '会议功能未授权')}
+                  description={meetingLicenseBlockedMessage || t('portalMeetings.licenseBlocked')}
+                />
+                <div className="rounded-[1.75rem] border border-dashed border-amber-200 bg-amber-50/70 py-20 dark:border-amber-900/40 dark:bg-amber-950/20">
+                  <Empty
+                    description={meetingLicenseBlockedMessage || t('portalMeetings.licenseBlocked')}
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
                   />
                 </div>
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {t('portalMeetings.filters.type', '会议类型')}
-                      </span>
-                      {([
-                        { key: 'all', label: t('portalMeetings.filters.all', '全部') },
-                        { key: 'online', label: t('portalMeetings.types.online', '线上') },
-                        { key: 'offline', label: t('portalMeetings.types.offline', '线下') },
-                      ] as const).map((filter) => (
-                        <button
-                          key={filter.key}
-                          type="button"
-                          onClick={() => setMeetingTypeFilter(filter.key)}
-                          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${meetingTypeFilter === filter.key
-                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                            : 'bg-white text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                            }`}
-                        >
-                          {filter.label}
-                        </button>
-                      ))}
+              </>
+            ) : (
+              <>
+                <div className="rounded-[1.5rem] bg-slate-50/80 p-4 dark:bg-slate-900/40">
+                  <div className="flex flex-col gap-3">
+                    <div className="relative flex-1">
+                      <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={subjectQuery}
+                        onChange={(event) => setSubjectQuery(event.target.value)}
+                        placeholder={t('portalMeetings.filters.searchPlaceholder', '搜索会议主题 / 发起人 / 会议室 / 会议软件')}
+                        className="h-12 w-full rounded-full border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500/40 dark:focus:ring-blue-500/10"
+                      />
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {t('portalMeetings.filters.status', '会议状态')}
-                      </span>
-                      {([
-                        { key: 'all', label: t('portalMeetings.filters.all', '全部') },
-                        { key: 'upcoming', label: t('portalMeetings.status.upcoming', '即将开始') },
-                        { key: 'inProgress', label: t('portalMeetings.status.inProgress', '进行中') },
-                        { key: 'finished', label: t('portalMeetings.status.finished', '已结束') },
-                      ] as const).map((filter) => (
-                        <button
-                          key={filter.key}
-                          type="button"
-                          onClick={() => setMeetingStatusFilter(filter.key)}
-                          className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${meetingStatusFilter === filter.key
-                            ? 'bg-blue-600 text-white dark:bg-blue-500'
-                            : 'bg-white text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                            }`}
-                        >
-                          {filter.label}
-                        </button>
-                      ))}
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {t('portalMeetings.filters.type', '会议类型')}
+                          </span>
+                          {([
+                            { key: 'all', label: t('portalMeetings.filters.all', '全部') },
+                            { key: 'online', label: t('portalMeetings.types.online', '线上') },
+                            { key: 'offline', label: t('portalMeetings.types.offline', '线下') },
+                          ] as const).map((filter) => (
+                            <button
+                              key={filter.key}
+                              type="button"
+                              onClick={() => setMeetingTypeFilter(filter.key)}
+                              className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${meetingTypeFilter === filter.key
+                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                : 'bg-white text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                                }`}
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {t('portalMeetings.filters.status', '会议状态')}
+                          </span>
+                          {([
+                            { key: 'all', label: t('portalMeetings.filters.all', '全部') },
+                            { key: 'upcoming', label: t('portalMeetings.status.upcoming', '即将开始') },
+                            { key: 'inProgress', label: t('portalMeetings.status.inProgress', '进行中') },
+                            { key: 'finished', label: t('portalMeetings.status.finished', '已结束') },
+                          ] as const).map((filter) => (
+                            <button
+                              key={filter.key}
+                              type="button"
+                              onClick={() => setMeetingStatusFilter(filter.key)}
+                              className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${meetingStatusFilter === filter.key
+                                ? 'bg-blue-600 text-white dark:bg-blue-500'
+                                : 'bg-white text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                                }`}
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  {hasActiveFilters ? (
-                    <button
-                      type="button"
-                      onClick={handleResetFilters}
-                      className="inline-flex items-center gap-1 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-rose-500"
-                    >
-                      <X size={14} />
-                      {t('portalMeetings.actions.resetFilters', '清空筛选')}
-                    </button>
-                  ) : null}
                 </div>
-              </div>
-            </div>
 
-            {loading ? (
-              Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="rounded-[1.75rem] border border-slate-100 bg-white/70 p-5">
-                  <Skeleton active paragraph={{ rows: 2 }} title={{ width: '45%' }} />
-                </div>
-              ))
-            ) : filteredMeetings.length === 0 ? (
-              <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 py-20">
-                <Empty
-                  description={hasActiveFilters
-                    ? t('portalMeetings.emptyFiltered', '没有符合筛选条件的会议')
-                    : t('portalMeetings.empty', '今天还没有会议安排')}
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                />
-              </div>
-            ) : (
-              filteredMeetings.map((meeting) => (
-                <button
-                  key={meeting.meetingId}
-                  type="button"
-                  onClick={() => openMeetingDetail(meeting.meetingId)}
-                  className="group w-full rounded-[1.75rem] border border-white/50 bg-white/70 p-5 text-left shadow-lg shadow-slate-200/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-100 dark:bg-slate-800/60 dark:shadow-none dark:focus:ring-blue-500/10"
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                          <CalendarClock size={18} />
-                        </span>
-                        <div>
-                          <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
-                            {meeting.subject}
-                          </h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${statusStyles(meeting)}`}>
-                              {statusLabel(meeting)}
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="rounded-[1.75rem] border border-slate-100 bg-white/70 p-5">
+                      <Skeleton active paragraph={{ rows: 2 }} title={{ width: '45%' }} />
+                    </div>
+                  ))
+                ) : filteredMeetings.length === 0 ? (
+                  <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 py-20">
+                    <Empty
+                      description={hasActiveFilters
+                        ? t('portalMeetings.emptyFiltered', '没有符合筛选条件的会议')
+                        : t('portalMeetings.empty', '今天还没有会议安排')}
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    />
+                  </div>
+                ) : (
+                  filteredMeetings.map((meeting) => (
+                    <button
+                      key={meeting.meetingId}
+                      type="button"
+                      onClick={() => openMeetingDetail(meeting.meetingId)}
+                      className="group w-full rounded-[1.75rem] border border-white/50 bg-white/70 p-5 text-left shadow-lg shadow-slate-200/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-100 dark:bg-slate-800/60 dark:shadow-none dark:focus:ring-blue-500/10"
+                    >
+                      <div className="flex flex-col gap-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex min-w-0 flex-wrap items-center gap-3">
+                            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                              <CalendarClock size={18} />
                             </span>
-                            <Tag color={meeting.meetingType === 'online' ? 'blue' : 'gold'}>
-                              {meeting.meetingType === 'online'
-                                ? t('portalMeetings.types.online', '线上')
-                                : t('portalMeetings.types.offline', '线下')}
-                            </Tag>
-                            <span className="text-[11px] font-bold text-slate-400">
-                              ID: {meeting.meetingId}
-                            </span>
-                            <span className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-500 transition group-hover:text-blue-600">
+                            <div className="min-w-0">
+                              <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                                {meeting.subject}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${statusStyles(meeting)}`}>
+                                  {statusLabel(meeting)}
+                                </span>
+                                <Tag color={meeting.meetingType === 'online' ? 'blue' : 'gold'}>
+                                  {meeting.meetingType === 'online'
+                                    ? t('portalMeetings.types.online', '线上')
+                                    : t('portalMeetings.types.offline', '线下')}
+                                </Tag>
+                                <span className="text-[11px] font-bold text-slate-400">
+                                  {meeting.meetingType === 'online'
+                                    ? t('portalMeetings.labels.meetingIdOrLink', '会议 ID / 链接')
+                                    : t('portalMeetings.labels.meetingIdShort', 'ID')}
+                                  : {meeting.meetingId}
+                                </span>
+                              </div>
+                            </div>
+                            </div>
+                            <span className="shrink-0 pt-1 text-[11px] font-black uppercase tracking-[0.14em] text-blue-500 transition group-hover:text-blue-600">
                               {t('portalMeetings.actions.viewDetail', '查看详情')}
                             </span>
                           </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                              <Clock3 size={15} className="text-slate-400" />
+                              <span>{dayjs(meeting.startTime).format('HH:mm')}</span>
+                              <span className="text-slate-300">/</span>
+                              <span>{t('portalMeetings.duration', '{{count}} 分钟', { count: meeting.durationMinutes })}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                              {meeting.meetingType === 'online' ? (
+                                <Monitor size={15} className="text-slate-400" />
+                              ) : (
+                                <MapPin size={15} className="text-slate-400" />
+                              )}
+                              <span className="truncate">{resolveMeetingVenue(meeting)}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                          <Clock3 size={15} className="text-slate-400" />
-                          <span>{dayjs(meeting.startTime).format('HH:mm')}</span>
-                          <span className="text-slate-300">/</span>
-                          <span>{t('portalMeetings.duration', '{{count}} 分钟', { count: meeting.durationMinutes })}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                          {meeting.meetingType === 'online' ? (
-                            <Monitor size={15} className="text-slate-400" />
-                          ) : (
-                            <MapPin size={15} className="text-slate-400" />
-                          )}
-                          <span className="truncate">{meeting.meetingRoom}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[1.5rem] bg-slate-50/80 px-4 py-3 dark:bg-slate-900/50">
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {t('portalMeetings.organizer', '发起人')}
-                      </div>
-                      <div className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-100">{meeting.organizer}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-700">
-                    <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                      <Users size={14} />
-                      {t('portalMeetings.attendees', '参会人')}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {meeting.attendees.map((attendee) => (
-                        <span
-                          key={`${meeting.meetingId}-${attendee}`}
-                          className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                        >
-                          {attendee}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </button>
-              ))
+                    </button>
+                  ))
+                )}
+              </>
             )}
           </div>
         </section>
@@ -378,7 +505,11 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
               {t('portalMeetings.sections.nextMeeting', '下一场')}
             </div>
-            {nextMeeting ? (
+            {meetingLicenseBlocked ? (
+              <div className="mt-4 rounded-[1.5rem] bg-amber-50 px-4 py-6 text-sm text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">
+                {meetingLicenseBlockedMessage || t('portalMeetings.licenseBlocked')}
+              </div>
+            ) : nextMeeting ? (
               <button
                 type="button"
                 onClick={() => openMeetingDetail(nextMeeting.meetingId)}
@@ -406,7 +537,7 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
                   </div>
                 </div>
                 <div className="rounded-[1.5rem] bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-                  {nextMeeting.meetingRoom}
+                  {resolveMeetingVenue(nextMeeting)}
                 </div>
               </button>
             ) : (
@@ -463,15 +594,19 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
                 </div>
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    {t('portalMeetings.drawer.room', '会议室')}
+                    {selectedMeeting.meetingType === 'online'
+                      ? t('portalMeetings.drawer.meetingSoftware', '会议软件')
+                      : t('portalMeetings.drawer.room', '会议室')}
                   </div>
                   <div className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {selectedMeeting.meetingRoom}
+                    {resolveMeetingVenue(selectedMeeting)}
                   </div>
                 </div>
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800">
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    {t('portalMeetings.drawer.meetingId', '会议 ID')}
+                    {selectedMeeting.meetingType === 'online'
+                      ? t('portalMeetings.drawer.onlineMeetingId', '会议 ID / 会议链接')
+                      : t('portalMeetings.drawer.meetingId', '会议 ID')}
                   </div>
                   <div className="mt-2 break-all text-sm font-bold text-slate-800 dark:text-slate-100">
                     {selectedMeeting.meetingId}
@@ -524,6 +659,91 @@ const MeetingsPage: React.FC<MeetingsPageProps> = ({ onBack }) => {
           </div>
         ) : null}
       </Drawer>
+
+      <Modal
+        open={createModalOpen}
+        title={t('portalMeetings.modal.title', '创建会议')}
+        okText={t('portalMeetings.actions.create', '创建会议')}
+        cancelText={t('common.buttons.cancel', '取消')}
+        confirmLoading={creating}
+        onOk={() => {
+          void handleCreateMeeting().catch(() => undefined);
+        }}
+        onCancel={closeCreateMeetingModal}
+        destroyOnHidden
+      >
+        <p className="mb-5 text-sm text-slate-500">
+          {t('portalMeetings.modal.tip', '请手动填写会议 ID，例如腾讯会议、飞书会议等平台生成的入会编号。')}
+        </p>
+        <Form<PortalMeetingFormValues> form={form} layout="vertical">
+          <Form.Item
+            name="subject"
+            label={t('portalMeetings.form.subject', '会议主题')}
+            rules={[{ required: true, message: t('portalMeetings.validation.subject', '请输入会议主题') }]}
+          >
+            <Input placeholder={t('portalMeetings.form.subjectPlaceholder', '例如：产品周会 / 项目复盘')} />
+          </Form.Item>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Form.Item
+              name="startTime"
+              label={t('portalMeetings.form.startTime', '开始时间')}
+              rules={[{ required: true, message: t('portalMeetings.validation.startTime', '请选择开始时间') }]}
+            >
+              <DatePicker
+                showTime
+                format="YYYY-MM-DD HH:mm"
+                className="w-full"
+                placeholder={t('portalMeetings.form.startTimePlaceholder', '选择会议开始时间')}
+              />
+            </Form.Item>
+            <Form.Item
+              name="durationMinutes"
+              label={t('portalMeetings.form.duration', '会议时长（分钟）')}
+              rules={[{ required: true, message: t('portalMeetings.validation.duration', '请输入会议时长') }]}
+            >
+              <InputNumber min={15} max={1440} step={15} className="w-full" />
+            </Form.Item>
+            <Form.Item
+              name="meetingType"
+              label={t('portalMeetings.form.meetingType', '会议类型')}
+              rules={[{ required: true, message: t('portalMeetings.validation.meetingType', '请选择会议类型') }]}
+            >
+              <Select
+                options={[
+                  { value: 'online', label: t('portalMeetings.types.online', '线上') },
+                  { value: 'offline', label: t('portalMeetings.types.offline', '线下') },
+                ]}
+                placeholder={t('portalMeetings.form.meetingTypePlaceholder', '选择会议类型')}
+              />
+            </Form.Item>
+            <Form.Item
+              name={isOnlineMeeting ? 'meetingSoftware' : 'meetingRoom'}
+              label={createMeetingVenueLabel}
+              rules={[{ required: true, message: createMeetingVenueValidation }]}
+            >
+              <Input placeholder={createMeetingVenuePlaceholder} />
+            </Form.Item>
+          </div>
+          <Form.Item
+            name="meetingId"
+            label={createMeetingIdLabel}
+            rules={[{ required: true, message: createMeetingIdValidation }]}
+          >
+            <Input placeholder={createMeetingIdPlaceholder} />
+          </Form.Item>
+          <Form.Item
+            name="attendees"
+            label={t('portalMeetings.form.attendees', '参会人')}
+            rules={[{ required: true, type: 'array', min: 1, message: t('portalMeetings.validation.attendees', '请至少填写一位参会人') }]}
+          >
+            <Select
+              mode="tags"
+              tokenSeparators={[',', '，', ';', '；']}
+              placeholder={t('portalMeetings.form.attendeesPlaceholder', '输入姓名后回车，可连续添加多位参会人')}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

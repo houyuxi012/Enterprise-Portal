@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import modules.models as models
 import modules.schemas as schemas
 from core.database import get_db
@@ -14,6 +14,7 @@ import json
 import os
 import logging
 import re
+import httpx
 from application.admin_app import (
     AuditService,
     LicenseService,
@@ -174,6 +175,194 @@ async def _record_log_query_audit(
     except Exception as e:
         logger.warning(f"Failed to persist log query audit ({audit_action}): {e}")
 
+
+def _to_epoch_ms(ts_value: Any) -> int:
+    if not ts_value:
+        return 0
+    if isinstance(ts_value, datetime.datetime):
+        dt = ts_value if ts_value.tzinfo else ts_value.replace(tzinfo=datetime.timezone.utc)
+        return int(dt.timestamp() * 1000)
+    try:
+        text = str(ts_value).replace("T", " ").replace("Z", "")
+        dt = datetime.datetime.fromisoformat(text)
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return int(dt.timestamp() * 1000)
+    except Exception:
+        return 0
+
+
+def _canonical_log_source(source: Optional[str]) -> str:
+    raw = (source or "").strip().lower().replace("+", ",")
+    if not raw:
+        return "db"
+    normalized: List[str] = []
+    for part in raw.split(","):
+        token = part.strip()
+        if not token:
+            continue
+        if token in {"database"}:
+            token = "db"
+        if token not in normalized:
+            normalized.append(token)
+    return ",".join(normalized) or "db"
+
+
+def _merge_log_sources(*sources: Optional[str]) -> str:
+    merged: List[str] = []
+    for source in sources:
+        canonical = _canonical_log_source(source)
+        for part in canonical.split(","):
+            token = part.strip()
+            if token and token not in merged:
+                merged.append(token)
+    return ",".join(merged) or "db"
+
+
+def _normalize_system_log_key(record: Dict[str, Any]) -> tuple[str, str, str, str, str, str]:
+    ts = record.get("timestamp")
+    if isinstance(ts, datetime.datetime):
+        dt = ts if ts.tzinfo else ts.replace(tzinfo=datetime.timezone.utc)
+        ts_key = dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        ts_key = str(ts).replace("T", " ").replace("Z", "").split(".")[0][:19] if ts else ""
+    return (
+        ts_key,
+        str(record.get("module") or ""),
+        str(record.get("request_path") or ""),
+        str(record.get("method") or ""),
+        str(record.get("status_code") or ""),
+        str(record.get("ip_address") or ""),
+    )
+
+
+def _build_ai_audit_record_from_db(log: models.AIAuditLog) -> Dict[str, Any]:
+    ts_epoch = int(log.ts.timestamp() * 1000) if log.ts else 0
+    return {
+        "id": log.id,
+        "event_id": log.event_id,
+        "ts": log.ts,
+        "actor_type": log.actor_type,
+        "actor_id": log.actor_id,
+        "actor_ip": log.actor_ip,
+        "action": log.action,
+        "provider": log.provider,
+        "model": log.model,
+        "status": log.status,
+        "latency_ms": log.latency_ms,
+        "tokens_in": log.tokens_in,
+        "tokens_out": log.tokens_out,
+        "input_policy_result": log.input_policy_result,
+        "output_policy_result": log.output_policy_result,
+        "policy_hits": log.policy_hits,
+        "prompt_hash": log.prompt_hash,
+        "output_hash": log.output_hash,
+        "prompt_preview": log.prompt_preview,
+        "error_code": log.error_code,
+        "error_reason": log.error_reason,
+        "meta_info": log.meta_info,
+        "source": "db",
+        "_epoch": ts_epoch,
+    }
+
+
+async def _query_ai_audit_loki_records(
+    *,
+    fetch_limit: int,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    actor_id: Optional[int] = None,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    event_id: Optional[str] = None,
+) -> Dict[str, Dict[str, Any]]:
+    loki_logs_map: Dict[str, Dict[str, Any]] = {}
+    loki_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
+    if not loki_url:
+        return loki_logs_map
+
+    try:
+        async with httpx.AsyncClient() as client:
+            query_str = '{job="enterprise-portal",source="ai_audit"}'
+            params: Dict[str, str | int] = {"query": query_str, "limit": fetch_limit}
+            if start_time:
+                try:
+                    s_dt = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                    params["start"] = str(int(s_dt.timestamp() * 1e9))
+                except Exception:
+                    pass
+            if end_time:
+                try:
+                    e_dt = datetime.datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+                    params["end"] = str(int(e_dt.timestamp() * 1e9))
+                except Exception:
+                    pass
+
+            resp = await client.get(
+                f"{loki_url}/loki/api/v1/query_range",
+                params=params,
+                timeout=5.0,
+                headers=_loki_headers(),
+            )
+            if resp.status_code != 200:
+                return loki_logs_map
+
+            data = resp.json()
+            loki_id = 100000
+            for stream in data.get("data", {}).get("result", []):
+                for value in stream.get("values", []):
+                    try:
+                        log_data = json.loads(value[1])
+                    except json.JSONDecodeError:
+                        continue
+
+                    current_event_id = log_data.get("event_id", "")
+                    if not current_event_id:
+                        continue
+                    if event_id and current_event_id != event_id:
+                        continue
+                    if actor_id and log_data.get("actor_id") != actor_id:
+                        continue
+                    if provider and log_data.get("provider") != provider:
+                        continue
+                    if model and model not in str(log_data.get("model") or ""):
+                        continue
+                    if status and log_data.get("status") != status:
+                        continue
+
+                    loki_ts_ns = int(value[0])
+                    ts_val = datetime.datetime.fromtimestamp(loki_ts_ns / 1e9, tz=datetime.timezone.utc)
+                    ts_epoch = int(loki_ts_ns / 1e6)
+                    loki_logs_map[current_event_id] = {
+                        "id": loki_id,
+                        "event_id": current_event_id,
+                        "ts": ts_val,
+                        "actor_type": log_data.get("actor_type", "user"),
+                        "actor_id": log_data.get("actor_id"),
+                        "actor_ip": log_data.get("actor_ip"),
+                        "action": log_data.get("action", "CHAT"),
+                        "provider": log_data.get("provider"),
+                        "model": log_data.get("model"),
+                        "status": log_data.get("status", "SUCCESS"),
+                        "latency_ms": log_data.get("latency_ms"),
+                        "tokens_in": log_data.get("tokens_in"),
+                        "tokens_out": log_data.get("tokens_out"),
+                        "input_policy_result": log_data.get("input_policy_result"),
+                        "output_policy_result": log_data.get("output_policy_result"),
+                        "policy_hits": log_data.get("policy_hits"),
+                        "error_code": log_data.get("error_code"),
+                        "error_reason": log_data.get("error_reason"),
+                        "meta_info": log_data.get("meta_info"),
+                        "source": "loki",
+                        "_epoch": ts_epoch,
+                    }
+                    loki_id += 1
+    except Exception as e:
+        logging.warning(f"Loki AI audit query failed: {e}")
+
+    return loki_logs_map
+
 # --- System Logs ---
 
 @router.get("/system", response_model=List[schemas.SystemLog])
@@ -183,21 +372,132 @@ async def read_system_logs(
     level: Optional[str] = None,
     module: Optional[str] = None,
     exclude_module: Optional[str] = None,
+    source: str = Query("all", pattern="^(db|loki|all)$"),
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(PermissionChecker("portal.logs.system.read"))
 ):
-    query = select(models.SystemLog).order_by(desc(models.SystemLog.id))
-    if level:
-        query = query.filter(models.SystemLog.level == level)
-    if module:
-        query = query.filter(models.SystemLog.module == module)
-    if exclude_module:
-        query = query.filter(models.SystemLog.module != exclude_module)
-    
-    result = await db.execute(query.limit(limit).offset(offset))
-    logs = result.scalars().all()
+    fetch_limit = limit + offset
+    db_logs_map: Dict[tuple[str, str, str, str, str, str], Dict[str, Any]] = {}
+    loki_logs_map: Dict[tuple[str, str, str, str, str, str], Dict[str, Any]] = {}
+
+    if source in ("db", "all"):
+        query = select(models.SystemLog).order_by(desc(models.SystemLog.id))
+        if level:
+            query = query.filter(models.SystemLog.level == level)
+        if module:
+            query = query.filter(models.SystemLog.module == module)
+        if exclude_module:
+            query = query.filter(models.SystemLog.module != exclude_module)
+
+        result = await db.execute(query.limit(fetch_limit))
+        logs = result.scalars().all()
+        for log in logs:
+            record = {
+                "id": log.id,
+                "level": log.level,
+                "module": log.module,
+                "message": log.message,
+                "timestamp": log.timestamp,
+                "ip_address": log.ip_address,
+                "request_path": log.request_path,
+                "method": log.method,
+                "status_code": log.status_code,
+                "response_time": log.response_time,
+                "request_size": log.request_size,
+                "user_agent": log.user_agent,
+                "source": "db",
+                "_epoch": _to_epoch_ms(log.timestamp),
+            }
+            db_logs_map[_normalize_system_log_key(record)] = record
+
+    if source in ("loki", "all"):
+        loki_base_url = os.getenv("LOKI_BASE_URL", "http://loki:3100")
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{loki_base_url}/loki/api/v1/query_range",
+                    params={
+                        "query": '{job="enterprise-portal",log_type="SYSTEM"}',
+                        "limit": fetch_limit,
+                    },
+                    timeout=5.0,
+                    headers=_loki_headers(),
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    loki_id = 100000
+                    for stream in data.get("data", {}).get("result", []):
+                        for value in stream.get("values", []):
+                            try:
+                                log_data = json.loads(value[1])
+                            except json.JSONDecodeError:
+                                continue
+
+                            module_name = log_data.get("module") or log_data.get("source") or "SYSTEM"
+                            if level and log_data.get("level") != level:
+                                continue
+                            if module and module_name != module:
+                                continue
+                            if exclude_module and module_name == exclude_module:
+                                continue
+
+                            loki_ts_ns = int(value[0])
+                            ts_val = datetime.datetime.fromtimestamp(loki_ts_ns / 1e9, tz=datetime.timezone.utc)
+                            latency_ms = log_data.get("latency_ms")
+                            request_path = log_data.get("request_path") or log_data.get("path")
+                            method_name = log_data.get("method")
+                            status_code_val = log_data.get("status_code")
+                            message_text = (
+                                log_data.get("message")
+                                or log_data.get("detail")
+                                or f"{method_name or '-'} {request_path or '-'} - {status_code_val or '-'}"
+                            )
+                            record = {
+                                "id": loki_id,
+                                "level": log_data.get("level", "INFO"),
+                                "module": module_name,
+                                "message": message_text,
+                                "timestamp": ts_val,
+                                "ip_address": log_data.get("ip_address"),
+                                "request_path": request_path,
+                                "method": method_name,
+                                "status_code": status_code_val,
+                                "response_time": (latency_ms / 1000.0) if latency_ms is not None else None,
+                                "request_size": log_data.get("request_size"),
+                                "user_agent": log_data.get("user_agent"),
+                                "source": "loki",
+                                "_epoch": int(loki_ts_ns / 1e6),
+                            }
+                            loki_logs_map[_normalize_system_log_key(record)] = record
+                            loki_id += 1
+        except Exception as e:
+            logging.warning(f"System log Loki query failed: {e}")
+
+    if source == "all":
+        results: List[Dict[str, Any]] = []
+        all_keys = set(db_logs_map.keys()) | set(loki_logs_map.keys())
+        for key in all_keys:
+            if key in db_logs_map and key in loki_logs_map:
+                record = db_logs_map[key].copy()
+                record["source"] = _merge_log_sources(record.get("source"), loki_logs_map[key].get("source"))
+                results.append(record)
+            elif key in db_logs_map:
+                results.append(db_logs_map[key])
+            else:
+                results.append(loki_logs_map[key])
+    elif source == "db":
+        results = list(db_logs_map.values())
+    else:
+        results = list(loki_logs_map.values())
+
+    results.sort(key=lambda item: item.get("_epoch", 0), reverse=True)
+    logs = []
+    for item in results[offset : offset + limit]:
+        item.pop("_epoch", None)
+        logs.append(item)
+
     await _record_log_query_audit(
         db=db,
         request=request,
@@ -206,7 +506,7 @@ async def read_system_logs(
         target="系统日志",
         detail=(
             f"level={level or '*'}, module={module or '*'}, "
-            f"exclude_module={exclude_module or '-'}, limit={limit}, "
+            f"exclude_module={exclude_module or '-'}, source={source}, limit={limit}, "
             f"offset={offset}, result_count={len(logs)}"
         ),
         domain="SYSTEM",
@@ -293,7 +593,7 @@ async def read_business_logs(
                 "status": log.status,
                 "detail": log.detail,
                 "timestamp": log.timestamp,
-                "source": "DB",
+                "source": "db",
                 "_epoch": to_epoch_ms(log.timestamp) # Cache for sort
             }
             key = normalize_key(log.timestamp, log.operator, log.action, log.target)
@@ -327,6 +627,11 @@ async def read_business_logs(
                                 op = log_data.get("username", "")
                                 act = log_data.get("action", "")
                                 target = log_data.get("target", "")
+
+                                if operator and operator not in op:
+                                    continue
+                                if action and act != action:
+                                    continue
                                 
                                 log_dict = {
                                     "id": loki_id,
@@ -337,7 +642,7 @@ async def read_business_logs(
                                     "status": log_data.get("status", "SUCCESS"),
                                     "detail": log_data.get("detail", ""),
                                     "timestamp": ts,
-                                    "source": "LOKI",
+                                    "source": "loki",
                                     "_epoch": to_epoch_ms(ts)
                                 }
                                 key = normalize_key(ts, op, act, target)
@@ -358,7 +663,7 @@ async def read_business_logs(
                 record = db_logs_map[key].copy()
                 # Mark as merged if also exists in Loki
                 if key in loki_logs_map:
-                    record["source"] = "DB+LOKI"
+                    record["source"] = _merge_log_sources(record.get("source"), loki_logs_map[key].get("source"))
                 results.append(record)
             else:
                 results.append(loki_logs_map[key])
@@ -404,19 +709,20 @@ async def create_business_log(
     trace_id = request.headers.get("X-Request-ID") if request else None
     client_ip = _get_client_ip(request)
     normalized_action = _normalize_client_action(log.action, prefix="ADMIN_CLIENT_")
-    db_log = models.BusinessLog(
-        operator=current_user.username if current_user else "unknown",
+    db_log = await AuditService.log_business_action(
+        db=db,
+        user_id=current_user.id if current_user else 0,
+        username=current_user.username if current_user else "unknown",
         action=normalized_action,
-        target=_sanitize_client_target(log.target),
-        ip_address=client_ip,
+        target=_sanitize_client_target(log.target) or "",
         status="SUCCESS",
         detail=_sanitize_client_detail(log.detail),
+        ip_address=client_ip,
         trace_id=trace_id,
-        source="WEB",
         domain="BUSINESS",
-        timestamp=datetime.datetime.now(datetime.timezone.utc),
     )
-    db.add(db_log)
+    if db_log is None:
+        raise HTTPException(status_code=500, detail="Failed to create business log")
     await db.commit()
     await db.refresh(db_log)
     return db_log
@@ -436,19 +742,20 @@ async def create_business_log_for_portal(
     trace_id = request.headers.get("X-Request-ID")
     client_ip = _get_client_ip(request)
     normalized_action = _normalize_client_action(log.action, prefix="PORTAL_CLIENT_")
-    db_log = models.BusinessLog(
-        operator=current_user.username,
+    db_log = await AuditService.log_business_action(
+        db=db,
+        user_id=current_user.id,
+        username=current_user.username,
         action=normalized_action,
-        target=_sanitize_client_target(log.target),
-        ip_address=client_ip,
+        target=_sanitize_client_target(log.target) or "",
         status="SUCCESS",
         detail=_sanitize_client_detail(log.detail),
+        ip_address=client_ip,
         trace_id=trace_id,
-        source="WEB",
         domain="BUSINESS",
-        timestamp=datetime.datetime.now(datetime.timezone.utc),
     )
-    db.add(db_log)
+    if db_log is None:
+        raise HTTPException(status_code=500, detail="Failed to create business log")
     await db.commit()
     await db.refresh(db_log)
     return db_log
@@ -464,7 +771,11 @@ async def read_log_configs(
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
     result = await db.execute(select(models.LogForwardingConfig))
-    configs = result.scalars().all()
+    configs = [
+        cfg
+        for cfg in result.scalars().all()
+        if (cfg.type or "").upper().strip() == "SYSLOG"
+    ]
     await _record_log_query_audit(
         db=db,
         request=request,
@@ -489,8 +800,13 @@ async def create_log_config(
     _: None = Depends(_require_log_forwarding_license),
     current_user: models.User = Depends(PermissionChecker("portal.logs.forwarding.admin"))
 ):
+    normalized_type = (config.type or "").upper().strip()
+    if normalized_type != "SYSLOG":
+        raise HTTPException(status_code=400, detail="Only SYSLOG forwarding is supported")
+
     normalized_log_types = _parse_log_types_field(config.log_types)
     payload = config.model_dump()
+    payload["type"] = normalized_type
     payload["log_types"] = json.dumps(
         normalized_log_types,
         ensure_ascii=False
@@ -640,8 +956,8 @@ async def read_ai_audit_logs(
     - source=loki: Query from Loki
     - source=all: Merge results from both, deduplicate by event_id
     """
-    db_logs_map = {}  # key: event_id -> log dict
-    loki_logs_map = {}
+    db_logs_map: Dict[str, Dict[str, Any]] = {}
+    loki_logs_map: Dict[str, Dict[str, Any]] = {}
     
     # Strategy: Fetch (limit + offset) from BOTH sources
     fetch_limit = limit + offset
@@ -677,106 +993,19 @@ async def read_ai_audit_logs(
         db_result = await db.execute(query.limit(fetch_limit))
         db_logs = db_result.scalars().all()
         for log in db_logs:
-            # DB ts is datetime object
-            ts_epoch = int(log.ts.timestamp() * 1000) if log.ts else 0
-            
-            # Hybrid dict for merging
-            log_dict = {
-                "id": log.id,
-                "event_id": log.event_id,
-                "ts": log.ts, # Keep original type for response model (Pydantic handles serialization)
-                "actor_type": log.actor_type,
-                "actor_id": log.actor_id,
-                "actor_ip": log.actor_ip,
-                "action": log.action,
-                "provider": log.provider,
-                "model": log.model,
-                "status": log.status,
-                "latency_ms": log.latency_ms,
-                "tokens_in": log.tokens_in,
-                "tokens_out": log.tokens_out,
-                "input_policy_result": log.input_policy_result,
-                "output_policy_result": log.output_policy_result,
-                "policy_hits": log.policy_hits,
-                "prompt_hash": log.prompt_hash,
-                "output_hash": log.output_hash,
-                "prompt_preview": log.prompt_preview,
-                "error_code": log.error_code,
-                "error_reason": log.error_reason,
-                "source": "db",
-                "_epoch": ts_epoch
-            }
-            db_logs_map[log.event_id] = log_dict
+            db_logs_map[log.event_id] = _build_ai_audit_record_from_db(log)
     
     # Query from Loki (if enabled)
     if source in ("loki", "all"):
-        import os
-        import httpx
-        loki_url = os.getenv("LOKI_PUSH_URL", "http://loki:3100")
-        if loki_url:
-            try:
-                async with httpx.AsyncClient() as client:
-                    query_str = '{job="enterprise-portal",source="ai_audit"}'
-                    params = {"query": query_str, "limit": fetch_limit}
-                    if start_time:
-                         try:
-                             s_dt = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                             params["start"] = str(int(s_dt.timestamp() * 1e9))
-                         except: pass
-                    if end_time:
-                         try:
-                             e_dt = datetime.datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-                             params["end"] = str(int(e_dt.timestamp() * 1e9))
-                         except: pass
-
-                    resp = await client.get(
-                        f"{loki_url}/loki/api/v1/query_range",
-                        params=params,
-                        timeout=5.0,
-                        headers=_loki_headers()
-                    )
-                    if resp.status_code == 200:
-                        import json
-                        data = resp.json()
-                        loki_id = 100000
-                        result_streams = data.get("data", {}).get("result", [])
-                        
-                        for stream in result_streams:
-                            for value in stream.get("values", []):
-                                try:
-                                    log_data = json.loads(value[1])
-                                    event_id = log_data.get("event_id", "")
-                                    
-                                    # Fix: Use Loki timestamp (value[0] is ns string)
-                                    loki_ts_ns = int(value[0])
-                                    ts_val = datetime.datetime.fromtimestamp(loki_ts_ns / 1e9, tz=datetime.timezone.utc)
-                                    ts_epoch = int(loki_ts_ns / 1e6) # ms for sorting
-                                    
-                                    log_dict = {
-                                        "id": loki_id,
-                                        "event_id": event_id,
-                                        "ts": ts_val,
-                                        "actor_type": log_data.get("actor_type", "user"),
-                                        "actor_id": log_data.get("actor_id"),
-                                        "actor_ip": log_data.get("actor_ip"),
-                                        "action": log_data.get("action", "CHAT"),
-                                        "provider": log_data.get("provider"),
-                                        "model": log_data.get("model"),
-                                        "status": log_data.get("status", "SUCCESS"),
-                                        "latency_ms": log_data.get("latency_ms"),
-                                        "tokens_in": log_data.get("tokens_in"),
-                                        "tokens_out": log_data.get("tokens_out"),
-                                        "source": "loki",
-                                        "_epoch": ts_epoch,
-                                        "meta_info": log_data.get("meta_info")
-                                    }
-                                    loki_logs_map[event_id] = log_dict
-                                    loki_id += 1
-                                except json.JSONDecodeError:
-                                    pass
-            except Exception as e:
-                import logging
-                logging.warning(f"Loki AI audit query failed: {e}")
+        loki_logs_map = await _query_ai_audit_loki_records(
+            fetch_limit=fetch_limit,
+            start_time=start_time,
+            end_time=end_time,
+            actor_id=actor_id,
+            provider=provider,
+            model=model,
+            status=status,
+        )
     
     # Merge and deduplicate
     if source == "all":
@@ -786,11 +1015,8 @@ async def read_ai_audit_logs(
             in_db = key in db_logs_map
             in_loki = key in loki_logs_map
             if in_db and in_loki:
-                # Merge DB (base) with Loki (override if needed, but DB usually richer)
-                # Actually, current logic creates new dicts. Using DB dict is safe.
-                # Update source to indicate merged
-                log = db_logs_map[key] 
-                log["source"] = "db,loki"
+                log = db_logs_map[key].copy()
+                log["source"] = _merge_log_sources(log.get("source"), loki_logs_map[key].get("source"))
                 results.append(log)
             elif in_db:
                 results.append(db_logs_map[key])
@@ -846,6 +1072,21 @@ async def get_ai_audit_detail(
     )
     log = result.scalars().first()
     if not log:
+        loki_records = await _query_ai_audit_loki_records(fetch_limit=50, event_id=event_id)
+        loki_log = loki_records.get(event_id)
+        if loki_log:
+            loki_log.pop("_epoch", None)
+            await _record_log_query_audit(
+                db=db,
+                request=request,
+                current_user=current_user,
+                audit_action="READ_AI_AUDIT_DETAIL",
+                target="AI审计日志",
+                detail=f"event_id={event_id}, result=found, source=loki",
+                domain="SYSTEM",
+                background_tasks=background_tasks,
+            )
+            return loki_log
         await _record_log_query_audit(
             db=db,
             request=request,
@@ -863,7 +1104,7 @@ async def get_ai_audit_detail(
         current_user=current_user,
         audit_action="READ_AI_AUDIT_DETAIL",
         target="AI审计日志",
-        detail=f"event_id={event_id}, result=found",
+        detail=f"event_id={event_id}, result=found, source=db",
         domain="SYSTEM",
         background_tasks=background_tasks,
     )
@@ -875,124 +1116,108 @@ async def get_ai_audit_stats(
     request: Request,
     background_tasks: BackgroundTasks,
     days: int = 7,
+    source: str = Query("all", pattern="^(db|loki|all)$"),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(_require_ai_audit_license),
     current_user: models.User = Depends(PermissionChecker("portal.ai_audit.read"))
 ):
     """Get AI audit statistics summary"""
-    from sqlalchemy import func
-    
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
-    
-    # Total requests
-    total_result = await db.execute(
-        select(func.count(models.AIAuditLog.id)).filter(models.AIAuditLog.ts >= cutoff)
-    )
-    total = total_result.scalar() or 0
-    
-    # Success rate
-    success_result = await db.execute(
-        select(func.count(models.AIAuditLog.id)).filter(
-            models.AIAuditLog.ts >= cutoff,
-            models.AIAuditLog.status == "SUCCESS"
-        )
-    )
-    success_count = success_result.scalar() or 0
-    
-    # Blocked count
-    blocked_result = await db.execute(
-        select(func.count(models.AIAuditLog.id)).filter(
-            models.AIAuditLog.ts >= cutoff,
-            models.AIAuditLog.status == "BLOCKED"
-        )
-    )
-    blocked_count = blocked_result.scalar() or 0
-    
-    # Average latency
-    latency_result = await db.execute(
-        select(func.avg(models.AIAuditLog.latency_ms)).filter(
-            models.AIAuditLog.ts >= cutoff,
-            models.AIAuditLog.latency_ms.isnot(None)
-        )
-    )
-    avg_latency = latency_result.scalar() or 0
-    
-    # Total tokens
-    tokens_result = await db.execute(
-        select(
-            func.sum(models.AIAuditLog.tokens_in),
-            func.sum(models.AIAuditLog.tokens_out)
-        ).filter(models.AIAuditLog.ts >= cutoff)
-    )
-    tokens_row = tokens_result.first()
-    total_tokens_in = tokens_row[0] or 0 if tokens_row else 0
-    total_tokens_out = tokens_row[1] or 0 if tokens_row else 0
-    
-    # Per-model token usage breakdown
-    model_stats_result = await db.execute(
-        select(
-            models.AIAuditLog.model,
-            func.count(models.AIAuditLog.id).label("requests"),
-            func.sum(models.AIAuditLog.tokens_in).label("tokens_in"),
-            func.sum(models.AIAuditLog.tokens_out).label("tokens_out")
-        ).filter(
-            models.AIAuditLog.ts >= cutoff
-        ).group_by(
-            models.AIAuditLog.model
-        ).order_by(
-            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out).desc()
-        ).limit(50)
-    )
-    model_stats_rows = model_stats_result.fetchall()
-    model_breakdown = [
-        {
-            "model": row[0] or "unknown",
-            "requests": row[1] or 0,
-            "tokens_in": row[2] or 0,
-            "tokens_out": row[3] or 0,
-            "total_tokens": (row[2] or 0) + (row[3] or 0)
-        }
-        for row in model_stats_rows
-    ]
-    
-    # Daily trend (Total tokens per day)
-    daily_trend_result = await db.execute(
-        select(
-            func.date(models.AIAuditLog.ts).label("day"),
-            func.sum(models.AIAuditLog.tokens_in).label("tokens_in"),
-            func.sum(models.AIAuditLog.tokens_out).label("tokens_out")
-        ).filter(
-            models.AIAuditLog.ts >= cutoff
-        ).group_by(
-            "day"
-        ).order_by(
-            "day"
-        )
-    )
-    daily_trend = [
-        {
-            "date": str(row[0]), 
-            "tokens_in": row[1] or 0,
-            "tokens_out": row[2] or 0,
-            "total_tokens": (row[1] or 0) + (row[2] or 0)
-        }
-        for row in daily_trend_result.fetchall() if row[0]
-    ]
-
-    # Comparison (Previous Period)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now - datetime.timedelta(days=days)
     prev_cutoff_start = cutoff - datetime.timedelta(days=days)
     prev_cutoff_end = cutoff
-    
-    prev_tokens_result = await db.execute(
-        select(
-            func.sum(models.AIAuditLog.tokens_in + models.AIAuditLog.tokens_out)
-        ).filter(
-            models.AIAuditLog.ts >= prev_cutoff_start,
-            models.AIAuditLog.ts < prev_cutoff_end
+
+    async def _build_db_period_map(
+        start: datetime.datetime,
+        end: datetime.datetime,
+    ) -> Dict[str, Dict[str, Any]]:
+        period_query = (
+            select(models.AIAuditLog)
+            .where(models.AIAuditLog.ts >= start, models.AIAuditLog.ts < end)
+            .order_by(desc(models.AIAuditLog.ts))
         )
+        period_result = await db.execute(period_query)
+        return {
+            row.event_id: _build_ai_audit_record_from_db(row)
+            for row in period_result.scalars().all()
+            if row.event_id
+        }
+
+    async def _build_period_map(
+        start: datetime.datetime,
+        end: datetime.datetime,
+    ) -> Dict[str, Dict[str, Any]]:
+        db_map: Dict[str, Dict[str, Any]] = {}
+        loki_map: Dict[str, Dict[str, Any]] = {}
+
+        if source in ("db", "all"):
+            db_map = await _build_db_period_map(start, end)
+        if source in ("loki", "all"):
+            loki_map = await _query_ai_audit_loki_records(
+                fetch_limit=10000,
+                start_time=start.isoformat(),
+                end_time=end.isoformat(),
+            )
+
+        if source == "db":
+            return db_map
+        if source == "loki":
+            return loki_map
+
+        merged: Dict[str, Dict[str, Any]] = dict(loki_map)
+        for event_key, record in db_map.items():
+            if event_key in merged:
+                merged_record = record.copy()
+                merged_record["source"] = _merge_log_sources(record.get("source"), merged[event_key].get("source"))
+                merged[event_key] = merged_record
+            else:
+                merged[event_key] = record
+        return merged
+
+    current_logs = list((await _build_period_map(cutoff, now)).values())
+    previous_logs = list((await _build_period_map(prev_cutoff_start, prev_cutoff_end)).values())
+
+    total = len(current_logs)
+    success_count = sum(1 for item in current_logs if item.get("status") == "SUCCESS")
+    blocked_count = sum(1 for item in current_logs if item.get("status") == "BLOCKED")
+    error_count = total - success_count - blocked_count
+
+    latency_values = [int(item["latency_ms"]) for item in current_logs if item.get("latency_ms") is not None]
+    avg_latency = round(sum(latency_values) / len(latency_values), 2) if latency_values else 0
+
+    total_tokens_in = sum(int(item.get("tokens_in") or 0) for item in current_logs)
+    total_tokens_out = sum(int(item.get("tokens_out") or 0) for item in current_logs)
+
+    model_totals: Dict[str, Dict[str, Any]] = {}
+    for item in current_logs:
+        model_name = item.get("model") or "unknown"
+        entry = model_totals.setdefault(
+            model_name,
+            {"model": model_name, "requests": 0, "tokens_in": 0, "tokens_out": 0, "total_tokens": 0},
+        )
+        entry["requests"] += 1
+        entry["tokens_in"] += int(item.get("tokens_in") or 0)
+        entry["tokens_out"] += int(item.get("tokens_out") or 0)
+        entry["total_tokens"] = entry["tokens_in"] + entry["tokens_out"]
+    model_breakdown = sorted(model_totals.values(), key=lambda item: item["total_tokens"], reverse=True)[:50]
+
+    daily_totals: Dict[str, Dict[str, Any]] = {}
+    for item in current_logs:
+        ts = item.get("ts")
+        if not isinstance(ts, datetime.datetime):
+            continue
+        day_key = ts.astimezone(datetime.timezone.utc).date().isoformat()
+        day_entry = daily_totals.setdefault(day_key, {"date": day_key, "tokens_in": 0, "tokens_out": 0, "total_tokens": 0})
+        day_entry["tokens_in"] += int(item.get("tokens_in") or 0)
+        day_entry["tokens_out"] += int(item.get("tokens_out") or 0)
+        day_entry["total_tokens"] = day_entry["tokens_in"] + day_entry["tokens_out"]
+    daily_trend = [daily_totals[key] for key in sorted(daily_totals.keys())]
+
+    total_tokens_prev = sum(
+        int(item.get("tokens_in") or 0) + int(item.get("tokens_out") or 0)
+        for item in previous_logs
     )
-    total_tokens_prev = prev_tokens_result.scalar() or 0
-    
+
     trend_percentage = 0.0
     if total_tokens_prev > 0:
         current_total = total_tokens_in + total_tokens_out
@@ -1003,9 +1228,9 @@ async def get_ai_audit_stats(
         "total_requests": total,
         "success_count": success_count,
         "blocked_count": blocked_count,
-        "error_count": total - success_count - blocked_count,
+        "error_count": error_count,
         "success_rate": round(success_count / total * 100, 2) if total > 0 else 0,
-        "avg_latency_ms": round(avg_latency, 2),
+        "avg_latency_ms": avg_latency,
         "total_tokens_in": total_tokens_in,
         "total_tokens_out": total_tokens_out,
         "total_tokens": total_tokens_in + total_tokens_out,
@@ -1020,7 +1245,7 @@ async def get_ai_audit_stats(
         current_user=current_user,
         audit_action="READ_AI_AUDIT_STATS",
         target="AI审计统计",
-        detail=f"days={days}, total_requests={total}, total_tokens={stats_payload['total_tokens']}",
+        detail=f"days={days}, source={source}, total_requests={total}, total_tokens={stats_payload['total_tokens']}",
         domain="SYSTEM",
         background_tasks=background_tasks,
     )

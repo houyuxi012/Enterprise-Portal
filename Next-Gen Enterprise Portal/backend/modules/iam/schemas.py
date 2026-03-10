@@ -295,7 +295,8 @@ class MfaChallengeVerifyRequest(BaseModel):
 
 class MfaDisableRequest(BaseModel):
     password: str
-    totp_code: str
+    totp_code: Optional[str] = None
+    email_code: Optional[str] = None
 
 
 class MfaStatusResponse(BaseModel):

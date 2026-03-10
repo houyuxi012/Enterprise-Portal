@@ -29,6 +29,13 @@
 - `/etc/HYX/...` 生成初始配置模板
 - `/var/lib/HYX/...` 生成数据目录
 - `/var/log/HYX/.../install.log` 记录完整过程
+- `/etc/HYX/Next-Gen-Enterprise-Portal/secrets/source/initial_admin_password` 默认写入 `ngep#HYX`
+
+## 初始管理员密码
+
+- 默认值：`ngep#HYX`
+- 生效时机：仅首次安装且密码文件不存在时
+- 覆盖规则：若目标机上已存在 `initial_admin_password` 文件，安装器不会覆盖
 
 ## 首次验收
 

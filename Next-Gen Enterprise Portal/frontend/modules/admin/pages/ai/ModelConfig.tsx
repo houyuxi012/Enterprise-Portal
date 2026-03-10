@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Modal, Form, Input, Select, Switch, message, Badge } from 'antd';
+import { App, Badge, Card, Col, Input, Row, Select, Space, Switch, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, ApiOutlined, KeyOutlined, RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { AIProvider } from '@/types';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppForm, AppModal, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
 
+const { Text } = Typography;
 
 const ModelConfig: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [providers, setProviders] = useState<AIProvider[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null);
-    const [form] = Form.useForm();
+    const [form] = AppForm.useForm();
 
     const fetchProviders = async () => {
         setLoading(true);
@@ -88,11 +90,11 @@ const ModelConfig: React.FC = () => {
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: AIProvider) => (
-                <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{text}</span>
-                    {record.is_active && <Tag color="green" icon={<CheckCircleOutlined />}>{t('modelConfig.table.activeTag')}</Tag>}
-                </div>
-            )
+                <Space size="small">
+                    <Text strong>{text}</Text>
+                    {record.is_active && <AppTag status="success">{t('modelConfig.table.activeTag')}</AppTag>}
+                </Space>
+            ),
         },
         {
             title: t('modelConfig.table.providerType'),
@@ -106,18 +108,14 @@ const ModelConfig: React.FC = () => {
                     dashscope: 'orange',
                     zhipu: 'cyan'
                 };
-                return <Tag color={colors[text] || 'default'}>{text.toUpperCase()}</Tag>;
+                return <AppTag status={colors[text] === 'green' ? 'success' : colors[text] === 'orange' ? 'warning' : colors[text] === 'purple' ? 'processing' : 'info'}>{text.toUpperCase()}</AppTag>;
             }
         },
         {
             title: t('modelConfig.table.modelId'),
             dataIndex: 'model',
             key: 'model',
-            render: (text: string) => (
-                <Tag icon={<RobotOutlined />} className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                    {text}
-                </Tag>
-            )
+            render: (text: string) => <Text code>{text}</Text>,
         },
         {
             title: t('modelConfig.table.modelKind'),
@@ -125,8 +123,8 @@ const ModelConfig: React.FC = () => {
             key: 'model_kind',
             render: (kind: AIProvider['model_kind']) => (
                 kind === 'multimodal'
-                    ? <Tag color="magenta">{t('modelConfig.modelKind.multimodal')}</Tag>
-                    : <Tag color="geekblue">{t('modelConfig.modelKind.text')}</Tag>
+                    ? <AppTag status="processing">{t('modelConfig.modelKind.multimodal')}</AppTag>
+                    : <AppTag status="info">{t('modelConfig.modelKind.text')}</AppTag>
             )
         },
         {
@@ -141,26 +139,24 @@ const ModelConfig: React.FC = () => {
             title: t('modelConfig.table.actions'),
             key: 'actions',
             render: (_: any, record: AIProvider) => (
-                <div className="flex gap-1">
+                <Space size="small">
                     <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
-                </div>
+                </Space>
             )
         }
     ];
 
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t('modelConfig.page.title')}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t('modelConfig.page.subtitle')}</p>
-                </div>
-                <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('modelConfig.page.addButton')}</AppButton>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('modelConfig.page.title')}
+                subtitle={t('modelConfig.page.subtitle')}
+                action={<AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('modelConfig.page.addButton')}</AppButton>}
+            />
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
-                <Table
+            <Card className="admin-card overflow-hidden">
+                <AppTable
                     columns={columns}
                     dataSource={providers}
                     rowKey="id"
@@ -170,11 +166,10 @@ const ModelConfig: React.FC = () => {
                 />
             </Card>
 
-            <Modal
+            <AppModal
                 title={editingProvider ? t('modelConfig.modal.editTitle') : t('modelConfig.modal.createTitle')}
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
-                className="rounded-2xl overflow-hidden"
                 footer={[
                     <AppButton key="test" intent="secondary" icon={<ApiOutlined />} onClick={async () => {
                         try {
@@ -200,56 +195,66 @@ const ModelConfig: React.FC = () => {
                     <AppButton key="submit" intent="primary" onClick={handleOk}>{t('common.buttons.save')}</AppButton>,
                 ]}
             >
-                <Form form={form} layout="vertical" className="mt-4">
-                    <Form.Item name="name" label={t('modelConfig.form.name')} rules={[{ required: true, message: t('modelConfig.form.validation.nameRequired') }]}>
-                        <Input prefix={<ApiOutlined className="text-slate-400" />} placeholder={t('modelConfig.form.placeholders.name')} className="h-10 rounded-lg" />
-                    </Form.Item>
+                <AppForm form={form} layout="vertical">
+                    <Card size="small" className="admin-card-subtle">
+                        <AppForm.Item name="name" label={t('modelConfig.form.name')} rules={[{ required: true, message: t('modelConfig.form.validation.nameRequired') }]}>
+                            <Input prefix={<ApiOutlined />} placeholder={t('modelConfig.form.placeholders.name')} />
+                        </AppForm.Item>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Form.Item name="type" label={t('modelConfig.form.providerType')} rules={[{ required: true, message: t('modelConfig.form.validation.providerTypeRequired') }]}>
-                            <Select placeholder={t('modelConfig.form.placeholders.providerType')} className="h-10" popupClassName="rounded-xl">
-                                <Select.Option value="openai">OpenAI</Select.Option>
-                                <Select.Option value="deepseek">DeepSeek</Select.Option>
-                                <Select.Option value="gemini">Google Gemini</Select.Option>
-                                <Select.Option value="dashscope">{t('modelConfig.providers.dashscope')}</Select.Option>
-                                <Select.Option value="zhipu">{t('modelConfig.providers.zhipu')}</Select.Option>
-                            </Select>
-                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col xs={24} md={8}>
+                                <AppForm.Item name="type" label={t('modelConfig.form.providerType')} rules={[{ required: true, message: t('modelConfig.form.validation.providerTypeRequired') }]}>
+                                    <Select placeholder={t('modelConfig.form.placeholders.providerType')}>
+                                        <Select.Option value="openai">OpenAI</Select.Option>
+                                        <Select.Option value="deepseek">DeepSeek</Select.Option>
+                                        <Select.Option value="gemini">Google Gemini</Select.Option>
+                                        <Select.Option value="dashscope">{t('modelConfig.providers.dashscope')}</Select.Option>
+                                        <Select.Option value="zhipu">{t('modelConfig.providers.zhipu')}</Select.Option>
+                                    </Select>
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={8}>
+                                <AppForm.Item name="model" label={t('modelConfig.form.modelId')} rules={[{ required: true, message: t('modelConfig.form.validation.modelIdRequired') }]}>
+                                    <Input prefix={<RobotOutlined />} placeholder={t('modelConfig.form.placeholders.modelId')} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={8}>
+                                <AppForm.Item name="model_kind" label={t('modelConfig.form.modelKind')} rules={[{ required: true, message: t('modelConfig.form.validation.modelKindRequired') }]}>
+                                    <Select placeholder={t('modelConfig.form.placeholders.modelKind')}>
+                                        <Select.Option value="text">{t('modelConfig.modelKind.textModel')}</Select.Option>
+                                        <Select.Option value="multimodal">{t('modelConfig.modelKind.multimodalModel')}</Select.Option>
+                                    </Select>
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
 
-                        <Form.Item name="model" label={t('modelConfig.form.modelId')} rules={[{ required: true, message: t('modelConfig.form.validation.modelIdRequired') }]}>
-                            <Input prefix={<RobotOutlined className="text-slate-400" />} placeholder={t('modelConfig.form.placeholders.modelId')} className="h-10 rounded-lg" />
-                        </Form.Item>
+                        <AppForm.Item
+                            name="api_key"
+                            label={t('modelConfig.form.apiKey')}
+                            rules={[{ required: !editingProvider, message: t('modelConfig.form.validation.apiKeyRequired') }]}
+                            tooltip={editingProvider ? t('modelConfig.form.apiKeyTooltip') : undefined}
+                        >
+                            <Input.Password
+                                prefix={<KeyOutlined />}
+                                placeholder={editingProvider ? t('modelConfig.form.placeholders.apiKeyKeep') : t('modelConfig.form.placeholders.apiKey')}
+                            />
+                        </AppForm.Item>
 
-                        <Form.Item name="model_kind" label={t('modelConfig.form.modelKind')} rules={[{ required: true, message: t('modelConfig.form.validation.modelKindRequired') }]}>
-                            <Select placeholder={t('modelConfig.form.placeholders.modelKind')} className="h-10" popupClassName="rounded-xl">
-                                <Select.Option value="text">{t('modelConfig.modelKind.textModel')}</Select.Option>
-                                <Select.Option value="multimodal">{t('modelConfig.modelKind.multimodalModel')}</Select.Option>
-                            </Select>
-                        </Form.Item>
-                    </div>
-
-                    <Form.Item
-                        name="api_key"
-                        label={t('modelConfig.form.apiKey')}
-                        rules={[{ required: !editingProvider, message: t('modelConfig.form.validation.apiKeyRequired') }]}
-                        tooltip={editingProvider ? t('modelConfig.form.apiKeyTooltip') : undefined}
-                    >
-                        <Input.Password
-                            prefix={<KeyOutlined className="text-slate-400" />}
-                            placeholder={editingProvider ? t('modelConfig.form.placeholders.apiKeyKeep') : t('modelConfig.form.placeholders.apiKey')}
-                            className="h-10 rounded-lg"
-                        />
-                    </Form.Item>
-
-                    <Form.Item name="base_url" label={t('modelConfig.form.baseUrl')} tooltip={t('modelConfig.form.baseUrlTooltip')}>
-                        <Input placeholder="https://api.deepseek.com/v1" className="h-10 rounded-lg" />
-                    </Form.Item>
-
-                    <Form.Item name="is_active" label={t('modelConfig.form.enabled')} valuePropName="checked">
-                        <Switch />
-                    </Form.Item>
-                </Form>
-            </Modal>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item name="base_url" label={t('modelConfig.form.baseUrl')} tooltip={t('modelConfig.form.baseUrlTooltip')}>
+                                    <Input placeholder="https://api.deepseek.com/v1" />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item name="is_active" label={t('modelConfig.form.enabled')} valuePropName="checked">
+                                    <Switch />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
+                    </Card>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

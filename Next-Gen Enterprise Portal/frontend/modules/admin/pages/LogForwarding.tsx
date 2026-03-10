@@ -1,12 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
-import { Table, Modal, Form, Input, Select, Switch, message, Tooltip, Tag, Card, Statistic, Row, Col } from 'antd';
-import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, ApiOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { App, Card, Col, Form, Input, Row, Select, Space, Statistic, Switch, Tooltip, Typography } from 'antd';
+import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, SendOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient, { type LogForwardingUpsertPayload } from '@/services/api';
 import { LogForwardingConfig } from '@/types';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppForm, AppModal, AppPageHeader, AppTable, AppTag } from '@/modules/admin/components/ui';
 import type { ColumnsType } from 'antd/es/table';
+
+const { Text } = Typography;
 
 const LOG_TYPE_OPTIONS = [
     { value: 'BUSINESS', labelKey: 'business', color: 'blue' },
@@ -41,10 +43,11 @@ const parseLogTypes = (value: unknown): string[] => {
 
 const LogForwarding: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [configs, setConfigs] = useState<LogForwardingConfig[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [form] = Form.useForm();
+    const [form] = AppForm.useForm();
     const fetchConfigs = async () => {
         setLoading(true);
         try {
@@ -95,7 +98,6 @@ const LogForwarding: React.FC = () => {
     const totalConfigs = configs.length;
     const enabledCount = configs.filter(c => c.enabled).length;
     const syslogCount = configs.filter(c => c.type === 'SYSLOG').length;
-    const webhookCount = configs.filter(c => c.type === 'WEBHOOK').length;
     const logTypeSelectOptions = LOG_TYPE_OPTIONS.map((item) => ({
         value: item.value,
         label: t(`logForwarding.logTypes.${item.labelKey}`),
@@ -107,33 +109,33 @@ const LogForwarding: React.FC = () => {
             dataIndex: 'type',
             key: 'type',
             width: 120,
-            render: (text: string) => <Tag color="geekblue">{text}</Tag>
+            render: (text: string) => <AppTag status="processing">{text}</AppTag>,
         },
         {
             title: t('logForwarding.table.logTypes'),
             dataIndex: 'log_types',
             key: 'log_types',
             render: (types: string[]) => (
-                <div className="flex flex-wrap gap-1">
+                <Space size={[4, 4]} wrap>
                     {(types || []).map((typeCode: string) => {
                         const opt = LOG_TYPE_OPTIONS.find(o => o.value === typeCode);
-                        return <Tag key={typeCode} color={opt?.color || 'default'}>{opt ? t(`logForwarding.logTypes.${opt.labelKey}`) : typeCode}</Tag>;
+                        return <AppTag key={typeCode} status={opt?.color === 'green' ? 'success' : opt?.color === 'orange' ? 'warning' : opt?.color === 'purple' ? 'processing' : 'info'}>{opt ? t(`logForwarding.logTypes.${opt.labelKey}`) : typeCode}</AppTag>;
                     })}
-                </div>
-            )
+                </Space>
+            ),
         },
         {
             title: t('logForwarding.table.endpoint'),
             dataIndex: 'endpoint',
             key: 'endpoint',
-            render: (text: string) => <span className="font-mono text-slate-600 dark:text-slate-300 font-medium text-sm">{text}</span>
+            render: (text: string) => <Text code>{text}</Text>,
         },
         {
             title: t('logForwarding.table.port'),
             dataIndex: 'port',
             key: 'port',
             width: 80,
-            render: (port: number) => <span className="font-mono text-slate-500">{port || '-'}</span>
+            render: (port: number) => <Text type="secondary">{port || '-'}</Text>,
         },
         {
             title: t('logForwarding.table.status'),
@@ -141,11 +143,10 @@ const LogForwarding: React.FC = () => {
             key: 'enabled',
             width: 100,
             render: (enabled: boolean) => (
-                <span className={`flex items-center text-xs font-bold ${enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    <span className={`w-2 h-2 rounded-full mr-2 ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                <AppTag status={enabled ? 'success' : 'default'}>
                     {enabled ? t('logForwarding.status.enabled') : t('logForwarding.status.disabled')}
-                </span>
-            )
+                </AppTag>
+            ),
         },
         {
             title: t('logForwarding.table.actions'),
@@ -153,25 +154,26 @@ const LogForwarding: React.FC = () => {
             width: 80,
             render: (_: unknown, record: LogForwardingConfig) => (
                 <AppButton intent="danger" size="sm" icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>{t('common.buttons.delete')}</AppButton>
-            )
+            ),
         }
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('logForwarding.page.title')}</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">{t('logForwarding.page.subtitle')}</p>
-                </div>
-                <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>{t('logForwarding.page.createButton')}</AppButton>
-            </div>
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('logForwarding.page.title')}
+                subtitle={t('logForwarding.page.subtitle')}
+                action={(
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+                        {t('logForwarding.page.createButton')}
+                    </AppButton>
+                )}
+            />
 
             {/* Stats Cards */}
             <Row gutter={16} className="mb-4">
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
+                <Col span={8}>
+                    <Card className="admin-card">
                         <Statistic
                             title={t('logForwarding.stats.totalConfigs')}
                             value={totalConfigs}
@@ -180,8 +182,8 @@ const LogForwarding: React.FC = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
+                <Col span={8}>
+                    <Card className="admin-card">
                         <Statistic
                             title={t('logForwarding.stats.enabled')}
                             value={enabledCount}
@@ -190,8 +192,8 @@ const LogForwarding: React.FC = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
+                <Col span={8}>
+                    <Card className="admin-card">
                         <Statistic
                             title={t('logForwarding.stats.syslog')}
                             value={syslogCount}
@@ -200,51 +202,37 @@ const LogForwarding: React.FC = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card className="rounded-2xl shadow-sm">
-                        <Statistic
-                            title={t('logForwarding.stats.webhook')}
-                            value={webhookCount}
-                            prefix={<ApiOutlined />}
-                            valueStyle={{ color: '#722ed1' }}
-                        />
-                    </Card>
-                </Col>
             </Row>
 
 
 
             {/* Forwarding Configs Table */}
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center">
-                    <span className="w-1 h-6 bg-emerald-500 rounded-full mr-3"></span>
-                    {t('logForwarding.table.title')}
-                </h3>
-                <Table
+            <Card className="admin-card overflow-hidden" title={<Text strong>{t('logForwarding.table.title')}</Text>}>
+                <AppTable
                     dataSource={configs}
                     columns={columns}
                     rowKey="id"
                     loading={loading}
-                    pagination={false}
-                    locale={{ emptyText: t('logForwarding.table.empty') }}
-                    className="ant-table-custom"
+                    pageSize={10}
+                    emptyText={t('logForwarding.table.empty')}
                 />
-            </div>
+            </Card>
 
-            <Modal
+            <AppModal
                 title={t('logForwarding.modal.title')}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
-                footer={null}
                 width={520}
+                onOk={() => form.submit()}
+                okText={t('common.buttons.save')}
             >
-                <Form
+                <AppForm
                     form={form}
                     layout="vertical"
                     onFinish={handleCreate}
                     initialValues={{ type: 'SYSLOG', enabled: true, log_types: DEFAULT_LOG_TYPES }}
                 >
-                    <Form.Item
+                    <AppForm.Item
                         name="log_types"
                         label={t('logForwarding.modal.logTypes')}
                         rules={[{ required: true, message: t('logForwarding.validation.logTypesRequired') }]}
@@ -256,16 +244,15 @@ const LogForwarding: React.FC = () => {
                             options={logTypeSelectOptions}
                             className="w-full"
                         />
-                    </Form.Item>
+                    </AppForm.Item>
 
-                    <Form.Item name="type" label={t('logForwarding.modal.protocolType')} rules={[{ required: true }]}>
+                    <AppForm.Item name="type" label={t('logForwarding.modal.protocolType')} rules={[{ required: true }]}>
                         <Select>
                             <Select.Option value="SYSLOG">Syslog (UDP/TCP)</Select.Option>
-                            <Select.Option value="WEBHOOK">Webhook (HTTP POST)</Select.Option>
                         </Select>
-                    </Form.Item>
+                    </AppForm.Item>
 
-                    <Form.Item
+                    <AppForm.Item
                         name="endpoint"
                         label={
                             <span>
@@ -278,26 +265,17 @@ const LogForwarding: React.FC = () => {
                         rules={[{ required: true, message: t('logForwarding.validation.endpointRequired') }]}
                     >
                         <Input placeholder={t('logForwarding.placeholders.endpoint')} />
-                    </Form.Item>
+                    </AppForm.Item>
 
-                    <Form.Item name="port" label={t('logForwarding.modal.port')}>
+                    <AppForm.Item name="port" label={t('logForwarding.modal.port')}>
                         <Input type="number" placeholder={t('logForwarding.placeholders.port')} />
-                    </Form.Item>
+                    </AppForm.Item>
 
-                    <Form.Item name="secret_token" label={t('logForwarding.modal.secretToken')}>
-                        <Input.Password placeholder={t('logForwarding.placeholders.secretToken')} />
-                    </Form.Item>
-
-                    <Form.Item name="enabled" label={t('logForwarding.modal.enableNow')} valuePropName="checked">
+                    <AppForm.Item name="enabled" label={t('logForwarding.modal.enableNow')} valuePropName="checked">
                         <Switch />
-                    </Form.Item>
-
-                    <div className="flex justify-end space-x-2">
-                        <AppButton intent="secondary" onClick={() => setIsModalOpen(false)}>{t('common.buttons.cancel')}</AppButton>
-                        <AppButton intent="primary" htmlType="submit">{t('common.buttons.save')}</AppButton>
-                    </div>
-                </Form>
-            </Modal>
+                    </AppForm.Item>
+                </AppForm>
+            </AppModal>
         </div>
     );
 };

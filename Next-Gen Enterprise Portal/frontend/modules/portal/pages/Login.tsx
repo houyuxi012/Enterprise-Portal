@@ -4,6 +4,7 @@ import { Lock, Loader2, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
+import ForgotPasswordModal from '@/shared/components/ForgotPasswordModal';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher';
 import PrivacyPolicyContent from '@/shared/components/PrivacyPolicyContent';
 import {
@@ -71,7 +72,7 @@ const parseError = (error: unknown) => {
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const { t, i18n } = useTranslation();
-    const { login } = useAuth();
+    const { login, refreshCurrentUser } = useAuth();
     const { message } = App.useApp();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -82,6 +83,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [publicConfig, setPublicConfig] = useState<Record<string, string>>({});
     const [publicConfigLoaded, setPublicConfigLoaded] = useState(false);
     const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+    const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+    const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null);
 
     const [requiresCaptcha, setRequiresCaptcha] = useState(false);
     const [captchaId, setCaptchaId] = useState('');
@@ -166,6 +169,17 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }, [t]);
 
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const resetToken = params.get('reset_token');
+        const audience = params.get('audience');
+        if (!resetToken || (audience && audience !== 'portal')) {
+            return;
+        }
+        setPasswordResetToken(resetToken);
+        setIsForgotPasswordOpen(true);
+    }, []);
+
+    useEffect(() => {
         if (!publicConfigLoaded) {
             return;
         }
@@ -173,6 +187,21 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }, [privacyAccepted, publicConfig, publicConfigLoaded]);
 
     const shouldRequirePrivacyConsent = isPrivacyConsentRequired(publicConfig);
+
+    const clearPasswordResetParams = React.useCallback(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('reset_token');
+        url.searchParams.delete('audience');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }, []);
+
+    const handleCloseForgotPassword = React.useCallback(() => {
+        if (passwordResetToken) {
+            clearPasswordResetParams();
+            setPasswordResetToken(null);
+        }
+        setIsForgotPasswordOpen(false);
+    }, [clearPasswordResetParams, passwordResetToken]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -274,9 +303,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 message.error(msg);
                 return;
             }
+            const currentUser = await refreshCurrentUser();
+            if (!currentUser) {
+                throw new Error(t('loginPortal.messages.loginFailedNetwork'));
+            }
             message.success(t('loginPortal.messages.loginSuccess'));
-            // Force auth context to refresh
-            window.location.reload();
+            onLoginSuccess();
         } catch (err: unknown) {
             const { detail } = parseError(err);
             const msg = detail || t('mfa.invalidCode', '验证码错误或已过期');
@@ -315,6 +347,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
                     allowCredentials: (options.allowCredentials || []).map((credential: WebAuthnCredentialDescriptor) => ({
                         ...credential,
+                        type: credential.type as PublicKeyCredentialType,
+                        transports: credential.transports as AuthenticatorTransport[] | undefined,
                         id: Uint8Array.from(
                             atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')),
                             (char) => char.charCodeAt(0),
@@ -342,8 +376,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             };
 
             await AuthService.verifyMfaWebAuthn(mfaToken, webauthnResponse);
+            const currentUser = await refreshCurrentUser();
+            if (!currentUser) {
+                throw new Error(t('loginPortal.messages.loginFailedNetwork'));
+            }
             message.success(t('loginPortal.messages.loginSuccess'));
-            window.location.reload();
+            onLoginSuccess();
         } catch (err: unknown) {
             const { detail } = parseError(err);
             if (detail && !detail.includes('NO_WEBAUTHN_CREDENTIALS')) {
@@ -575,7 +613,17 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 </label>
                             </div>
                             <div className="text-sm">
-                                <a href="#" className="font-bold text-blue-600 hover:text-blue-700">{t('loginPortal.forgotPassword')}</a>
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setPasswordResetToken(null);
+                                        setIsForgotPasswordOpen(true);
+                                    }}
+                                    className="font-bold text-blue-600 hover:text-blue-700"
+                                >
+                                    {t('loginPortal.forgotPassword')}
+                                </a>
                             </div>
                         </div>
 
@@ -610,6 +658,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     className="max-h-[60vh] overflow-y-auto text-sm text-slate-600 leading-relaxed"
                 />
             </Modal>
+            <ForgotPasswordModal
+                open={isForgotPasswordOpen}
+                audience="portal"
+                resetToken={passwordResetToken}
+                initialIdentifier={username}
+                onClose={handleCloseForgotPassword}
+            />
         </div>
     );
 };

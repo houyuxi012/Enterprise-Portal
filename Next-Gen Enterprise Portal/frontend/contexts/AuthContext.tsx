@@ -24,6 +24,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isPublicAuthPath = (pathname: string): boolean => pathname === '/login' || pathname === '/admin/login';
+
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) {
@@ -114,6 +116,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Auto-initialize auth on mount (handles page refresh)
     useEffect(() => {
+        if (typeof window !== 'undefined' && isPublicAuthPath(window.location.pathname)) {
+            setIsLoading(false);
+            setIsInitialized(true);
+            return;
+        }
         initAuth();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -111,3 +111,108 @@ body {
 .compact-steps.ant-steps-horizontal:not(.ant-steps-label-vertical) .ant-steps-item {
     padding-left: 8px;
 }
+
+/* Admin UI system */
+.admin-page {
+    flex: 1 1 auto;
+    min-height: 100%;
+    margin: -24px;
+    padding: 24px;
+    background: transparent;
+}
+
+.admin-page-spaced {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    gap: 24px;
+}
+
+.app-page-header {
+    margin-bottom: 0;
+}
+
+.app-page-header__content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.app-page-header__title.ant-typography {
+    margin-bottom: 4px;
+    color: var(--ant-colorTextHeading, #0f172a);
+}
+
+.app-page-header__subtitle.ant-typography {
+    margin-bottom: 0;
+    color: var(--ant-colorTextDescription, #64748b);
+}
+
+.app-page-header__action {
+    flex: 0 0 auto;
+}
+
+.app-filter-bar {
+    padding: 16px;
+    margin-bottom: 0;
+    border: 1px solid var(--ant-colorBorderSecondary, #e5e7eb);
+    border-radius: var(--ant-borderRadiusLG, 16px);
+    background: var(--ant-colorBgContainer, #ffffff);
+    box-shadow: var(--ant-boxShadowTertiary, 0 1px 2px rgba(0, 0, 0, 0.03));
+}
+
+.app-filter-action {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app-btn.ant-btn {
+    box-shadow: none;
+}
+
+.app-btn.ant-btn-text {
+    padding-inline: 8px;
+}
+
+.app-btn-icon-only.ant-btn {
+    min-width: 32px;
+}
+
+.app-table .ant-table {
+    background: transparent;
+}
+
+.app-table .ant-table-thead > tr > th {
+    font-weight: 600;
+}
+
+.app-table .ant-table-pagination {
+    margin-bottom: 0;
+}
+
+.ant-card.admin-card,
+.admin-card.ant-card {
+    border-color: var(--ant-colorBorderSecondary, #e5e7eb);
+    border-radius: calc(var(--ant-borderRadiusLG, 16px) + 2px);
+    box-shadow: var(--ant-boxShadowTertiary, 0 1px 2px rgba(0, 0, 0, 0.03));
+}
+
+.admin-card-subtle {
+    background: var(--ant-colorFillQuaternary, #fafafa);
+    box-shadow: none !important;
+}
+
+.admin-kpi-card {
+    border-color: var(--ant-colorBorderSecondary, #e5e7eb);
+    border-radius: calc(var(--ant-borderRadiusLG, 16px) + 2px);
+    box-shadow: var(--ant-boxShadowTertiary, 0 1px 2px rgba(0, 0, 0, 0.03));
+}
+
+.admin-stat-label {
+    color: var(--ant-colorTextDescription, #64748b);
+}
+
+.admin-mono {
+    font-family: var(--ant-fontFamilyCode, ui-monospace, SFMono-Regular, Menlo, monospace);
+}

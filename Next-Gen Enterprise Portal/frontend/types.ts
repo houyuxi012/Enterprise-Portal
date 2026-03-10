@@ -1,6 +1,4 @@
 
-import React from 'react';
-
 export { AppView } from './modules/portal/types/views';
 
 export interface NewsItem {
@@ -29,6 +27,9 @@ export interface Employee {
   status: string;
   auth_source?: 'local' | 'ldap' | 'ad' | 'oidc';
   totp_enabled?: boolean;
+  email_mfa_enabled?: boolean;
+  webauthn_enabled?: boolean;
+  mfa_enabled?: boolean;
   portal_initial_password?: string | null;
   portal_account_auto_created?: boolean;
 }
@@ -36,9 +37,8 @@ export interface Employee {
 export interface QuickTool {
   id: string;
   name: string;
-  icon: React.ReactNode;
   url: string;
-  color: string;
+  image?: string;
   category?: string;
   description?: string;
 }
@@ -46,10 +46,8 @@ export interface QuickTool {
 export interface QuickToolDTO {
   id: number;
   name: string;
-  icon_name: string;
   url: string;
   image?: string;
-  color: string;
   category: string;
   description: string;
 }
@@ -160,6 +158,7 @@ export interface SystemLog {
   module: string;
   message: string;
   timestamp: string;
+  source?: string;
   // Extended Access Log Fields
   ip_address?: string;
   request_path?: string;
@@ -219,6 +218,63 @@ export interface StorageStats {
   used_percent: number;
   bucket_count: number;
   object_count: number;
+}
+
+export interface SystemBackupRecord {
+  name: string;
+  size_bytes: number;
+  created_at: string;
+  version: string;
+  schema_version: string;
+  target_type: 'local' | 'network' | string;
+  path: string;
+  kind: string;
+  restorable: boolean;
+}
+
+export interface SystemBackupPreviewDiff {
+  key: string;
+  status: 'create' | 'update';
+  sensitive: boolean;
+  current_value: string;
+  backup_value: string;
+}
+
+export interface SystemBackupPreview {
+  backup: SystemBackupRecord;
+  summary: {
+    create_count: number;
+    update_count: number;
+    unchanged_count: number;
+    total_keys: number;
+  };
+  diffs: SystemBackupPreviewDiff[];
+}
+
+export interface SystemHardwareInfo {
+  system: {
+    os: string;
+    release: string;
+    version: string;
+    machine: string;
+  };
+  cpu: {
+    logical_count?: number | null;
+    physical_count?: number | null;
+    model: string;
+  };
+  memory: {
+    total_bytes: number;
+  };
+  disk: {
+    total_bytes: number;
+    device: string;
+    fstype: string;
+  };
+  host: {
+    hostname: string;
+    machine_id: string;
+  };
 }
 
 export interface DashboardStats {

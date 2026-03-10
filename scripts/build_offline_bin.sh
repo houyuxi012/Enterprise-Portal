@@ -484,7 +484,7 @@ services:
 
   minio:
     image: @MINIO_IMAGE@
-    container_name: enterpriseportal-minio
+    container_name: hyx-ngep-minio-1
     restart: unless-stopped
     entrypoint:
       - /bin/sh
@@ -833,7 +833,7 @@ EOF
 write_template "${RELEASE_ROOT}/ops/post-install-check" 0755 <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-"/opt/HYX/@PRODUCT_DIR_NAME@/current/bin/healthcheck"
+"/opt/HYX/@PRODUCT_DIR_NAME@/current/bin/acceptance"
 EOF
 
 write_template "${RELEASE_ROOT}/bin/start" 0755 <<'EOF'
@@ -991,6 +991,151 @@ fi
 echo "Health check passed."
 EOF
 
+write_template "${RELEASE_ROOT}/bin/acceptance" 0755 <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+PRODUCT_DIR="/opt/HYX/@PRODUCT_DIR_NAME@"
+CONFIG_DIR="/etc/HYX/@PRODUCT_DIR_NAME@"
+DATA_DIR="/var/lib/HYX/@PRODUCT_DIR_NAME@"
+RUNTIME_DIR="/run/HYX/@PRODUCT_DIR_NAME@"
+RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+COMPOSE_FILE="${RELEASE_DIR}/compose/docker-compose.@PACKAGE_SKU@.yml"
+SERVICE_NAME="@SERVICE_NAME@"
+
+if [[ -f "${CONFIG_DIR}/portal.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${CONFIG_DIR}/portal.env"
+  set +a
+fi
+
+export HYX_PORTAL_CURRENT_DIR="${RELEASE_DIR}"
+export HYX_PORTAL_CONFIG_DIR="${CONFIG_DIR}"
+export HYX_PORTAL_DATA_DIR="${DATA_DIR}"
+export HYX_PORTAL_RUNTIME_DIR="${RUNTIME_DIR}"
+export PORTAL_RUNTIME_SECRETS_DIR="${RUNTIME_DIR}/runtime-secrets"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-hyx-ngep}"
+
+BASE_URL="${PUBLIC_BASE_URL:-https://127.0.0.1}"
+BASE_URL="${BASE_URL%/}"
+FRONTEND_URL="${BASE_URL}/"
+API_URL="${BASE_URL}/api/v1/public/config"
+PASSWORD_FILE="${CONFIG_DIR}/secrets/source/initial_admin_password"
+REQUIRED_SERVICES=(db redis minio backend frontend)
+HEALTHY_SERVICES=(redis minio)
+MAX_ATTEMPTS=30
+SLEEP_SECONDS=5
+
+echo "Release       : ${RELEASE_DIR}"
+echo "Base URL      : ${BASE_URL}"
+echo "Compose file  : ${COMPOSE_FILE}"
+echo "Service       : ${SERVICE_NAME}"
+echo
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl is-active --quiet "${SERVICE_NAME}"
+  echo "[ok] systemd service is active: ${SERVICE_NAME}"
+fi
+
+docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps
+
+wait_for_stack() {
+  local attempt
+  for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
+    running_services="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps --status running --services || true)"
+    missing_services=()
+    for service in "${REQUIRED_SERVICES[@]}"; do
+      if ! printf '%s\n' "${running_services}" | grep -qx "${service}"; then
+        missing_services+=("${service}")
+      fi
+    done
+
+    unhealthy_services=()
+    for service in "${HEALTHY_SERVICES[@]}"; do
+      container_id="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps -q "${service}")"
+      if [[ -z "${container_id}" ]]; then
+        unhealthy_services+=("${service}:missing")
+        continue
+      fi
+      health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container_id}")"
+      if [[ "${health_status}" != "healthy" ]]; then
+        unhealthy_services+=("${service}:${health_status}")
+      fi
+    done
+
+    frontend_ready=0
+    api_ready=0
+    if curl -ksSf "${FRONTEND_URL}" >/dev/null; then
+      frontend_ready=1
+    fi
+    if curl -ksSf "${API_URL}" >/dev/null; then
+      api_ready=1
+    fi
+
+    if [[ "${#missing_services[@]}" -eq 0 && "${#unhealthy_services[@]}" -eq 0 && "${frontend_ready}" -eq 1 && "${api_ready}" -eq 1 ]]; then
+      return 0
+    fi
+
+    if [[ "${attempt}" -lt "${MAX_ATTEMPTS}" ]]; then
+      sleep "${SLEEP_SECONDS}"
+    fi
+  done
+  return 1
+}
+
+if ! wait_for_stack; then
+  running_services="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps --status running --services || true)"
+  for service in "${REQUIRED_SERVICES[@]}"; do
+    if ! printf '%s\n' "${running_services}" | grep -qx "${service}"; then
+      echo "[fail] service is not running: ${service}" >&2
+    fi
+  done
+  for service in "${HEALTHY_SERVICES[@]}"; do
+    container_id="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps -q "${service}")"
+    if [[ -z "${container_id}" ]]; then
+      echo "[fail] container id not found for service: ${service}" >&2
+      continue
+    fi
+    health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container_id}")"
+    if [[ "${health_status}" != "healthy" ]]; then
+      echo "[fail] service health is ${health_status}: ${service}" >&2
+    fi
+  done
+  if ! curl -ksSf "${FRONTEND_URL}" >/dev/null; then
+    echo "[fail] frontend unreachable: ${FRONTEND_URL}" >&2
+  fi
+  if ! curl -ksSf "${API_URL}" >/dev/null; then
+    echo "[fail] api unreachable: ${API_URL}" >&2
+  fi
+  exit 1
+fi
+
+running_services="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps --status running --services || true)"
+for service in "${REQUIRED_SERVICES[@]}"; do
+  echo "[ok] service is running: ${service}"
+done
+
+for service in "${HEALTHY_SERVICES[@]}"; do
+  container_id="$(docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" ps -q "${service}")"
+  health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container_id}")"
+  echo "[ok] service health is healthy: ${service}"
+done
+
+echo "[ok] frontend reachable: ${FRONTEND_URL}"
+
+echo "[ok] api reachable: ${API_URL}"
+
+if [[ ! -f "${PASSWORD_FILE}" ]]; then
+  echo "[fail] initial admin password file missing: ${PASSWORD_FILE}" >&2
+  exit 1
+fi
+echo "[ok] initial admin password file exists: ${PASSWORD_FILE}"
+
+echo
+echo "Acceptance check passed."
+EOF
+
 write_template "${RELEASE_ROOT}/bin/rollback" 0755 <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -1012,6 +1157,165 @@ ln -sfn "${CURRENT_TARGET}" "${PREVIOUS_LINK}"
 
 systemctl restart @SERVICE_NAME@
 echo "Rollback complete: ${PREVIOUS_TARGET}"
+EOF
+
+write_template "${RELEASE_ROOT}/bin/uninstall" 0755 <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+PRODUCT_DIR="/opt/HYX/@PRODUCT_DIR_NAME@"
+CONFIG_DIR="/etc/HYX/@PRODUCT_DIR_NAME@"
+DATA_DIR="/var/lib/HYX/@PRODUCT_DIR_NAME@"
+LOG_DIR="/var/log/HYX/@PRODUCT_DIR_NAME@"
+RUNTIME_DIR="/run/HYX/@PRODUCT_DIR_NAME@"
+RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+COMPOSE_FILE="${RELEASE_DIR}/compose/docker-compose.@PACKAGE_SKU@.yml"
+SERVICE_NAME="@SERVICE_NAME@"
+SERVICE_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
+
+PURGE_DATA=0
+PURGE_CONFIG=0
+PURGE_LOGS=0
+PURGE_IMAGES=0
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  uninstall [--purge-data] [--purge-config] [--purge-logs] [--purge-images] [--purge-all]
+
+Behavior:
+  - Stops and disables the service
+  - Removes current/previous symlinks and installed release files under /opt
+  - Preserves config, data, and logs by default
+
+Options:
+  --purge-data     Remove /var/lib/HYX/Next-Gen-Enterprise-Portal
+  --purge-config   Remove /etc/HYX/Next-Gen-Enterprise-Portal
+  --purge-logs     Remove /var/log/HYX/Next-Gen-Enterprise-Portal
+  --purge-images   Remove packaged Docker images from the local Docker cache
+  --purge-all      Equivalent to --purge-data --purge-config --purge-logs --purge-images
+  -h, --help       Show help
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --purge-data)
+      PURGE_DATA=1
+      shift
+      ;;
+    --purge-config)
+      PURGE_CONFIG=1
+      shift
+      ;;
+    --purge-logs)
+      PURGE_LOGS=1
+      shift
+      ;;
+    --purge-images)
+      PURGE_IMAGES=1
+      shift
+      ;;
+    --purge-all)
+      PURGE_DATA=1
+      PURGE_CONFIG=1
+      PURGE_LOGS=1
+      PURGE_IMAGES=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unsupported uninstall argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "This uninstall script must run as root." >&2
+  exit 1
+fi
+
+if [[ -f "${CONFIG_DIR}/portal.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${CONFIG_DIR}/portal.env"
+  set +a
+fi
+
+export HYX_PORTAL_CURRENT_DIR="${RELEASE_DIR}"
+export HYX_PORTAL_CONFIG_DIR="${CONFIG_DIR}"
+export HYX_PORTAL_DATA_DIR="${DATA_DIR}"
+export HYX_PORTAL_RUNTIME_DIR="${RUNTIME_DIR}"
+export PORTAL_RUNTIME_SECRETS_DIR="${RUNTIME_DIR}/runtime-secrets"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-hyx-ngep}"
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl stop "${SERVICE_NAME}" >/dev/null 2>&1 || true
+  systemctl disable "${SERVICE_NAME}" >/dev/null 2>&1 || true
+fi
+
+if command -v docker >/dev/null 2>&1 && [[ -f "${COMPOSE_FILE}" ]]; then
+  docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
+fi
+
+rm -f "${SERVICE_UNIT}"
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+rm -f "${PRODUCT_DIR}/current" "${PRODUCT_DIR}/previous"
+rm -rf "${PRODUCT_DIR}/releases"
+rmdir "${PRODUCT_DIR}" >/dev/null 2>&1 || true
+rm -rf "${RUNTIME_DIR}"
+
+if [[ "${PURGE_CONFIG}" -eq 1 ]]; then
+  rm -rf "${CONFIG_DIR}"
+fi
+
+if [[ "${PURGE_DATA}" -eq 1 ]]; then
+  rm -rf "${DATA_DIR}"
+fi
+
+if [[ "${PURGE_LOGS}" -eq 1 ]]; then
+  rm -rf "${LOG_DIR}"
+fi
+
+if [[ "${PURGE_IMAGES}" -eq 1 ]] && command -v docker >/dev/null 2>&1; then
+  docker image rm -f \
+    "@BACKEND_IMAGE@" \
+    "@FRONTEND_IMAGE@" \
+    "@DB_IMAGE@" \
+    "@REDIS_IMAGE@" \
+    "@MINIO_IMAGE@" >/dev/null 2>&1 || true
+fi
+
+echo "Uninstall completed."
+echo "Releases removed : ${PRODUCT_DIR}/releases"
+echo "Runtime removed  : ${RUNTIME_DIR}"
+if [[ "${PURGE_CONFIG}" -eq 1 ]]; then
+  echo "Config removed   : ${CONFIG_DIR}"
+else
+  echo "Config preserved : ${CONFIG_DIR}"
+fi
+if [[ "${PURGE_DATA}" -eq 1 ]]; then
+  echo "Data removed     : ${DATA_DIR}"
+else
+  echo "Data preserved   : ${DATA_DIR}"
+fi
+if [[ "${PURGE_LOGS}" -eq 1 ]]; then
+  echo "Logs removed     : ${LOG_DIR}"
+else
+  echo "Logs preserved   : ${LOG_DIR}"
+fi
+if [[ "${PURGE_IMAGES}" -eq 1 ]]; then
+  echo "Images removed   : packaged Docker images"
+else
+  echo "Images preserved : packaged Docker images"
+fi
 EOF
 
 write_template "${RELEASE_ROOT}/bin/upgrade" 0755 <<'EOF'
@@ -1213,7 +1517,7 @@ if [[ ! -f "${CONFIG_DIR}/secrets/source/bind_password_enc_keys" ]]; then
 fi
 ensure_secret minio_root_user "minioadmin"
 ensure_secret minio_root_password "$(random_token 24)"
-ensure_secret initial_admin_password "$(random_token 18)"
+ensure_secret initial_admin_password "ngep#HYX"
 ensure_docker_runtime
 
 RELEASE_TARGET="${PRODUCT_DIR}/releases/@PACKAGE_STEM@"
@@ -1258,6 +1562,8 @@ echo "Current release : ${RELEASE_TARGET}"
 echo "Config dir      : ${CONFIG_DIR}"
 echo "Data dir        : ${DATA_DIR}"
 echo "Log file        : ${LOG_FILE}"
+echo "Acceptance cmd  : ${CURRENT_LINK}/bin/acceptance"
+echo "Uninstall cmd   : ${CURRENT_LINK}/bin/uninstall"
 echo "Initial admin password file: ${CONFIG_DIR}/secrets/source/initial_admin_password"
 EOF
 

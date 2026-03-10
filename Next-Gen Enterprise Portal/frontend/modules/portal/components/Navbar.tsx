@@ -421,7 +421,9 @@ const Navbar: React.FC<NavbarProps> = ({
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">{t('navbar.search.appsSection')}</h4>
                         {previewResults.tools.map((t: any) => (
                           <div key={t.id} className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
-                            <div className="w-5 h-5 rounded bg-white shadow-sm flex items-center justify-center text-xs">{t.icon_name ? <span>{t.icon_name[0]}</span> : <Grid size={10} />}</div>
+                            <div className="w-5 h-5 rounded bg-white shadow-sm flex items-center justify-center text-xs overflow-hidden">
+                              {t.image ? <img src={t.image} alt={t.name} className="w-full h-full object-cover" /> : <Grid size={10} />}
+                            </div>
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{t.name}</span>
                           </div>
                         ))}

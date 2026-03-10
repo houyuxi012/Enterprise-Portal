@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Table, Tag, Select, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip } from 'antd';
+import { App, Card, Col, Descriptions, Row, Space, Statistic, Tag, Tooltip, Typography } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DatabaseOutlined, CloudOutlined, UserOutlined, AuditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import ApiClient from '@/services/api';
 import { BusinessLog } from '@/types';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppDrawer, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+
+const { Text } = Typography;
 
 interface LogStats {
   total: number;
@@ -41,8 +43,25 @@ const toActionKey = (action?: string): string => {
     .toLowerCase();
 };
 
+const getMeetingTargetKey = (target: string): string | null => {
+  if (!target.startsWith('meeting:')) return null;
+  const suffix = target.slice('meeting:'.length);
+  if (suffix === 'list') return 'meeting_list';
+  if (suffix === 'today-summary') return 'meeting_today_summary';
+  if (suffix === 'today-list') return 'meeting_today_list';
+  if (suffix) return 'meeting_record';
+  return null;
+};
+
+const normalizeSourceParts = (source?: string): string[] => {
+  const raw = String(source || 'db').replace(/\+/g, ',').toLowerCase();
+  const parts = raw.split(',').map((item) => item.trim()).filter(Boolean);
+  return parts.length > 0 ? [...new Set(parts)] : ['db'];
+};
+
 const BusinessLogs: React.FC = () => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [logs, setLogs] = useState<BusinessLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<LogStats>({ total: 0, todayCount: 0, createCount: 0, modifyCount: 0 });
@@ -57,6 +76,21 @@ const BusinessLogs: React.FC = () => {
   const getActionLabel = (action?: string) => {
     const key = toActionKey(action);
     return t(`businessLogs.actions.${key}`, { defaultValue: action || '-' });
+  };
+
+  const getTargetLabel = (target?: string) => {
+    if (!target) return '-';
+    const meetingTargetKey = getMeetingTargetKey(target);
+    if (meetingTargetKey === 'meeting_record') {
+      return t('businessLogs.targets.meeting_record', {
+        id: target.slice('meeting:'.length),
+        defaultValue: target,
+      });
+    }
+    if (meetingTargetKey) {
+      return t(`businessLogs.targets.${meetingTargetKey}`, { defaultValue: target });
+    }
+    return t(`businessLogs.targets.${toActionKey(target)}`, { defaultValue: target });
   };
 
   const getStatusLabel = (status?: string) => {
@@ -89,6 +123,7 @@ const BusinessLogs: React.FC = () => {
       });
     } catch (error) {
       console.error(error);
+      message.error(t('businessLogs.messages.loadFailed', '加载业务日志失败'));
     } finally {
       setLoading(false);
     }
@@ -110,9 +145,9 @@ const BusinessLogs: React.FC = () => {
       key: 'timestamp',
       width: 180,
       render: (text: string) => (
-        <span className="text-xs text-slate-500">
+        <Text type="secondary">
           {text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}
-        </span>
+        </Text>
       ),
     },
     {
@@ -121,10 +156,10 @@ const BusinessLogs: React.FC = () => {
       key: 'operator',
       width: 120,
       render: (text: string) => (
-        <div className="flex items-center gap-2">
-          <UserOutlined className="text-indigo-500" />
-          <span className="font-medium text-slate-700">{text || '-'}</span>
-        </div>
+        <Space size="small">
+          <UserOutlined />
+          <Text>{text || '-'}</Text>
+        </Space>
       ),
     },
     {
@@ -149,9 +184,7 @@ const BusinessLogs: React.FC = () => {
       key: 'target',
       width: 150,
       render: (text: string) => (
-        <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-600">
-          {text || '-'}
-        </span>
+        <Tag>{getTargetLabel(text)}</Tag>
       ),
     },
     {
@@ -159,9 +192,7 @@ const BusinessLogs: React.FC = () => {
       dataIndex: 'ip_address',
       key: 'ip_address',
       width: 120,
-      render: (text: string) => (
-        <span className="font-mono text-xs text-slate-400">{text || '-'}</span>
-      ),
+      render: (text: string) => <Text code>{text || '-'}</Text>,
     },
     {
       title: t('businessLogs.table.status'),
@@ -183,21 +214,21 @@ const BusinessLogs: React.FC = () => {
       key: 'source',
       width: 120,
       render: (source: string) => {
-        if (source?.includes(',')) {
-          const sources = source.split(',');
+        const sources = normalizeSourceParts(source);
+        if (sources.length > 1) {
           return (
-            <span className="flex gap-1">
+            <Space size={[4, 4]} wrap>
               {sources.map((s, i) => (
-                <Tag key={`${s}-${i}`} color={s.trim() === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-                  {s.trim()}
+                <Tag key={`${s}-${i}`} color={s === 'loki' ? 'purple' : 'cyan'} className="text-xs">
+                  {s === 'loki' ? 'Loki' : 'DB'}
                 </Tag>
               ))}
-            </span>
+            </Space>
           );
         }
         return (
-          <Tag color={source === 'LOKI' ? 'purple' : 'cyan'} className="text-xs">
-            {source || 'DB'}
+          <Tag color={sources[0] === 'loki' ? 'purple' : 'cyan'} className="text-xs">
+            {sources[0] === 'loki' ? 'Loki' : 'DB'}
           </Tag>
         );
       },
@@ -223,20 +254,20 @@ const BusinessLogs: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-      <div className="flex justify-between items-center mb-2">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('businessLogs.title')}</h2>
-          <p className="text-xs text-slate-400 font-bold mt-1">{t('businessLogs.subtitle')}</p>
-        </div>
-        <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>
-          {t('common.buttons.refresh')}
-        </AppButton>
-      </div>
+    <div className="admin-page admin-page-spaced">
+      <AppPageHeader
+        title={t('businessLogs.title')}
+        subtitle={t('businessLogs.subtitle')}
+        action={(
+          <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>
+            {t('common.buttons.refresh')}
+          </AppButton>
+        )}
+      />
 
       <Row gutter={16} className="mb-4">
         <Col span={6}>
-          <Card className="rounded-2xl shadow-sm">
+          <Card className="admin-card">
             <Statistic
               title={t('businessLogs.stats.total')}
               value={stats.total}
@@ -246,7 +277,7 @@ const BusinessLogs: React.FC = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card className="rounded-2xl shadow-sm">
+          <Card className="admin-card">
             <Statistic
               title={t('businessLogs.stats.today')}
               value={stats.todayCount}
@@ -256,7 +287,7 @@ const BusinessLogs: React.FC = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card className="rounded-2xl shadow-sm">
+          <Card className="admin-card">
             <Statistic
               title={t('businessLogs.stats.create')}
               value={stats.createCount}
@@ -266,7 +297,7 @@ const BusinessLogs: React.FC = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card className="rounded-2xl shadow-sm">
+          <Card className="admin-card">
             <Statistic
               title={t('businessLogs.stats.modify')}
               value={stats.modifyCount}
@@ -277,49 +308,49 @@ const BusinessLogs: React.FC = () => {
         </Col>
       </Row>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
-        <DatePicker.RangePicker
+      <AppFilterBar>
+        <AppFilterBar.DateRange
           value={dateRange}
           onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-          className="rounded-xl"
           placeholder={[t('businessLogs.filters.startTime'), t('businessLogs.filters.endTime')]}
         />
-        <Select
+        <AppFilterBar.Select
           placeholder={t('businessLogs.filters.action')}
-          allowClear
           value={actionFilter}
           onChange={setActionFilter}
-          className="w-40"
+          width={160}
           options={actionOptions}
         />
-        <Select
+        <AppFilterBar.Select
           placeholder={t('businessLogs.filters.status')}
-          allowClear
           value={statusFilter}
           onChange={setStatusFilter}
-          className="w-28"
+          width={112}
           options={[
             { value: 'SUCCESS', label: t('common.status.success') },
             { value: 'FAIL', label: t('common.status.fail') },
           ]}
         />
-        <Select
+        <AppFilterBar.Select
           value={sourceFilter}
           onChange={setSourceFilter}
-          className="w-28"
+          width={128}
+          allowClear={false}
           options={[
             { value: 'db', label: <span className="flex items-center gap-1"><DatabaseOutlined />DB</span> },
             { value: 'loki', label: <span className="flex items-center gap-1"><CloudOutlined />Loki</span> },
             { value: 'all', label: t('common.status.all') },
           ]}
         />
-        <AppButton intent="primary" onClick={fetchLogs} loading={loading}>
-          {t('common.buttons.query')}
-        </AppButton>
-      </div>
+        <AppFilterBar.Action>
+          <AppButton intent="primary" onClick={() => { void fetchLogs(); }} loading={loading}>
+            {t('common.buttons.query')}
+          </AppButton>
+        </AppFilterBar.Action>
+      </AppFilterBar>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-6 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50">
-        <Table
+      <Card className="admin-card">
+        <AppTable<BusinessLog>
           dataSource={logs}
           columns={columns}
           rowKey="id"
@@ -327,36 +358,36 @@ const BusinessLogs: React.FC = () => {
           pagination={{ pageSize: 20, showSizeChanger: true }}
           scroll={{ x: 1100 }}
           locale={{ emptyText: t('businessLogs.empty') }}
-          className="ant-table-custom"
         />
-      </div>
+      </Card>
 
-      <Drawer
+      <AppDrawer
         title={t('businessLogs.drawer.title')}
         width={560}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        hideFooter
       >
         {selectedLog && (
           <div className="space-y-6">
             <Descriptions bordered column={1} size="small">
               <Descriptions.Item label={t('businessLogs.drawer.logId')}>
-                <code className="text-xs">{selectedLog.id}</code>
+                <Text code>{selectedLog.id}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.time')}>
-                {selectedLog.timestamp ? dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}
+                <Text>{selectedLog.timestamp ? dayjs(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.operator')}>
-                {selectedLog.operator || '-'}
+                <Text>{selectedLog.operator || '-'}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.action')}>
                 <Tag color="blue">{getActionLabel(selectedLog.action)}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.target')}>
-                <code className="text-xs">{selectedLog.target || '-'}</code>
+                <Text code>{getTargetLabel(selectedLog.target)}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.ip')}>
-                {selectedLog.ip_address || '-'}
+                <Text>{selectedLog.ip_address || '-'}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('businessLogs.drawer.status')}>
                 <Tag color={selectedLog.status === 'SUCCESS' ? 'green' : 'red'}>
@@ -368,7 +399,8 @@ const BusinessLogs: React.FC = () => {
               </Descriptions.Item>
               {selectedLog.detail && (
                 <Descriptions.Item label={t('businessLogs.drawer.detail')}>
-                  <pre className="text-xs bg-slate-50 p-3 rounded-lg whitespace-pre-wrap max-h-48 overflow-auto">
+                  {/* eslint-disable-next-line admin-ui/no-admin-page-visual-utilities -- raw business log detail needs preserved plaintext preview styling */}
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs">
                     {selectedLog.detail}
                   </pre>
                 </Descriptions.Item>
@@ -376,7 +408,7 @@ const BusinessLogs: React.FC = () => {
             </Descriptions>
           </div>
         )}
-      </Drawer>
+      </AppDrawer>
     </div>
   );
 };

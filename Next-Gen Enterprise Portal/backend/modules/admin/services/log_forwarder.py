@@ -3,7 +3,6 @@ Log Forwarding Service
 
 Real forwarding pipeline for configured sinks:
 - SYSLOG (UDP)
-- WEBHOOK (HTTP POST)
 """
 import ast
 import asyncio
@@ -14,12 +13,10 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import httpx
 from sqlalchemy import select
 
 import modules.models as models
 from core.database import SessionLocal
-from modules.admin.services.log_forwarding_security import decrypt_log_forwarding_secret
 
 logger = logging.getLogger(__name__)
 
@@ -94,23 +91,6 @@ async def _forward_to_syslog(cfg: models.LogForwardingConfig, payload: dict[str,
     await asyncio.to_thread(_send_syslog_udp, endpoint, port, msg)
 
 
-async def _forward_to_webhook(cfg: models.LogForwardingConfig, payload: dict[str, Any]):
-    endpoint = (cfg.endpoint or "").strip()
-    if not endpoint:
-        return
-
-    headers = {"Content-Type": "application/json"}
-    secret_token = decrypt_log_forwarding_secret(cfg.secret_token)
-    if secret_token:
-        headers["Authorization"] = f"Bearer {secret_token}"
-        headers["X-Log-Token"] = secret_token
-
-    async with httpx.AsyncClient(timeout=4.0) as client:
-        resp = await client.post(endpoint, json=payload, headers=headers)
-        if resp.status_code >= 400:
-            raise RuntimeError(f"webhook status={resp.status_code}")
-
-
 async def forward_log(log_type: str, event: dict[str, Any]):
     """
     Forward one structured log event based on enabled forwarding configs.
@@ -142,11 +122,8 @@ async def forward_log(log_type: str, event: dict[str, Any]):
         if cfg_type == "SYSLOG":
             tasks.append(asyncio.create_task(_forward_to_syslog(cfg, payload)))
             targets.append(cfg)
-        elif cfg_type == "WEBHOOK":
-            tasks.append(asyncio.create_task(_forward_to_webhook(cfg, payload)))
-            targets.append(cfg)
         else:
-            logger.warning(f"Unknown log forwarding type: {cfg.type}")
+            logger.info(f"Skipping unsupported log forwarding type: {cfg.type}")
 
     if not tasks:
         return

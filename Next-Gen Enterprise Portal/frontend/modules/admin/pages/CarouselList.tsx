@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Input, InputNumber, Switch, Upload, message, Popconfirm, Card } from 'antd';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { PlusOutlined } from '@ant-design/icons';
+import {
+    App,
+    Card,
+    Col,
+    Image,
+    Input,
+    InputNumber,
+    Popconfirm,
+    Row,
+    Space,
+    Switch,
+    Typography,
+    Upload,
+} from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { CarouselItem } from '@/types';
@@ -15,8 +27,11 @@ import {
     AppPageHeader,
 } from '@/modules/admin/components/ui';
 
+const { Link, Text } = Typography;
+
 const CarouselList: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [items, setItems] = useState<CarouselItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,16 +122,21 @@ const CarouselList: React.FC = () => {
             key: 'image',
             width: 150,
             render: (text: string) => (
-                <div className="w-32 h-20 rounded-xl overflow-hidden shadow-md relative group cursor-pointer">
-                    <img src={text} alt={t('carouselList.table.previewAlt')} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                </div>
-            )
+                <Image
+                    src={text}
+                    alt={t('carouselList.table.previewAlt')}
+                    width={128}
+                    height={80}
+                    style={{ borderRadius: 12, objectFit: 'cover' }}
+                    preview
+                />
+            ),
         },
         {
             title: t('carouselList.table.title'),
             dataIndex: 'title',
             key: 'title',
-            render: (text: string) => <span className="font-bold text-slate-800 dark:text-slate-200">{text}</span>
+            render: (text: string) => <Text strong>{text}</Text>,
         },
         {
             title: t('carouselList.table.badge'),
@@ -129,14 +149,18 @@ const CarouselList: React.FC = () => {
             title: t('carouselList.table.url'),
             dataIndex: 'url',
             key: 'url',
-            render: (text: string) => <a href={text} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline truncate max-w-[150px] block">{text}</a>
+            render: (text: string) => (
+                <Link href={text} target="_blank" rel="noreferrer" ellipsis>
+                    {text}
+                </Link>
+            ),
         },
         {
             title: t('carouselList.table.sortOrder'),
             dataIndex: 'sort_order',
             key: 'sort_order',
             width: 80,
-            render: (text: number) => <span className="font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{text}</span>
+            render: (text: number) => <Text code>{text}</Text>,
         },
         {
             title: t('carouselList.table.status'),
@@ -154,29 +178,29 @@ const CarouselList: React.FC = () => {
             key: 'action',
             width: 120,
             render: (_: any, record: CarouselItem) => (
-                <div className="flex gap-1">
-                    <AppButton intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)} />
+                <Space size="small">
+                    <AppButton intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <Popconfirm title={t('carouselList.confirm.deleteTitle')} onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} />
+                        <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
                     </Popconfirm>
-                </div>
+                </Space>
             ),
         },
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('carouselList.page.title')}
                 subtitle={t('carouselList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAdd}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                         {t('carouselList.page.createButton')}
                     </AppButton>
                 }
             />
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Card className="admin-card overflow-hidden">
                 <AppTable
                     columns={columns}
                     dataSource={items}
@@ -197,32 +221,46 @@ const CarouselList: React.FC = () => {
                     <AppForm.Item label={t('carouselList.form.title')} name="title" rules={[{ required: true, message: t('carouselList.form.validation.titleRequired') }]}>
                         <Input placeholder={t('carouselList.form.placeholders.title')} />
                     </AppForm.Item>
-                    <AppForm.Item label={t('carouselList.form.image')}>
-                        <Upload
-                            customRequest={handleUpload}
-                            showUploadList={false}
-                            listType="picture-card"
-                        >
-                            {imageUrl ? <img src={imageUrl} alt="preview" style={{ width: '100%' }} /> : (
-                                <div>
-                                    <PlusOutlined />
-                                    <div style={{ marginTop: 8 }}>{t('carouselList.form.upload')}</div>
-                                </div>
-                            )}
-                        </Upload>
-                    </AppForm.Item>
-                    <AppForm.Item label={t('carouselList.form.badge')} name="badge" rules={[{ required: true, message: t('carouselList.form.validation.badgeRequired') }]}>
-                        <Input placeholder={t('carouselList.form.placeholders.badge')} />
-                    </AppForm.Item>
-                    <AppForm.Item label={t('carouselList.form.url')} name="url" rules={[{ required: true, message: t('carouselList.form.validation.urlRequired') }]}>
-                        <Input placeholder={t('carouselList.form.placeholders.url')} />
-                    </AppForm.Item>
-                    <AppForm.Item label={t('carouselList.form.sortOrder')} name="sort_order" initialValue={0}>
-                        <InputNumber style={{ width: '100%' }} min={0} />
-                    </AppForm.Item>
-                    <AppForm.Item label={t('carouselList.form.visible')} name="is_active" valuePropName="checked" initialValue={true}>
-                        <Switch checkedChildren={t('carouselList.status.show')} unCheckedChildren={t('carouselList.status.hide')} />
-                    </AppForm.Item>
+                    <Card size="small" className="admin-card-subtle">
+                        <AppForm.Item label={t('carouselList.form.image')}>
+                            <Upload
+                                customRequest={handleUpload}
+                                showUploadList={false}
+                                listType="picture-card"
+                            >
+                                {imageUrl ? (
+                                    <Image src={imageUrl} alt={t('carouselList.table.previewAlt')} width={120} preview={false} />
+                                ) : (
+                                    <div>
+                                        <PlusOutlined />
+                                        <div style={{ marginTop: 8 }}>{t('carouselList.form.upload')}</div>
+                                    </div>
+                                )}
+                            </Upload>
+                        </AppForm.Item>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item label={t('carouselList.form.badge')} name="badge" rules={[{ required: true, message: t('carouselList.form.validation.badgeRequired') }]}>
+                                    <Input placeholder={t('carouselList.form.placeholders.badge')} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item label={t('carouselList.form.url')} name="url" rules={[{ required: true, message: t('carouselList.form.validation.urlRequired') }]}>
+                                    <Input placeholder={t('carouselList.form.placeholders.url')} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item label={t('carouselList.form.sortOrder')} name="sort_order" initialValue={0}>
+                                    <InputNumber style={{ width: '100%' }} min={0} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <AppForm.Item label={t('carouselList.form.visible')} name="is_active" valuePropName="checked" initialValue={true}>
+                                    <Switch checkedChildren={t('carouselList.status.show')} unCheckedChildren={t('carouselList.status.hide')} />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
+                    </Card>
                 </AppForm>
             </AppModal>
         </div>

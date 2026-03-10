@@ -18,7 +18,8 @@
       "log.forwarding": true,
       "session.security": true,
       "customization.manage": true,
-      "mfa.settings": true
+      "mfa.settings": true,
+      "meeting.manage": true
     },
     "limits": {
       "users": 500

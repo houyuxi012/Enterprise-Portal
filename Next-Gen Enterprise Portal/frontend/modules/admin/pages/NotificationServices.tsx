@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Card, Form, Input, InputNumber, Switch, Button, message, Tabs, Divider, Tag, Space, Select } from 'antd';
-import { MailOutlined, MessageOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
+import { Alert, App, Card, Divider, Form, Input, InputNumber, Select, Space, Switch, Tabs, Tag } from 'antd';
+import { SaveOutlined, SendOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
+import { AppButton, AppForm, AppPageHeader } from '@/modules/admin/components/ui';
 import notificationTemplateService, {
     NOTIFICATION_TEMPLATE_ACTIVE_CATEGORY_STORAGE_KEY,
     type NotificationTemplateRecord,
@@ -115,6 +116,7 @@ const isMaskedValue = (value: unknown): boolean => String(value ?? '').trim() ==
 
 const NotificationServices: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const currentTemplateLocale = normalizeTemplateLocale(i18n.resolvedLanguage || i18n.language);
     const [smtpForm] = Form.useForm();
     const [telegramForm] = Form.useForm();
@@ -152,6 +154,9 @@ const NotificationServices: React.FC = () => {
     const imTemplateOptions = notificationTemplates
         .filter((template) => template.category === 'im' && template.is_enabled)
         .map((template) => ({ value: template.id, label: getLocalizedTemplateLabel(template, currentTemplateLocale) }));
+    const smtpPasswordInput = Form.useWatch('smtp_password', smtpForm);
+    const smsEnabled = Boolean(Form.useWatch('sms_enabled', smsForm));
+    const smsProvider = Form.useWatch('sms_provider', smsForm) as SmsProvider | undefined;
 
     const openTemplateLibrary = (category: NotificationTemplateCategory): void => {
         window.localStorage.setItem(ACTIVE_ADMIN_TAB_STORAGE_KEY, 'notification_templates');
@@ -177,7 +182,7 @@ const NotificationServices: React.FC = () => {
             const telegramChatId = config['telegram_chat_id'] || '';
             smtpForm.setFieldsValue({
                 smtp_host: host,
-                smtp_port: parseInt(config['smtp_port'] || '587'),
+                smtp_port: parseInt(config['smtp_port'] || '465'),
                 smtp_username: config['smtp_username'] || '',
                 smtp_password: smtpPasswordMasked ? '' : (config['smtp_password'] || ''),
                 smtp_use_tls: (config['smtp_use_tls'] || 'true') === 'true',
@@ -195,8 +200,9 @@ const NotificationServices: React.FC = () => {
                 notification_im_template_id: config['notification_im_template_id'] ? Number(config['notification_im_template_id']) : undefined,
             });
             const smsProvider = (config['sms_provider'] || '') as SmsProvider | '';
+            const smsEnabledFlag = (config['sms_enabled'] || 'false') === 'true';
             smsForm.setFieldsValue({
-                sms_enabled: (config['sms_enabled'] || 'false') === 'true',
+                sms_enabled: smsEnabledFlag,
                 sms_provider: smsProvider || undefined,
                 sms_test_phone: config['sms_test_phone'] || '',
                 sms_test_message: config['sms_test_message'] || t('notificationServices.sms.defaultTestMessage'),
@@ -229,9 +235,11 @@ const NotificationServices: React.FC = () => {
             setSmtpConfigured(!!host);
             setTelegramConfigured(Boolean((telegramToken || telegramTokenMasked) && telegramChatId));
             setSmsConfigured(Boolean(
-                (smsProvider === 'aliyun' && config['sms_access_key_id'] && (config['sms_access_key_secret'] || aliyunSecretMasked) && config['sms_sign_name'] && config['sms_template_code']) ||
-                (smsProvider === 'tencent' && config['tencent_secret_id'] && (config['tencent_secret_key'] || tencentSecretMasked) && config['tencent_sdk_app_id'] && config['tencent_sign_name'] && config['tencent_template_id']) ||
-                (smsProvider === 'twilio' && config['twilio_account_sid'] && (config['twilio_auth_token'] || twilioSecretMasked) && (config['twilio_from_number'] || config['twilio_messaging_service_sid']))
+                smsEnabledFlag && (
+                    (smsProvider === 'aliyun' && config['sms_access_key_id'] && (config['sms_access_key_secret'] || aliyunSecretMasked) && config['sms_sign_name'] && config['sms_template_code']) ||
+                    (smsProvider === 'tencent' && config['tencent_secret_id'] && (config['tencent_secret_key'] || tencentSecretMasked) && config['tencent_sdk_app_id'] && config['tencent_sign_name'] && config['tencent_template_id']) ||
+                    (smsProvider === 'twilio' && config['twilio_account_sid'] && (config['twilio_auth_token'] || twilioSecretMasked) && (config['twilio_from_number'] || config['twilio_messaging_service_sid']))
+                )
             ));
             await loadNotificationHealth();
         } catch {
@@ -368,6 +376,9 @@ const NotificationServices: React.FC = () => {
     };
 
     const validateSmsProviderConfig = (values: SmsConfig): string | null => {
+        if (!values.sms_enabled) {
+            return null;
+        }
         if (!values.sms_provider) {
             return t('notificationServices.sms.validation.providerRequired');
         }
@@ -394,7 +405,9 @@ const NotificationServices: React.FC = () => {
 
     const handleSaveSms = async () => {
         try {
-            const values = await smsForm.validateFields() as SmsConfig;
+            const values = smsEnabled
+                ? await smsForm.validateFields() as SmsConfig
+                : smsForm.getFieldsValue(true) as SmsConfig;
             const validationError = validateSmsProviderConfig(values);
             if (validationError) {
                 message.error(validationError);
@@ -405,7 +418,7 @@ const NotificationServices: React.FC = () => {
                 sms_enabled: values.sms_enabled ? 'true' : 'false',
                 sms_provider: values.sms_provider,
                 sms_test_phone: values.sms_test_phone || '',
-                sms_test_message: values.sms_test_message || '',
+                sms_test_message: values.sms_provider === 'twilio' ? (values.sms_test_message || '') : '',
                 sms_access_key_id: values.sms_access_key_id || '',
                 sms_sign_name: values.sms_sign_name || '',
                 sms_template_code: values.sms_template_code || '',
@@ -438,7 +451,7 @@ const NotificationServices: React.FC = () => {
                 pairs.twilio_auth_token = '';
             }
             await ApiClient.updateSystemConfig(pairs);
-            setSmsConfigured(true);
+            setSmsConfigured(Boolean(values.sms_enabled && !validationError));
             setSecretPresence((prev) => ({
                 ...prev,
                 smsAccessKeySecret: prev.smsAccessKeySecret || Boolean(values.sms_access_key_secret),
@@ -471,7 +484,7 @@ const NotificationServices: React.FC = () => {
             await ApiClient.testSms({
                 provider: values.sms_provider,
                 test_phone: values.sms_test_phone,
-                test_message: values.sms_test_message || undefined,
+                test_message: values.sms_provider === 'twilio' ? (values.sms_test_message || undefined) : undefined,
                 template_id: values.notification_sms_template_id || undefined,
                 sms_access_key_id: values.sms_access_key_id || undefined,
                 sms_access_key_secret: values.sms_access_key_secret || undefined,
@@ -507,32 +520,30 @@ const NotificationServices: React.FC = () => {
     };
 
     return (
-        <div>
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-slate-800">{t('notificationServices.title')}</h2>
-                <p className="text-sm text-slate-500 mt-1">{t('notificationServices.subtitle')}</p>
-            </div>
-
+        <div className="admin-page admin-page-spaced">
+            <AppPageHeader
+                title={t('notificationServices.title')}
+                subtitle={t('notificationServices.subtitle')}
+            />
 
             <Tabs
                 items={[
                     {
                         key: 'smtp',
                         label: (
-                            <span className="flex items-center space-x-2">
-                                <MailOutlined />
+                            <span className="flex items-center">
                                 <span>{t('notificationServices.tabs.smtp')}</span>
                                 {smtpConfigured && <Tag color="green" className="ml-2">{t('notificationServices.labels.configured')}</Tag>}
                             </span>
                         ),
                         children: (
-                            <Card className="shadow-sm border-slate-200">
-                                <Form
+                            <Card className="admin-card">
+                                <AppForm
                                     form={smtpForm}
                                     layout="vertical"
                                     className="max-w-2xl"
                                     initialValues={{
-                                        smtp_port: 587,
+                                        smtp_port: 465,
                                         smtp_use_tls: true,
                                     }}
                                 >
@@ -549,7 +560,7 @@ const NotificationServices: React.FC = () => {
                                             label={<span className="font-semibold">{t('notificationServices.smtp.fields.port')}</span>}
                                             rules={[{ required: true, message: t('notificationServices.smtp.validation.portRequired') }]}
                                         >
-                                            <InputNumber min={1} max={65535} className="w-full" placeholder="587" />
+                                            <InputNumber min={1} max={65535} className="w-full" placeholder="465" />
                                         </Form.Item>
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-6">
@@ -563,9 +574,24 @@ const NotificationServices: React.FC = () => {
                                         <Form.Item
                                             name="smtp_password"
                                             label={<span className="font-semibold">{t('notificationServices.smtp.fields.password')}</span>}
-                                            rules={[{ required: true, message: t('notificationServices.smtp.validation.passwordRequired') }]}
+                                            rules={[
+                                                {
+                                                    validator: async (_, value: string | undefined) => {
+                                                        if (String(value || '').trim() || secretPresence.smtpPassword) {
+                                                            return;
+                                                        }
+                                                        throw new Error(t('notificationServices.smtp.validation.passwordRequired'));
+                                                    },
+                                                },
+                                            ]}
                                         >
-                                            <Input.Password placeholder={t('notificationServices.smtp.placeholders.password')} />
+                                            <Input.Password
+                                                placeholder={
+                                                    secretPresence.smtpPassword && !String(smtpPasswordInput || '').trim()
+                                                        ? '********'
+                                                        : t('notificationServices.smtp.placeholders.password')
+                                                }
+                                            />
                                         </Form.Item>
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-6">
@@ -611,43 +637,42 @@ const NotificationServices: React.FC = () => {
                                             />
                                         </Form.Item>
                                     </div>
-                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('email')}>
+                                    <AppButton intent="tertiary" onClick={() => openTemplateLibrary('email')}>
                                         {t('notificationServices.templates.manageEmail')}
-                                    </Button>
+                                    </AppButton>
                                     <Divider />
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveSmtp}
                                             loading={smtpSaving}
                                         >
                                             {t('notificationServices.actions.save')}
-                                        </Button>
-                                        <Button
+                                        </AppButton>
+                                        <AppButton
                                             icon={<SendOutlined />}
                                             onClick={handleTestSmtp}
                                             loading={smtpTesting}
                                         >
                                             {t('notificationServices.actions.sendTest')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
-                                </Form>
+                                </AppForm>
                             </Card>
                         ),
                     },
                     {
                         key: 'telegram',
                         label: (
-                            <span className="flex items-center space-x-2">
-                                <SendOutlined />
+                            <span className="flex items-center">
                                 <span>{t('notificationServices.tabs.telegram')}</span>
                                 {telegramConfigured && <Tag color="green" className="ml-2">{t('notificationServices.labels.configured')}</Tag>}
                             </span>
                         ),
                         children: (
-                            <Card className="shadow-sm border-slate-200">
-                                <Form
+                            <Card className="admin-card">
+                                <AppForm
                                     form={telegramForm}
                                     layout="vertical"
                                     className="max-w-2xl"
@@ -729,43 +754,42 @@ const NotificationServices: React.FC = () => {
                                     >
                                         <Input.TextArea rows={3} maxLength={500} placeholder={t('notificationServices.telegram.placeholders.testMessage')} />
                                     </Form.Item>
-                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('im')}>
+                                    <AppButton intent="tertiary" onClick={() => openTemplateLibrary('im')}>
                                         {t('notificationServices.templates.manageIm')}
-                                    </Button>
+                                    </AppButton>
                                     <Divider />
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveTelegram}
                                             loading={telegramSaving}
                                         >
                                             {t('notificationServices.actions.save')}
-                                        </Button>
-                                        <Button
+                                        </AppButton>
+                                        <AppButton
                                             icon={<SendOutlined />}
                                             onClick={handleTestTelegram}
                                             loading={telegramTesting}
                                         >
                                             {t('notificationServices.actions.sendTest')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
-                                </Form>
+                                </AppForm>
                             </Card>
                         ),
                     },
                     {
                         key: 'sms',
                         label: (
-                            <span className="flex items-center space-x-2">
-                                <MessageOutlined />
+                            <span className="flex items-center">
                                 <span>{t('notificationServices.tabs.sms')}</span>
                                 {smsConfigured && <Tag color="green" className="ml-2">{t('notificationServices.labels.configured')}</Tag>}
                             </span>
                         ),
                         children: (
-                            <Card className="shadow-sm border-slate-200">
-                                <Form
+                            <Card className="admin-card">
+                                <AppForm
                                     form={smsForm}
                                     layout="vertical"
                                     className="max-w-3xl"
@@ -778,188 +802,194 @@ const NotificationServices: React.FC = () => {
                                         sms_test_message: t('notificationServices.sms.defaultTestMessage'),
                                     }}
                                 >
-                                    <div className="grid grid-cols-2 gap-x-6">
-                                        <Form.Item
-                                            name="sms_enabled"
-                                            label={<span className="font-semibold">{t('notificationServices.sms.fields.enabled')}</span>}
-                                            valuePropName="checked"
-                                        >
-                                            <Switch
-                                                checkedChildren={t('notificationServices.labels.enabled')}
-                                                unCheckedChildren={t('notificationServices.labels.disabled')}
-                                            />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="sms_provider"
-                                            label={<span className="font-semibold">{t('notificationServices.sms.fields.provider')}</span>}
-                                            rules={[{ required: true, message: t('notificationServices.sms.validation.providerRequired') }]}
-                                        >
-                                            <Select
-                                                placeholder={t('notificationServices.sms.placeholders.provider')}
-                                                options={[
-                                                    { value: 'aliyun', label: t('notificationServices.sms.providers.aliyun') },
-                                                    { value: 'tencent', label: t('notificationServices.sms.providers.tencent') },
-                                                    { value: 'twilio', label: t('notificationServices.sms.providers.twilio') },
-                                                ]}
-                                            />
-                                        </Form.Item>
-                                    </div>
-
-                                    <Form.Item shouldUpdate noStyle>
-                                        {() => {
-                                            const provider = smsForm.getFieldValue('sms_provider') as SmsProvider | undefined;
-                                            if (provider === 'aliyun') {
-                                                return (
-                                                    <>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="sms_access_key_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunAccessKeyId')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.aliyunAccessKeyId')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="sms_access_key_secret" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunAccessKeySecret')}</span>}>
-                                                                <Input.Password placeholder={t('notificationServices.sms.placeholders.aliyunAccessKeySecret')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="sms_sign_name" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunSignName')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.aliyunSignName')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="sms_template_code" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunTemplateCode')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.aliyunTemplateCode')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="sms_region_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunRegion')}</span>}>
-                                                                <Input placeholder="cn-hangzhou" />
-                                                            </Form.Item>
-                                                            <Form.Item name="sms_template_param" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunTemplateParam')}</span>} help={t('notificationServices.sms.help.aliyunTemplateParam')}>
-                                                                <Input placeholder='{"code":"123456"}' />
-                                                            </Form.Item>
-                                                        </div>
-                                                    </>
-                                                );
-                                            }
-                                            if (provider === 'tencent') {
-                                                return (
-                                                    <>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="tencent_secret_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSecretId')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.tencentSecretId')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="tencent_secret_key" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSecretKey')}</span>}>
-                                                                <Input.Password placeholder={t('notificationServices.sms.placeholders.tencentSecretKey')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="tencent_sdk_app_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSdkAppId')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.tencentSdkAppId')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="tencent_sign_name" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSignName')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.tencentSignName')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="tencent_template_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentTemplateId')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.tencentTemplateId')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="tencent_template_params" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentTemplateParams')}</span>} help={t('notificationServices.sms.help.tencentTemplateParams')}>
-                                                                <Input placeholder="123456" />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="tencent_region" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentRegion')}</span>}>
-                                                                <Input placeholder="ap-guangzhou" />
-                                                            </Form.Item>
-                                                        </div>
-                                                    </>
-                                                );
-                                            }
-                                            if (provider === 'twilio') {
-                                                return (
-                                                    <>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="twilio_account_sid" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioAccountSid')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.twilioAccountSid')} />
-                                                            </Form.Item>
-                                                            <Form.Item name="twilio_auth_token" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioAuthToken')}</span>}>
-                                                                <Input.Password placeholder={t('notificationServices.sms.placeholders.twilioAuthToken')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-x-6">
-                                                            <Form.Item name="twilio_from_number" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioFromNumber')}</span>} help={t('notificationServices.sms.help.twilioFromNumber')}>
-                                                                <Input placeholder="+1234567890" />
-                                                            </Form.Item>
-                                                            <Form.Item name="twilio_messaging_service_sid" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioMessagingServiceSid')}</span>}>
-                                                                <Input placeholder={t('notificationServices.sms.placeholders.twilioMessagingServiceSid')} />
-                                                            </Form.Item>
-                                                        </div>
-                                                    </>
-                                                );
-                                            }
-                                            return (
-                                                <>
-                                                    <Alert
-                                                        type="info"
-                                                        showIcon
-                                                        message={t('notificationServices.sms.selectProviderFirst')}
-                                                        className="mb-4"
-                                                    />
-                                                </>
-                                            );
-                                        }}
+                                    <Form.Item
+                                        name="sms_enabled"
+                                        label={<span className="font-semibold">{t('notificationServices.sms.fields.enabled')}</span>}
+                                        valuePropName="checked"
+                                    >
+                                        <Switch
+                                            checkedChildren={t('notificationServices.labels.enabled')}
+                                            unCheckedChildren={t('notificationServices.labels.disabled')}
+                                        />
                                     </Form.Item>
 
-                                    <div className="grid grid-cols-2 gap-x-6">
-                                        <Form.Item
-                                            name="sms_test_phone"
-                                            label={<span className="font-semibold">{t('notificationServices.sms.fields.testPhone')}</span>}
-                                            rules={[{ required: true, message: t('notificationServices.sms.validation.testPhoneRequired') }]}
-                                        >
-                                            <Input placeholder={t('notificationServices.sms.placeholders.testPhone')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="sms_test_message"
-                                            label={<span className="font-semibold">{t('notificationServices.sms.fields.testMessage')}</span>}
-                                            help={t('notificationServices.sms.help.testMessage')}
-                                        >
-                                            <Input placeholder={t('notificationServices.sms.placeholders.testMessage')} />
-                                        </Form.Item>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-x-6">
-                                        <Form.Item
-                                            name="notification_sms_template_id"
-                                            label={<span className="font-semibold">{t('notificationServices.templates.smsTemplate')}</span>}
-                                            help={t('notificationServices.templates.smsTemplateHelp')}
-                                        >
-                                            <Select
-                                                allowClear
-                                                options={smsTemplateOptions}
-                                                placeholder={t('notificationServices.templates.smsTemplatePlaceholder')}
-                                                notFoundContent={t('notificationServices.templates.empty')}
-                                            />
-                                        </Form.Item>
-                                    </div>
-                                    <Button type="link" className="!px-0" onClick={() => openTemplateLibrary('sms')}>
-                                        {t('notificationServices.templates.manageSms')}
-                                    </Button>
-                                    <Divider />
+                                    {smsEnabled && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-x-6">
+                                                <Form.Item
+                                                    name="sms_provider"
+                                                    label={<span className="font-semibold">{t('notificationServices.sms.fields.provider')}</span>}
+                                                    rules={[{ required: true, message: t('notificationServices.sms.validation.providerRequired') }]}
+                                                >
+                                                    <Select
+                                                        placeholder={t('notificationServices.sms.placeholders.provider')}
+                                                        options={[
+                                                            { value: 'aliyun', label: t('notificationServices.sms.providers.aliyun') },
+                                                            { value: 'tencent', label: t('notificationServices.sms.providers.tencent') },
+                                                            { value: 'twilio', label: t('notificationServices.sms.providers.twilio') },
+                                                        ]}
+                                                    />
+                                                </Form.Item>
+                                            </div>
+
+                                            <Form.Item shouldUpdate noStyle>
+                                                {() => {
+                                                    const provider = smsForm.getFieldValue('sms_provider') as SmsProvider | undefined;
+                                                    if (provider === 'aliyun') {
+                                                        return (
+                                                            <>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="sms_access_key_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunAccessKeyId')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.aliyunAccessKeyId')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="sms_access_key_secret" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunAccessKeySecret')}</span>}>
+                                                                        <Input.Password placeholder={t('notificationServices.sms.placeholders.aliyunAccessKeySecret')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="sms_sign_name" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunSignName')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.aliyunSignName')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="sms_template_code" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunTemplateCode')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.aliyunTemplateCode')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="sms_region_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunRegion')}</span>}>
+                                                                        <Input placeholder="cn-hangzhou" />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="sms_template_param" label={<span className="font-semibold">{t('notificationServices.sms.fields.aliyunTemplateParam')}</span>} help={t('notificationServices.sms.help.aliyunTemplateParam')}>
+                                                                        <Input placeholder='{"code":"123456"}' />
+                                                                    </Form.Item>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    }
+                                                    if (provider === 'tencent') {
+                                                        return (
+                                                            <>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="tencent_secret_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSecretId')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.tencentSecretId')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="tencent_secret_key" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSecretKey')}</span>}>
+                                                                        <Input.Password placeholder={t('notificationServices.sms.placeholders.tencentSecretKey')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="tencent_sdk_app_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSdkAppId')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.tencentSdkAppId')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="tencent_sign_name" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentSignName')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.tencentSignName')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="tencent_template_id" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentTemplateId')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.tencentTemplateId')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="tencent_template_params" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentTemplateParams')}</span>} help={t('notificationServices.sms.help.tencentTemplateParams')}>
+                                                                        <Input placeholder="123456" />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="tencent_region" label={<span className="font-semibold">{t('notificationServices.sms.fields.tencentRegion')}</span>}>
+                                                                        <Input placeholder="ap-guangzhou" />
+                                                                    </Form.Item>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    }
+                                                    if (provider === 'twilio') {
+                                                        return (
+                                                            <>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="twilio_account_sid" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioAccountSid')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.twilioAccountSid')} />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="twilio_auth_token" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioAuthToken')}</span>}>
+                                                                        <Input.Password placeholder={t('notificationServices.sms.placeholders.twilioAuthToken')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6">
+                                                                    <Form.Item name="twilio_from_number" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioFromNumber')}</span>} help={t('notificationServices.sms.help.twilioFromNumber')}>
+                                                                        <Input placeholder="+1234567890" />
+                                                                    </Form.Item>
+                                                                    <Form.Item name="twilio_messaging_service_sid" label={<span className="font-semibold">{t('notificationServices.sms.fields.twilioMessagingServiceSid')}</span>}>
+                                                                        <Input placeholder={t('notificationServices.sms.placeholders.twilioMessagingServiceSid')} />
+                                                                    </Form.Item>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <Alert
+                                                            type="info"
+                                                            showIcon
+                                                            message={t('notificationServices.sms.selectProviderFirst')}
+                                                            className="mb-4"
+                                                        />
+                                                    );
+                                                }}
+                                            </Form.Item>
+
+                                            <div className="grid grid-cols-2 gap-x-6">
+                                                <Form.Item
+                                                    name="sms_test_phone"
+                                                    label={<span className="font-semibold">{t('notificationServices.sms.fields.testPhone')}</span>}
+                                                    rules={[{ required: true, message: t('notificationServices.sms.validation.testPhoneRequired') }]}
+                                                >
+                                                    <Input placeholder={t('notificationServices.sms.placeholders.testPhone')} />
+                                                </Form.Item>
+                                                {smsProvider === 'twilio' && (
+                                                    <Form.Item
+                                                        name="sms_test_message"
+                                                        label={<span className="font-semibold">{t('notificationServices.sms.fields.testMessage')}</span>}
+                                                        help={t('notificationServices.sms.help.testMessage')}
+                                                    >
+                                                        <Input placeholder={t('notificationServices.sms.placeholders.testMessage')} />
+                                                    </Form.Item>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-6">
+                                                <Form.Item
+                                                    name="notification_sms_template_id"
+                                                    label={<span className="font-semibold">{t('notificationServices.templates.smsTemplate')}</span>}
+                                                    help={t('notificationServices.templates.smsTemplateHelp')}
+                                                >
+                                                    <Select
+                                                        allowClear
+                                                        options={smsTemplateOptions}
+                                                        placeholder={t('notificationServices.templates.smsTemplatePlaceholder')}
+                                                        notFoundContent={t('notificationServices.templates.empty')}
+                                                    />
+                                                </Form.Item>
+                                            </div>
+                                            <AppButton intent="tertiary" onClick={() => openTemplateLibrary('sms')}>
+                                                {t('notificationServices.templates.manageSms')}
+                                            </AppButton>
+                                            <Divider />
+                                        </>
+                                    )}
                                     <Space>
-                                        <Button
-                                            type="primary"
+                                        <AppButton
+                                            intent="primary"
                                             icon={<SaveOutlined />}
                                             onClick={handleSaveSms}
                                             loading={smsSaving}
                                         >
                                             {t('notificationServices.actions.save')}
-                                        </Button>
-                                        <Button
+                                        </AppButton>
+                                        <AppButton
                                             icon={<SendOutlined />}
                                             onClick={handleTestSms}
                                             loading={smsTesting}
+                                            disabled={!smsEnabled}
                                         >
                                             {t('notificationServices.actions.sendTest')}
-                                        </Button>
+                                        </AppButton>
                                     </Space>
-                                </Form>
+                                </AppForm>
                             </Card>
                         ),
                     },

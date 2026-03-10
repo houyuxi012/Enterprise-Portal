@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from modules.admin.services.notification_templates import (
     analyze_notification_template_definition,
+    build_branded_email_html,
     build_notification_sample_context,
     build_sms_test_payload,
     extract_notification_template_variables,
     get_localized_notification_template_text,
+    get_notification_email_branding,
     normalize_notification_template_i18n_map,
     render_notification_template,
     resolve_notification_template_id_from_config_map,
@@ -63,6 +68,47 @@ class NotificationTemplateRenderingTests(unittest.TestCase):
         self.assertEqual(rendered["subject"], "重置您的密码")
         self.assertEqual(rendered["content"], "您好 alice")
 
+    def test_render_notification_template_uses_default_locale_when_locale_not_provided(self) -> None:
+        template = SimpleNamespace(
+            category="email",
+            default_locale="en-US",
+            subject="您的验证码",
+            subject_i18n={"zh-CN": "您的验证码", "en-US": "Your verification code"},
+            content="您好 {{user_name}}",
+            content_i18n={"zh-CN": "您好 {{user_name}}", "en-US": "Hello {{user_name}}"},
+            variables=["user_name"],
+        )
+
+        rendered = render_notification_template(template, {"user_name": "alice"})
+
+        self.assertEqual(rendered["subject"], "Your verification code")
+        self.assertEqual(rendered["content"], "Hello alice")
+
+    def test_render_notification_template_generates_branded_html_for_email(self) -> None:
+        template = SimpleNamespace(
+            category="email",
+            subject="Reset your password",
+            content="<p>Hello {{user_name}}</p><p><a href=\"{{reset_link}}\">Reset now</a></p>",
+            variables=["user_name", "reset_link"],
+        )
+
+        rendered = render_notification_template(
+            template,
+            {"user_name": "alice", "reset_link": "https://portal.example.com/reset"},
+            email_branding={
+                "app_name": "ACME Portal",
+                "logo_url": "https://cdn.example.com/logo.png",
+                "footer_text": "ACME Portal",
+                "public_base_url": "https://portal.example.com",
+            },
+        )
+
+        self.assertEqual(rendered["subject"], "Reset your password")
+        self.assertIn("Hello alice", rendered["content"])
+        self.assertIn("ACME Portal", rendered["html_content"])
+        self.assertIn("https://cdn.example.com/logo.png", rendered["html_content"])
+        self.assertIn("Reset now", rendered["html_content"])
+
     def test_build_sms_test_payload_generates_provider_specific_values(self) -> None:
         template = SimpleNamespace(
             category="sms",
@@ -78,6 +124,17 @@ class NotificationTemplateRenderingTests(unittest.TestCase):
         self.assertEqual(aliyun_params["code"], "123456")
         self.assertEqual(payload["tencent_template_params"], "123456,admin")
         self.assertIn("123456", payload["twilio_message"])
+
+    def test_build_notification_sample_context_uses_public_base_url_for_links(self) -> None:
+        context = build_notification_sample_context(
+            channel="email",
+            recipient="admin@example.com",
+            public_base_url="https://portal.customer.example.com/workbench",
+        )
+
+        self.assertEqual(context["action_link"], "https://portal.customer.example.com/workbench")
+        self.assertEqual(context["reset_link"], "https://portal.customer.example.com/workbench/reset-password")
+        self.assertEqual(context["log_link"], "https://portal.customer.example.com/workbench/admin/logs")
 
     def test_resolve_notification_template_id_from_config_map(self) -> None:
         config_map = {"notification_sms_template_id": "12"}
@@ -111,6 +168,52 @@ class NotificationTemplateRenderingTests(unittest.TestCase):
         self.assertEqual(
             get_localized_notification_template_text("Default", {"zh-CN": "中文"}, locale="en-US"),
             "Default",
+        )
+
+    def test_build_branded_email_html_wraps_content(self) -> None:
+        html = build_branded_email_html(
+            subject="Welcome",
+            body_html="<p>Hello world</p>",
+            branding={
+                "app_name": "ACME Portal",
+                "footer_text": "ACME Footer",
+                "logo_url": "https://cdn.example.com/logo.png",
+                "public_base_url": "https://portal.example.com",
+            },
+        )
+
+        self.assertIn("Welcome", html)
+        self.assertIn("ACME Portal", html)
+        self.assertIn("ACME Footer", html)
+        self.assertIn("https://cdn.example.com/logo.png", html)
+
+    def test_get_notification_email_branding_rewrites_public_logo_url(self) -> None:
+        async def _run() -> dict[str, str]:
+            class DummyResult:
+                def scalars(self):
+                    return self
+
+                def all(self):
+                    return [
+                        SimpleNamespace(key="app_name", value="ACME Portal"),
+                        SimpleNamespace(key="logo_url", value="/api/v1/files/logo-token"),
+                        SimpleNamespace(key="footer_text", value="Footer"),
+                        SimpleNamespace(key="platform_public_base_url", value="https://portal.example.com"),
+                    ]
+
+            class DummyDB:
+                async def execute(self, _query):
+                    return DummyResult()
+
+            return await get_notification_email_branding(DummyDB())
+
+        with patch.dict(os.environ, {"PORTAL_PUBLIC_BASE_URL": "", "PUBLIC_BASE_URL": ""}, clear=False):
+            branding = asyncio.run(_run())
+        self.assertEqual(branding["app_name"], "ACME Portal")
+        self.assertEqual(branding["footer_text"], "Footer")
+        self.assertEqual(
+            branding["logo_url"],
+            "https://portal.example.com/api/v1/public/files/logo-token",
         )
 
 

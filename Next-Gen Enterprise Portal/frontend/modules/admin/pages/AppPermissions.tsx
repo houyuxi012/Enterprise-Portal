@@ -1,25 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Modal, TreeSelect, Tag, Tooltip, Space, Row, Col, Card, Tree, Empty, Switch, App } from 'antd';
+import { App, Avatar, Card, Col, Empty, Row, Space, Switch, Tooltip, Tree, TreeSelect, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient, { type QuickToolDTO, type QuickToolUpsertPayload } from '@/services/api';
 import type { Department } from '@/types';
-import { getIcon } from '@/shared/utils/iconMap';
-import { getColorClass } from '@/shared/utils/colorMap';
-
-const resolveIconTextColorClass = (colorName: string): string => {
-    const colorClass = getColorClass(colorName || 'blue');
-    const textColorClass = colorClass
-        .split(/\s+/)
-        .find((token) => token.startsWith('text-'));
-    return textColorClass || 'text-blue-600';
-};
 import {
+    AppButton,
+    AppModal,
     AppTable,
     AppPageHeader,
+    AppTag,
 } from '@/modules/admin/components/ui';
+
+const { Text } = Typography;
 
 type DepartmentSelectNode = {
     title: string;
@@ -51,9 +46,7 @@ const buildToolUpdatePayload = (
     visibleToDepartments: string | null,
 ): QuickToolUpsertPayload => ({
     name: tool.name,
-    icon_name: tool.icon_name,
     url: tool.url,
-    color: tool.color,
     category: tool.category,
     description: tool.description,
     image: tool.image,
@@ -80,9 +73,7 @@ const AppPermissions: React.FC = () => {
     const buildTreeData = (depts: Department[]): DataNode[] => {
         return depts.map(dept => ({
             title: (
-                <div className="flex items-center gap-2 py-1">
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{dept.name}</span>
-                </div>
+                <Text>{dept.name}</Text>
             ),
             key: dept.name, // Use name as key
             children: dept.children && dept.children.length > 0 ? buildTreeData(dept.children) : undefined,
@@ -201,26 +192,17 @@ const AppPermissions: React.FC = () => {
         {
             title: (
                 <Space>
-                    <AppstoreOutlined className="text-slate-400" />
+                    <AppstoreOutlined />
                     <span>{t('appPermissions.table.appName')}</span>
                 </Space>
             ),
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: QuickToolDTO) => {
-                const iconTextColor = resolveIconTextColorClass(record.color);
                 return (
                     <Space>
-                        {record.image ? (
-                            <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
-                                <img src={record.image} alt="icon" className="w-full h-full object-cover" />
-                            </div>
-                        ) : (
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800 ${iconTextColor}`}>
-                                {getIcon(record.icon_name, { size: 16 })}
-                            </div>
-                        )}
-                        <span className="font-bold">{text}</span>
+                        <Avatar shape="square" size={32} src={record.image || undefined} icon={<AppstoreOutlined />} />
+                        <Text strong>{text}</Text>
                     </Space>
                 );
             }
@@ -231,13 +213,13 @@ const AppPermissions: React.FC = () => {
             width: 120,
             render: (_: unknown, record: QuickToolDTO) => {
                 const raw = record.visible_to_departments;
-                if (!raw) return <Tag icon={<GlobalOutlined />} color="green">{t('appPermissions.scope.all')}</Tag>;
+                if (!raw) return <AppTag status="success">{t('appPermissions.scope.all')}</AppTag>;
                 const { parsed, list } = parseVisibleDepartments(raw);
                 if (!parsed) {
-                    return <Tag>{t('appPermissions.scope.error')}</Tag>;
+                    return <AppTag status="default">{t('appPermissions.scope.error')}</AppTag>;
                 }
-                if (list.length === 0) return <Tag icon={<LockOutlined />} color="red">{t('appPermissions.scope.hidden')}</Tag>;
-                return <Tag color="blue">{t('appPermissions.scope.selectedDepartments')}</Tag>;
+                if (list.length === 0) return <AppTag status="error">{t('appPermissions.scope.hidden')}</AppTag>;
+                return <AppTag status="info">{t('appPermissions.scope.selectedDepartments')}</AppTag>;
             }
         },
         // Dynamic Column for Selected Dept
@@ -259,7 +241,7 @@ const AppPermissions: React.FC = () => {
                             onChange={(checked) => handleToggleAccess(record, checked)}
                             size="small"
                         />
-                        {isPublic && <Tooltip title={t('appPermissions.tooltips.publicAllowed')}><InfoCircleOutlined className="text-slate-400" /></Tooltip>}
+                        {isPublic && <Tooltip title={t('appPermissions.tooltips.publicAllowed')}><InfoCircleOutlined /></Tooltip>}
                     </Space>
                 );
             }
@@ -269,19 +251,20 @@ const AppPermissions: React.FC = () => {
             key: 'action',
             width: 100,
             render: (_: unknown, record: QuickToolDTO) => (
-                <Button
-                    type="link"
+                <AppButton
+                    intent="tertiary"
+                    size="sm"
                     icon={<EditOutlined />}
                     onClick={() => handleEdit(record)}
                 >
                     {t('appPermissions.actions.configure')}
-                </Button>
+                </AppButton>
             ),
         },
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('appPermissions.page.title')}
                 subtitle={t('appPermissions.page.subtitle')}
@@ -292,12 +275,12 @@ const AppPermissions: React.FC = () => {
                 <Col xs={24} lg={6}>
                     <Card
                         title={
-                            <div className="flex items-center gap-2">
-                                <TeamOutlined className="text-blue-500" />
+                            <Space>
+                                <TeamOutlined />
                                 <span>{t('appPermissions.sidebar.departments')}</span>
-                            </div>
+                            </Space>
                         }
-                        className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] h-full mb-6 lg:mb-0"
+                        className="admin-card h-full mb-6 lg:mb-0"
                         styles={{ body: { padding: '12px 0 12px 12px' } }}
                     >
                         <div className="max-h-[600px] overflow-y-auto pr-2">
@@ -324,15 +307,13 @@ const AppPermissions: React.FC = () => {
 
                 {/* Right: Table */}
                 <Col xs={24} lg={18}>
-                    <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-200">
-                                {selectedDeptName
-                                    ? t('appPermissions.content.selectedDeptTitle', { dept: selectedDeptName })
-                                    : t('appPermissions.content.allApps')}
-                            </h3>
-                            {!selectedDeptName && <span className="text-xs text-slate-400">{t('appPermissions.content.selectHint')}</span>}
-                        </div>
+                    <Card className="admin-card overflow-hidden" title={
+                        selectedDeptName
+                            ? t('appPermissions.content.selectedDeptTitle', { dept: selectedDeptName })
+                            : t('appPermissions.content.allApps')
+                    } extra={
+                        !selectedDeptName ? <Text type="secondary">{t('appPermissions.content.selectHint')}</Text> : null
+                    }>
                         <AppTable
                             columns={columns}
                             dataSource={tools}
@@ -344,12 +325,12 @@ const AppPermissions: React.FC = () => {
                 </Col>
             </Row>
 
-            <Modal
+            <AppModal
                 title={
-                    <div className="flex items-center gap-2">
-                        <SafetyCertificateOutlined className="text-blue-600" />
+                    <Space size="small">
+                        <SafetyCertificateOutlined />
                         <span>{t('appPermissions.modal.title', { name: currentTool?.name || '-' })}</span>
-                    </div>
+                    </Space>
                 }
                 open={isModalOpen}
                 onOk={handleSave}
@@ -358,11 +339,15 @@ const AppPermissions: React.FC = () => {
                 width={600}
             >
                 <div className="py-4">
-                    <div className="bg-blue-50 text-blue-700 p-3 rounded mb-4 text-xs">
-                        <InfoCircleOutlined className="mr-1" />
-                        {t('appPermissions.modal.publicHintPrefix')}<b>{t('appPermissions.modal.publicHintBold')}</b>{t('appPermissions.modal.publicHintSuffix')}
-                    </div>
-                    <p className="mb-2 text-slate-500">{t('appPermissions.modal.selectDepartments')}</p>
+                    <Card size="small" className="admin-card-subtle mb-4">
+                        <Space size="small">
+                            <InfoCircleOutlined />
+                            <Text type="secondary">
+                                {t('appPermissions.modal.publicHintPrefix')}<Text strong>{t('appPermissions.modal.publicHintBold')}</Text>{t('appPermissions.modal.publicHintSuffix')}
+                            </Text>
+                        </Space>
+                    </Card>
+                    <Text type="secondary">{t('appPermissions.modal.selectDepartments')}</Text>
                     <TreeSelect
                         style={{ width: '100%' }}
                         value={selectedDepts}
@@ -377,7 +362,7 @@ const AppPermissions: React.FC = () => {
                         allowClear
                     />
                 </div>
-            </Modal>
+            </AppModal>
         </div>
     );
 };

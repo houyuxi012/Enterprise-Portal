@@ -76,7 +76,7 @@ async def create_tool(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    db_tool = models.QuickTool(**tool.dict())
+    db_tool = models.QuickTool(**tool.model_dump())
     db.add(db_tool)
     await db.commit()
     await db.refresh(db_tool)
@@ -111,7 +111,7 @@ async def update_tool(
         raise HTTPException(status_code=404, detail="Tool not found")
     
     try:
-        for key, value in tool_update.dict().items():
+        for key, value in tool_update.model_dump().items():
             setattr(tool, key, value)
             
         await db.commit()
@@ -128,7 +128,7 @@ async def update_tool(
     
     action = "UPDATE_APP"
     # Check if this was a permission update
-    if "visible_to_departments" in tool_update.dict(exclude_unset=True):
+    if "visible_to_departments" in tool_update.model_dump(exclude_unset=True):
          action = "UPDATE_APP_PERMISSION"
     
     AuditService.schedule_business_action(

@@ -106,6 +106,8 @@ interface UseAppBootstrapResult {
   customizationLicenseBlockedMessage: string;
   mfaSettingsLicenseBlocked: boolean;
   mfaSettingsLicenseBlockedMessage: string;
+  meetingManagementLicenseBlocked: boolean;
+  meetingManagementLicenseBlockedMessage: string;
   portalLicenseBlocked: boolean;
   portalLicenseBlockedMessage: string;
   setDirectoryLicenseState: (blocked: boolean, messageText: string) => void;
@@ -133,6 +135,8 @@ export const useAppBootstrap = ({
   const [customizationLicenseBlockedMessage, setCustomizationLicenseBlockedMessage] = useState('');
   const [mfaSettingsLicenseBlocked, setMfaSettingsLicenseBlocked] = useState(false);
   const [mfaSettingsLicenseBlockedMessage, setMfaSettingsLicenseBlockedMessage] = useState('');
+  const [meetingManagementLicenseBlocked, setMeetingManagementLicenseBlocked] = useState(false);
+  const [meetingManagementLicenseBlockedMessage, setMeetingManagementLicenseBlockedMessage] = useState('');
   const [portalLicenseBlocked, setPortalLicenseBlocked] = useState(false);
   const [portalLicenseBlockedMessage, setPortalLicenseBlockedMessage] = useState(t('appRoot.license.portalBlocked'));
 
@@ -196,6 +200,8 @@ export const useAppBootstrap = ({
       let currentCustomizationLicenseMessage = '';
       let currentMfaSettingsLicenseBlocked = false;
       let currentMfaSettingsLicenseMessage = '';
+      let currentMeetingManagementLicenseBlocked = false;
+      let currentMeetingManagementLicenseMessage = '';
 
       if (canUseAdminPlane) {
         onEnableAdminMode();
@@ -212,12 +218,15 @@ export const useAppBootstrap = ({
               const ldapEnabled = isLicenseFeatureEnabled(features, 'ldap');
               const customizationEnabled = isLicenseFeatureEnabled(features, 'customization.manage');
               const mfaSettingsEnabled = isLicenseFeatureEnabled(features, 'mfa.settings');
+              const meetingManagementEnabled = isLicenseFeatureEnabled(features, 'meeting.manage');
               currentDirectoryLicenseBlocked = !ldapEnabled;
               currentDirectoryLicenseMessage = ldapEnabled ? '' : t('directory.license.alert');
               currentCustomizationLicenseBlocked = !customizationEnabled;
               currentCustomizationLicenseMessage = customizationEnabled ? '' : t('adminLayout.menu.customizationLicenseRequired');
               currentMfaSettingsLicenseBlocked = !mfaSettingsEnabled;
               currentMfaSettingsLicenseMessage = mfaSettingsEnabled ? '' : t('adminLayout.menu.mfaSettingsLicenseRequired');
+              currentMeetingManagementLicenseBlocked = !meetingManagementEnabled;
+              currentMeetingManagementLicenseMessage = meetingManagementEnabled ? '' : t('adminLayout.menu.meetingManagementLicenseRequired');
             } catch (claimsError) {
               console.error('Failed to fetch license claims', claimsError);
             }
@@ -237,6 +246,8 @@ export const useAppBootstrap = ({
         setCustomizationLicenseBlockedMessage(currentCustomizationLicenseMessage);
         setMfaSettingsLicenseBlocked(currentMfaSettingsLicenseBlocked);
         setMfaSettingsLicenseBlockedMessage(currentMfaSettingsLicenseMessage);
+        setMeetingManagementLicenseBlocked(currentMeetingManagementLicenseBlocked);
+        setMeetingManagementLicenseBlockedMessage(currentMeetingManagementLicenseMessage);
         if (currentAdminGateMode === 'blocked') {
           onForceAdminLicenseTab();
         }
@@ -249,6 +260,8 @@ export const useAppBootstrap = ({
         setCustomizationLicenseBlockedMessage('');
         setMfaSettingsLicenseBlocked(false);
         setMfaSettingsLicenseBlockedMessage('');
+        setMeetingManagementLicenseBlocked(false);
+        setMeetingManagementLicenseBlockedMessage('');
       }
 
       const shouldSkipBusinessFetch = canUseAdminPlane && currentAdminGateMode === 'blocked';
@@ -393,6 +406,8 @@ export const useAppBootstrap = ({
     customizationLicenseBlockedMessage,
     mfaSettingsLicenseBlocked,
     mfaSettingsLicenseBlockedMessage,
+    meetingManagementLicenseBlocked,
+    meetingManagementLicenseBlockedMessage,
     portalLicenseBlocked,
     portalLicenseBlockedMessage,
     setDirectoryLicenseState,

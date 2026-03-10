@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Input, Select, DatePicker, message, Row, Col, Popconfirm, Card, Tooltip, TreeSelect } from 'antd';
-import { Plus, Trash2, Edit } from 'lucide-react';
+import { App, Card, Col, DatePicker, Input, Popconfirm, Row, Select, Space, Tooltip, TreeSelect, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Todo, UserOption } from '@/types';
 import TodoService, { CreateTodoDTO, UpdateTodoDTO } from '@/services/todos';
@@ -13,11 +13,13 @@ import {
     AppForm,
     AppTag,
     AppPageHeader,
+    AppFilterBar,
 } from '@/modules/admin/components/ui';
 import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { Text } = Typography;
 
 const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) => void; mode?: 'multiple'; placeholder: string }> = ({ value, onChange, mode, placeholder }) => {
     const [users, setUsers] = useState<UserOption[]>([]);
@@ -53,10 +55,10 @@ const UserSelect: React.FC<{ value?: number | number[]; onChange?: (val: any) =>
         >
             {users.map((u) => (
                 <Option key={u.id} value={u.id} label={`${u.name || ''} ${u.username}`}>
-                    <div className="flex items-center gap-2">
+                    <Space size="small">
                         {u.name || u.username}
-                        <span className="text-xs text-slate-400">({u.username})</span>
-                    </div>
+                        <Text type="secondary">({u.username})</Text>
+                    </Space>
                 </Option>
             ))}
         </Select>
@@ -111,6 +113,7 @@ const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: a
 
 const AdminTodoList: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [todos, setTodos] = useState<Todo[]>([]);
     const [total, setTotal] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -216,28 +219,28 @@ const AdminTodoList: React.FC = () => {
             title: t('adminTodos.table.id'),
             dataIndex: 'id',
             width: 60,
-            render: (text: number) => <span className="text-slate-400 font-mono">#{text}</span>,
+            render: (text: number) => <Text code>#{text}</Text>,
         },
         {
             title: t('adminTodos.table.title'),
             dataIndex: 'title',
             key: 'title',
             render: (text: string, record: Todo) => (
-                <div>
-                    <div className="font-bold text-slate-800 dark:text-slate-200">{text}</div>
+                <Space direction="vertical" size={2}>
+                    <Text strong>{text}</Text>
                     {record.description && (
                         <Tooltip title={record.description}>
-                            <div className="text-xs text-slate-500 truncate max-w-xs cursor-help">{record.description}</div>
+                            <Text type="secondary" ellipsis className="max-w-xs cursor-help">{record.description}</Text>
                         </Tooltip>
                     )}
-                </div>
+                </Space>
             ),
         },
         {
             title: t('adminTodos.table.assignees'),
             key: 'assignees',
             render: (_: any, record: Todo) => (
-                <div className="flex flex-wrap gap-1 w-48">
+                <Space size={[4, 4]} wrap>
                     {record.assigned_users?.map((u) => (
                         <AppTag key={`u-${u.id}`} status="processing">{u.name || u.username}</AppTag>
                     ))}
@@ -245,16 +248,16 @@ const AdminTodoList: React.FC = () => {
                         <AppTag key={`d-${d.id}`} status="warning">{d.name}</AppTag>
                     ))}
                     {(!record.assigned_users?.length && !record.assigned_departments?.length) && (
-                        <span className="text-slate-400 text-xs mt-1">{t('adminTodos.table.unassigned')}</span>
+                        <Text type="secondary">{t('adminTodos.table.unassigned')}</Text>
                     )}
-                </div>
+                </Space>
             ),
         },
         {
             title: t('adminTodos.table.creator'),
             dataIndex: 'creator_name',
             key: 'creator_name',
-            render: (text: string) => <span className="text-xs text-slate-500">{text || t('adminTodos.table.system')}</span>,
+            render: (text: string) => <Text type="secondary">{text || t('adminTodos.table.system')}</Text>,
         },
         {
             title: t('adminTodos.table.priority'),
@@ -281,7 +284,7 @@ const AdminTodoList: React.FC = () => {
             dataIndex: 'due_at',
             key: 'due_at',
             width: 170,
-            render: (date: string) => date ? <span className="text-xs font-bold text-slate-500">{dayjs(date).format('YYYY-MM-DD HH:mm')}</span> : '-',
+            render: (date: string) => date ? <Text type="secondary">{dayjs(date).format('YYYY-MM-DD HH:mm')}</Text> : '-',
         },
         {
             title: t('adminTodos.table.status'),
@@ -306,14 +309,14 @@ const AdminTodoList: React.FC = () => {
             key: 'action',
             width: 160,
             render: (_: any, record: Todo) => (
-                <div className="flex gap-2">
-                    <AppButton intent="tertiary" size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(record)}>
+                <Space size="small">
+                    <AppButton intent="tertiary" size="sm" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
                         {t('adminTodos.buttons.edit')}
                     </AppButton>
                     <Popconfirm title={t('adminTodos.confirmDelete')} onConfirm={() => handleDelete(record.id)}>
-                        <AppButton intent="danger" size="sm" icon={<Trash2 size={14} />}>{t('adminTodos.buttons.delete')}</AppButton>
+                        <AppButton intent="danger" size="sm" icon={<DeleteOutlined />}>{t('adminTodos.buttons.delete')}</AppButton>
                     </Popconfirm>
-                </div>
+                </Space>
             ),
         },
     ];
@@ -326,57 +329,37 @@ const AdminTodoList: React.FC = () => {
     ];
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6 animate-fade-in">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('adminTodos.title')}
                 subtitle={t('adminTodos.subtitle')}
                 action={
-                    <div className="flex gap-3">
-                        <div className="w-40 hidden sm:block">
-                            <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} placeholder={t('adminTodos.filters.userPlaceholder')} />
-                        </div>
-                        <div className="w-40 hidden sm:block">
-                            <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} placeholder={t('adminTodos.filters.deptPlaceholder')} />
-                        </div>
-                        <div className="w-32 hidden sm:block">
-                            <Select
-                                placeholder={t('adminTodos.filters.statusPlaceholder')}
-                                allowClear
-                                className="w-full"
-                                value={statusFilter}
-                                onChange={setStatusFilter}
-                                style={{ borderRadius: '8px' }}
-                                options={statusOptions}
-                            />
-                        </div>
-                        <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleCreate}>
-                            {t('adminTodos.buttons.createTask')}
-                        </AppButton>
-                    </div>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                        {t('adminTodos.buttons.createTask')}
+                    </AppButton>
                 }
             />
 
-            <div className="sm:hidden mb-4 flex flex-col gap-2">
-                <div className="flex gap-2 w-full">
-                    <div className="w-1/2">
-                        <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} placeholder={t('adminTodos.filters.userPlaceholder')} />
-                    </div>
-                    <div className="w-1/2">
-                        <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} placeholder={t('adminTodos.filters.deptPlaceholder')} />
-                    </div>
+            <AppFilterBar>
+                <div className="w-full md:w-40">
+                    <UserSelect value={assigneeUserFilter} onChange={setAssigneeUserFilter} placeholder={t('adminTodos.filters.userPlaceholder')} />
                 </div>
-                <Select
-                    placeholder={t('adminTodos.filters.statusPlaceholder')}
-                    allowClear
-                    className="w-full"
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    style={{ borderRadius: '8px' }}
-                    options={statusOptions}
-                />
-            </div>
+                <div className="w-full md:w-40">
+                    <DepartmentSelect value={assigneeDeptFilter} onChange={setAssigneeDeptFilter} placeholder={t('adminTodos.filters.deptPlaceholder')} />
+                </div>
+                <div className="w-full md:w-32">
+                    <Select
+                        placeholder={t('adminTodos.filters.statusPlaceholder')}
+                        allowClear
+                        className="w-full"
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        options={statusOptions}
+                    />
+                </div>
+            </AppFilterBar>
 
-            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <Card className="admin-card overflow-hidden">
                 <AppTable
                     columns={columns}
                     dataSource={todos}
@@ -405,64 +388,46 @@ const AdminTodoList: React.FC = () => {
                         <Input placeholder={t('adminTodos.modal.placeholders.title')} />
                     </AppForm.Item>
 
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <AppForm.Item name="assignee_user_ids" label={t('adminTodos.modal.fields.assigneeUsers')}>
-                                <UserSelect mode="multiple" placeholder={t('adminTodos.filters.userPlaceholder')} />
-                            </AppForm.Item>
-                        </Col>
-                        <Col span={12}>
-                            <AppForm.Item name="assignee_dept_ids" label={t('adminTodos.modal.fields.assigneeDepartments')}>
-                                <DepartmentSelect mode="multiple" placeholder={t('adminTodos.filters.deptPlaceholder')} />
-                            </AppForm.Item>
-                        </Col>
-                    </Row>
+                    <Card size="small" className="admin-card-subtle">
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <AppForm.Item name="assignee_user_ids" label={t('adminTodos.modal.fields.assigneeUsers')}>
+                                    <UserSelect mode="multiple" placeholder={t('adminTodos.filters.userPlaceholder')} />
+                                </AppForm.Item>
+                            </Col>
+                            <Col span={12}>
+                                <AppForm.Item name="assignee_dept_ids" label={t('adminTodos.modal.fields.assigneeDepartments')}>
+                                    <DepartmentSelect mode="multiple" placeholder={t('adminTodos.filters.deptPlaceholder')} />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
 
-                    <AppForm.Item name="description" label={t('adminTodos.modal.fields.description')}>
-                        <TextArea rows={3} placeholder={t('adminTodos.modal.placeholders.description')} />
-                    </AppForm.Item>
+                        <AppForm.Item name="description" label={t('adminTodos.modal.fields.description')}>
+                            <TextArea rows={3} placeholder={t('adminTodos.modal.placeholders.description')} />
+                        </AppForm.Item>
 
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <AppForm.Item name="priority" label={t('adminTodos.modal.fields.priority')} initialValue={2}>
-                                <Select>
-                                    <Option value={0}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></div>
-                                            <span className="font-bold text-rose-600">{t('adminTodos.table.priorityValues.emergency')}</span>
-                                        </div>
-                                    </Option>
-                                    <Option value={1}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                            {t('adminTodos.table.priorityValues.high')}
-                                        </div>
-                                    </Option>
-                                    <Option value={2}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                                            {t('adminTodos.table.priorityValues.medium')}
-                                        </div>
-                                    </Option>
-                                    <Option value={3}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                            {t('adminTodos.table.priorityValues.low')}
-                                        </div>
-                                    </Option>
-                                </Select>
-                            </AppForm.Item>
-                        </Col>
-                        <Col span={12}>
-                            <AppForm.Item name="due_at" label={t('adminTodos.modal.fields.dueAt')}>
-                                <DatePicker showTime className="w-full" />
-                            </AppForm.Item>
-                        </Col>
-                    </Row>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <AppForm.Item name="priority" label={t('adminTodos.modal.fields.priority')} initialValue={2}>
+                                    <Select>
+                                        <Option value={0}><AppTag status="error">{t('adminTodos.table.priorityValues.emergency')}</AppTag></Option>
+                                        <Option value={1}><AppTag status="error">{t('adminTodos.table.priorityValues.high')}</AppTag></Option>
+                                        <Option value={2}><AppTag status="warning">{t('adminTodos.table.priorityValues.medium')}</AppTag></Option>
+                                        <Option value={3}><AppTag status="success">{t('adminTodos.table.priorityValues.low')}</AppTag></Option>
+                                    </Select>
+                                </AppForm.Item>
+                            </Col>
+                            <Col span={12}>
+                                <AppForm.Item name="due_at" label={t('adminTodos.modal.fields.dueAt')}>
+                                    <DatePicker showTime className="w-full" />
+                                </AppForm.Item>
+                            </Col>
+                        </Row>
 
-                    <AppForm.Item name="status" label={t('adminTodos.modal.fields.status')} initialValue="pending">
-                        <Select options={statusOptions} />
-                    </AppForm.Item>
+                        <AppForm.Item name="status" label={t('adminTodos.modal.fields.status')} initialValue="pending">
+                            <Select options={statusOptions} />
+                        </AppForm.Item>
+                    </Card>
                 </AppForm>
             </AppModal>
         </div>

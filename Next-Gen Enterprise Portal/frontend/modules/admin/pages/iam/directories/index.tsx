@@ -44,6 +44,7 @@ import DirectoryDrawer from './DirectoryDrawer';
 import DirectoryCreateStarterModal from './DirectoryCreateStarterModal';
 import DirectoryDetailDrawer from './DirectoryDetailDrawer';
 import DirectoryTestModal from './DirectoryTestModal';
+import { AppButton, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 import type {
   DirectoryConfig,
   DirectoryCreatePayload,
@@ -701,27 +702,28 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
   }, [t, hasManagePermission, actionDisabled, licenseBlocked]);
 
   return (
-    <div className="bg-slate-50/50 dark:bg-slate-900/50 -m-6 min-h-full p-6">
-      <Card className="rounded-2xl border border-slate-100 shadow-sm">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="m-0 text-xl font-black text-slate-900 dark:text-white">{t('directory.page.title')}</h2>
-            <p className="mt-1 text-sm text-slate-500">{t('directory.page.subtitle')}</p>
-          </div>
+    <div className="admin-page admin-page-spaced">
+      <AppPageHeader
+        title={t('directory.page.title')}
+        subtitle={t('directory.page.subtitle')}
+        action={(
           <Space size={12}>
-            <Button icon={<ReloadOutlined />} onClick={() => void fetchRows()} loading={loading}>
+            <AppButton intent="secondary" icon={<ReloadOutlined />} onClick={() => void fetchRows()} loading={loading}>
               {t('common.buttons.refresh')}
-            </Button>
-            <Button
-              type="primary"
+            </AppButton>
+            <AppButton
+              intent="primary"
               icon={<PlusOutlined />}
               disabled={actionDisabled}
               onClick={handleCreate}
             >
               {t('directory.page.createButton')}
-            </Button>
+            </AppButton>
           </Space>
-        </div>
+        )}
+      />
+
+      <Card className="admin-card">
 
         {!hasManagePermission ? (
           <Alert type="error" showIcon message={t('directory.permission.denied')} />
@@ -741,7 +743,7 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
           />
         ) : null}
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <AppFilterBar className="mb-4 justify-between">
           <Space size={12} wrap>
             <Input
               value={searchText}
@@ -790,7 +792,8 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
             />
             <Button onClick={handleResetFilters}>{t('directory.filters.reset')}</Button>
           </Space>
-          <Space size={8}>
+          <AppFilterBar.Action>
+            <Space size={8}>
             <Tooltip title={t('directory.deleteProtection.tooltip')}>
               <Button
                 size="small"
@@ -807,10 +810,11 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
                 })()}
               </Button>
             </Tooltip>
-          </Space>
-        </div>
+            </Space>
+          </AppFilterBar.Action>
+        </AppFilterBar>
 
-        <Table<DirectoryConfig>
+        <AppTable<DirectoryConfig>
           rowKey="id"
           loading={loading || drawerLoading}
           columns={columns}

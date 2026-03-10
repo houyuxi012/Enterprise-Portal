@@ -15,7 +15,6 @@ import {
     PictureOutlined,
     IdcardOutlined,
     RobotOutlined,
-    ApiOutlined,
     BarChartOutlined,
     KeyOutlined,
     BookOutlined,
@@ -51,6 +50,8 @@ interface AdminLayoutProps {
     customizationLicenseMessage?: string;
     mfaSettingsLicenseBlocked?: boolean;
     mfaSettingsLicenseMessage?: string;
+    meetingManagementLicenseBlocked?: boolean;
+    meetingManagementLicenseMessage?: string;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({
@@ -69,6 +70,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     customizationLicenseMessage = '',
     mfaSettingsLicenseBlocked = false,
     mfaSettingsLicenseMessage = '',
+    meetingManagementLicenseBlocked = false,
+    meetingManagementLicenseMessage = '',
 }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [versionModalOpen, setVersionModalOpen] = useState(false);
@@ -79,7 +82,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     const { user } = useAuth();
 
     // We are overriding Antd token themes with CSS classes, but keeping this for safety
-    const { token: { borderRadiusLG } } = theme.useToken();
+    const { token: { borderRadiusLG, colorBgLayout } } = theme.useToken();
+    const layoutBackground = colorBgLayout || '#f8fafc';
 
     const canManageDirectories = useMemo(() => {
         if (!user) return false;
@@ -188,12 +192,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             children: [
                 {
                     key: 'meeting_local',
-                    label: t('adminLayout.menu.meetingLocal', '本地管理'),
+                    label: meetingManagementLicenseBlocked ? (
+                        <Tooltip title={meetingManagementLicenseMessage || t('adminLayout.menu.meetingManagementLicenseRequired')}>
+                            <span>{t('adminLayout.menu.meetingLocal', '本地管理')}</span>
+                        </Tooltip>
+                    ) : t('adminLayout.menu.meetingLocal', '本地管理'),
+                    disabled: meetingManagementLicenseBlocked,
                 },
                 {
                     key: 'meeting_sync',
-                    label: t('adminLayout.menu.meetingSync', '三方同步'),
-                    icon: <ApiOutlined />,
+                    label: meetingManagementLicenseBlocked ? (
+                        <Tooltip title={meetingManagementLicenseMessage || t('adminLayout.menu.meetingManagementLicenseRequired')}>
+                            <span>{t('adminLayout.menu.meetingSync', '三方同步')}</span>
+                        </Tooltip>
+                    ) : t('adminLayout.menu.meetingSync', '三方同步'),
+                    disabled: meetingManagementLicenseBlocked,
                 },
             ],
         },
@@ -288,20 +301,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         },
         {
             key: 'sub_notification',
-            label: t('adminLayout.menu.notification', '通知管理'),
+            label: t('adminLayout.menu.notification'),
             icon: <BellOutlined />,
             children: [
                 {
                     key: 'notification_templates',
-                    label: t('adminLayout.menu.notificationTemplates', '通知模版'),
+                    label: t('adminLayout.menu.notificationTemplates'),
                 },
                 {
                     key: 'notification_services',
-                    label: t('adminLayout.menu.notificationServices', '通知服务'),
-                },
-                {
-                    key: 'third_party_notifications',
-                    label: t('adminLayout.menu.thirdPartyNotifications', '三方通知'),
+                    label: t('adminLayout.menu.notificationServices'),
                 },
             ]
         },
@@ -315,6 +324,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     label: t('adminLayout.menu.platformSettings'),
                 },
                 {
+                    key: 'ops_management',
+                    label: t('adminLayout.menu.operationsManagement'),
+                },
+                {
                     key: 'license',
                     label: t('adminLayout.menu.license'),
                 },
@@ -325,10 +338,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                             <span>{t('adminLayout.menu.customization')}</span>
                         </Tooltip>
                     ) : t('adminLayout.menu.customization'),
-                },
-                {
-                    key: 'about_us',
-                    label: t('adminLayout.menu.aboutUs'),
                 },
             ],
         },
@@ -398,7 +407,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     }, [user?.id, user?.password_change_required]);
 
     return (
-        <Layout className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        <Layout className="min-h-screen" style={{ background: layoutBackground }}>
             {/* Sidebar with Glassmorphism / Soft Style */}
             <Sider
                 collapsible
@@ -448,9 +457,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                 />
             </Sider>
 
-            <Layout className="bg-transparent">
+            <Layout style={{ background: layoutBackground }}>
                 {/* Header - Floating & Transparent */}
-                <Header className="px-8 h-20 bg-transparent flex justify-end items-center z-10 backdrop-blur-sm sticky top-0">
+                <Header
+                    className="px-8 h-20 flex justify-end items-center z-10 backdrop-blur-sm sticky top-0"
+                    style={{ background: layoutBackground }}
+                >
                     <div className="flex items-center space-x-6">
                         <div className="text-right hidden sm:block">
                             <div className="text-sm font-bold text-slate-800 dark:text-white">{user?.name || user?.username || t('adminLayout.branding.fallbackAdminUser')}</div>
@@ -472,7 +484,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     </div>
                 </Header>
 
-                <Content className="m-6 mt-2 p-6 min-h-[280px] overflow-visible">
+                <Content
+                    className="m-6 mt-0 p-6 min-h-[280px] overflow-visible flex flex-col"
+                    style={{ background: layoutBackground }}
+                >
                     {licenseGateMode === 'blocked' && (
                         <Alert
                             type="warning"
@@ -492,7 +507,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                     {children}
                 </Content>
 
-                <Footer className="text-center text-slate-400 dark:text-slate-600 bg-transparent py-6 font-medium text-xs tracking-wide">
+                <Footer
+                    className="text-center text-slate-400 dark:text-slate-600 py-6 font-medium text-xs tracking-wide"
+                    style={{ background: layoutBackground }}
+                >
                     {footerText || t('adminLayout.footerDefault')}
                 </Footer>
             </Layout>

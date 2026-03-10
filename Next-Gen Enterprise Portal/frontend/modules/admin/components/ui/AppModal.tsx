@@ -30,17 +30,29 @@ const AppModal: React.FC<AppModalProps> = ({
     onCancel,
     ...rest
 }) => {
+    const handleCancelClick = () => {
+        (onCancel as ((event?: unknown) => void) | undefined)?.();
+    };
+
+    const handleOkClick = () => {
+        (onOk as ((event?: unknown) => void) | undefined)?.();
+    };
+
     const defaultFooter = hideFooter
         ? null
         : footer ?? [
-            <AppButton key="cancel" intent="secondary" onClick={onCancel}>
+            <AppButton
+                key="cancel"
+                intent="secondary"
+                onClick={handleCancelClick}
+            >
                 {cancelText}
             </AppButton>,
             <AppButton
                 key="ok"
                 intent={danger ? 'danger' : 'primary'}
                 loading={confirmLoading}
-                onClick={onOk}
+                onClick={handleOkClick}
             >
                 {okText}
             </AppButton>,

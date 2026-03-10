@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Col, DatePicker, Input, InputNumber, Row, Select, Typography } from 'antd';
+import { Col, DatePicker, Form, Input, InputNumber, Row, Select, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { AppForm, AppModal } from '@/modules/admin/components/ui';
@@ -15,7 +15,8 @@ export interface MeetingFormValues {
   durationMinutes: number;
   meetingType: MeetingType;
   meetingRoom: string;
-  meetingId?: string;
+  meetingSoftware: string;
+  meetingId: string;
   organizerUserId: number;
   attendeeUserIds: number[];
 }
@@ -39,6 +40,7 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form] = AppForm.useForm<MeetingFormValues>();
+  const meetingType = Form.useWatch('meetingType', form) ?? initialValues?.meetingType ?? 'online';
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
@@ -50,6 +52,9 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     const defaults: Partial<MeetingFormValues> = {
       durationMinutes: 60,
       meetingType: 'online',
+      meetingRoom: '',
+      meetingSoftware: '',
+      meetingId: '',
       attendeeUserIds: [],
     };
     form.setFieldsValue({
@@ -102,6 +107,26 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     await onSubmit(values);
   };
 
+  const isOnlineMeeting = meetingType === 'online';
+  const locationLabel = isOnlineMeeting
+    ? t('meetingLocal.form.meetingSoftware', '会议软件')
+    : t('meetingLocal.form.room', '会议室');
+  const locationPlaceholder = isOnlineMeeting
+    ? t('meetingLocal.form.meetingSoftwarePlaceholder', '例如：腾讯会议 / 飞书会议 / Teams')
+    : t('meetingLocal.form.roomPlaceholder', '例如：18F 星海会议室');
+  const locationValidation = isOnlineMeeting
+    ? t('meetingLocal.validation.meetingSoftware', '请输入会议软件')
+    : t('meetingLocal.validation.room', '请输入会议室');
+  const meetingIdLabel = isOnlineMeeting
+    ? t('meetingLocal.form.onlineMeetingId', '会议 ID / 会议链接')
+    : t('meetingLocal.form.meetingId', '会议 ID');
+  const meetingIdPlaceholder = isOnlineMeeting
+    ? t('meetingLocal.form.onlineMeetingIdPlaceholder', '例如：904-123-456 或 https://meeting.tencent.com/xxx')
+    : t('meetingLocal.form.meetingIdPlaceholder', '例如：腾讯会议 904-123-456');
+  const meetingIdValidation = isOnlineMeeting
+    ? t('meetingLocal.validation.onlineMeetingId', '请输入会议 ID 或会议链接')
+    : t('meetingLocal.validation.meetingId', '请输入会议 ID');
+
   return (
     <AppModal
       open={open}
@@ -121,8 +146,8 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     >
       <Paragraph className="text-slate-500 mb-5">
         {mode === 'edit'
-          ? t('meetingLocal.form.editTip', '你可以直接修改会议信息；保留会议 ID 不变可避免外部引用失效。')
-          : t('meetingLocal.form.tip', '未填写会议 ID 时，系统会在保存时自动生成一个唯一标识。')}
+          ? t('meetingLocal.form.editTip', '你可以直接修改会议信息；会议 ID 需要手动维护并保持与外部会议平台一致。')
+          : t('meetingLocal.form.tip', '会议 ID 需要手动填写，例如腾讯会议、飞书会议等平台生成的入会编号。')}
       </Paragraph>
       <AppForm form={form} layout="vertical">
         <Row gutter={16}>
@@ -190,19 +215,20 @@ const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           </Col>
           <Col xs={24} md={12}>
             <AppForm.Item
-              name="meetingRoom"
-              label={t('meetingLocal.form.room', '会议室')}
-              rules={[{ required: true, message: t('meetingLocal.validation.room', '请输入会议室') }]}
+              name={isOnlineMeeting ? 'meetingSoftware' : 'meetingRoom'}
+              label={locationLabel}
+              rules={[{ required: true, message: locationValidation }]}
             >
-              <Input placeholder={t('meetingLocal.form.roomPlaceholder', '例如：18F 星海会议室 / 腾讯会议 904-123')} />
+              <Input placeholder={locationPlaceholder} />
             </AppForm.Item>
           </Col>
           <Col xs={24}>
             <AppForm.Item
               name="meetingId"
-              label={t('meetingLocal.form.meetingId', '会议 ID')}
+              label={meetingIdLabel}
+              rules={[{ required: true, message: meetingIdValidation }]}
             >
-              <Input placeholder={t('meetingLocal.form.meetingIdPlaceholder', '可选，留空时自动生成')} />
+              <Input placeholder={meetingIdPlaceholder} />
             </AppForm.Item>
           </Col>
           <Col xs={24}>

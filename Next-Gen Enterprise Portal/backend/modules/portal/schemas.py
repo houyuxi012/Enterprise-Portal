@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +28,9 @@ class Employee(EmployeeBase):
     id: int
     auth_source: Optional[str] = "local"
     totp_enabled: Optional[bool] = False
+    email_mfa_enabled: Optional[bool] = False
+    webauthn_enabled: Optional[bool] = False
+    mfa_enabled: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -61,9 +64,7 @@ class NewsItem(NewsItemBase):
 
 class QuickToolBase(BaseModel):
     name: str
-    icon_name: str
     url: str
-    color: str
     category: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
@@ -121,6 +122,8 @@ class NotificationBase(BaseModel):
 class NotificationPushRequest(NotificationBase):
     user_ids: list[int] = []
     broadcast: bool = False
+    template_id: Optional[int] = None
+    template_variables: Optional[dict[str, str]] = None
 
 
 class NotificationItem(NotificationBase):
@@ -249,7 +252,9 @@ class PortalMeetingCreate(BaseModel):
     start_time: datetime
     duration_minutes: int
     meeting_type: Literal["online", "offline"]
-    meeting_room: str
+    meeting_room: str | None = None
+    meeting_software: str | None = None
+    meeting_id: str
     attendees: list[str] = []
 
 
@@ -258,7 +263,8 @@ class PortalMeetingSummaryItem(BaseModel):
     start_time: datetime
     duration_minutes: int
     meeting_type: str
-    meeting_room: str
+    meeting_room: str | None = None
+    meeting_software: str | None = None
     meeting_id: str
     organizer: str
 

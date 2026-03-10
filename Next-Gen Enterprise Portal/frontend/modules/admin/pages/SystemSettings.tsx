@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Form, Input, message, Upload } from 'antd';
+import { Alert, App, Card, Col, Input, Row, Space, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
-import AppButton from '@/shared/components/AppButton';
+import { AppButton, AppForm, AppPageHeader } from '@/modules/admin/components/ui';
 
 const SYSTEM_BRANDING_KEYS = [
     'app_name',
@@ -49,7 +49,8 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     licenseBlockedMessage = '',
 }) => {
     const { t } = useTranslation();
-    const [form] = Form.useForm();
+    const { message } = App.useApp();
+    const [form] = AppForm.useForm<BrandingFormValues>();
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -92,76 +93,73 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700 bg-slate-50/50 dark:bg-slate-900/50 -m-6 p-6 min-h-full">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2 max-w-4xl mx-auto w-full">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('systemSettingsPage.page.title')}</h2>
-                    <p className="text-xs text-slate-400 font-bold mt-1">{t('systemSettingsPage.page.subtitle')}</p>
-                </div>
-                <AppButton
-                    intent="primary"
-                    icon={<SaveOutlined />}
-                    onClick={() => form.submit()}
-                    loading={loading}
-                    disabled={licenseBlocked}
-                >
-                    {t('systemSettingsPage.page.saveButton')}
-                </AppButton>
+        <div className="admin-page admin-page-spaced">
+            <div className="mx-auto w-full max-w-4xl">
+                <AppPageHeader
+                    title={t('systemSettingsPage.page.title')}
+                    subtitle={t('systemSettingsPage.page.subtitle')}
+                    action={(
+                        <AppButton
+                            intent="primary"
+                            icon={<SaveOutlined />}
+                            onClick={() => form.submit()}
+                            loading={loading}
+                            disabled={licenseBlocked}
+                        >
+                            {t('systemSettingsPage.page.saveButton')}
+                        </AppButton>
+                    )}
+                />
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700/50 max-w-4xl mx-auto animate-in slider-up duration-500">
+            <div className="mx-auto w-full max-w-4xl">
                 {licenseBlocked && (
                     <Alert
                         type="warning"
                         showIcon
-                        className="mb-6 rounded-xl"
                         message={licenseBlockedMessage || t('systemSettingsPage.messages.readonlyByLicense')}
                     />
                 )}
-                <Form
+                <AppForm
                     form={form}
-                    layout="vertical"
                     onFinish={handleSave}
-                    className="space-y-8"
                     disabled={licenseBlocked}
                 >
-                    <div>
-                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
-
-                            {t('systemSettingsPage.sections.branding')}
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Form.Item
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <Card className="admin-card" title={t('systemSettingsPage.sections.branding')}>
+                            <Row gutter={[16, 0]}>
+                                <Col xs={24} md={12}>
+                                    <AppForm.Item
                                 name="app_name"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.appName')}</span>}
+                                label={t('systemSettingsPage.form.appName')}
                                 help={t('systemSettingsPage.form.appNameHelp')}
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.appName')} />
-                            </Form.Item>
-
-                            <Form.Item
+                                <Input placeholder={t('systemSettingsPage.form.placeholders.appName')} />
+                                    </AppForm.Item>
+                                </Col>
+                                <Col xs={24} md={12}>
+                                    <AppForm.Item
                                 name="browser_title"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.browserTitle')}</span>}
+                                label={t('systemSettingsPage.form.browserTitle')}
                                 help={t('systemSettingsPage.form.browserTitleHelp')}
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.browserTitle')} />
-                            </Form.Item>
-                        </div>
+                                <Input placeholder={t('systemSettingsPage.form.placeholders.browserTitle')} />
+                                    </AppForm.Item>
+                                </Col>
+                            </Row>
 
-                        <div className="flex flex-col md:flex-row gap-6 mt-4">
-                            <Form.Item
+                            <Row gutter={[16, 0]} align="bottom">
+                                <Col xs={24} md={18}>
+                                    <AppForm.Item
                                 name="logo_url"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.logoUrl')}</span>}
+                                label={t('systemSettingsPage.form.logoUrl')}
                                 help={t('systemSettingsPage.form.logoUrlHelp')}
-                                className="flex-1"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.logoUrl')} />
-                            </Form.Item>
-
-                            <div className="md:mt-8">
-                                <Upload
+                                <Input placeholder={t('systemSettingsPage.form.placeholders.logoUrl')} />
+                                    </AppForm.Item>
+                                </Col>
+                                <Col xs={24} md={6}>
+                                    <Upload
                                     showUploadList={false}
                                     beforeUpload={async (file) => {
                                         try {
@@ -178,22 +176,22 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     }}
                                 >
                                     <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
-                                </Upload>
-                            </div>
-                        </div>
+                                    </Upload>
+                                </Col>
+                            </Row>
 
-                        <div className="flex flex-col md:flex-row gap-6 mt-4">
-                            <Form.Item
+                            <Row gutter={[16, 0]} align="bottom">
+                                <Col xs={24} md={18}>
+                                    <AppForm.Item
                                 name="favicon_url"
-                                label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.faviconUrl')}</span>}
+                                label={t('systemSettingsPage.form.faviconUrl')}
                                 help={t('systemSettingsPage.form.faviconUrlHelp')}
-                                className="flex-1"
                             >
-                                <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.faviconUrl')} />
-                            </Form.Item>
-
-                            <div className="md:mt-8">
-                                <Upload
+                                <Input placeholder={t('systemSettingsPage.form.placeholders.faviconUrl')} />
+                                    </AppForm.Item>
+                                </Col>
+                                <Col xs={24} md={6}>
+                                    <Upload
                                     showUploadList={false}
                                     beforeUpload={async (file) => {
                                         try {
@@ -210,36 +208,32 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     }}
                                 >
                                     <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
-                                </Upload>
-                            </div>
-                        </div>
+                                    </Upload>
+                                </Col>
+                            </Row>
 
-                        <Form.Item
+                            <AppForm.Item
                             name="footer_text"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.footerText')}</span>}
-                            className="mt-4"
+                            label={t('systemSettingsPage.form.footerText')}
                         >
-                            <Input className="rounded-xl py-2.5 bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20" placeholder={t('systemSettingsPage.form.placeholders.footerText')} />
-                        </Form.Item>
-                    </div>
+                            <Input placeholder={t('systemSettingsPage.form.placeholders.footerText')} />
+                            </AppForm.Item>
+                        </Card>
 
-                    <div>
-                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center">
-                            {t('systemSettingsPage.sections.privacy')}
-                        </h3>
-                        <Form.Item
+                        <Card className="admin-card" title={t('systemSettingsPage.sections.privacy')}>
+                            <AppForm.Item
                             name="privacy_policy"
-                            label={<span className="font-bold text-slate-600 dark:text-slate-300">{t('systemSettingsPage.form.privacyPolicy')}</span>}
+                            label={t('systemSettingsPage.form.privacyPolicy')}
                             help={t('systemSettingsPage.form.privacyPolicyHelp')}
                         >
                             <Input.TextArea
                                 rows={10}
-                                className="rounded-xl bg-slate-50 border-slate-200 focus:ring-2 ring-indigo-500/20 font-mono text-sm leading-relaxed"
                                 placeholder={t('systemSettingsPage.form.placeholders.privacyPolicy')}
                             />
-                        </Form.Item>
-                    </div>
-                </Form>
+                            </AppForm.Item>
+                        </Card>
+                    </Space>
+                </AppForm>
             </div>
         </div>
     );

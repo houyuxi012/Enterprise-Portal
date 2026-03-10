@@ -58,6 +58,32 @@ class PasswordChangeRequest(BaseModel):
     new_password: str
 
 
+class PasswordResetRequestPayload(BaseModel):
+    identifier: str
+    locale: Optional[Literal["zh-CN", "en-US"]] = None
+
+
+class PasswordResetRequestResponse(BaseModel):
+    message: str
+
+
+class PasswordResetValidateResponse(BaseModel):
+    message: str
+    audience: Literal["admin", "portal"]
+    username: str
+    email_masked: Optional[str] = None
+    expires_at: datetime
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
+    message: str
+
+
 class SessionScopeRequest(BaseModel):
     audience_scope: Literal["admin", "portal", "all"] = "all"
 

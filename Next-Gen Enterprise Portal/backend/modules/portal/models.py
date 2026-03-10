@@ -58,9 +58,7 @@ class QuickTool(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(128), index=True)
-    icon_name = Column(String(64))
     url = Column(String(1024))
-    color = Column(String(32))
     category = Column(String(64))
     description = Column(String(255))
     image = Column(String(512), nullable=True)

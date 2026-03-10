@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Popconfirm, message, Card, Upload, Image, List, InputNumber } from 'antd';
+import { App, Card, Image, Input, InputNumber, List, Popconfirm, Select, Space, Tag, Typography, Upload } from 'antd';
 import type { GetProp, UploadFile, UploadProps } from 'antd';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { PlusOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { QuickToolDTO, QuickToolUpsertPayload } from '@/services/api';
 import ApiClient from '@/services/api';
-import { getIcon } from '@/shared/utils/iconMap';
-import { getColorClass } from '@/shared/utils/colorMap';
 import {
     AppButton,
     AppModal,
@@ -27,14 +24,6 @@ const getBase64 = (file: FileType): Promise<string> =>
         reader.onerror = (error) => reject(error);
     });
 
-const resolveIconTextColorClass = (colorName: string): string => {
-    const colorClass = getColorClass(colorName || 'blue');
-    const textColorClass = colorClass
-        .split(/\s+/)
-        .find((token) => token.startsWith('text-'));
-    return textColorClass || 'text-blue-600';
-};
-
 const CATEGORY_CODES = [
     'administration',
     'it',
@@ -48,27 +37,23 @@ const CATEGORY_CODES = [
     'other',
 ] as const;
 
-// Helper to render icon preview
-const IconPreview = ({ iconName, color, image }: { iconName: string, color: string, image?: string }) => {
-    if (image) {
-        return (
-            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
-                <img src={image} alt="icon" className="w-full h-full object-cover" />
-            </div>
-        );
-    }
+const { Text, Title } = Typography;
 
-    const iconTextColorClass = resolveIconTextColorClass(color);
-
+const IconPreview = ({ image }: { image?: string }) => {
     return (
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800 ${iconTextColorClass}`}>
-            {getIcon(iconName, { size: 18 })}
-        </div>
+        <Card size="small" className="admin-card-subtle" styles={{ body: { width: 48, height: 48, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } }}>
+            {image ? (
+                <img src={image} alt="icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+                <AppstoreOutlined />
+            )}
+        </Card>
     );
 };
 
 const ToolList: React.FC = () => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const [tools, setTools] = useState<QuickToolDTO[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTool, setEditingTool] = useState<QuickToolDTO | null>(null);
@@ -150,8 +135,6 @@ const ToolList: React.FC = () => {
         setEditingTool(null);
         form.resetFields();
         form.setFieldsValue({
-            color: 'blue',
-            icon_name: 'Link',
             category: 'general',
             image: ''
         });
@@ -172,13 +155,17 @@ const ToolList: React.FC = () => {
         setFileList(newFileList);
 
     const handleSubmit = async (values: QuickToolUpsertPayload) => {
+        const payload: QuickToolUpsertPayload = {
+            ...values,
+            image: values.image ?? editingTool?.image,
+        };
         try {
             setSubmitLoading(true);
             if (editingTool) {
-                await ApiClient.updateTool(editingTool.id, values);
+                await ApiClient.updateTool(editingTool.id, payload);
                 message.success(t('toolList.messages.updateSuccess'));
             } else {
-                await ApiClient.createTool(values);
+                await ApiClient.createTool(payload);
                 message.success(t('toolList.messages.createSuccess'));
             }
             setIsModalOpen(false);
@@ -191,12 +178,12 @@ const ToolList: React.FC = () => {
     };
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             <AppPageHeader
                 title={t('toolList.page.title')}
                 subtitle={t('toolList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         {t('toolList.page.createButton')}
                     </AppButton>
                 }
@@ -207,29 +194,31 @@ const ToolList: React.FC = () => {
                 dataSource={tools}
                 loading={loading}
                 className="pb-10"
-                renderItem={item => (
+                renderItem={(item) => (
                     <List.Item>
                         <Card
                             hoverable
-                            className="rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 bg-white dark:bg-slate-800 group"
-                            bodyStyle={{ padding: 24 }}
+                            className="admin-card admin-card-subtle h-full"
+                            styles={{ body: { padding: 24 } }}
                             actions={[
-                                <AppButton key="edit" intent="tertiary" iconOnly size="sm" icon={<Edit size={14} />} onClick={() => handleEdit(item)} />,
+                                <AppButton key="edit" intent="tertiary" iconOnly size="sm" icon={<EditOutlined />} onClick={() => handleEdit(item)} />,
                                 <Popconfirm key="delete" title={t('toolList.popconfirm.deleteTitle')} onConfirm={() => handleDelete(item.id)}>
-                                    <AppButton intent="danger" iconOnly size="sm" icon={<Trash2 size={14} />} />
+                                    <AppButton intent="danger" iconOnly size="sm" icon={<DeleteOutlined />} />
                                 </Popconfirm>,
                             ]}
                         >
-                            <div className="flex flex-col items-center text-center pt-2 pb-2">
-                                <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
-                                    <IconPreview iconName={item.icon_name} color={item.color} image={item.image} />
+                            <Space direction="vertical" align="center" size={12} style={{ width: '100%' }}>
+                                <div>
+                                    <IconPreview image={item.image} />
                                 </div>
-                                <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg mb-1">{item.name}</h3>
-                                <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 px-2 py-0.5 rounded-lg">
+                                <Title level={5} style={{ margin: 0, textAlign: 'center' }}>{item.name}</Title>
+                                <Tag color="blue">
                                     {t(`toolList.categories.${normalizeCategory(item.category)}`, { defaultValue: item.category })}
-                                </span>
-                                <p className="text-xs text-slate-400 mt-3 truncate w-full px-2">{item.url}</p>
-                            </div>
+                                </Tag>
+                                <Text type="secondary" ellipsis={{ tooltip: item.url }} style={{ maxWidth: '100%', textAlign: 'center' }}>
+                                    {item.url}
+                                </Text>
+                            </Space>
                         </Card>
                     </List.Item>
                 )}
@@ -243,90 +232,87 @@ const ToolList: React.FC = () => {
                 confirmLoading={submitLoading}
             >
                 <AppForm form={form} onFinish={handleSubmit}>
-                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 items-start">
-                        <AppForm.Item label={t('toolList.form.icon')} className="mb-0">
-                            <AppForm.Item name="image" noStyle>
-                                <Input hidden />
-                            </AppForm.Item>
-                            <Upload
-                                listType="picture-card"
-                                fileList={fileList}
-                                onPreview={handlePreview}
-                                onChange={handleChange}
-                                maxCount={1}
-                                customRequest={async ({ file, onSuccess, onError }) => {
-                                    try {
-                                        const url = await ApiClient.uploadImage(file as File);
-                                        form.setFieldsValue({ image: url });
-                                        message.success(t('toolList.messages.uploadSuccess'));
-                                        onSuccess?.(url);
-                                    } catch (err) {
-                                        message.error(t('toolList.messages.uploadFailed'));
-                                        onError?.(err as Error);
-                                    }
-                                }}
-                            >
-                                {fileList.length >= 1 ? null : (
-                                    <button style={{ border: 0, background: 'none' }} type="button">
-                                        <PlusOutlined />
-                                        <div style={{ marginTop: 8 }}>{t('toolList.form.uploadIcon')}</div>
-                                    </button>
-                                )}
-                            </Upload>
-                            {previewImage && (
-                                <Image
-                                    wrapperStyle={{ display: 'none' }}
-                                    preview={{
-                                        visible: previewOpen,
-                                        onVisibleChange: (visible) => setPreviewOpen(visible),
-                                        afterOpenChange: (visible) => !visible && setPreviewImage(''),
-                                    }}
-                                    src={previewImage}
-                                />
-                            )}
+                    <AppForm.Item
+                        label={t('toolList.form.icon')}
+                        help={t('toolList.form.iconHint')}
+                    >
+                        <AppForm.Item name="image" noStyle>
+                            <Input hidden />
                         </AppForm.Item>
-                        <div>
-                            <AppForm.Item name="color" label={t('toolList.form.color')}>
-                                <Select placeholder={t('toolList.form.placeholders.color')}>
-                                    <Option value="blue">{t('toolList.colors.blue')}</Option>
-                                    <Option value="purple">{t('toolList.colors.purple')}</Option>
-                                    <Option value="emerald">{t('toolList.colors.emerald')}</Option>
-                                    <Option value="rose">{t('toolList.colors.rose')}</Option>
-                                    <Option value="orange">{t('toolList.colors.orange')}</Option>
-                                </Select>
-                            </AppForm.Item>
-                            <AppForm.Item name="icon_name" label={t('toolList.form.iconName')}>
-                                <Input placeholder={t('toolList.form.placeholders.iconName')} />
-                            </AppForm.Item>
-                        </div>
-                    </div>
+                        <Upload
+                            listType="picture-card"
+                            fileList={fileList}
+                            onPreview={handlePreview}
+                            onChange={handleChange}
+                            maxCount={1}
+                            customRequest={async ({ file, onSuccess, onError }) => {
+                                try {
+                                    const url = await ApiClient.uploadImage(file as File);
+                                    form.setFieldsValue({ image: url });
+                                    message.success(t('toolList.messages.uploadSuccess'));
+                                    onSuccess?.(url);
+                                } catch (err) {
+                                    message.error(t('toolList.messages.uploadFailed'));
+                                    onError?.(err as Error);
+                                }
+                            }}
+                        >
+                            {fileList.length >= 1 ? null : (
+                                <button style={{ border: 0, background: 'none' }} type="button">
+                                    <PlusOutlined />
+                                    <div style={{ marginTop: 8 }}>{t('toolList.form.uploadIcon')}</div>
+                                </button>
+                            )}
+                        </Upload>
+                        {previewImage && (
+                            <Image
+                                wrapperStyle={{ display: 'none' }}
+                                preview={{
+                                    visible: previewOpen,
+                                    onVisibleChange: (visible) => setPreviewOpen(visible),
+                                    afterOpenChange: (visible) => !visible && setPreviewImage(''),
+                                }}
+                                src={previewImage}
+                            />
+                        )}
+                    </AppForm.Item>
 
-                    <AppForm.Item name="name" label={t('toolList.form.name')} rules={[{ required: true, message: t('toolList.form.validation.nameRequired') }]}>
-                        <Input placeholder={t('toolList.form.placeholders.name')} />
-                    </AppForm.Item>
-                    <AppForm.Item name="url" label={t('toolList.form.url')} rules={[{ required: true, message: t('toolList.form.validation.urlRequired') }]}>
-                        <Input placeholder={t('toolList.form.placeholders.url')} />
-                    </AppForm.Item>
-                    <AppForm.Item name="category" label={t('toolList.form.category')}>
-                        <Select placeholder={t('toolList.form.placeholders.category')}>
-                            <Option value="administration">{t('toolList.categories.administration')}</Option>
-                            <Option value="it">{t('toolList.categories.it')}</Option>
-                            <Option value="finance">{t('toolList.categories.finance')}</Option>
-                            <Option value="hr">{t('toolList.categories.hr')}</Option>
-                            <Option value="engineering">{t('toolList.categories.engineering')}</Option>
-                            <Option value="design">{t('toolList.categories.design')}</Option>
-                            <Option value="marketing">{t('toolList.categories.marketing')}</Option>
-                            <Option value="legal">{t('toolList.categories.legal')}</Option>
-                            <Option value="general">{t('toolList.categories.general')}</Option>
-                            <Option value="other">{t('toolList.categories.other')}</Option>
-                        </Select>
-                    </AppForm.Item>
-                    <AppForm.Item name="sort_order" label={t('toolList.form.sortOrder')}>
-                        <InputNumber style={{ width: '100%' }} min={0} placeholder={t('toolList.form.placeholders.sortOrder')} />
-                    </AppForm.Item>
-                    <AppForm.Item name="description" label={t('toolList.form.description')}>
-                        <Input.TextArea rows={3} placeholder={t('toolList.form.placeholders.description')} />
-                    </AppForm.Item>
+                    <Card size="small" className="admin-card-subtle">
+                        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                            <AppForm.Item name="name" label={t('toolList.form.name')} rules={[{ required: true, message: t('toolList.form.validation.nameRequired') }]}>
+                                <Input placeholder={t('toolList.form.placeholders.name')} />
+                            </AppForm.Item>
+                            <AppForm.Item name="url" label={t('toolList.form.url')} rules={[{ required: true, message: t('toolList.form.validation.urlRequired') }]}>
+                                <Input placeholder={t('toolList.form.placeholders.url')} />
+                            </AppForm.Item>
+                            <Space size={16} style={{ width: '100%' }} align="start">
+                                <div style={{ flex: 1 }}>
+                                    <AppForm.Item name="category" label={t('toolList.form.category')}>
+                                        <Select placeholder={t('toolList.form.placeholders.category')}>
+                                            <Option value="administration">{t('toolList.categories.administration')}</Option>
+                                            <Option value="it">{t('toolList.categories.it')}</Option>
+                                            <Option value="finance">{t('toolList.categories.finance')}</Option>
+                                            <Option value="hr">{t('toolList.categories.hr')}</Option>
+                                            <Option value="engineering">{t('toolList.categories.engineering')}</Option>
+                                            <Option value="design">{t('toolList.categories.design')}</Option>
+                                            <Option value="marketing">{t('toolList.categories.marketing')}</Option>
+                                            <Option value="legal">{t('toolList.categories.legal')}</Option>
+                                            <Option value="general">{t('toolList.categories.general')}</Option>
+                                            <Option value="other">{t('toolList.categories.other')}</Option>
+                                        </Select>
+                                    </AppForm.Item>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <AppForm.Item name="sort_order" label={t('toolList.form.sortOrder')}>
+                                        <InputNumber style={{ width: '100%' }} min={0} placeholder={t('toolList.form.placeholders.sortOrder')} />
+                                    </AppForm.Item>
+                                </div>
+                            </Space>
+                            <AppForm.Item name="description" label={t('toolList.form.description')}>
+                                <Input.TextArea rows={3} placeholder={t('toolList.form.placeholders.description')} />
+                            </AppForm.Item>
+                        </Space>
+                    </Card>
                 </AppForm>
             </AppModal>
         </div>

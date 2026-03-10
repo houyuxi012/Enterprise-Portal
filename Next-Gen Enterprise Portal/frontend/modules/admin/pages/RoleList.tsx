@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Shield } from 'lucide-react';
 import { Role, Permission } from '@/types';
 import ApiClient from '@/services/api';
-import { message, Checkbox, Empty, Tooltip, Input, Popconfirm } from 'antd';
+import { App, Card, Checkbox, Empty, Input, Popconfirm, Row, Col, Space, Tooltip, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
     AppButton,
@@ -34,12 +34,15 @@ type ApiErrorShape = {
 const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
     const detail = (error as ApiErrorShape)?.response?.data?.detail;
     if (typeof detail === 'string' && detail.trim()) return detail;
-    if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
     return fallback;
 };
 
+const { Paragraph, Text } = Typography;
+
 const RoleList: React.FC = () => {
     const { t } = useTranslation();
+    const { message } = App.useApp();
     const [roles, setRoles] = useState<Role[]>([]);
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(false);
@@ -140,13 +143,13 @@ const RoleList: React.FC = () => {
     const isReservedRole = (code: string) => RESERVED_ROLE_CODES.has((code || '').toLowerCase());
 
     return (
-        <div className="admin-page p-6 bg-slate-50/50 dark:bg-slate-900/50 min-h-full -m-6">
+        <div className="admin-page admin-page-spaced">
             {/* Page Header */}
             <AppPageHeader
                 title={t('roleList.page.title')}
                 subtitle={t('roleList.page.subtitle')}
                 action={
-                    <AppButton intent="primary" icon={<Plus size={16} />} onClick={handleAddNew}>
+                    <AppButton intent="primary" icon={<PlusOutlined />} onClick={handleAddNew}>
                         {t('roleList.page.createButton')}
                     </AppButton>
                 }
@@ -163,94 +166,99 @@ const RoleList: React.FC = () => {
             </AppFilterBar>
 
             {/* Role Cards Grid */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-100 dark:border-slate-700">
+            <Card className="admin-card" styles={{ body: { padding: 24 } }}>
                 {loading ? (
-                    <div className="text-center py-12 text-slate-400">{t('roleList.states.loading')}</div>
+                    <Empty description={t('roleList.states.loading')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 ) : filteredRoles.length === 0 ? (
                     <Empty description={t('roleList.states.empty')} />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredRoles.map(role => {
+                    <Row gutter={[16, 16]}>
+                        {filteredRoles.map((role) => {
                             const localizedRole = getLocalizedRoleMeta(role, currentLocale);
+                            const reservedRole = isReservedRole(role.code);
+                            const permissionCount = role.permissions?.length || 0;
+
                             return (
-                            <div
-                                key={role.id}
-                                className="rounded-xl p-5 border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all group relative bg-white dark:bg-slate-800"
-                            >
-                                {/* Action Buttons */}
-                                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <AppButton
-                                        intent="tertiary"
-                                        iconOnly
-                                        size="sm"
-                                        icon={<Edit size={14} />}
-                                        onClick={() => handleEdit(role)}
-                                    />
-                                    {!isReservedRole(role.code) && (
-                                        <Popconfirm
-                                            title={t('roleList.confirm.deleteTitle')}
-                                            description={t('roleList.confirm.deleteDescription')}
-                                            onConfirm={() => handleDelete(role.id)}
-                                            okText={t('common.buttons.delete')}
-                                            cancelText={t('common.buttons.cancel')}
-                                            okButtonProps={{ danger: true }}
-                                        >
-                                            <AppButton
-                                                intent="danger"
-                                                iconOnly
-                                                size="sm"
-                                                icon={<Trash2 size={14} />}
-                                            />
-                                        </Popconfirm>
-                                    )}
-                                </div>
+                                <Col key={role.id} xs={24} md={12} xl={8}>
+                                    <Card
+                                        size="small"
+                                        className="admin-card admin-card-subtle h-full"
+                                        title={
+                                            <Space align="start" size={12}>
+                                                <AppTag status={reservedRole ? 'processing' : 'default'} icon={<SafetyCertificateOutlined />}>
+                                                    {localizedRole.name}
+                                                </AppTag>
+                                                <Text type="secondary" code>
+                                                    {role.code}
+                                                </Text>
+                                            </Space>
+                                        }
+                                        extra={
+                                            <Space size={4}>
+                                                <AppButton
+                                                    intent="tertiary"
+                                                    iconOnly
+                                                    size="sm"
+                                                    icon={<EditOutlined />}
+                                                    onClick={() => handleEdit(role)}
+                                                />
+                                                {!reservedRole && (
+                                                    <Popconfirm
+                                                        title={t('roleList.confirm.deleteTitle')}
+                                                        description={t('roleList.confirm.deleteDescription')}
+                                                        onConfirm={() => handleDelete(role.id)}
+                                                        okText={t('common.buttons.delete')}
+                                                        cancelText={t('common.buttons.cancel')}
+                                                        okButtonProps={{ danger: true }}
+                                                    >
+                                                        <AppButton
+                                                            intent="danger"
+                                                            iconOnly
+                                                            size="sm"
+                                                            icon={<DeleteOutlined />}
+                                                        />
+                                                    </Popconfirm>
+                                                )}
+                                            </Space>
+                                        }
+                                    >
+                                        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                                            <div>
+                                                <Paragraph type="secondary" ellipsis={{ rows: 2, tooltip: localizedRole.description || t('roleList.card.noDescription') }} style={{ marginBottom: 0 }}>
+                                                    {localizedRole.description || t('roleList.card.noDescription')}
+                                                </Paragraph>
+                                            </div>
 
-                                {/* Role Info */}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isReservedRole(role.code)
-                                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                                        }`}>
-                                        <Shield size={20} />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-slate-800 dark:text-white">{localizedRole.name}</h3>
-                                        <span className="text-xs font-mono text-slate-400 bg-slate-50 dark:bg-slate-900 px-2 py-0.5 rounded">
-                                            {role.code}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
-                                    {localizedRole.description || t('roleList.card.noDescription')}
-                                </p>
-
-                                {/* Permissions */}
-                                <div>
-                                    <p className="text-xs font-medium text-slate-400 mb-2">
-                                        {t('roleList.card.permissions', { count: role.permissions?.length || 0 })}
-                                    </p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {role.permissions?.slice(0, 5).map(p => (
-                                            <Tooltip key={p.id} title={p.description}>
-                                                <AppTag status="default">{p.code}</AppTag>
-                                            </Tooltip>
-                                        ))}
-                                        {(role.permissions?.length || 0) > 5 && (
-                                            <span className="text-xs text-slate-400">
-                                                {t('roleList.card.more', { count: role.permissions!.length - 5 })}
-                                            </span>
-                                        )}
-                                        {(!role.permissions || role.permissions.length === 0) && (
-                                            <span className="text-xs text-slate-300 italic">{t('roleList.card.noPermissions')}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )})}
-                    </div>
+                                            <div>
+                                                <Text type="secondary">
+                                                    {t('roleList.card.permissions', { count: permissionCount })}
+                                                </Text>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    {role.permissions?.slice(0, 5).map((permission) => (
+                                                        <Tooltip key={permission.id} title={permission.description}>
+                                                            <AppTag status="default">{permission.code}</AppTag>
+                                                        </Tooltip>
+                                                    ))}
+                                                    {permissionCount > 5 && (
+                                                        <Text type="secondary">
+                                                            {t('roleList.card.more', { count: permissionCount - 5 })}
+                                                        </Text>
+                                                    )}
+                                                    {permissionCount === 0 && (
+                                                        <Text type="secondary" italic>
+                                                            {t('roleList.card.noPermissions')}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Space>
+                                    </Card>
+                                </Col>
+                            );
+                        })}
+                    </Row>
                 )}
-            </div>
+            </Card>
 
             {/* Edit/Create Modal */}
             <AppModal
@@ -267,54 +275,58 @@ const RoleList: React.FC = () => {
                     onFinish={handleSubmit}
                     initialValues={{ permission_ids: [] }}
                 >
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item
-                            label={t('roleList.form.name')}
-                            name="name"
-                            rules={[{ required: true, message: t('roleList.form.validation.nameRequired') }]}
-                        >
-                            <Input placeholder={t('roleList.form.placeholders.name')} />
-                        </AppForm.Item>
-
-                        <AppForm.Item
-                            label={t('roleList.form.code')}
-                            name="code"
-                            rules={[{ required: true, message: t('roleList.form.validation.codeRequired') }]}
-                        >
-                            <Input
-                                placeholder={t('roleList.form.placeholders.code')}
-                                disabled={!!editingRole}
-                            />
-                        </AppForm.Item>
-                    </div>
+                    <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                            <AppForm.Item
+                                label={t('roleList.form.name')}
+                                name="name"
+                                rules={[{ required: true, message: t('roleList.form.validation.nameRequired') }]}
+                            >
+                                <Input placeholder={t('roleList.form.placeholders.name')} />
+                            </AppForm.Item>
+                        </Col>
+                        <Col xs={24} md={12}>
+                            <AppForm.Item
+                                label={t('roleList.form.code')}
+                                name="code"
+                                rules={[{ required: true, message: t('roleList.form.validation.codeRequired') }]}
+                            >
+                                <Input
+                                    placeholder={t('roleList.form.placeholders.code')}
+                                    disabled={!!editingRole}
+                                />
+                            </AppForm.Item>
+                        </Col>
+                    </Row>
 
                     <AppForm.Item label={t('roleList.form.description')} name="description">
                         <Input placeholder={t('roleList.form.placeholders.description')} />
                     </AppForm.Item>
 
                     <AppForm.Item label={t('roleList.form.permissions')} name="permission_ids">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
+                        <Card size="small" className="admin-card-subtle" styles={{ body: { maxHeight: 240, overflowY: 'auto' } }}>
                             <Checkbox.Group style={{ width: '100%' }}>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {permissions.map(perm => (
-                                        <div key={perm.id} className="flex items-start gap-2">
-                                            <Checkbox value={perm.id} className="mt-0.5" />
-                                            <div>
-                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                    {perm.code}
-                                                </p>
-                                                <p className="text-xs text-slate-400">{perm.description}</p>
-                                            </div>
-                                        </div>
+                                <Row gutter={[12, 12]}>
+                                    {permissions.map((permission) => (
+                                        <Col key={permission.id} xs={24} md={12}>
+                                            <Space align="start" size={8}>
+                                                <Checkbox value={permission.id} />
+                                                <div>
+                                                    <Text strong>{permission.code}</Text>
+                                                    <br />
+                                                    <Text type="secondary">{permission.description}</Text>
+                                                </div>
+                                            </Space>
+                                        </Col>
                                     ))}
                                     {permissions.length === 0 && (
-                                        <p className="text-sm text-slate-400 col-span-2">
-                                            {t('roleList.form.noPermissionsHint')}
-                                        </p>
+                                        <Col span={24}>
+                                            <Text type="secondary">{t('roleList.form.noPermissionsHint')}</Text>
+                                        </Col>
                                     )}
-                                </div>
+                                </Row>
                             </Checkbox.Group>
-                        </div>
+                        </Card>
                     </AppForm.Item>
                 </AppForm>
             </AppModal>

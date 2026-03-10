@@ -26,6 +26,94 @@ app_router = APIRouter(
     tags=["employees"]
 )
 
+
+async def _assert_user_email_available(
+    db: AsyncSession,
+    *,
+    email: str | None,
+    exclude_user_id: int | None = None,
+) -> None:
+    normalized_email = str(email or "").strip()
+    if not normalized_email:
+        return
+    query = select(models.User).filter(models.User.email == normalized_email)
+    if exclude_user_id is not None:
+        query = query.filter(models.User.id != exclude_user_id)
+    result = await db.execute(query)
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="员工邮箱已被系统账户占用")
+
+
+async def _assert_username_available(
+    db: AsyncSession,
+    *,
+    username: str | None,
+    exclude_user_id: int | None = None,
+) -> None:
+    normalized_username = str(username or "").strip()
+    if not normalized_username:
+        return
+    query = select(models.User).filter(models.User.username == normalized_username)
+    if exclude_user_id is not None:
+        query = query.filter(models.User.id != exclude_user_id)
+    result = await db.execute(query)
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="员工账号已被系统账户占用")
+
+
+async def _load_user_map_by_accounts(
+    db: AsyncSession,
+    *,
+    accounts: list[str],
+) -> dict[str, models.User]:
+    normalized_accounts = [str(account or "").strip() for account in accounts if str(account or "").strip()]
+    if not normalized_accounts:
+        return {}
+    result = await db.execute(
+        select(models.User).filter(models.User.username.in_(normalized_accounts))
+    )
+    return {
+        str(user.username or "").strip(): user
+        for user in result.scalars().all()
+        if str(user.username or "").strip()
+    }
+
+
+async def _load_webauthn_user_ids(
+    db: AsyncSession,
+    *,
+    user_ids: list[int],
+) -> set[int]:
+    normalized_user_ids = [int(user_id) for user_id in user_ids if user_id is not None]
+    if not normalized_user_ids:
+        return set()
+
+    result = await db.execute(
+        select(models.WebAuthnCredential.user_id)
+        .filter(models.WebAuthnCredential.user_id.in_(normalized_user_ids))
+        .distinct()
+    )
+    return {int(user_id) for user_id in result.scalars().all() if user_id is not None}
+
+
+def _serialize_employee_with_user(
+    employee: models.Employee,
+    linked_user: models.User | None = None,
+    webauthn_user_ids: set[int] | None = None,
+) -> schemas.Employee:
+    data = schemas.Employee.model_validate(employee)
+    if linked_user is not None:
+        totp_enabled = bool(linked_user.totp_enabled)
+        email_mfa_enabled = bool(linked_user.email_mfa_enabled and str(linked_user.email or "").strip())
+        webauthn_enabled = bool(linked_user.id and linked_user.id in (webauthn_user_ids or set()))
+        data.email = str(linked_user.email or employee.email or "")
+        data.auth_source = str(linked_user.auth_source or "local")
+        data.totp_enabled = totp_enabled
+        data.email_mfa_enabled = email_mfa_enabled
+        data.webauthn_enabled = webauthn_enabled
+        data.mfa_enabled = bool(totp_enabled or email_mfa_enabled or webauthn_enabled)
+    return data
+
 @app_router.get("/", response_model=List[schemas.Employee])
 async def read_employees_for_portal(
     skip: int = 0,
@@ -44,7 +132,19 @@ async def read_employees_for_portal(
         .limit(limit)
     )
     employees = result.scalars().all()
-    return employees
+    user_map = await _load_user_map_by_accounts(db, accounts=[emp.account for emp in employees if emp.account])
+    webauthn_user_ids = await _load_webauthn_user_ids(
+        db,
+        user_ids=[user.id for user in user_map.values() if getattr(user, "id", None) is not None],
+    )
+    return [
+        _serialize_employee_with_user(
+            emp,
+            user_map.get(str(emp.account or "").strip()),
+            webauthn_user_ids,
+        )
+        for emp in employees
+    ]
 
 @router.get("/", response_model=List[schemas.Employee])
 async def read_employees(
@@ -56,27 +156,19 @@ async def read_employees(
     result = await db.execute(select(models.Employee).offset(skip).limit(limit))
     employees = result.scalars().all()
 
-    # Build auth_source + totp_enabled lookup: account -> (auth_source, totp_enabled)
-    accounts = [e.account for e in employees if e.account]
-    source_map: dict[str, str] = {}
-    mfa_map: dict[str, bool] = {}
-    if accounts:
-        user_result = await db.execute(
-            select(models.User.username, models.User.auth_source, models.User.totp_enabled)
-            .filter(models.User.username.in_(accounts))
+    user_map = await _load_user_map_by_accounts(db, accounts=[emp.account for emp in employees if emp.account])
+    webauthn_user_ids = await _load_webauthn_user_ids(
+        db,
+        user_ids=[user.id for user in user_map.values() if getattr(user, "id", None) is not None],
+    )
+    return [
+        _serialize_employee_with_user(
+            emp,
+            user_map.get(str(emp.account or "").strip()),
+            webauthn_user_ids,
         )
-        for username, auth_source, totp_enabled in user_result.all():
-            source_map[username] = auth_source or "local"
-            mfa_map[username] = bool(totp_enabled)
-
-    # Attach auth_source and totp_enabled to each employee
-    out = []
-    for emp in employees:
-        data = schemas.Employee.model_validate(emp)
-        data.auth_source = source_map.get(emp.account, "local")
-        data.totp_enabled = mfa_map.get(emp.account, False)
-        out.append(data)
-    return out
+        for emp in employees
+    ]
 
 @router.get("/{employee_id}", response_model=schemas.Employee)
 async def read_employee(
@@ -88,7 +180,14 @@ async def read_employee(
     employee = result.scalars().first()
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return employee
+    linked_user = None
+    webauthn_user_ids: set[int] = set()
+    if employee.account:
+        user_result = await db.execute(select(models.User).filter(models.User.username == employee.account))
+        linked_user = user_result.scalars().first()
+        if linked_user is not None and getattr(linked_user, "id", None) is not None:
+            webauthn_user_ids = await _load_webauthn_user_ids(db, user_ids=[linked_user.id])
+    return _serialize_employee_with_user(employee, linked_user, webauthn_user_ids)
 
 @router.post("/", response_model=schemas.EmployeeCreateResult, status_code=status.HTTP_201_CREATED)
 async def create_employee(
@@ -116,19 +215,17 @@ async def create_employee(
                 status_code=400,
                 detail=f"账户 {employee.account} 已存在且不是 PORTAL 身份，无法用于门户登录。"
             )
+        await _assert_user_email_available(db, email=employee.email, exclude_user_id=existing_user.id)
         existing_user.is_active = (employee.status == "Active")
+        existing_user.email = employee.email
         if not existing_user.name:
             existing_user.name = employee.name
         if employee.avatar:
             existing_user.avatar = employee.avatar
     else:
         configs = await get_password_policy_configs(db)
-
+        await _assert_user_email_available(db, email=employee.email)
         user_email = employee.email
-        email_result = await db.execute(select(models.User).filter(models.User.email == employee.email))
-        email_conflict = email_result.scalars().first()
-        if email_conflict:
-            user_email = None
 
         policy_subject = models.User(username=employee.account, email=user_email)
         generated_password: str | None = None
@@ -227,6 +324,7 @@ async def update_employee(
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
     
+    previous_account = str(employee.account or "").strip()
     previous_status = employee.status
     
     for key, value in employee_update.dict().items():
@@ -235,9 +333,22 @@ async def update_employee(
     # Sync employee profile fields to linked portal user account.
     # Frontend profile avatar renders from /iam/auth/me (User.avatar), not Employee.avatar.
     if employee.account:
-        user_result = await db.execute(select(models.User).filter(models.User.username == employee.account))
-        user = user_result.scalars().first()
+        candidate_accounts = [account for account in [previous_account, str(employee.account or "").strip()] if account]
+        user_map = await _load_user_map_by_accounts(db, accounts=candidate_accounts)
+        user = user_map.get(previous_account) or user_map.get(str(employee.account or "").strip())
         if user:
+            await _assert_username_available(
+                db,
+                username=employee.account,
+                exclude_user_id=user.id,
+            )
+            await _assert_user_email_available(
+                db,
+                email=employee.email,
+                exclude_user_id=user.id,
+            )
+            user.username = employee.account
+            user.email = employee.email
             user.is_active = (employee.status == "Active")
             user.name = employee.name
             user.avatar = employee.avatar
@@ -257,7 +368,14 @@ async def update_employee(
 
     await db.commit()
     await db.refresh(employee)
-    return employee
+    linked_user = None
+    webauthn_user_ids: set[int] = set()
+    if employee.account:
+        user_result = await db.execute(select(models.User).filter(models.User.username == employee.account))
+        linked_user = user_result.scalars().first()
+        if linked_user is not None and getattr(linked_user, "id", None) is not None:
+            webauthn_user_ids = await _load_webauthn_user_ids(db, user_ids=[linked_user.id])
+    return _serialize_employee_with_user(employee, linked_user, webauthn_user_ids)
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_employee(
