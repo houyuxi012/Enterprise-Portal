@@ -34,3 +34,5 @@ backend/uploads/
 # Local cookie/session artifacts
 cookie.txt
 *.cookie
+.DS_Store
+-b
