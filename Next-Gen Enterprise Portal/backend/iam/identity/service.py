@@ -446,9 +446,9 @@ class IdentityService:
             if not token:
                 token = request.cookies.get("access_token")
 
-        # Strict audience mode only accepts dedicated session cookie.
-        # Header token fallback is only for legacy/global access.
-        if not token and audience is None:
+        # Prefer audience-specific session cookies, but still accept a Bearer token
+        # when clients authenticate outside the browser cookie flow.
+        if not token:
             auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ", 1)[1].strip()

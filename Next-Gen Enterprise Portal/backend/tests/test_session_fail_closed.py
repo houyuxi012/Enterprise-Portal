@@ -54,6 +54,20 @@ class _FakeDB:
 
 
 class SessionFailClosedTests(IsolatedAsyncioTestCase):
+    async def test_get_current_user_accepts_bearer_token_when_audience_is_explicit(self):
+        request = _make_request(headers={"Authorization": "Bearer token"})
+        user = SimpleNamespace(id=1, username="admin", is_active=True, roles=[])
+        db = _FakeDB([_ScalarResult(user)])
+
+        with (
+            patch("iam.identity.service.jwt.decode", return_value={"sub": "admin", "jti": "jti-1"}),
+            patch.object(IdentityService, "_is_jti_revoked", AsyncMock(return_value=False)),
+            patch.object(IdentityService, "_is_system_mfa_forced", AsyncMock(return_value=False)),
+        ):
+            current_user = await IdentityService.get_current_user(request, db=db, audience="admin")
+
+        self.assertEqual(current_user.username, "admin")
+
     async def test_get_current_user_returns_503_when_denylist_check_fails(self):
         request = _make_request(cookies={"admin_session": "token"})
 

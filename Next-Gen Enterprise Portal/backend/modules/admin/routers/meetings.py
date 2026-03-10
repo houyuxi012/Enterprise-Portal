@@ -246,6 +246,8 @@ async def _fetch_meeting_or_404(db: AsyncSession, meeting_pk: int) -> models.Adm
 
 @router.get("/", response_model=schemas.AdminMeetingListResponse)
 async def list_admin_meetings(
+    request: Request,
+    background_tasks: BackgroundTasks,
     q: str | None = Query(default=None),
     meeting_type: schemas.MeetingType | None = Query(default=None),
     start_from: datetime | None = Query(default=None),
@@ -256,7 +258,7 @@ async def list_admin_meetings(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(PermissionChecker("admin:access")),
+    current_user: models.User = Depends(PermissionChecker("admin:access")),
 ):
     base_query: Select[tuple[models.AdminMeeting]] = (
         select(models.AdminMeeting)
@@ -295,6 +297,22 @@ async def list_admin_meetings(
     )
     summary_row = (await db.execute(summary_query)).mappings().one()
     total = int(summary_row["total"] or 0)
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="ADMIN_READ_MEETINGS",
+        target="meeting:list",
+        detail=(
+            f"q={q or '*'}, meeting_type={meeting_type or '*'}, status={status or '*'}, "
+            f"organizer_user_id={organizer_user_id or '*'}, attendee_user_id={attendee_user_id or '*'}, "
+            f"limit={limit}, offset={offset}, result_count={len(items)}, total={total}"
+        ),
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
+    )
 
     return schemas.AdminMeetingListResponse(
         total=total,

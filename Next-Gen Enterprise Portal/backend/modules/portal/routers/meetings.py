@@ -145,11 +145,13 @@ def _resolve_meeting_window(
 
 @router.get("/today", response_model=schemas.PortalTodayMeetingSummary)
 async def get_today_meeting_summary(
+    request: Request,
+    background_tasks: BackgroundTasks,
     start_from: datetime | None = Query(default=None),
     start_to: datetime | None = Query(default=None),
     current_time: datetime | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     window_start, window_end = _resolve_meeting_window(start_from, start_to)
     effective_now = current_time or datetime.now().astimezone()
@@ -172,6 +174,21 @@ async def get_today_meeting_summary(
     )
     next_meeting = (await db.execute(next_meeting_stmt)).scalar_one_or_none()
 
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="PORTAL_READ_TODAY_MEETING_SUMMARY",
+        target="meeting:today-summary",
+        detail=(
+            f"window_start={window_start.isoformat()}, window_end={window_end.isoformat()}, "
+            f"total={int(total)}, has_next={next_meeting is not None}"
+        ),
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
+    )
+
     return schemas.PortalTodayMeetingSummary(
         date=window_start.date(),
         total=int(total),
@@ -181,10 +198,12 @@ async def get_today_meeting_summary(
 
 @router.get("/", response_model=list[schemas.PortalMeetingListItem])
 async def list_today_meetings(
+    request: Request,
+    background_tasks: BackgroundTasks,
     start_from: datetime | None = Query(default=None),
     start_to: datetime | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     window_start, window_end = _resolve_meeting_window(start_from, start_to)
     stmt: Select[tuple[models.AdminMeeting]] = (
@@ -198,7 +217,23 @@ async def list_today_meetings(
         .order_by(asc(models.AdminMeeting.start_time), asc(models.AdminMeeting.id))
     )
     result = await db.execute(stmt)
-    return [_serialize_portal_meeting_list_item(item) for item in result.scalars().all()]
+    items = result.scalars().all()
+
+    AuditService.schedule_business_action(
+        background_tasks=background_tasks,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="PORTAL_READ_TODAY_MEETINGS",
+        target="meeting:today-list",
+        detail=(
+            f"window_start={window_start.isoformat()}, window_end={window_end.isoformat()}, "
+            f"result_count={len(items)}"
+        ),
+        ip_address=request.client.host if request.client else "unknown",
+        trace_id=request.headers.get("X-Request-ID"),
+        domain="BUSINESS",
+    )
+    return [_serialize_portal_meeting_list_item(item) for item in items]
 
 
 @router.post("/", response_model=schemas.PortalMeetingListItem, status_code=status.HTTP_201_CREATED)

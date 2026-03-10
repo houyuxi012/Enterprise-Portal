@@ -710,10 +710,10 @@ async def verify_enable_email_mfa(
 @router.delete("/email")
 async def disable_email_mfa(
     request: Request,
-    payload: schemas.MfaDisableRequest,  # reuse: has 'password' field
+    payload: schemas.MfaDisableRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Disable email MFA (requires password)."""
+    """Disable email MFA (requires password + latest email OTP)."""
     user = await get_current_identity(request, db)
     if not user.email_mfa_enabled:
         raise HTTPException(
@@ -733,6 +733,34 @@ async def disable_email_mfa(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "INVALID_PASSWORD", "message": "密码错误"},
+        )
+    if not payload.email_code:
+        await _audit_mfa_action(
+            db=db,
+            request=request,
+            user=user,
+            action="iam.mfa.email.disable",
+            result="fail",
+            reason="EMAIL_CODE_REQUIRED",
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "EMAIL_CODE_REQUIRED", "message": "请输入最新邮箱验证码"},
+        )
+    if not await verify_email_otp(user.username, payload.email_code):
+        await _audit_mfa_action(
+            db=db,
+            request=request,
+            user=user,
+            action="iam.mfa.email.disable",
+            result="fail",
+            reason="INVALID_EMAIL_CODE",
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_EMAIL_CODE", "message": "邮箱验证码错误或已过期"},
         )
     user.email_mfa_enabled = False
     await db.commit()

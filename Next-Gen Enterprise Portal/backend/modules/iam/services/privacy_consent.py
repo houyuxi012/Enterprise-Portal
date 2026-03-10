@@ -214,6 +214,27 @@ async def persist_authenticated_privacy_consent(
         accepted_at=datetime.now(timezone.utc),
     )
     db.add(record)
+    from application.iam_app import IAMAuditService
+
+    await IAMAuditService.log(
+        db=db,
+        action="iam.privacy_consent.accept",
+        target_type="privacy_consent",
+        user_id=user.id,
+        username=user.username,
+        target_id=user.id,
+        target_name=user.username,
+        detail={
+            "audience": audience,
+            "policy_version": snapshot.version,
+            "policy_hash": snapshot.policy_hash,
+            "locale": consent.locale,
+        },
+        result="success",
+        ip_address=request.client.host if request.client else "unknown",
+        user_agent=request.headers.get("User-Agent"),
+        trace_id=request.headers.get("X-Request-ID"),
+    )
     await db.flush()
     return record
 
