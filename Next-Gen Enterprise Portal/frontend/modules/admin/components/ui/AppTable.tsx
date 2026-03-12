@@ -1,6 +1,8 @@
 import React from 'react';
-import { Table, Empty } from 'antd';
-import type { TablePaginationConfig, TableProps } from 'antd';
+import Empty from 'antd/es/empty';
+import Table from 'antd/es/table';
+import type { TableProps } from 'antd/es/table';
+import type { TablePaginationConfig } from 'antd/es/table/interface';
 import { InboxOutlined } from '@ant-design/icons';
 import i18n from '@/i18n';
 

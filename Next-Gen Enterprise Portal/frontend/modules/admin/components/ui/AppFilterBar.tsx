@@ -1,12 +1,14 @@
-import React from 'react';
-import { Flex, Input, Select, DatePicker } from 'antd';
-import type { InputProps } from 'antd';
-import type { SelectProps } from 'antd';
-import type { RangePickerProps } from 'antd/es/date-picker';
+import React, { Suspense, lazy } from 'react';
+import Flex from 'antd/es/flex';
+import Input from 'antd/es/input';
+import Select from 'antd/es/select';
+import type { DatePickerProps } from 'antd/es/date-picker';
+import type { InputProps } from 'antd/es/input';
+import type { SelectProps } from 'antd/es/select';
+import type { Dayjs } from 'dayjs';
 import { SearchOutlined } from '@ant-design/icons';
 import i18n from '@/i18n';
-
-const { RangePicker } = DatePicker;
+const AppFilterDateRange = lazy(() => import('./AppFilterDateRange'));
 
 export interface AppFilterBarProps {
     /** Child elements */
@@ -25,7 +27,16 @@ export interface FilterSelectProps extends SelectProps {
     width?: number | string;
 }
 
-export interface FilterDateRangeProps extends RangePickerProps { }
+export interface FilterDateRangeProps {
+    value?: [Dayjs | null, Dayjs | null] | null;
+    onChange?: (dates: [Dayjs | null, Dayjs | null] | null, dateStrings: [string, string]) => void;
+    placeholder?: [string, string];
+    className?: string;
+    format?: DatePickerProps['format'];
+    showTime?: DatePickerProps['showTime'];
+    disabled?: boolean;
+    allowEmpty?: [boolean, boolean];
+}
 
 export interface FilterActionProps {
     children?: React.ReactNode;
@@ -99,10 +110,16 @@ const FilterDateRange: React.FC<FilterDateRangeProps> = ({
     ...rest
 }) => {
     return (
-        <RangePicker
-            className={`app-filter-date-range ${className}`.trim()}
-            {...rest}
-        />
+        <Suspense
+            fallback={
+                <div
+                    className={`app-filter-date-range ${className}`.trim()}
+                    style={{ minWidth: 280, height: 32 }}
+                />
+            }
+        >
+            <AppFilterDateRange className={className} {...rest} />
+        </Suspense>
     );
 };
 

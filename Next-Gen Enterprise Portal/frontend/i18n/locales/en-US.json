@@ -664,7 +664,7 @@
     "hint": "Once the integration surface is ready, platform credentials and sync rules can be configured here."
   },
   "adminTodos": {
-    "title": "Todo Management",
+    "title": "Todo Items",
     "subtitle": "Centralized task monitoring and scheduling",
     "filters": {
       "userPlaceholder": "Select user",
@@ -740,8 +740,9 @@
       "aiSecurity": "Security Policy",
       "kbManage": "Knowledge Base",
       "content": "Content Management",
-      "todos": "Todo Management",
+      "todos": "Todo Items",
       "news": "News",
+      "holidayReminders": "Holiday Management",
       "announcements": "Announcements",
       "carousel": "Carousel",
       "meetingManagement": "Meeting Management",
@@ -1036,7 +1037,14 @@
       "tabPolicy": "Policy",
       "tabCulture": "Culture",
       "readMore": "Read More",
-      "empty": "No news in this category"
+      "empty": "No news in this category",
+      "backToList": "Back to List",
+      "byline": "Internal Newsroom",
+      "readTime": "Read time: 5 min",
+      "like": "Like",
+      "share": "Share",
+      "bookmark": "Bookmark",
+      "detailHint": "This is a news summary. For more details, please contact the relevant department."
     },
     "directory": {
       "title": "Team Directory",
@@ -1536,7 +1544,10 @@
     "page": {
       "title": "News Content Management",
       "subtitle": "Publish and edit enterprise news",
-      "publishButton": "Publish News"
+      "publishButton": "Publish News",
+      "carouselQuota": "News center carousel used {{count}}/{{limit}}",
+      "carouselFull": "Carousel full",
+      "carouselAvailable": "Carousel available"
     },
     "filters": {
       "searchPlaceholder": "Search title..."
@@ -1557,6 +1568,11 @@
       "coverAlt": "Cover image",
       "title": "Title",
       "topBadge": "Top",
+      "promotionBadges": {
+        "show_in_news_feed": "News Feed",
+        "show_in_news_center_carousel": "News Carousel",
+        "show_in_news_center_latest": "Latest Spotlight"
+      },
       "category": "Category",
       "publishDate": "Publish Date",
       "actions": "Actions",
@@ -1584,7 +1600,12 @@
     "form": {
       "uploadCover": "Upload Cover",
       "topPromotion": "Top Promotion",
-      "topPromotionHint": "When enabled, this news will be prioritized on homepage carousel or top slots.",
+      "topPromotionHint": "Checked items will be pushed into the corresponding news placements.",
+      "promotionTargets": {
+        "show_in_news_feed": "Show in news feed",
+        "show_in_news_center_carousel": "Show in news center carousel",
+        "show_in_news_center_latest": "Pin to the first items in latest updates"
+      },
       "title": "News Title",
       "category": "Category",
       "publishDate": "Publish Date",
@@ -1603,7 +1624,8 @@
         "titleRequired": "Please enter title",
         "categoryRequired": "Please select category",
         "dateRequired": "Please select date",
-        "summaryRequired": "Please enter summary"
+        "summaryRequired": "Please enter summary",
+        "carouselLimitReached": "Only 4 news items can be selected for the news center carousel."
       }
     }
   },
@@ -1743,6 +1765,74 @@
       "yellow": "Yellow",
       "red": "Red",
       "green": "Green"
+    }
+  },
+  "holidayReminderList": {
+    "page": {
+      "title": "Holiday Management",
+      "subtitle": "Manage the holiday card shown on the portal homepage. Only the nearest active holiday dated today or later is displayed.",
+      "addButton": "Add Holiday"
+    },
+    "messages": {
+      "loadFailed": "Failed to load holiday management data",
+      "deleteSuccess": "Holiday deleted",
+      "deleteFailed": "Failed to delete holiday",
+      "updateSuccess": "Holiday updated",
+      "createSuccess": "Holiday created",
+      "unknownError": "Unknown error",
+      "actionFailed": "Operation failed: {{reason}}"
+    },
+    "table": {
+      "title": "Holiday Name",
+      "date": "Holiday Date",
+      "content": "Display Copy",
+      "cover": "Holiday Cover",
+      "color": "Theme Color",
+      "status": "Status",
+      "createdAt": "Created At",
+      "actions": "Actions",
+      "empty": "No holiday data"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "confirm": {
+      "deleteTitle": "Delete this holiday?"
+    },
+    "modal": {
+      "createTitle": "Create Holiday",
+      "editTitle": "Edit Holiday"
+    },
+    "form": {
+      "title": "Holiday Name",
+      "content": "Display Copy",
+      "date": "Holiday Date",
+      "cover": "Holiday Cover",
+      "color": "Theme Color",
+      "active": "Active",
+      "validation": {
+        "titleRequired": "Please enter a holiday name",
+        "contentRequired": "Please enter display copy",
+        "dateRequired": "Please select a holiday date",
+        "colorRequired": "Please select a theme color"
+      },
+      "placeholders": {
+        "title": "Enter holiday name",
+        "content": "Enter the copy displayed on the portal holiday card",
+        "cover": "Enter holiday cover image URL (optional, used by the portal card)",
+        "color": "Select a theme color"
+      }
+    },
+    "colors": {
+      "purple": "Purple",
+      "blue": "Blue",
+      "emerald": "Emerald",
+      "green": "Green",
+      "yellow": "Yellow",
+      "orange": "Orange",
+      "red": "Red",
+      "rose": "Rose"
     }
   },
   "modelConfig": {
@@ -2439,6 +2529,9 @@
     "states": {
       "noCarousel": "No carousel items"
     },
+    "empty": {
+      "newsFeed": "No news items are marked for the news feed."
+    },
     "modal": {
       "announcementTitle": "Enterprise Announcements"
     },
@@ -2908,7 +3001,9 @@
         "faviconUrl": "https://example.com/favicon.ico",
         "footerText": "© HouYuxi. All Rights Reserved.",
         "privacyPolicy": "Enter privacy policy content here..."
-      }
+      },
+      "enableHolidayBanner": "Enable Holiday Countdown Banner",
+      "enableHolidayBannerHelp": "When enabled, a countdown card for upcoming holidays will be displayed on the portal dashboard."
     }
   },
   "passwordPolicyPage": {

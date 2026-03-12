@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { App, Modal, Input, Form } from 'antd';
+import App from 'antd/es/app';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import Modal from 'antd/es/modal';
 import { ShieldCheck, ShieldOff, Loader2, Copy, CheckCircle2, Lock, KeyRound, Mail, Key, Trash2, Plus, Fingerprint } from 'lucide-react';
 import ApiClient, { type WebAuthnCredentialDescriptor } from '@/services/api';
 import { useTranslation } from 'react-i18next';

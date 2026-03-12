@@ -10,8 +10,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError as JWTClaimsError
 
 from core import security
 from modules.iam.services.auth_helpers import create_mfa_token
@@ -169,13 +170,6 @@ class IdentityService:
     async def _resolve_user_id_from_payload(payload: dict | None, db: AsyncSession | None) -> int | None:
         from iam.identity.token_service import resolve_user_id_from_payload
         return await resolve_user_id_from_payload(payload, db)
-        username = (payload.get("sub") or "").strip()
-        if not username:
-            return None
-        import modules.models as models
-
-        result = await db.execute(select(models.User.id).filter(models.User.username == username))
-        return result.scalar_one_or_none()
 
     @staticmethod
     async def _extract_token_session_meta(

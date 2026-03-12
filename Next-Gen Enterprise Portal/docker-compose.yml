@@ -20,8 +20,8 @@ services:
           -c ssl_key_file=/tmp/postgres-certs/server.key \
           -c hba_file=/etc/postgresql/pg_hba.conf \
           -c password_encryption=scram-sha-256
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./ops/nginx/certs:/run/certs:ro
@@ -44,8 +44,8 @@ services:
           --tls-ca-cert-file /run/certs/hyx_ngep.cer \
           --tls-auth-clients no \
           --requirepass "$$REDIS_PASSWORD"
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
       - ./ops/nginx/certs:/run/certs:ro
@@ -163,9 +163,14 @@ services:
       INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-Administrator}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@local.invalid}
     depends_on:
-      - db
-      - redis
-      - minio
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
     volumes:
       - ./backend:/app
       - /app/test_db
@@ -222,7 +227,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.0
     ports:
       - "3000:3000"
     environment:

@@ -20,6 +20,7 @@ export const useAppController = (): AppRouteGuardsProps => {
   const { user: currentUser, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
   const { currentView, setCurrentView } = usePortalViewState();
   const {
+    preferredAuthPlane,
     isAdminMode,
     isAdminPath,
     activeAdminTab,
@@ -29,6 +30,7 @@ export const useAppController = (): AppRouteGuardsProps => {
     enableAdminMode,
     exitAdminMode,
     forceAdminLicenseTab,
+    handlePortalLoginSuccess,
     handleAdminLoginSuccess,
     handleAdminReloginSuccess,
   } = useAppModeState();
@@ -153,9 +155,11 @@ export const useAppController = (): AppRouteGuardsProps => {
     isAuthenticated,
     isAdminMode,
     isAdminPath,
+    preferredAuthPlane,
     portalLicenseBlocked,
     portalLicenseBlockedMessage,
     t,
+    handlePortalLoginSuccess,
     handleAdminLoginSuccess,
     handleAdminReloginSuccess,
     renderAdmin,

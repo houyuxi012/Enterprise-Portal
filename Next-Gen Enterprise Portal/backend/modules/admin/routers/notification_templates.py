@@ -7,10 +7,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import Select, asc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from application.admin_app import AuditService
-from core.database import get_db
-from core.dependencies import PermissionChecker
-from modules.admin.services.notification_templates import (
+from application.admin_app import (
+    AuditService,
     analyze_notification_template_definition,
     build_notification_sample_context,
     get_notification_email_branding,
@@ -18,6 +16,8 @@ from modules.admin.services.notification_templates import (
     normalize_notification_template_locale,
     render_notification_template,
 )
+from core.database import get_db
+from core.dependencies import PermissionChecker
 import modules.models as models
 import modules.schemas as schemas
 

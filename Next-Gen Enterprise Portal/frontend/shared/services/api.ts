@@ -4,6 +4,7 @@ import {
   Employee,
   NewsItem,
   Announcement,
+  HolidayReminder,
   CarouselItem,
   User,
   Role,
@@ -33,8 +34,8 @@ import {
   SessionRevokeResult,
 } from '@/types';
 import { triggerSessionInvalid } from './sessionGuard';
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
+import { API_BASE_URL } from './apiBase';
+import { getPreferredAuthPlane } from '@/shared/utils/authPlane';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -45,7 +46,7 @@ const api = axios.create({
 });
 
 const getRuntimeScopePrefix = (): '/app' | '/admin' => {
-  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+  if (getPreferredAuthPlane() === 'admin') {
     return '/admin';
   }
   return '/app';
@@ -116,6 +117,15 @@ export interface AnnouncementUpsertPayload {
   content: string;
   color: string;
   is_urgent?: boolean;
+}
+
+export interface HolidayReminderUpsertPayload {
+  title: string;
+  content: string;
+  holiday_date: string;
+  cover_image?: string | null;
+  color?: string;
+  is_active?: boolean;
 }
 
 export interface ResetPasswordResponse {
@@ -718,6 +728,29 @@ export const ApiClient = {
   deleteAnnouncement: async (id: number): Promise<void> => {
 
     await api.delete(`/announcements/${id}`);
+  },
+
+  getHolidayReminders: async (): Promise<HolidayReminder[]> => {
+    const response = await api.get<HolidayReminder[]>('/holiday-reminders/');
+    if (!Array.isArray(response.data)) {
+      console.error('API Error [getHolidayReminders]: Expected array, got:', response.data);
+      return [];
+    }
+    return response.data.map((item) => ({ ...item, id: String(item.id) }));
+  },
+
+  createHolidayReminder: async (data: HolidayReminderUpsertPayload): Promise<HolidayReminder> => {
+    const response = await api.post<HolidayReminder>('/holiday-reminders/', data);
+    return { ...response.data, id: String(response.data.id) };
+  },
+
+  updateHolidayReminder: async (id: number, data: HolidayReminderUpsertPayload): Promise<HolidayReminder> => {
+    const response = await api.put<HolidayReminder>(`/holiday-reminders/${id}`, data);
+    return { ...response.data, id: String(response.data.id) };
+  },
+
+  deleteHolidayReminder: async (id: number): Promise<void> => {
+    await api.delete(`/holiday-reminders/${id}`);
   },
 
   // Admin - Employees

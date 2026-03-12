@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from iam.deps import verify_portal_aud
 from modules.admin.routers import employees, logs
-from modules.portal.routers import ai, announcements, carousel, kb, meetings, news, notifications, todos, tools, upload
+from modules.portal.routers import ai, announcements, carousel, holiday_reminders, kb, meetings, news, notifications, todos, tools, upload
 
 
 def register_portal_routes(router: APIRouter) -> None:
@@ -16,6 +16,7 @@ def register_portal_routes(router: APIRouter) -> None:
     router.include_router(employees.app_router)
     router.include_router(notifications.router)
     router.include_router(news.router)
+    router.include_router(holiday_reminders.router)
     router.include_router(announcements.router)
     router.include_router(meetings.router)
     router.include_router(tools.router)

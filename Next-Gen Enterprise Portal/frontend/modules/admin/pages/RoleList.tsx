@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Role, Permission } from '@/types';
 import ApiClient from '@/services/api';
-import { App, Card, Checkbox, Empty, Input, Popconfirm, Row, Col, Space, Tooltip, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Checkbox from 'antd/es/checkbox';
+import Empty from 'antd/es/empty';
+import Input from 'antd/es/input';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Col from 'antd/es/grid/col';
+import Space from 'antd/es/space';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { DeleteOutlined, EditOutlined, PlusOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {

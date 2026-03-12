@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { App } from 'antd';
+import App from 'antd/es/app';
 import AuthService, { User } from '../services/auth';
 import i18n from '../i18n';
 import { buildUserLanguageScope, getLanguagePreference, normalizeLanguage, setLanguagePreference } from '../i18n';
@@ -10,6 +10,7 @@ import {
     triggerSessionInvalid
 } from '../services/sessionGuard';
 import ApiClient from '../services/api';
+import { getPreferredAuthPlane, resolveLoginPathForPlane } from '@/shared/utils/authPlane';
 
 interface AuthContextType {
     user: User | null;
@@ -138,7 +139,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             message.warning(msg);
 
             const redirectTo = detail?.redirectTo
-                || (window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login');
+                || resolveLoginPathForPlane(getPreferredAuthPlane(window.location.pathname));
             if (window.location.pathname !== redirectTo) {
                 window.history.replaceState({}, '', redirectTo);
             }
@@ -179,7 +180,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const CHECK_INTERVAL_MS = 15 * 1000;
 
         const resolveAudience = (): 'portal' | 'admin' =>
-            window.location.pathname.startsWith('/admin') ? 'admin' : 'portal';
+            getPreferredAuthPlane(window.location.pathname);
 
         const heartbeat = async () => {
             if (pingInFlight || canceled) return;

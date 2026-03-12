@@ -1,6 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { App, Card, Col, InputNumber, Row, Space, Tooltip, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import InputNumber from 'antd/es/input-number';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { DatabaseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';

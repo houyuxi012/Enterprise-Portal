@@ -1,5 +1,6 @@
 import React from 'react';
-import { Flex, Typography } from 'antd';
+import Flex from 'antd/es/flex';
+import Typography from 'antd/es/typography';
 
 export interface AppPageHeaderProps {
     /** 页面标题 */

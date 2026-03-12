@@ -27,9 +27,11 @@ for _candidate in (
         sys.path.append(_candidate)
 
 from core.database import DATABASE_URL
+from core.db_tls import build_asyncpg_url_and_connect_args
 from modules.models import KBDocument, KBChunk, KBQueryLog, User
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+NORMALIZED_DATABASE_URL, DATABASE_CONNECT_ARGS = build_asyncpg_url_and_connect_args(DATABASE_URL)
+engine = create_async_engine(NORMALIZED_DATABASE_URL, echo=False, connect_args=DATABASE_CONNECT_ARGS)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 EMBEDDING_DIM = 768

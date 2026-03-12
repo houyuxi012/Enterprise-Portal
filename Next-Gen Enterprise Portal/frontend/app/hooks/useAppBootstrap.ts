@@ -4,6 +4,7 @@ import ApiClient from '@/shared/services/api';
 import TodoService from '@/shared/services/todos';
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import type { User as AuthUser } from '@/shared/services/auth';
+import { getPreferredAuthPlane, setPreferredAuthPlane } from '@/shared/utils/authPlane';
 
 export type LicenseGateMode = 'full' | 'blocked' | 'read_only';
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
@@ -190,8 +191,11 @@ export const useAppBootstrap = ({
     if (!isAuthenticated) return;
 
     const fetchAppData = async () => {
-      const isAdminPath = window.location.pathname.startsWith('/admin');
-      const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+      const pathname = window.location.pathname;
+      const isAdminPath = pathname.startsWith('/admin');
+      const preferredAuthPlane = getPreferredAuthPlane(pathname);
+      const hasAdminPlaneAccess = hasAdminAccess(currentUser);
+      const canUseAdminPlane = preferredAuthPlane === 'admin' && isAdminPath && hasAdminPlaneAccess;
       let currentAdminGateMode: LicenseGateMode = 'full';
       let currentAdminGateMessage = '';
       let currentDirectoryLicenseBlocked = false;
@@ -202,6 +206,11 @@ export const useAppBootstrap = ({
       let currentMfaSettingsLicenseMessage = '';
       let currentMeetingManagementLicenseBlocked = false;
       let currentMeetingManagementLicenseMessage = '';
+
+      if (isAdminPath && (!hasAdminPlaneAccess || preferredAuthPlane !== 'admin')) {
+        setPreferredAuthPlane('portal');
+        window.history.replaceState({}, '', '/');
+      }
 
       if (canUseAdminPlane) {
         onEnableAdminMode();
@@ -348,8 +357,10 @@ export const useAppBootstrap = ({
 
     let canceled = false;
     const refreshConfig = async () => {
-      const isAdminPath = window.location.pathname.startsWith('/admin');
-      const canUseAdminPlane = isAdminPath && hasAdminAccess(currentUser);
+      const pathname = window.location.pathname;
+      const isAdminPath = pathname.startsWith('/admin');
+      const preferredAuthPlane = getPreferredAuthPlane(pathname);
+      const canUseAdminPlane = preferredAuthPlane === 'admin' && isAdminPath && hasAdminAccess(currentUser);
       const canReadAdminConfig = canUseAdminPlane && adminLicenseGateMode !== 'blocked';
       try {
         const latest = canReadAdminConfig

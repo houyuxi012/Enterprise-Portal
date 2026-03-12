@@ -12,7 +12,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from sqlalchemy import String, Text
 
-from modules.admin.models import (
+from modules.models import (
     AIAuditLog,
     AIModelQuota,
     AIProvider,
@@ -23,8 +23,6 @@ from modules.admin.models import (
     Department,
     LogForwardingConfig,
     SystemLog,
-)
-from modules.iam.models import (
     DirectoryConfig,
     LicenseEvent,
     LicenseState,
@@ -36,8 +34,6 @@ from modules.iam.models import (
     User,
     UserPasswordHistory,
     WebAuthnCredential,
-)
-from modules.portal.models import (
     Announcement,
     AnnouncementRead,
     CarouselItem,

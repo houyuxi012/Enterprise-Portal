@@ -14,7 +14,7 @@ from modules.admin.routers import (
     notification_templates,
     system,
 )
-from modules.portal.routers import announcements, carousel, kb, news, notifications, tools, upload
+from modules.portal.routers import announcements, carousel, holiday_reminders, kb, news, notifications, tools, upload
 
 
 def register_admin_routes(router: APIRouter) -> None:
@@ -32,6 +32,7 @@ def register_admin_routes(router: APIRouter) -> None:
     router.include_router(notifications.admin_router)
     router.include_router(news.router)
     router.include_router(announcements.router)
+    router.include_router(holiday_reminders.router)
     router.include_router(tools.router)
     router.include_router(carousel.router)
     router.include_router(upload.router)

@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
-import { Spin } from 'antd';
+import Spin from 'antd/es/spin';
 import { moduleRouteRegistry } from '../app/router';
+import type { AuthPlane } from '@/shared/utils/authPlane';
 
 const { login: Login } = moduleRouteRegistry.portal;
 const { login: AdminLogin } = moduleRouteRegistry.admin;
@@ -13,6 +14,7 @@ export interface AppRouteGuardsProps {
   isAuthenticated: boolean;
   isAdminMode: boolean;
   isAdminPath: boolean;
+  preferredAuthPlane: AuthPlane;
   portalLicenseBlocked: boolean;
   portalLicenseBlockedMessage: string;
   t: TranslateFn;
@@ -35,6 +37,7 @@ const AppRouteGuards: React.FC<AppRouteGuardsProps> = ({
   isAuthenticated,
   isAdminMode,
   isAdminPath,
+  preferredAuthPlane,
   portalLicenseBlocked,
   portalLicenseBlockedMessage,
   t,
@@ -44,12 +47,14 @@ const AppRouteGuards: React.FC<AppRouteGuardsProps> = ({
   renderAdmin,
   renderPortal,
 }) => {
+  const shouldUseAdminLogin = isAdminPath && preferredAuthPlane === 'admin';
+
   if (isLoading && !isInitialized) {
     return <FullScreenLoading />;
   }
 
   if (!isAuthenticated) {
-    if (isAdminPath) {
+    if (shouldUseAdminLogin) {
       return (
         <Suspense fallback={<FullScreenLoading />}>
           <AdminLogin onLoginSuccess={onAdminLoginSuccess} />
@@ -71,7 +76,7 @@ const AppRouteGuards: React.FC<AppRouteGuardsProps> = ({
     );
   }
 
-  if (isAdminPath) {
+  if (isAdminPath && shouldUseAdminLogin) {
     return (
       <Suspense fallback={<FullScreenLoading />}>
         <AdminLogin onLoginSuccess={onAdminReloginSuccess} />

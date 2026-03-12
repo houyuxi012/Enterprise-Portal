@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button } from 'antd';
-import type { ButtonProps } from 'antd';
+import Button from 'antd/es/button';
+import type { ButtonProps } from 'antd/es/button';
 
 export type ButtonIntent = 'primary' | 'secondary' | 'tertiary' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';

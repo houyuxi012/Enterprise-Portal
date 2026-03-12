@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { App, Card, Col, Descriptions, Row, Statistic, Tag, Tooltip, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Descriptions from 'antd/es/descriptions';
+import Row from 'antd/es/grid/row';
+import Tag from 'antd/es/tag';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import {
-    ReloadOutlined, CloudOutlined, ApiOutlined,
-    ClockCircleOutlined, CheckCircleOutlined, WarningOutlined,
-    EyeOutlined, ThunderboltOutlined
+    ReloadOutlined,
+    ClockCircleOutlined,
+    EyeOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient, { type AccessLogEntry } from '@/services/api';
 import dayjs from 'dayjs';
 import { AppButton, AppDrawer, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 type AccessLog = AccessLogEntry & {
     id: number;
@@ -129,7 +136,7 @@ const AccessLogs: React.FC = () => {
             width: 160,
             render: (text: string) => {
                 const formatted = text ? text.replace('T', ' ').substring(0, 19) : text;
-                return <Text code>{formatted}</Text>;
+                return <Text type="secondary">{formatted || '-'}</Text>;
             }
         },
         {
@@ -156,7 +163,12 @@ const AccessLogs: React.FC = () => {
             ellipsis: true,
             render: (text: string) => (
                 <Tooltip title={text}>
-                    <Text code>{text}</Text>
+                    <Text
+                        ellipsis={{ tooltip: text }}
+                        style={{ display: 'block', maxWidth: 260 }}
+                    >
+                        {text || '-'}
+                    </Text>
                 </Tooltip>
             )
         },
@@ -175,7 +187,19 @@ const AccessLogs: React.FC = () => {
             dataIndex: 'ip_address',
             key: 'ip_address',
             width: 120,
-            render: (text: string) => <Text code>{text || '-'}</Text>
+            render: (text: string) => (
+                text ? (
+                    <Text
+                        type="secondary"
+                        ellipsis={{ tooltip: text }}
+                        className="!inline-block max-w-[124px] align-middle"
+                    >
+                        {text}
+                    </Text>
+                ) : (
+                    <Text type="secondary">-</Text>
+                )
+            )
         },
         {
             title: t('accessLogs.table.latency'),
@@ -194,7 +218,12 @@ const AccessLogs: React.FC = () => {
             width: 120,
             render: (text: string) => (
                 <Tooltip title={text}>
-                    <Text code>{text?.substring(0, 8)}...</Text>
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 12, letterSpacing: '0.08em' }}
+                    >
+                        {text ? `${text.substring(0, 8)}...` : '-'}
+                    </Text>
                 </Tooltip>
             )
         },
@@ -232,48 +261,39 @@ const AccessLogs: React.FC = () => {
                 )}
             />
 
-            {/* Stats Cards */}
-            <Row gutter={16} className="mb-4">
+            <Row gutter={[16, 16]} className="mb-4">
                 <Col span={6}>
-                    <Card className="admin-card">
-                        <Statistic
-                            title={t('accessLogs.stats.totalRequests')}
-                            value={stats.total}
-                            prefix={<ApiOutlined />}
-                            valueStyle={{ color: '#6366f1', fontWeight: 800 }}
-                        />
+                    <Card className="admin-card" bodyStyle={{ padding: 18 }}>
+                        <div className="space-y-2">
+                            <Text type="secondary">{t('accessLogs.stats.totalRequests')}</Text>
+                            <Title level={3} className="!m-0 !leading-none">
+                                {stats.total}
+                            </Title>
+                        </div>
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card className="admin-card">
-                        <Statistic
-                            title={t('accessLogs.stats.successRate')}
-                            value={stats.successRate}
-                            suffix="%"
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#22c55e', fontWeight: 800 }}
-                        />
+                    <Card className="admin-card" bodyStyle={{ padding: 18 }}>
+                        <div className="space-y-2">
+                            <Text type="secondary">{t('accessLogs.stats.successRate')}</Text>
+                            <div className="text-[28px] font-semibold leading-none text-emerald-600">{stats.successRate}%</div>
+                        </div>
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card className="admin-card">
-                        <Statistic
-                            title={t('accessLogs.stats.avgLatency')}
-                            value={stats.avgLatency}
-                            suffix="ms"
-                            prefix={<ThunderboltOutlined />}
-                            valueStyle={{ color: '#f59e0b', fontWeight: 800 }}
-                        />
+                    <Card className="admin-card" bodyStyle={{ padding: 18 }}>
+                        <div className="space-y-2">
+                            <Text type="secondary">{t('accessLogs.stats.avgLatency')}</Text>
+                            <div className="text-[28px] font-semibold leading-none text-amber-600">{stats.avgLatency}ms</div>
+                        </div>
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card className="admin-card">
-                        <Statistic
-                            title={t('accessLogs.stats.errorRequests')}
-                            value={stats.errorCount}
-                            prefix={<WarningOutlined />}
-                            valueStyle={{ color: '#ef4444', fontWeight: 800 }}
-                        />
+                    <Card className="admin-card" bodyStyle={{ padding: 18 }}>
+                        <div className="space-y-2">
+                            <Text type="secondary">{t('accessLogs.stats.errorRequests')}</Text>
+                            <div className="text-[28px] font-semibold leading-none text-rose-600">{stats.errorCount}</div>
+                        </div>
                     </Card>
                 </Col>
             </Row>
@@ -336,60 +356,46 @@ const AccessLogs: React.FC = () => {
             </Card>
 
             <AppDrawer
-                title={
-                    <span className="font-bold text-lg flex items-center gap-2">
-                        <CloudOutlined className="text-indigo-500" />
-                        {t('accessLogs.drawer.title')}
-                    </span>
-                }
+                title={<Title level={5} className="!m-0">{t('accessLogs.drawer.title')}</Title>}
                 width={560}
                 open={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
                 hideFooter
             >
                 {selectedLog && (
-                    <div className="space-y-6">
-                        <Descriptions bordered column={1} size="small">
+                    <div className="space-y-4">
+                        <Descriptions column={1} size="middle" colon={false}>
                             <Descriptions.Item label={t('accessLogs.drawer.time')}>
-                                <Text className="font-mono">{selectedLog.timestamp?.replace('T', ' ').substring(0, 19)}</Text>
+                                <Text type="secondary">{selectedLog.timestamp?.replace('T', ' ').substring(0, 19) || '-'}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.method')}>
-                                {(() => {
-                                    const colorMap: Record<string, string> = {
-                                        'GET': 'green',
-                                        'POST': 'blue',
-                                        'PUT': 'orange',
-                                        'DELETE': 'red',
-                                        'PATCH': 'purple'
-                                    };
-                                    return <Tag color={colorMap[selectedLog.method] || 'default'}>{selectedLog.method}</Tag>;
-                                })()}
+                                <Text strong>{selectedLog.method || '-'}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.path')}>
-                                <Text className="font-mono text-sm break-all">{selectedLog.path}</Text>
+                                <Text style={{ wordBreak: 'break-all' }}>{selectedLog.path || '-'}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.statusCode')}>
                                 {(() => {
                                     const code = selectedLog.status_code;
-                                    const color = code < 300 ? 'green' : (code < 400 ? 'blue' : (code < 500 ? 'orange' : 'red'));
-                                    return <Tag color={color}>{code}</Tag>;
+                                    const color = code < 300 ? '#16a34a' : (code < 400 ? '#2563eb' : (code < 500 ? '#d97706' : '#dc2626'));
+                                    return <Text strong style={{ color }}>{code}</Text>;
                                 })()}
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.responseTime')}>
-                                {(() => {
-                                    const ms = selectedLog.latency_ms;
-                                    const color = ms < 100 ? 'green' : (ms < 500 ? 'orange' : 'red');
-                                    return <Tag color={color}>{ms} ms</Tag>;
-                                })()}
+                                <Text type="secondary">{selectedLog.latency_ms != null ? `${selectedLog.latency_ms} ms` : '-'}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.ip')}>
-                                <Text className="font-mono">{selectedLog.ip_address || '-'}</Text>
+                                <Text type="secondary">{selectedLog.ip_address || '-'}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.traceId')}>
-                                <Text className="font-mono text-xs break-all">{selectedLog.trace_id}</Text>
+                                <Text type="secondary" className="break-all text-xs">
+                                    {selectedLog.trace_id || '-'}
+                                </Text>
                             </Descriptions.Item>
                             <Descriptions.Item label={t('accessLogs.drawer.userAgent')}>
-                                <Text className="text-xs break-all">{selectedLog.user_agent || '-'}</Text>
+                                <Text type="secondary" className="break-all text-xs">
+                                    {selectedLog.user_agent || '-'}
+                                </Text>
                             </Descriptions.Item>
                         </Descriptions>
                     </div>

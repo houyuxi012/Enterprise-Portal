@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { ConfigProvider, App as AntApp } from 'antd';
+import AntApp from 'antd/es/app';
+import ConfigProvider from 'antd/es/config-provider';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';

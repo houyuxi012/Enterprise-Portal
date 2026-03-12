@@ -1,12 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { App, Card, Col, Descriptions, Empty, List, Popconfirm, Row, Space, Statistic, Tag, Typography } from 'antd';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Empty from 'antd/es/empty';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Statistic from 'antd/es/statistic';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { CalendarOutlined, ClockCircleOutlined, CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
-import { AppButton, AppDrawer, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
-import MeetingFormModal, { type MeetingFormValues } from '@/modules/admin/components/meetings/MeetingFormModal';
+import { AppButton, AppFilterBar, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 import meetingService, {
   type CreateLocalMeetingInput,
   type ListMeetingFilters,
@@ -16,6 +24,10 @@ import meetingService, {
 } from '@/modules/admin/services/meetings';
 import ApiClient from '@/shared/services/api';
 import type { UserOption } from '@/types';
+import type { MeetingFormValues } from '@/modules/admin/components/meetings/MeetingFormModal';
+
+const MeetingFormModal = lazy(() => import('@/modules/admin/components/meetings/MeetingFormModal'));
+const MeetingDetailDrawer = lazy(() => import('@/modules/admin/components/meetings/MeetingDetailDrawer'));
 
 const { Text } = Typography;
 const DEFAULT_PAGE_SIZE = 10;
@@ -53,7 +65,9 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
   return typeof errorMessage === 'string' && errorMessage.trim() ? errorMessage : fallback;
 };
 
-const resolveMeetingVenue = (meeting: Pick<LocalMeetingRecord, 'meetingType' | 'meetingRoom' | 'meetingSoftware'>): string => (
+const resolveMeetingVenue = (
+  meeting: Pick<LocalMeetingRecord, 'meetingType' | 'meetingRoom' | 'meetingSoftware'>,
+): string => (
   meeting.meetingType === 'online'
     ? (meeting.meetingSoftware || meeting.meetingRoom)
     : meeting.meetingRoom
@@ -398,20 +412,6 @@ const MeetingLocalManagement: React.FC = () => {
     },
   ];
 
-  const detailMeetingVenueLabel = detailMeeting?.meetingType === 'online'
-    ? t('meetingLocal.drawer.meetingSoftware', '会议软件')
-    : t('meetingLocal.drawer.room', '会议室');
-  const detailMeetingVenueValue = detailMeeting ? resolveMeetingVenue(detailMeeting) : '';
-  const detailMeetingIdLabel = detailMeeting?.meetingType === 'online'
-    ? t('meetingLocal.drawer.onlineMeetingId', '会议 ID / 会议链接')
-    : t('meetingLocal.drawer.meetingId', '会议 ID');
-  const detailMeetingIdActionLabel = detailMeeting?.meetingType === 'online'
-    ? t('meetingLocal.actions.copyMeetingEntry', '复制会议 ID / 链接')
-    : t('meetingLocal.actions.copyMeetingId', '复制会议 ID');
-  const detailMeetingIdCopySuccess = detailMeeting?.meetingType === 'online'
-    ? t('meetingLocal.messages.copyMeetingEntrySuccess', '会议 ID / 链接已复制')
-    : t('meetingLocal.messages.copyMeetingIdSuccess', '会议 ID 已复制');
-
   const summaryCards = [
     {
       key: 'total',
@@ -599,179 +599,40 @@ const MeetingLocalManagement: React.FC = () => {
         />
       </Card>
 
-      <MeetingFormModal
-        open={modalOpen}
-        mode={editingMeeting ? 'edit' : 'create'}
-        initialValues={editingMeeting ? {
-          subject: editingMeeting.subject,
-          startTime: dayjs(editingMeeting.startTime),
-          durationMinutes: editingMeeting.durationMinutes,
-          meetingType: editingMeeting.meetingType,
-          meetingRoom: editingMeeting.meetingRoom,
-          meetingSoftware: editingMeeting.meetingSoftware,
-          meetingId: editingMeeting.meetingId,
-          organizerUserId: editingMeeting.organizerUserId ?? undefined,
-          attendeeUserIds: editingMeeting.attendeeUserIds,
-        } : undefined}
-        confirmLoading={submitLoading}
-        onCancel={handleModalCancel}
-        onSubmit={handleSubmitMeeting}
-      />
+      {modalOpen ? (
+        <Suspense fallback={null}>
+          <MeetingFormModal
+            open={modalOpen}
+            mode={editingMeeting ? 'edit' : 'create'}
+            initialValues={editingMeeting ? {
+              subject: editingMeeting.subject,
+              startTime: dayjs(editingMeeting.startTime),
+              durationMinutes: editingMeeting.durationMinutes,
+              meetingType: editingMeeting.meetingType,
+              meetingRoom: editingMeeting.meetingRoom,
+              meetingSoftware: editingMeeting.meetingSoftware,
+              meetingId: editingMeeting.meetingId,
+              organizerUserId: editingMeeting.organizerUserId ?? undefined,
+              attendeeUserIds: editingMeeting.attendeeUserIds,
+            } : undefined}
+            confirmLoading={submitLoading}
+            onCancel={handleModalCancel}
+            onSubmit={handleSubmitMeeting}
+          />
+        </Suspense>
+      ) : null}
 
-      <AppDrawer
-        open={Boolean(detailMeeting)}
-        title={detailMeeting?.subject || t('meetingLocal.drawer.title', '会议详情')}
-        width={560}
-        hideFooter
-        extra={detailMeeting ? (
-          <AppButton intent="primary" icon={<EditOutlined />} onClick={handleEditFromDrawer}>
-            {t('meetingLocal.drawer.editCurrent', '编辑此会议')}
-          </AppButton>
-        ) : undefined}
-        onClose={handleDrawerClose}
-      >
-        {detailMeeting ? (
-          <div className="space-y-4">
-            <Card className="admin-card admin-card-subtle">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Tag color={detailMeeting.meetingType === 'online' ? 'blue' : 'gold'}>
-                      {detailMeeting.meetingType === 'online'
-                        ? t('meetingLocal.types.online', '线上')
-                        : t('meetingLocal.types.offline', '线下')}
-                    </Tag>
-                    <Tag>{dayjs(detailMeeting.startTime).format('YYYY-MM-DD HH:mm')}</Tag>
-                    <Tag>{`${detailMeeting.durationMinutes}${t('meetingLocal.units.minutes', '分钟')}`}</Tag>
-                  </div>
-                  <Text type="secondary" className="mt-3 block">
-                    {t('meetingLocal.drawer.summary', '集中查看当前会议的核心信息，并支持快速复制关键字段。')}
-                  </Text>
-                </div>
-                <AppButton
-                  intent="secondary"
-                  icon={<CopyOutlined />}
-                  onClick={() => {
-                    void handleCopy(detailMeeting.meetingId, detailMeetingIdCopySuccess);
-                  }}
-                >
-                  {detailMeetingIdActionLabel}
-                </AppButton>
-              </div>
-            </Card>
-
-            <Card className="admin-card">
-              <Row gutter={[16, 16]}>
-                <Col xs={24} md={8}>
-                  <Statistic
-                    title={t('meetingLocal.drawer.startTime', '开始时间')}
-                    value={dayjs(detailMeeting.startTime).format('YYYY-MM-DD HH:mm')}
-                  />
-                </Col>
-                <Col xs={24} md={8}>
-                  <Statistic
-                    title={t('meetingLocal.drawer.duration', '会议时长')}
-                    value={detailMeeting.durationMinutes}
-                    suffix={t('meetingLocal.units.minutes', '分钟')}
-                  />
-                </Col>
-                <Col xs={24} md={8}>
-                  <Statistic
-                    title={t('meetingLocal.drawer.attendees', '参会人')}
-                    value={detailMeeting.attendees.length}
-                    suffix={t('meetingLocal.units.people', '人')}
-                  />
-                </Col>
-              </Row>
-            </Card>
-
-            <Card className="admin-card">
-              <Descriptions
-                bordered
-                column={1}
-                size="middle"
-                colon={false}
-                labelStyle={{ width: '34%' }}
-              >
-                <Descriptions.Item label={t('meetingLocal.drawer.type', '会议类型')}>
-                  <Tag color={detailMeeting.meetingType === 'online' ? 'blue' : 'gold'}>
-                    {detailMeeting.meetingType === 'online'
-                      ? t('meetingLocal.types.online', '线上')
-                      : t('meetingLocal.types.offline', '线下')}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label={detailMeetingVenueLabel}>
-                  <Space wrap>
-                    <Text strong>{detailMeetingVenueValue}</Text>
-                    <AppButton
-                      intent="tertiary"
-                      icon={<CopyOutlined />}
-                      onClick={() => {
-                        void handleCopy(detailMeetingVenueValue, t('meetingLocal.messages.copyVenueSuccess', '会议信息已复制'));
-                      }}
-                    >
-                      {t('meetingLocal.actions.copy', '复制')}
-                    </AppButton>
-                  </Space>
-                </Descriptions.Item>
-                <Descriptions.Item label={detailMeetingIdLabel}>
-                  <Space wrap>
-                    <Text strong className="break-all">{detailMeeting.meetingId}</Text>
-                    <AppButton
-                      intent="tertiary"
-                      icon={<CopyOutlined />}
-                      onClick={() => {
-                        void handleCopy(detailMeeting.meetingId, detailMeetingIdCopySuccess);
-                      }}
-                    >
-                      {detailMeetingIdActionLabel}
-                    </AppButton>
-                  </Space>
-                </Descriptions.Item>
-                <Descriptions.Item label={t('meetingLocal.drawer.organizer', '会议发起人')}>
-                  <Text strong>{detailMeeting.organizer}</Text>
-                </Descriptions.Item>
-                <Descriptions.Item label={t('meetingLocal.drawer.updatedAt', '最后更新时间')}>
-                  <Text strong>{dayjs(detailMeeting.updatedAt).format('YYYY-MM-DD HH:mm')}</Text>
-                </Descriptions.Item>
-                <Descriptions.Item label={t('meetingLocal.drawer.createdAt', '创建时间')}>
-                  <Text strong>{dayjs(detailMeeting.createdAt).format('YYYY-MM-DD HH:mm')}</Text>
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
-
-            <Card className="admin-card">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <Space direction="vertical" size={2}>
-                  <Text strong>{t('meetingLocal.drawer.attendees', '参会人')}</Text>
-                  <Text type="secondary">
-                    {t('meetingLocal.drawer.attendeeCount', '共 {{count}} 人', { count: detailMeeting.attendees.length })}
-                  </Text>
-                </Space>
-                <AppButton
-                  intent="secondary"
-                  icon={<CopyOutlined />}
-                  onClick={() => {
-                    void handleCopy(detailMeeting.attendees.join(', '), t('meetingLocal.messages.copyAttendeesSuccess', '参会人已复制'));
-                  }}
-                >
-                  {t('meetingLocal.actions.copyAttendees', '复制参会人')}
-                </AppButton>
-              </div>
-              <List
-                size="small"
-                dataSource={detailMeeting.attendees}
-                locale={{ emptyText: t('meetingLocal.drawer.emptyAttendees', '暂无参会人') }}
-                renderItem={(attendee) => (
-                  <List.Item key={`${detailMeeting.id}-${attendee}`}>
-                    <Text>{attendee}</Text>
-                  </List.Item>
-                )}
-              />
-            </Card>
-          </div>
-        ) : null}
-      </AppDrawer>
+      {detailMeeting ? (
+        <Suspense fallback={null}>
+          <MeetingDetailDrawer
+            open={Boolean(detailMeeting)}
+            meeting={detailMeeting}
+            onClose={handleDrawerClose}
+            onEdit={handleEditFromDrawer}
+            onCopy={handleCopy}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };

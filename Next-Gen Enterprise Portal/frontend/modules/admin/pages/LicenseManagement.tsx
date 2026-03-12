@@ -1,11 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Card, Col, Descriptions, Row, Space, Tag, Typography, Upload } from 'antd';
-import { UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Descriptions from 'antd/es/descriptions';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
+import { SafetyCertificateOutlined } from '@ant-design/icons';
 import ApiClient from '@/services/api';
 import AuthService from '@/services/auth';
 import { LicenseClaimsResponse, LicenseEventItem, LicenseStatus } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { AppButton, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+
+const UploadTriggerButton = lazy(() => import('@/modules/admin/components/upload/UploadTriggerButton'));
 
 const { Text } = Typography;
 const PRODUCT_MODEL = 'NGEPv3.0-HYX-PS';
@@ -269,46 +278,44 @@ const LicenseManagement: React.FC = () => {
                 subtitle={t('license.subtitle')}
                 action={
                     <Space>
-                        <Upload
-                            showUploadList={false}
-                            disabled={loading}
-                            accept=".bin,.json,application/octet-stream,application/json,text/plain"
-                            beforeUpload={async (file) => {
-                                try {
-                                    const buffer = await file.arrayBuffer();
-                                    const text = new TextDecoder('utf-8').decode(buffer);
-                                    const parsed = parseRevocationDocument(text, t);
-                                    await importRevocationDocument(parsed, file.name);
-                                } catch {
-                                    message.error(t('license.upload.revocationParseFailed'));
-                                }
-                                return false;
-                            }}
-                        >
-                            <AppButton intent="secondary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                                {t('license.upload.revocationButton')}
-                            </AppButton>
-                        </Upload>
-                        <Upload
-                            showUploadList={false}
-                            disabled={loading}
-                            accept=".bin,.json,application/octet-stream,application/json,text/plain"
-                            beforeUpload={async (file) => {
-                                try {
-                                    const buffer = await file.arrayBuffer();
-                                    const text = new TextDecoder('utf-8').decode(buffer);
-                                    const parsed = parseLicenseDocument(text, t);
-                                    await importLicenseDocument(parsed.payload, parsed.signature, file.name);
-                                } catch {
-                                    message.error(t('license.upload.parseFailed'));
-                                }
-                                return false;
-                            }}
-                        >
-                            <AppButton intent="primary" icon={<UploadOutlined />} loading={loading} disabled={loading}>
-                                {t('license.upload.button')}
-                            </AppButton>
-                        </Upload>
+                        <Suspense fallback={null}>
+                            <UploadTriggerButton
+                                accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                                buttonLabel={t('license.upload.revocationButton')}
+                                disabled={loading}
+                                intent="secondary"
+                                loading={loading}
+                                onSelect={async (file) => {
+                                    try {
+                                        const buffer = await file.arrayBuffer();
+                                        const text = new TextDecoder('utf-8').decode(buffer);
+                                        const parsed = parseRevocationDocument(text, t);
+                                        await importRevocationDocument(parsed, file.name);
+                                    } catch {
+                                        message.error(t('license.upload.revocationParseFailed'));
+                                    }
+                                }}
+                            />
+                        </Suspense>
+                        <Suspense fallback={null}>
+                            <UploadTriggerButton
+                                accept=".bin,.json,application/octet-stream,application/json,text/plain"
+                                buttonLabel={t('license.upload.button')}
+                                disabled={loading}
+                                intent="primary"
+                                loading={loading}
+                                onSelect={async (file) => {
+                                    try {
+                                        const buffer = await file.arrayBuffer();
+                                        const text = new TextDecoder('utf-8').decode(buffer);
+                                        const parsed = parseLicenseDocument(text, t);
+                                        await importLicenseDocument(parsed.payload, parsed.signature, file.name);
+                                    } catch {
+                                        message.error(t('license.upload.parseFailed'));
+                                    }
+                                }}
+                            />
+                        </Suspense>
                     </Space>
                 }
             />
@@ -411,7 +418,7 @@ const LicenseManagement: React.FC = () => {
                                 key: 'license_id',
                                 width: 260,
                                 render: (value: string | null | undefined) => (
-                                    <Text code>{formatLicenseId(value)}</Text>
+                                    <Text>{formatLicenseId(value)}</Text>
                                 ),
                             },
                             {

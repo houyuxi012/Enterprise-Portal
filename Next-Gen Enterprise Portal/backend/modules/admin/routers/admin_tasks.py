@@ -173,6 +173,8 @@ async def admin_update_task(
     
     for key, value in update_data.items():
         setattr(todo, key, value)
+
+    await db.commit()
         
     AuditService.schedule_business_action(
         background_tasks=background_tasks,

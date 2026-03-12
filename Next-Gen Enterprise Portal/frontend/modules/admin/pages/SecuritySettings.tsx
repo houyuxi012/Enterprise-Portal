@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { App, Card, Col, Input, InputNumber, Row, Select, Switch } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Input from 'antd/es/input';
+import InputNumber from 'antd/es/input-number';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Switch from 'antd/es/switch';
 import { SaveOutlined, SafetyCertificateOutlined, GlobalOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';

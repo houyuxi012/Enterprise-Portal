@@ -22,6 +22,11 @@ HEADER_POLICY_VERSION = "X-Privacy-Policy-Version"
 HEADER_POLICY_HASH = "X-Privacy-Policy-Hash"
 HEADER_CONSENT_LOCALE = "X-Privacy-Consent-Locale"
 
+STATE_CONSENT_ACCEPTED = "privacy_consent_accepted"
+STATE_POLICY_VERSION = "privacy_policy_version"
+STATE_POLICY_HASH = "privacy_policy_hash"
+STATE_CONSENT_LOCALE = "privacy_consent_locale"
+
 MFA_CLAIM_POLICY_VERSION = "privacy_policy_version"
 MFA_CLAIM_POLICY_HASH = "privacy_policy_hash"
 MFA_CLAIM_POLICY_LOCALE = "privacy_policy_locale"
@@ -68,6 +73,15 @@ def _build_privacy_error(
             "policy_hash": snapshot.policy_hash,
         },
     )
+
+
+def _get_request_consent_value(request: Request, header_name: str, state_name: str) -> str:
+    header_value = str(request.headers.get(header_name) or "").strip()
+    if header_value:
+        return header_value
+
+    state_value = getattr(request.state, state_name, None)
+    return str(state_value or "").strip()
 
 
 async def load_privacy_policy_snapshot(db: AsyncSession) -> PrivacyPolicySnapshot:
@@ -140,10 +154,25 @@ async def prepare_login_privacy_consent(
     if existing is not None:
         return None
 
-    consent_accepted = _as_bool(request.headers.get(HEADER_CONSENT_ACCEPTED), default=False)
-    request_policy_version = str(request.headers.get(HEADER_POLICY_VERSION) or "").strip()
-    request_policy_hash = str(request.headers.get(HEADER_POLICY_HASH) or "").strip()
-    locale = str(request.headers.get(HEADER_CONSENT_LOCALE) or "").strip() or None
+    consent_accepted = _as_bool(
+        _get_request_consent_value(request, HEADER_CONSENT_ACCEPTED, STATE_CONSENT_ACCEPTED),
+        default=False,
+    )
+    request_policy_version = _get_request_consent_value(
+        request,
+        HEADER_POLICY_VERSION,
+        STATE_POLICY_VERSION,
+    )
+    request_policy_hash = _get_request_consent_value(
+        request,
+        HEADER_POLICY_HASH,
+        STATE_POLICY_HASH,
+    )
+    locale = _get_request_consent_value(
+        request,
+        HEADER_CONSENT_LOCALE,
+        STATE_CONSENT_LOCALE,
+    ) or None
 
     if not consent_accepted:
         raise _build_privacy_error(

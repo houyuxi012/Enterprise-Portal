@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '@/types';
 import ApiClient, { type UserCreatePayload, type UserUpdatePayload } from '@/services/api';
-import { App, Avatar, Card, Col, Input, Popconfirm, Row, Select, Space, Switch, Typography } from 'antd';
+import App from 'antd/es/app';
+import Avatar from 'antd/es/avatar';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Input from 'antd/es/input';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +29,7 @@ import { getCurrentLocale, getLocalizedRoleMeta } from '@/shared/utils/iamRoleI1
 import { hasAdminAccess } from '@/shared/utils/adminAccess';
 
 const { Text } = Typography;
+const actionTooltipStyles = { body: { color: '#ffffff' } } as const;
 
 type SystemUserFormValues = {
     username: string;
@@ -268,14 +280,16 @@ const SystemUserList: React.FC = () => {
             align: 'right',
             render: (_: unknown, record: User) => (
                 <Space size="small">
-                    <AppButton
-                        intent="tertiary"
-                        iconOnly
-                        size="sm"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                        title={t('common.buttons.edit')}
-                    />
+                    <Tooltip title={t('common.buttons.edit')} color="#1f1f1f" styles={actionTooltipStyles}>
+                        <AppButton
+                            intent="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEdit(record)}
+                            aria-label={t('common.buttons.edit')}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title={t('systemUserList.popconfirm.resetTitle')}
                         description={t('systemUserList.popconfirm.resetDesc', { username: record.username })}
@@ -284,32 +298,44 @@ const SystemUserList: React.FC = () => {
                         cancelText={t('common.buttons.cancel')}
                         disabled={['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')}
                     >
-                        <AppButton
-                            intent="tertiary"
-                            iconOnly
-                            size="sm"
-                            icon={<KeyOutlined />}
+                        <Tooltip
                             title={
                                 ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
                                     ? t('systemUserList.actions.resetPasswordDisabledExternal')
                                     : t('systemUserList.actions.resetPassword')
                             }
-                            disabled={
-                                ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
-                                || Boolean(resettingUsernames[record.username])
-                            }
-                            loading={Boolean(resettingUsernames[record.username])}
-                        />
+                            color="#1f1f1f"
+                            styles={actionTooltipStyles}
+                        >
+                            <AppButton
+                                intent="tertiary"
+                                iconOnly
+                                size="sm"
+                                icon={<KeyOutlined />}
+                                aria-label={
+                                    ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
+                                        ? t('systemUserList.actions.resetPasswordDisabledExternal')
+                                        : t('systemUserList.actions.resetPassword')
+                                }
+                                disabled={
+                                    ['ldap', 'ad', 'oidc'].includes(record.auth_source || 'local')
+                                    || Boolean(resettingUsernames[record.username])
+                                }
+                                loading={Boolean(resettingUsernames[record.username])}
+                            />
+                        </Tooltip>
                     </Popconfirm>
                     {isProtectedSystemAdmin(record) ? (
-                        <AppButton
-                            intent="tertiary"
-                            iconOnly
-                            size="sm"
-                            icon={<DeleteOutlined />}
-                            title={t('systemUserList.actions.builtinAdminDeleteDenied')}
-                            disabled
-                        />
+                        <Tooltip title={t('systemUserList.actions.builtinAdminDeleteDenied')} color="#1f1f1f" styles={actionTooltipStyles}>
+                            <AppButton
+                                intent="tertiary"
+                                iconOnly
+                                size="sm"
+                                icon={<DeleteOutlined />}
+                                aria-label={t('systemUserList.actions.builtinAdminDeleteDenied')}
+                                disabled
+                            />
+                        </Tooltip>
                     ) : (
                         <Popconfirm
                             title={t('systemUserList.popconfirm.deleteTitle')}
@@ -319,13 +345,15 @@ const SystemUserList: React.FC = () => {
                             cancelText={t('common.buttons.cancel')}
                             okButtonProps={{ danger: true }}
                         >
-                            <AppButton
-                                intent="danger"
-                                iconOnly
-                                size="sm"
-                                icon={<DeleteOutlined />}
-                                title={t('common.buttons.delete')}
-                            />
+                            <Tooltip title={t('common.buttons.delete')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                <AppButton
+                                    intent="danger"
+                                    iconOnly
+                                    size="sm"
+                                    icon={<DeleteOutlined />}
+                                    aria-label={t('common.buttons.delete')}
+                                />
+                            </Tooltip>
                         </Popconfirm>
                     )}
                 </Space>

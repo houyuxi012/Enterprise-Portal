@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import Request, Response
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 from core import security
 
 logger = logging.getLogger(__name__)

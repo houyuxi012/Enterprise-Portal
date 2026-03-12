@@ -1,24 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    App,
-    Alert,
-    Badge,
-    Card,
-    Col,
-    Descriptions,
-    Form,
-    Input,
-    InputNumber,
-    Popconfirm,
-    Row,
-    Select,
-    Space,
-    Statistic,
-    Switch,
-    Tabs,
-    Typography,
-} from 'antd';
-import type { BadgeProps, TabsProps } from 'antd';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import App from 'antd/es/app';
+import Alert from 'antd/es/alert';
+import Badge from 'antd/es/badge';
+import type { BadgeProps } from 'antd/es/badge';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Descriptions from 'antd/es/descriptions';
+import List from 'antd/es/list';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Segmented from 'antd/es/segmented';
+import Space from 'antd/es/space';
+import Statistic from 'antd/es/statistic';
+import Typography from 'antd/es/typography';
 import type { ColumnsType } from 'antd/es/table';
 import {
     CopyOutlined,
@@ -38,7 +32,11 @@ import type {
     SystemResources,
     SystemVersion,
 } from '@/types';
-import { AppButton, AppDrawer, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+import { AppButton, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+
+const BackupPlanDrawer = lazy(() => import('@/modules/admin/components/operations/BackupPlanDrawer'));
+const BackupPreviewDrawer = lazy(() => import('@/modules/admin/components/operations/BackupPreviewDrawer'));
+import type { BackupPlanFormValues } from '@/modules/admin/components/operations/BackupPlanDrawer';
 
 interface NotificationHealthState {
     overall_status: 'healthy' | 'degraded' | 'disabled' | string;
@@ -58,16 +56,6 @@ interface StatusRow {
 }
 
 interface BackupPlanConfig {
-    enabled: boolean;
-    frequency: 'daily' | 'weekly';
-    weekday: string;
-    hour: number;
-    retentionDays: number;
-    targetType: 'local' | 'network';
-    targetPath: string;
-}
-
-interface BackupPlanFormValues {
     enabled: boolean;
     frequency: 'daily' | 'weekly';
     weekday: string;
@@ -158,7 +146,7 @@ const buildBackupPlanConfig = (configMap: Record<string, string> | null | undefi
 const OperationsManagement: React.FC = () => {
     const { t } = useTranslation();
     const { message } = App.useApp();
-    const [backupForm] = Form.useForm<BackupPlanFormValues>();
+    const [activeTab, setActiveTab] = useState<'server-monitoring' | 'backup-restore'>('server-monitoring');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [configSaving, setConfigSaving] = useState(false);
@@ -308,9 +296,6 @@ const OperationsManagement: React.FC = () => {
         if (configResult.status === 'fulfilled') {
             const resolvedBackupConfig = buildBackupPlanConfig(configResult.value);
             setBackupConfig(resolvedBackupConfig);
-            if (!configDrawerOpen) {
-                backupForm.setFieldsValue(resolvedBackupConfig);
-            }
         } else {
             failedCount += 1;
         }
@@ -332,7 +317,7 @@ const OperationsManagement: React.FC = () => {
 
         setLoading(false);
         setRefreshing(false);
-    }, [backupForm, configDrawerOpen, t]);
+    }, [t]);
 
     useEffect(() => {
         void refreshData({ firstLoad: true });
@@ -405,13 +390,11 @@ const OperationsManagement: React.FC = () => {
     };
 
     const handleOpenPlanConfig = () => {
-        backupForm.setFieldsValue(backupConfig);
         setConfigDrawerOpen(true);
     };
 
     const handleClosePlanConfig = () => {
         setConfigDrawerOpen(false);
-        backupForm.setFieldsValue(backupConfig);
     };
 
     const handleClosePreview = () => {
@@ -433,7 +416,6 @@ const OperationsManagement: React.FC = () => {
             });
             const resolved = buildBackupPlanConfig(savedConfigMap);
             setBackupConfig(resolved);
-            backupForm.setFieldsValue(resolved);
             setConfigDrawerOpen(false);
             message.success(t('operationsManagementPage.messages.backupConfigSaved'));
         } catch {
@@ -544,32 +526,6 @@ const OperationsManagement: React.FC = () => {
             };
         });
     }, [notificationHealth, t]);
-
-    const statusColumns: ColumnsType<StatusRow> = useMemo(
-        () => [
-            {
-                title: t('operationsManagementPage.server.tables.name'),
-                dataIndex: 'name',
-                key: 'name',
-                render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
-            },
-            {
-                title: t('operationsManagementPage.server.tables.status'),
-                dataIndex: 'statusLabel',
-                key: 'statusLabel',
-                width: 180,
-                render: (_value, record) => <Badge status={record.badgeStatus} text={record.statusLabel} />,
-            },
-            {
-                title: t('operationsManagementPage.server.tables.detail'),
-                dataIndex: 'detail',
-                key: 'detail',
-                ellipsis: true,
-                render: (value: string) => <Typography.Text type="secondary">{value || '-'}</Typography.Text>,
-            },
-        ],
-        [t],
-    );
 
     const backupColumns: ColumnsType<SystemBackupRecord> = useMemo(
         () => [
@@ -848,26 +804,40 @@ const OperationsManagement: React.FC = () => {
             <Row gutter={[16, 16]}>
                 <Col xs={24}>
                     <Card loading={loading} className="admin-card h-full" title={t('operationsManagementPage.server.tables.platformServices')}>
-                        <AppTable<StatusRow>
-                            rowKey="key"
-                            columns={statusColumns}
+                        <List
                             dataSource={platformStatusRows}
-                            pagination={false}
-                            size="middle"
                             loading={loading && platformStatusRows.length === 0}
+                            renderItem={(item) => (
+                                <List.Item
+                                    className="!px-0"
+                                    actions={[<Badge key={`${item.key}-status`} status={item.badgeStatus} text={item.statusLabel} />]}
+                                >
+                                    <List.Item.Meta
+                                        title={<Typography.Text strong>{item.name}</Typography.Text>}
+                                        description={<Typography.Text type="secondary">{item.detail || '-'}</Typography.Text>}
+                                    />
+                                </List.Item>
+                            )}
                         />
                     </Card>
                 </Col>
             </Row>
 
             <Card loading={loading} className="admin-card" title={t('operationsManagementPage.server.tables.notificationChannels')}>
-                <AppTable<StatusRow>
-                    rowKey="key"
-                    columns={statusColumns}
+                <List
                     dataSource={notificationRows}
-                    pagination={false}
-                    size="middle"
                     loading={loading && notificationRows.length === 0}
+                    renderItem={(item) => (
+                        <List.Item
+                            className="!px-0"
+                            actions={[<Badge key={`${item.key}-status`} status={item.badgeStatus} text={item.statusLabel} />]}
+                        >
+                            <List.Item.Meta
+                                title={<Typography.Text strong>{item.name}</Typography.Text>}
+                                description={<Typography.Text type="secondary">{item.detail || '-'}</Typography.Text>}
+                            />
+                        </List.Item>
+                    )}
                 />
             </Card>
         </div>
@@ -1020,18 +990,20 @@ const OperationsManagement: React.FC = () => {
         </div>
     );
 
-    const tabItems: TabsProps['items'] = [
+    const tabItems = [
         {
-            key: 'server-monitoring',
+            key: 'server-monitoring' as const,
             label: t('operationsManagementPage.tabs.serverMonitoring'),
             children: serverTabContent,
         },
         {
-            key: 'backup-restore',
+            key: 'backup-restore' as const,
             label: t('operationsManagementPage.tabs.backupRestore'),
             children: backupTabContent,
         },
     ];
+
+    const activeTabContent = tabItems.find((item) => item.key === activeTab)?.children || null;
 
     return (
         <div className="admin-page admin-page-spaced">
@@ -1046,176 +1018,42 @@ const OperationsManagement: React.FC = () => {
             />
 
             <Card className="admin-card">
-                <Tabs size="large" items={tabItems} />
+                <Space direction="vertical" size={16} className="w-full">
+                    <Segmented
+                        block
+                        size="middle"
+                        value={activeTab}
+                        onChange={(value) => setActiveTab(value as 'server-monitoring' | 'backup-restore')}
+                        options={tabItems.map((item) => ({ label: item.label, value: item.key }))}
+                    />
+                    {activeTabContent}
+                </Space>
             </Card>
 
-            <AppDrawer
-                title={t('operationsManagementPage.backup.drawer.title')}
-                width={520}
-                open={configDrawerOpen}
-                onClose={handleClosePlanConfig}
-                destroyOnClose={false}
-                footer={(
-                    <div className="flex justify-end gap-3">
-                        <AppButton intent="secondary" onClick={handleClosePlanConfig}>
-                            {t('operationsManagementPage.backup.drawer.cancel')}
-                        </AppButton>
-                        <AppButton intent="primary" loading={configSaving} onClick={() => void backupForm.submit()}>
-                            {t('operationsManagementPage.backup.drawer.save')}
-                        </AppButton>
-                    </div>
-                )}
-            >
-                <div className="space-y-4">
-                    <Alert type="info" showIcon message={t('operationsManagementPage.backup.drawer.description')} />
-                    <Form<BackupPlanFormValues>
-                        form={backupForm}
-                        layout="vertical"
-                        initialValues={backupConfig}
-                        onFinish={handleSaveBackupConfig}
-                    >
-                        <Form.Item
-                            name="enabled"
-                            label={t('operationsManagementPage.backup.drawer.fields.enabled')}
-                            valuePropName="checked"
-                        >
-                            <Switch />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="frequency"
-                            label={t('operationsManagementPage.backup.drawer.fields.frequency')}
-                            rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.frequencyRequired') }]}
-                        >
-                            <Select
-                                options={[
-                                    { value: 'daily', label: t('operationsManagementPage.backup.frequency.daily') },
-                                    { value: 'weekly', label: t('operationsManagementPage.backup.frequency.weekly') },
-                                ]}
-                            />
-                        </Form.Item>
-
-                        <Form.Item shouldUpdate={(prev, next) => prev.frequency !== next.frequency} noStyle>
-                            {({ getFieldValue }) =>
-                                getFieldValue('frequency') === 'weekly' ? (
-                                    <Form.Item
-                                        name="weekday"
-                                        label={t('operationsManagementPage.backup.drawer.fields.weekday')}
-                                        rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.weekdayRequired') }]}
-                                    >
-                                        <Select options={weekdayOptions} />
-                                    </Form.Item>
-                                ) : null
-                            }
-                        </Form.Item>
-
-                        <Form.Item
-                            name="hour"
-                            label={t('operationsManagementPage.backup.drawer.fields.hour')}
-                            rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.hourRequired') }]}
-                        >
-                            <InputNumber min={0} max={23} precision={0} className="w-full" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="retentionDays"
-                            label={t('operationsManagementPage.backup.drawer.fields.retentionDays')}
-                            rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.retentionRequired') }]}
-                        >
-                            <InputNumber min={1} max={3650} precision={0} className="w-full" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="targetType"
-                            label={t('operationsManagementPage.backup.drawer.fields.targetType')}
-                            rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.targetTypeRequired') }]}
-                        >
-                            <Select
-                                options={[
-                                    { value: 'local', label: t('operationsManagementPage.backup.targetType.local') },
-                                    { value: 'network', label: t('operationsManagementPage.backup.targetType.network') },
-                                ]}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="targetPath"
-                            label={t('operationsManagementPage.backup.drawer.fields.targetPath')}
-                            rules={[{ required: true, message: t('operationsManagementPage.backup.drawer.validation.targetPathRequired') }]}
-                        >
-                            <Input placeholder={t('operationsManagementPage.backup.drawer.placeholders.targetPath')} />
-                        </Form.Item>
-                    </Form>
-                </div>
-            </AppDrawer>
-
-            <AppDrawer
-                title={t('operationsManagementPage.backup.preview.title')}
-                width={860}
-                open={previewOpen}
-                onClose={handleClosePreview}
-                destroyOnClose
-                hideFooter
-            >
-                <div className="space-y-6">
-                    <Alert
-                        type="info"
-                        showIcon
-                        message={t('operationsManagementPage.backup.preview.description')}
+            {configDrawerOpen ? (
+                <Suspense fallback={null}>
+                        <BackupPlanDrawer
+                            open={configDrawerOpen}
+                            configSaving={configSaving}
+                            backupConfig={backupConfig}
+                            weekdayOptions={weekdayOptions}
+                            onClose={handleClosePlanConfig}
+                            onSubmit={handleSaveBackupConfig}
                     />
+                </Suspense>
+            ) : null}
 
-                    <Row gutter={[16, 16]}>
-                        <Col xs={24} md={6}>
-                            <Card className="admin-card">
-                                <Statistic
-                                    title={t('operationsManagementPage.backup.preview.summary.createCount')}
-                                    value={backupPreview?.summary.create_count || 0}
-                                    valueStyle={{ color: '#52c41a', fontWeight: 700 }}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={24} md={6}>
-                            <Card className="admin-card">
-                                <Statistic
-                                    title={t('operationsManagementPage.backup.preview.summary.updateCount')}
-                                    value={backupPreview?.summary.update_count || 0}
-                                    valueStyle={{ color: '#1677ff', fontWeight: 700 }}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={24} md={6}>
-                            <Card className="admin-card">
-                                <Statistic
-                                    title={t('operationsManagementPage.backup.preview.summary.unchangedCount')}
-                                    value={backupPreview?.summary.unchanged_count || 0}
-                                    valueStyle={{ fontWeight: 700 }}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={24} md={6}>
-                            <Card className="admin-card">
-                                <Statistic
-                                    title={t('operationsManagementPage.backup.preview.summary.totalKeys')}
-                                    value={backupPreview?.summary.total_keys || 0}
-                                    valueStyle={{ fontWeight: 700 }}
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    <Card className="admin-card" title={backupPreview?.backup.name || t('operationsManagementPage.backup.preview.title')}>
-                        <AppTable<SystemBackupPreview['diffs'][number]>
-                            rowKey="key"
-                            columns={previewColumns}
-                            dataSource={backupPreview?.diffs || []}
-                            pagination={false}
-                            size="middle"
-                            loading={previewLoading}
-                            locale={{ emptyText: t('operationsManagementPage.backup.preview.table.empty') }}
-                        />
-                    </Card>
-                </div>
-            </AppDrawer>
+            {previewOpen ? (
+                <Suspense fallback={null}>
+                    <BackupPreviewDrawer
+                        open={previewOpen}
+                        loading={previewLoading}
+                        backupPreview={backupPreview}
+                        previewColumns={previewColumns}
+                        onClose={handleClosePreview}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 };

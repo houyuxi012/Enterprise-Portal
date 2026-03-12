@@ -1,5 +1,6 @@
 import type { AxiosError } from 'axios';
 import i18n from '@/i18n';
+import { getPreferredAuthPlane, resolveLoginPathForPlane } from '@/shared/utils/authPlane';
 
 export const AUTH_SESSION_INVALID_EVENT = 'auth:session-invalid';
 
@@ -43,11 +44,7 @@ const inferRedirectTarget = (requestUrl?: string): '/admin/login' | '/login' => 
   const url = String(requestUrl || '');
   if (url.includes('/admin/')) return '/admin/login';
   if (url.includes('/app/')) return '/login';
-
-  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-    return '/admin/login';
-  }
-  return '/login';
+  return resolveLoginPathForPlane(getPreferredAuthPlane());
 };
 
 const defaultMessageByCode = (code: AuthSessionCode): string => {

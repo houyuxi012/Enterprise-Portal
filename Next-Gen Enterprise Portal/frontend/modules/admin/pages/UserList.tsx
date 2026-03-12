@@ -1,6 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Input, Select, Avatar, Popconfirm, Upload, Card, Row, Col, Tree, Empty, App, Space, Switch, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, UserOutlined, KeyOutlined, FolderOutlined, TeamOutlined, DisconnectOutlined, SafetyOutlined } from '@ant-design/icons';
+import React, { Suspense, lazy, useState, useEffect, useMemo, useCallback } from 'react';
+import App from 'antd/es/app';
+import Avatar from 'antd/es/avatar';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Form from 'antd/es/form';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, KeyOutlined, FolderOutlined, DisconnectOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import { useTranslation } from 'react-i18next';
@@ -9,17 +19,18 @@ import ApiClient from '@/services/api';
 import {
     AppButton,
     AppTable,
-    AppModal,
-    AppForm,
     AppTag,
     AppPageHeader,
     AppFilterBar,
 } from '@/modules/admin/components/ui';
-
-const { Option } = Select;
 const { Text } = Typography;
 const GENDER_CODES = ['male', 'female'] as const;
 type GenderCode = (typeof GENDER_CODES)[number];
+
+const EmployeeEditorModal = lazy(() => import('@/modules/admin/components/users/EmployeeEditorModal'));
+const DepartmentMoveModal = lazy(() => import('@/modules/admin/components/users/DepartmentMoveModal'));
+const DepartmentTreeCard = lazy(() => import('@/modules/admin/components/tree/DepartmentTreeCard'));
+const actionTooltipStyles = { body: { color: '#ffffff' } } as const;
 
 const UserList: React.FC = () => {
     const { t, i18n } = useTranslation();
@@ -38,7 +49,7 @@ const UserList: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [searchText, setSearchText] = useState('');
-    const [form] = AppForm.useForm();
+    const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const genderAliases = useMemo(() => {
@@ -448,7 +459,7 @@ const UserList: React.FC = () => {
                             <Space direction="vertical" size={8}>
                                 <Text>
                                     {t('userList.createResult.account')}：
-                                    <Text code>{createdEmployee.account}</Text>
+                                    <Text strong>{createdEmployee.account}</Text>
                                 </Text>
                                 <Text>
                                     {t('userList.createResult.initialPassword')}：
@@ -496,13 +507,25 @@ const UserList: React.FC = () => {
             title: t('userList.table.account'),
             dataIndex: 'account',
             key: 'account',
-            render: (text: string) => <Text code>{text}</Text>,
+            render: (text: string) => <Text>{text}</Text>,
         },
         {
             title: t('userList.table.email'),
             dataIndex: 'email',
             key: 'email',
-            render: (text: string) => <Text type="secondary">{text || '-'}</Text>,
+            render: (text: string) => (
+                text ? (
+                    <Text
+                        type="secondary"
+                        ellipsis={{ tooltip: text }}
+                        className="!inline-block max-w-[220px] align-middle"
+                    >
+                        {text}
+                    </Text>
+                ) : (
+                    <Text type="secondary">-</Text>
+                )
+            ),
         },
         {
             title: t('userList.table.mfa', 'MFA'),
@@ -556,14 +579,16 @@ const UserList: React.FC = () => {
             align: 'right',
             render: (_: any, record: Employee) => (
                 <div className="flex justify-end gap-1">
-                    <AppButton
-                        intent="tertiary"
-                        iconOnly
-                        size="sm"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                        title={t('common.buttons.edit')}
-                    />
+                    <Tooltip title={t('common.buttons.edit')} color="#1f1f1f" styles={actionTooltipStyles}>
+                        <AppButton
+                            intent="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEdit(record)}
+                            aria-label={t('common.buttons.edit')}
+                        />
+                    </Tooltip>
                 </div>
             ),
         },
@@ -604,99 +629,93 @@ const UserList: React.FC = () => {
                 }
             />
 
-            <Row gutter={24}>
+            <Row gutter={[20, 20]}>
                 {/* Left Sidebar: Department Tree */}
                 <Col xs={24} lg={6}>
-                    <Card
-                        title={
-                            <div className="flex items-center gap-2">
-                                <TeamOutlined className="text-blue-500" />
-                                <span>{t('userList.deptTree.title')}</span>
-                            </div>
-                        }
-                        className="admin-card h-full mb-6 lg:mb-0"
-                        styles={{ body: { padding: '12px 0 12px 12px' } }}
-                    >
-                        <div className="max-h-[600px] overflow-y-auto pr-2">
-                            {/* Global Filter Option */}
-
-
-                            {deptTreeData.length > 0 ? (
-                                <Tree
-                                    treeData={deptTreeData}
-                                    onSelect={(selectedKeys) => {
-                                        if (selectedKeys.length > 0) {
-                                            setSelectedDeptName(selectedKeys[0] as string);
-                                        } else {
-                                            setSelectedDeptName(null);
-                                        }
-                                    }}
-                                    selectedKeys={selectedDeptName ? [selectedDeptName] : []}
-                                    blockNode
-                                    defaultExpandAll
-                                />
-                            ) : (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('userList.deptTree.empty')} />
-                            )}
-                        </div>
-                    </Card>
+                    <Suspense fallback={null}>
+                        <DepartmentTreeCard
+                            title={<Text strong>{t('userList.deptTree.title')}</Text>}
+                            className="admin-card h-full mb-6 lg:mb-0"
+                            bodyStyle={{ padding: '10px 8px 12px 8px' }}
+                            treeData={deptTreeData}
+                            selectedKeys={selectedDeptName ? [selectedDeptName] : []}
+                            defaultExpandAll
+                            onSelect={(selectedKeys) => {
+                                if (selectedKeys.length > 0) {
+                                    setSelectedDeptName(selectedKeys[0] as string);
+                                } else {
+                                    setSelectedDeptName(null);
+                                }
+                            }}
+                            emptyDescription={t('userList.deptTree.empty')}
+                            scrollClassName="max-h-[560px] overflow-y-auto pr-1"
+                        />
+                    </Suspense>
                 </Col>
 
                 {/* Right Content: Filter & Table */}
                 <Col xs={24} lg={18}>
                     {/* Filter Bar */}
-                    <Card className="admin-card mb-4" styles={{ body: { padding: '12px 16px' } }}>
-                        <AppFilterBar className="justify-between">
-                            <AppFilterBar.Search
-                                placeholder={t('userList.filters.searchPlaceholder')}
-                                style={{ maxWidth: 320 }}
-                                value={searchText}
-                                onChange={e => setSearchText(e.target.value)}
-                            />
+                    <AppFilterBar className="mb-4 justify-between gap-3">
+                        <AppFilterBar.Search
+                            placeholder={t('userList.filters.searchPlaceholder')}
+                            style={{ maxWidth: 360 }}
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                        />
 
-                            {selectedRowKeys.length > 0 && (
-                                <AppFilterBar.Action>
-                                    <Space wrap size={8}>
-                                        <Text type="secondary">
-                                            {t('userList.batch.selected', { count: selectedRowKeys.length })}
-                                        </Text>
-                                        <AppButton
-                                            intent="secondary"
-                                            size="sm"
-                                            icon={<FolderOutlined />}
-                                            onClick={handleOpenBatchMoveModal}
-                                        >
-                                            {t('userList.batch.moveOrg')}
-                                        </AppButton>
-                                        <AppButton
-                                            intent="secondary"
-                                            size="sm"
-                                            icon={<KeyOutlined />}
-                                            onClick={handleBatchResetPassword}
-                                        >
-                                            {t('userList.batch.resetPwdButton')}
-                                        </AppButton>
-                                        <AppButton
-                                            intent="secondary"
-                                            size="sm"
-                                            icon={<SafetyOutlined />}
-                                            onClick={handleBatchResetMfa}
-                                        >
-                                            {t('userList.batch.resetMfaButton', '重置 MFA')}
-                                        </AppButton>
-                                        <AppButton
-                                            intent="danger"
-                                            size="sm"
-                                            icon={<DeleteOutlined />}
-                                            onClick={handleBatchDelete}
-                                        >
-                                            {t('common.buttons.delete')}
-                                        </AppButton>
-                                    </Space>
-                                </AppFilterBar.Action>
-                            )}
-                        </AppFilterBar>
-                    </Card>
+                        {selectedRowKeys.length > 0 && (
+                            <AppFilterBar.Action>
+                                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                                    <Text className="!mb-0 text-xs !text-slate-900">
+                                        {t('userList.batch.selected', { count: selectedRowKeys.length })}
+                                    </Text>
+                                    <div className="flex items-center gap-1">
+                                        <Tooltip title={t('userList.batch.moveOrg')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                            <AppButton
+                                                intent="tertiary"
+                                                size="sm"
+                                                icon={<FolderOutlined />}
+                                                iconOnly
+                                                aria-label={t('userList.batch.moveOrg')}
+                                                onClick={handleOpenBatchMoveModal}
+                                            />
+                                        </Tooltip>
+                                        <Tooltip title={t('userList.batch.resetPwdButton')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                            <AppButton
+                                                intent="tertiary"
+                                                size="sm"
+                                                icon={<KeyOutlined />}
+                                                iconOnly
+                                                aria-label={t('userList.batch.resetPwdButton')}
+                                                onClick={handleBatchResetPassword}
+                                            />
+                                        </Tooltip>
+                                        <Tooltip title={t('userList.batch.resetMfaButton', '重置 MFA')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                            <AppButton
+                                                intent="tertiary"
+                                                size="sm"
+                                                icon={<SafetyOutlined />}
+                                                iconOnly
+                                                aria-label={t('userList.batch.resetMfaButton', '重置 MFA')}
+                                                onClick={handleBatchResetMfa}
+                                            />
+                                        </Tooltip>
+                                        <Tooltip title={t('common.buttons.delete')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                            <AppButton
+                                                intent="danger"
+                                                size="sm"
+                                                icon={<DeleteOutlined />}
+                                                iconOnly
+                                                aria-label={t('common.buttons.delete')}
+                                                onClick={handleBatchDelete}
+                                            />
+                                        </Tooltip>
+                                    </div>
+                                </div>
+                            </AppFilterBar.Action>
+                        )}
+                    </AppFilterBar>
 
                     {/* Data Table */}
                     <Card className="admin-card overflow-hidden">
@@ -713,166 +732,34 @@ const UserList: React.FC = () => {
                 </Col>
             </Row>
 
-            {/* Edit/Create Modal */}
-            <AppModal
-                title={editingEmployee ? t('userList.modal.editTitle') : t('userList.modal.createTitle')}
-                open={isModalOpen}
-                onCancel={() => setIsModalOpen(false)}
-                onOk={() => form.submit()}
-                confirmLoading={submitting}
-                okText={editingEmployee ? t('userList.modal.saveEdit') : t('userList.modal.create')}
-                width={700}
-            >
-                <AppForm form={form} onFinish={handleSubmit} initialValues={{ gender: 'male' }}>
-                    {/* Avatar Upload */}
-                    <AppForm.Item label={t('userList.form.avatar')}>
-                        <div className="flex items-center gap-4">
-                            <AppForm.Item name="avatar" noStyle>
-                                <Input hidden />
-                            </AppForm.Item>
-                            <AppForm.Item shouldUpdate={(prev, curr) => prev.avatar !== curr.avatar} noStyle>
-                                {() => (
-                                    <Avatar
-                                        size={64}
-                                        src={form.getFieldValue('avatar')}
-                                        icon={<UserOutlined />}
-                                        style={{ backgroundColor: form.getFieldValue('avatar') ? 'transparent' : '#bfbfbf' }}
-                                    />
-                                )}
-                            </AppForm.Item>
-                            <Upload
-                                customRequest={async ({ file, onSuccess, onError }) => {
-                                    try {
-                                        const url = await ApiClient.uploadImage(file as File);
-                                        form.setFieldsValue({ avatar: url });
-                                        message.success(t('userList.messages.avatarUploadSuccess'));
-                                        onSuccess?.(url);
-                                    } catch (err) {
-                                        message.error(t('userList.messages.avatarUploadFailed'));
-                                        onError?.(err as Error);
-                                    }
-                                }}
-                                showUploadList={false}
-                            >
-                                <AppButton intent="secondary" icon={<UploadOutlined />}>{t('userList.form.changeAvatar')}</AppButton>
-                            </Upload>
-                        </div>
-                    </AppForm.Item>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item
-                            name="job_number"
-                            label={t('userList.form.jobNumber')}
-                        >
-                            <Input placeholder={t('userList.form.jobNumberPlaceholder')} />
-                        </AppForm.Item>
-                        <AppForm.Item
-                            name="account"
-                            label={t('userList.form.account')}
-                            rules={[{ required: true, message: t('userList.form.accountRequired') }]}
-                        >
-                            <Input placeholder={t('userList.form.accountPlaceholder')} />
-                        </AppForm.Item>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item
-                            name="name"
-                            label={t('userList.form.name')}
-                            rules={[{ required: true, message: t('userList.form.nameRequired') }]}
-                        >
-                            <Input />
-                        </AppForm.Item>
-                        <AppForm.Item
-                            name="gender"
-                            label={t('userList.form.gender')}
-                            rules={[{ required: true }]}
-                        >
-                            <Select>
-                                <Option value="male">{t('userList.form.genderMale')}</Option>
-                                <Option value="female">{t('userList.form.genderFemale')}</Option>
-                            </Select>
-                        </AppForm.Item>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item
-                            name="department"
-                            label={t('userList.form.department')}
-                            rules={[{ required: true, message: t('userList.form.departmentRequired') }]}
-                        >
-                            <Select
-                                showSearch
-                                placeholder={t('userList.form.departmentPlaceholder')}
-                                optionFilterProp="children"
-                            >
-                                {/* Flatten departments to options or just use TreeSelect? Simple Select for now, mapping keys */}
-                                {/* Assuming dept names are unique enough for simplified view, or just free text */}
-                                {/* For simplicity, allowing free text input is good if dept not in tree. But let's provide options if possible. */}
-                                {departments.map(d => (
-                                    <Option key={d.id} value={d.name}>{d.name}</Option>
-                                ))}
-                                {/* Recursive flattening would be better but simple map works for 1-level, deep level not shown here */}
-                            </Select>
-                        </AppForm.Item>
-                        <AppForm.Item
-                            name="role"
-                            label={t('userList.form.role')}
-                        >
-                            <Input placeholder={t('userList.form.rolePlaceholder')} />
-                        </AppForm.Item>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppForm.Item
-                            name="email"
-                            label={t('userList.form.email')}
-                            rules={[{ required: true, type: 'email', message: t('userList.form.emailRequired') }]}
-                        >
-                            <Input />
-                        </AppForm.Item>
-                        <AppForm.Item
-                            name="phone"
-                            label={t('userList.form.phone')}
-                            rules={[{ required: true, message: t('userList.form.phoneRequired') }]}
-                        >
-                            <Input />
-                        </AppForm.Item>
-                    </div>
-
-                    <AppForm.Item name="location" label={t('userList.form.location')}>
-                        <Input placeholder={t('userList.form.locationPlaceholder')} />
-                    </AppForm.Item>
-                </AppForm>
-            </AppModal>
-
-            <AppModal
-                title={t('userList.moveModal.title')}
-                open={isMoveModalOpen}
-                onCancel={() => setIsMoveModalOpen(false)}
-                onOk={handleBatchMoveDepartment}
-                confirmLoading={moving}
-                okText={t('userList.moveModal.confirm')}
-                width={560}
-            >
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                    <Text type="secondary">
-                        {t('userList.moveModal.descPrefix')} <Text strong>{selectedRowKeys.length}</Text> {t('userList.moveModal.descSuffix')}
-                    </Text>
-                    <Select
-                        showSearch
-                        allowClear
-                        placeholder={t('userList.moveModal.placeholder')}
-                        value={targetDepartment}
-                        onChange={(value) => setTargetDepartment(value)}
-                        optionFilterProp="label"
-                        options={departmentOptions.map((dept) => ({
-                            value: dept.name,
-                            label: dept.label,
-                        }))}
+            {isModalOpen ? (
+                <Suspense fallback={null}>
+                    <EmployeeEditorModal
+                        open={isModalOpen}
+                        submitting={submitting}
+                        editingEmployee={editingEmployee}
+                        form={form}
+                        departmentOptions={departmentOptions}
+                        onCancel={() => setIsModalOpen(false)}
+                        onSubmit={handleSubmit}
                     />
-                </Space>
-            </AppModal>
+                </Suspense>
+            ) : null}
+
+            {isMoveModalOpen ? (
+                <Suspense fallback={null}>
+                    <DepartmentMoveModal
+                        open={isMoveModalOpen}
+                        moving={moving}
+                        selectedCount={selectedRowKeys.length}
+                        targetDepartment={targetDepartment}
+                        departmentOptions={departmentOptions}
+                        onCancel={() => setIsMoveModalOpen(false)}
+                        onConfirm={handleBatchMoveDepartment}
+                        onTargetDepartmentChange={setTargetDepartment}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 };

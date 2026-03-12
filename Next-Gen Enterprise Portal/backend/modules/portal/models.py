@@ -51,6 +51,9 @@ class NewsItem(Base):
     author = Column(String(128))
     image = Column(String(512))
     is_top = Column(Boolean, default=False)
+    show_in_news_feed = Column(Boolean, default=False, nullable=False, index=True)
+    show_in_news_center_carousel = Column(Boolean, default=False, nullable=False, index=True)
+    show_in_news_center_latest = Column(Boolean, default=False, nullable=False, index=True)
 
 
 class QuickTool(Base):
@@ -73,10 +76,23 @@ class Announcement(Base):
     tag = Column(String(64))
     title = Column(String(255))
     content = Column(Text)
-    time = Column(String(64))
+    time = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=True, default=utc_now, index=True)
     color = Column(String(32))
     is_urgent = Column(Boolean, default=False)
+
+
+class HolidayReminder(Base):
+    __tablename__ = "holiday_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), index=True)
+    content = Column(Text)
+    holiday_date = Column(Date, nullable=False, index=True)
+    cover_image = Column(String(512), nullable=True)
+    color = Column(String(32), nullable=False, default="purple")
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
 
 class AnnouncementRead(Base):
@@ -107,6 +123,7 @@ class Notification(Base):
 
 
 class NotificationReceipt(Base):
+    """通知回执 — 高容量表（每用户每通知一条），建议按 created_at 做 PostgreSQL 原生分区并定期归档。"""
     __tablename__ = "notification_receipts"
 
     id = Column(BigInteger, primary_key=True, index=True)
@@ -167,6 +184,7 @@ class KBDocument(Base):
 
 
 class KBChunk(Base):
+    """知识库向量块 — 高容量表，建议定期清理已删除文档关联的孤立块。"""
     __tablename__ = "kb_chunks"
 
     id = Column(BigInteger, primary_key=True, index=True)

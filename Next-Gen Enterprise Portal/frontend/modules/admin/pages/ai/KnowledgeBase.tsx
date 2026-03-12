@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, App as AntApp, Card, Col, Input, Popconfirm, Row, Select, Space, Statistic, Tooltip, Typography } from 'antd';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import Alert from 'antd/es/alert';
+import AntApp from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Statistic from 'antd/es/statistic';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { useTranslation } from 'react-i18next';
 import {
     BarChartOutlined,
@@ -20,7 +29,6 @@ import type { KBDocumentSummary } from '@/services/api';
 import {
     AppButton,
     AppTable,
-    AppModal,
     AppForm,
     AppPageHeader,
     AppFilterBar,
@@ -28,8 +36,8 @@ import {
 } from '@/modules/admin/components/ui';
 import type { ColumnsType } from 'antd/es/table';
 
-const { TextArea } = Input;
 const { Text } = Typography;
+const KnowledgeBaseEditorModal = lazy(() => import('@/modules/admin/components/knowledge-base/KnowledgeBaseEditorModal'));
 
 type KBDocument = KBDocumentSummary;
 
@@ -429,88 +437,18 @@ const KnowledgeBase: React.FC = () => {
                 />
             </Card>
 
-            {/* Create / Edit Modal */}
-            <AppModal
-                title={editingId ? t('knowledgeBase.modal.editTitle') : t('knowledgeBase.modal.createTitle')}
-                open={modalOpen}
-                onOk={() => form.submit()}
-                onCancel={resetAndCloseModal}
-                confirmLoading={submitting}
-                okText={editingId ? t('knowledgeBase.modal.saveEdit') : t('knowledgeBase.modal.confirmCreate')}
-                width={800}
-            >
-                <AppForm form={form} onFinish={handleSubmit}>
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <AppForm.Item
-                                name="title"
-                                label={t('knowledgeBase.modal.fields.title')}
-                                rules={[{ required: true, message: t('knowledgeBase.modal.validation.titleRequired') }]}
-                            >
-                                <Input placeholder={t('knowledgeBase.modal.placeholders.title')} />
-                            </AppForm.Item>
-                        </Col>
-
-                        <Col xs={24} md={12}>
-                            <AppForm.Item
-                                name="source_type"
-                                label={t('knowledgeBase.modal.fields.sourceType')}
-                                rules={[{ required: true, message: t('knowledgeBase.modal.validation.sourceTypeRequired') }]}
-                            >
-                                <Select
-                                    options={[
-                                        { value: 'text', label: t('knowledgeBase.sourceTypes.text') },
-                                        { value: 'md', label: t('knowledgeBase.sourceTypes.markdown') },
-                                        { value: 'pdf', label: t('knowledgeBase.sourceTypes.pdfText') },
-                                    ]}
-                                />
-                            </AppForm.Item>
-                        </Col>
-                    </Row>
-
-                    <AppForm.Item
-                        name="content"
-                        label={t('knowledgeBase.modal.fields.content')}
-                        rules={[{ required: true, message: t('knowledgeBase.modal.validation.contentRequired') }]}
-                    >
-                        <TextArea
-                            rows={12}
-                            placeholder={t('knowledgeBase.modal.placeholders.content')}
-                            showCount
-                        />
-                    </AppForm.Item>
-
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <AppForm.Item
-                                name="tags"
-                                label={t('knowledgeBase.modal.fields.tags')}
-                                tooltip={t('knowledgeBase.modal.tooltips.tags')}
-                            >
-                                <Input placeholder={t('knowledgeBase.modal.placeholders.tags')} />
-                            </AppForm.Item>
-                        </Col>
-
-                        <Col xs={24} md={12}>
-                            <AppForm.Item
-                                name="acl"
-                                label={t('knowledgeBase.modal.fields.acl')}
-                                tooltip={t('knowledgeBase.modal.tooltips.acl')}
-                            >
-                                <Input placeholder={t('knowledgeBase.modal.placeholders.acl')} />
-                            </AppForm.Item>
-                        </Col>
-                    </Row>
-
-                    {editingId && (
-                        <Alert
-                            type="warning"
-                            showIcon
-                            message={t('knowledgeBase.modal.reindexHint')}
-                        />
-                    )}
-                </AppForm>
-            </AppModal>
+            {modalOpen ? (
+                <Suspense fallback={null}>
+                    <KnowledgeBaseEditorModal
+                        open={modalOpen}
+                        editingId={editingId}
+                        submitting={submitting}
+                        form={form}
+                        onCancel={resetAndCloseModal}
+                        onSubmit={handleSubmit}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 };

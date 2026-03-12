@@ -1,7 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { Department, UserOption } from '@/types';
 import ApiClient, { type DepartmentCreatePayload, type DepartmentUpdatePayload } from '@/services/api';
-import { App, Card, Col, Descriptions, Empty, Input, List, Popconfirm, Row, Select, Space, Statistic, Tag, Tree, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Descriptions from 'antd/es/descriptions';
+import Empty from 'antd/es/empty';
+import Input from 'antd/es/input';
+import List from 'antd/es/list';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Statistic from 'antd/es/statistic';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { useTranslation } from 'react-i18next';
 import { TeamOutlined, UserOutlined, ApartmentOutlined, FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, RightOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
@@ -37,6 +50,7 @@ const resolveApiErrorMessage = (error: unknown, fallback: string): string => {
 };
 
 const { Paragraph, Text, Title } = Typography;
+const DepartmentTreeCard = lazy(() => import('@/modules/admin/components/tree/DepartmentTreeCard'));
 
 const OrganizationList: React.FC = () => {
     const { t } = useTranslation();
@@ -192,31 +206,26 @@ const OrganizationList: React.FC = () => {
             <Row gutter={16}>
                 {/* Left: Tree Card */}
                 <Col xs={24} lg={8}>
-                    <Card
-                        title={
-                            <div className="flex items-center gap-2">
-                                <FolderOutlined className="text-blue-500" />
-                                <span>{t('organizationList.tree.title')}</span>
-                            </div>
-                        }
-                        extra={<Tag color="blue">{t('organizationList.tree.count', { count: countDepts(departments) })}</Tag>}
-                        className="admin-card mb-4"
-                        styles={{ body: { padding: 12, minHeight: 500 } }}
-                    >
-                        {departments.length > 0 ? (
-                            <Tree
-                                treeData={treeData}
-                                onSelect={handleSelect}
-                                expandedKeys={expandedKeys}
-                                onExpand={(keys) => setExpandedKeys(keys)}
-                                blockNode
-                                className="bg-transparent"
-                                selectedKeys={selectedDept ? [selectedDept.id] : []}
-                            />
-                        ) : (
-                            <Empty description={t('organizationList.tree.empty')} className="mt-16" />
-                        )}
-                    </Card>
+                    <Suspense fallback={null}>
+                        <DepartmentTreeCard
+                            title={
+                                <div className="flex items-center gap-2">
+                                    <FolderOutlined className="text-blue-500" />
+                                    <span>{t('organizationList.tree.title')}</span>
+                                </div>
+                            }
+                            extra={<Tag color="blue">{t('organizationList.tree.count', { count: countDepts(departments) })}</Tag>}
+                            className="admin-card mb-4"
+                            bodyStyle={{ padding: 12, minHeight: 500 }}
+                            treeData={treeData}
+                            selectedKeys={selectedDept ? [selectedDept.id] : []}
+                            expandedKeys={expandedKeys}
+                            onExpand={(keys) => setExpandedKeys(keys)}
+                            onSelect={handleSelect}
+                            treeClassName="bg-transparent"
+                            emptyDescription={t('organizationList.tree.empty')}
+                        />
+                    </Suspense>
                 </Col>
 
                 {/* Right: Details Card */}

@@ -2,32 +2,27 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ApiOutlined,
   CloudServerOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-  SafetyOutlined,
   SettingOutlined,
   TeamOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import {
-  Alert,
-  Button,
-  Checkbox,
-  Col,
-  Divider,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Row,
-  Select,
-  Space,
-  Steps,
-  Switch,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd';
+import Alert from 'antd/es/alert';
+import Button from 'antd/es/button';
+import Checkbox from 'antd/es/checkbox';
+import Col from 'antd/es/col';
+import Divider from 'antd/es/divider';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import InputNumber from 'antd/es/input-number';
+import message from 'antd/es/message';
+import Modal from 'antd/es/modal';
+import Row from 'antd/es/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Steps from 'antd/es/steps';
+import Switch from 'antd/es/switch';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { useTranslation } from 'react-i18next';
 import type {
   DirectoryConfig,

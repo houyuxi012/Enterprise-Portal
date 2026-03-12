@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { App, Card, Col, DatePicker, Input, Popconfirm, Row, Select, Space, Tooltip, TreeSelect, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import DatePicker from 'antd/es/date-picker';
+import Input from 'antd/es/input';
+import Popconfirm from 'antd/es/popconfirm';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Todo, UserOption } from '@/types';
@@ -84,28 +94,28 @@ const DepartmentSelect: React.FC<{ value?: number | number[]; onChange?: (val: a
         loadDepts();
     }, []);
 
-    const mapTreeData = (depts: any[]): any[] => {
-        return depts.map((d) => ({
-            title: d.name,
-            value: d.id,
-            key: d.id,
-            children: d.children ? mapTreeData(d.children) : [],
-        }));
+    const flattenDepartmentOptions = (depts: any[], parentPath = ''): Array<{ label: string; value: number }> => {
+        return depts.flatMap((dept) => {
+            const label = parentPath ? `${parentPath} / ${dept.name}` : dept.name;
+            return [
+                { label, value: Number(dept.id) },
+                ...(dept.children ? flattenDepartmentOptions(dept.children, label) : []),
+            ];
+        });
     };
 
     return (
-        <TreeSelect
-            multiple={mode === 'multiple'}
-            treeCheckable={mode === 'multiple'}
+        <Select
+            mode={mode}
             showSearch
             allowClear
             placeholder={placeholder}
-            treeNodeFilterProp="title"
+            optionFilterProp="label"
             loading={loading}
             value={value}
             onChange={onChange}
             className="w-full"
-            treeData={mapTreeData(departments)}
+            options={flattenDepartmentOptions(departments)}
             style={{ borderRadius: '8px' }}
         />
     );

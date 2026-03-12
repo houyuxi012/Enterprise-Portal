@@ -1,6 +1,7 @@
 import path from 'path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { chunkAttributionPlugin } from './scripts/vite-chunk-attribution';
 
 export default defineConfig(() => {
   return {
@@ -15,7 +16,7 @@ export default defineConfig(() => {
         }
       }
     },
-    plugins: [react()],
+    plugins: [react(), chunkAttributionPlugin()],
     test: {
       environment: 'jsdom',
       setupFiles: './test/setup.ts',
@@ -43,6 +44,13 @@ export default defineConfig(() => {
               normalizedId.includes('/node_modules/dayjs/')
             ) {
               return 'vendor-i18n';
+            }
+            if (
+              normalizedId.includes('/node_modules/antd/es/') ||
+              normalizedId.includes('/node_modules/rc-') ||
+              normalizedId.includes('/node_modules/@rc-component/')
+            ) {
+              return 'vendor-antd';
             }
             if (normalizedId.includes('/node_modules/recharts')) return 'vendor-charts';
             if (normalizedId.includes('/node_modules/react-markdown') || normalizedId.includes('/node_modules/remark-gfm')) {

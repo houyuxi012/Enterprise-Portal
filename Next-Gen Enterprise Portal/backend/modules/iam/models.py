@@ -220,9 +220,12 @@ class SystemConfig(Base):
 
     key = Column(String(128), primary_key=True, index=True)
     value = Column(Text)
+    value_type = Column(String(20), nullable=False, default="string")
+    updated_at = Column(DateTime(timezone=True), nullable=True, default=utc_now, onupdate=utc_now)
 
 
 class PrivacyConsent(Base):
+    """隐私同意记录 — 高容量表，建议按 accepted_at 做 PostgreSQL 原生分区并定期归档。"""
     __tablename__ = "privacy_consents"
 
     id = Column(BigInteger, primary_key=True, index=True)

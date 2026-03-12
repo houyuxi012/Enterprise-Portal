@@ -1,0 +1,48 @@
+name: Frontend Bundle Guard
+
+on:
+  pull_request:
+    paths:
+      - 'Next-Gen Enterprise Portal/frontend/**'
+      - 'Next-Gen Enterprise Portal/ops/scripts/gen_version.sh'
+      - '.github/workflows/frontend-bundle-guard.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Next-Gen Enterprise Portal/frontend/**'
+      - 'Next-Gen Enterprise Portal/ops/scripts/gen_version.sh'
+      - '.github/workflows/frontend-bundle-guard.yml'
+
+jobs:
+  bundle-guard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Next-Gen Enterprise Portal/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Next-Gen Enterprise Portal/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: ./node_modules/.bin/tsc --noEmit -p tsconfig.json
+
+      - name: Admin UI guard
+        run: npm run guard:admin-ui
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Bundle budget guard
+        run: npm run bundle:guard

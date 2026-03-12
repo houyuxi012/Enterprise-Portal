@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { App, Card, Col, InputNumber, Row, Switch } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import InputNumber from 'antd/es/input-number';
+import Row from 'antd/es/grid/row';
+import Switch from 'antd/es/switch';
 import { SaveOutlined, LockOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { AppButton, AppForm, AppPageHeader } from '@/modules/admin/components/ui';

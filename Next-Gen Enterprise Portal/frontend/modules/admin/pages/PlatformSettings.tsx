@@ -1,9 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { App, Card, Divider, Form, Input, InputNumber, Select, Space, Switch, Tabs, Upload } from 'antd';
-import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import App from 'antd/es/app';
+import Form from 'antd/es/form';
+import Space from 'antd/es/space';
+import Tabs from 'antd/es/tabs';
 import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import ApiClient from '@/services/api';
-import { AppButton, AppPageHeader } from '@/modules/admin/components/ui';
+import { AppPageHeader } from '@/modules/admin/components/ui';
+
+const PlatformDomainSection = lazy(() => import('@/modules/admin/components/platform-settings/PlatformDomainSection'));
+const PlatformSslSection = lazy(() => import('@/modules/admin/components/platform-settings/PlatformSslSection'));
+const PlatformSnmpSection = lazy(() => import('@/modules/admin/components/platform-settings/PlatformSnmpSection'));
+const PlatformNtpSection = lazy(() => import('@/modules/admin/components/platform-settings/PlatformNtpSection'));
 
 const PLATFORM_CONFIG_KEYS = [
     'platform_domain',
@@ -21,11 +30,12 @@ const PLATFORM_CONFIG_KEYS = [
     'platform_ntp_server',
     'platform_ntp_port',
     'platform_ntp_sync_interval_minutes',
+    'platform_ntp_manual_time',
 ] as const;
 
 const MASKED_VALUE = '__MASKED__';
 type PlatformConfigKey = typeof PLATFORM_CONFIG_KEYS[number];
-type PlatformConfigFieldValue = string | number | boolean | null | undefined;
+type PlatformConfigFieldValue = string | number | boolean | null | undefined | Dayjs;
 type PlatformSettingsFormValues = Partial<Record<PlatformConfigKey, PlatformConfigFieldValue>>;
 type PlatformApiError = {
     response?: {
@@ -64,6 +74,7 @@ const PlatformSettings: React.FC = () => {
     const { t } = useTranslation();
     const { message } = App.useApp();
     const [form] = Form.useForm<PlatformSettingsFormValues>();
+    const [activeSection, setActiveSection] = useState<'domain' | 'ssl' | 'snmp' | 'ntp'>('domain');
     const [applying, setApplying] = useState(false);
     const [ntpTesting, setNtpTesting] = useState(false);
     const [hasStoredPrivateKey, setHasStoredPrivateKey] = useState(false);
@@ -83,6 +94,7 @@ const PlatformSettings: React.FC = () => {
                     platform_snmp_port: normalizeNumber(config.platform_snmp_port, 162),
                     platform_ntp_port: normalizeNumber(config.platform_ntp_port, 123),
                     platform_ntp_sync_interval_minutes: normalizeNumber(config.platform_ntp_sync_interval_minutes, 60),
+                    platform_ntp_manual_time: config.platform_ntp_manual_time ? dayjs(config.platform_ntp_manual_time) : undefined,
                 });
             } catch {
                 message.error(t('platformSettingsPage.messages.loadFailed'));
@@ -105,6 +117,10 @@ const PlatformSettings: React.FC = () => {
         const payload = PLATFORM_CONFIG_KEYS.reduce((acc, key) => {
             const raw = values[key];
             if (raw === undefined || raw === null) return acc;
+            if (dayjs.isDayjs(raw)) {
+                acc[key] = raw.format('YYYY-MM-DD HH:mm:ss');
+                return acc;
+            }
             if (typeof raw === 'boolean') {
                 acc[key] = raw ? 'true' : 'false';
                 return acc;
@@ -173,6 +189,56 @@ const PlatformSettings: React.FC = () => {
         }
     };
 
+    const sectionItems = [
+        {
+            key: 'domain' as const,
+            label: t('platformSettingsPage.sections.domain'),
+            children: (
+                <PlatformDomainSection
+                    applying={applying}
+                    ntpTesting={ntpTesting}
+                    onSave={handleSaveOnly}
+                />
+            ),
+        },
+        {
+            key: 'ssl' as const,
+            label: t('platformSettingsPage.sections.ssl'),
+            children: (
+                <PlatformSslSection
+                    applying={applying}
+                    ntpTesting={ntpTesting}
+                    onSave={handleSaveOnly}
+                    onUploadCert={(file) => handleUploadTextToField('platform_ssl_certificate', file)}
+                    onUploadKey={(file) => handleUploadTextToField('platform_ssl_private_key', file)}
+                />
+            ),
+        },
+        {
+            key: 'snmp' as const,
+            label: t('platformSettingsPage.sections.snmp'),
+            children: (
+                <PlatformSnmpSection
+                    applying={applying}
+                    ntpTesting={ntpTesting}
+                    onSave={handleSaveOnly}
+                />
+            ),
+        },
+        {
+            key: 'ntp' as const,
+            label: t('platformSettingsPage.sections.ntp'),
+            children: (
+                <PlatformNtpSection
+                    applying={applying}
+                    ntpTesting={ntpTesting}
+                    onSave={handleSaveOnly}
+                    onTest={handleTestNtpConnectivity}
+                />
+            ),
+        },
+    ];
+
     return (
         <div className="admin-page admin-page-spaced">
             <AppPageHeader
@@ -193,234 +259,22 @@ const PlatformSettings: React.FC = () => {
                     platform_snmp_version: 'v2c',
                 }}
             >
-                <Tabs
-                    items={[
-                        {
-                            key: 'domain',
-                            label: t('platformSettingsPage.sections.domain'),
+                <Space direction="vertical" size={16} className="w-full">
+                    <Tabs
+                        activeKey={activeSection}
+                        onChange={(value) => setActiveSection(value as 'domain' | 'ssl' | 'snmp' | 'ntp')}
+                        destroyOnHidden
+                        items={sectionItems.map((item) => ({
+                            key: item.key,
+                            label: item.label,
                             children: (
-                                <Card className="admin-card">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6">
-                                        <Form.Item
-                                            name="platform_domain"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.platformDomain')}</span>}
-                                        >
-                                            <Input placeholder={t('platformSettingsPage.form.placeholders.platformDomain')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_public_base_url"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.publicBaseUrl')}</span>}
-                                        >
-                                            <Input placeholder={t('platformSettingsPage.form.placeholders.publicBaseUrl')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_admin_base_url"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.adminBaseUrl')}</span>}
-                                        >
-                                            <Input placeholder={t('platformSettingsPage.form.placeholders.adminBaseUrl')} />
-                                        </Form.Item>
-                                    </div>
-                                    <Divider />
-                                    <Space>
-                                        <AppButton
-                                            intent="primary"
-                                            icon={<SaveOutlined />}
-                                            onClick={handleSaveOnly}
-                                            loading={applying}
-                                            disabled={ntpTesting}
-                                        >
-                                            {t('platformSettingsPage.page.saveButton')}
-                                        </AppButton>
-                                    </Space>
-                                </Card>
+                                <Suspense fallback={null}>
+                                    {item.children}
+                                </Suspense>
                             ),
-                        },
-                        {
-                            key: 'ssl',
-                            label: t('platformSettingsPage.sections.ssl'),
-                            children: (
-                                <Card className="admin-card">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6">
-                                        <Form.Item
-                                            name="platform_ssl_enabled"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.sslEnabled')}</span>}
-                                            valuePropName="checked"
-                                        >
-                                            <Switch size="small" />
-                                        </Form.Item>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                                        <Form.Item
-                                            name="platform_ssl_certificate"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.sslCertificate')}</span>}
-                                        >
-                                            <Input.TextArea rows={7} placeholder={t('platformSettingsPage.form.placeholders.sslCertificate')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_ssl_private_key"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.sslPrivateKey')}</span>}
-                                        >
-                                            <Input.TextArea rows={7} placeholder={t('platformSettingsPage.form.placeholders.sslPrivateKey')} />
-                                        </Form.Item>
-                                    </div>
-
-                                    <Space wrap>
-                                        <Upload
-                                            showUploadList={false}
-                                            beforeUpload={async (file) => {
-                                                await handleUploadTextToField('platform_ssl_certificate', file);
-                                                return false;
-                                            }}
-                                        >
-                                            <AppButton intent="secondary" icon={<UploadOutlined />}>
-                                                {t('platformSettingsPage.actions.uploadCert')}
-                                            </AppButton>
-                                        </Upload>
-                                        <Upload
-                                            showUploadList={false}
-                                            beforeUpload={async (file) => {
-                                                await handleUploadTextToField('platform_ssl_private_key', file);
-                                                return false;
-                                            }}
-                                        >
-                                            <AppButton intent="secondary" icon={<UploadOutlined />}>
-                                                {t('platformSettingsPage.actions.uploadKey')}
-                                            </AppButton>
-                                        </Upload>
-                                    </Space>
-                                    <Divider />
-                                    <Space>
-                                        <AppButton
-                                            intent="primary"
-                                            icon={<SaveOutlined />}
-                                            onClick={handleSaveOnly}
-                                            loading={applying}
-                                            disabled={ntpTesting}
-                                        >
-                                            {t('platformSettingsPage.page.saveButton')}
-                                        </AppButton>
-                                    </Space>
-                                </Card>
-                            ),
-                        },
-                        {
-                            key: 'snmp',
-                            label: t('platformSettingsPage.sections.snmp'),
-                            children: (
-                                <Card className="admin-card">
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6">
-                                        <Form.Item
-                                            name="platform_snmp_enabled"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.snmpEnabled')}</span>}
-                                            valuePropName="checked"
-                                        >
-                                            <Switch size="small" />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_snmp_host"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.snmpHost')}</span>}
-                                        >
-                                            <Input placeholder={t('platformSettingsPage.form.placeholders.snmpHost')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_snmp_port"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.snmpPort')}</span>}
-                                        >
-                                            <InputNumber min={1} max={65535} className="w-full" />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_snmp_version"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.snmpVersion')}</span>}
-                                        >
-                                            <Select
-                                                options={[
-                                                    { value: 'v2c', label: 'SNMP v2c' },
-                                                    { value: 'v3', label: 'SNMP v3' },
-                                                ]}
-                                            />
-                                        </Form.Item>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                                        <Form.Item
-                                            name="platform_snmp_community"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.snmpCommunity')}</span>}
-                                            help={t('platformSettingsPage.form.snmpCommunityHelp')}
-                                        >
-                                            <Input.Password placeholder={t('platformSettingsPage.form.placeholders.snmpCommunity')} />
-                                        </Form.Item>
-                                    </div>
-                                    <Divider />
-                                    <Space>
-                                        <AppButton
-                                            intent="primary"
-                                            icon={<SaveOutlined />}
-                                            onClick={handleSaveOnly}
-                                            loading={applying}
-                                            disabled={ntpTesting}
-                                        >
-                                            {t('platformSettingsPage.page.saveButton')}
-                                        </AppButton>
-                                    </Space>
-                                </Card>
-                            ),
-                        },
-                        {
-                            key: 'ntp',
-                            label: t('platformSettingsPage.sections.ntp'),
-                            children: (
-                                <Card className="admin-card">
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6">
-                                        <Form.Item
-                                            name="platform_ntp_enabled"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.ntpEnabled')}</span>}
-                                            valuePropName="checked"
-                                        >
-                                            <Switch size="small" />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_ntp_server"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.ntpServer')}</span>}
-                                        >
-                                            <Input placeholder={t('platformSettingsPage.form.placeholders.ntpServer')} />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_ntp_port"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.ntpPort')}</span>}
-                                        >
-                                            <InputNumber min={1} max={65535} className="w-full" />
-                                        </Form.Item>
-                                        <Form.Item
-                                            name="platform_ntp_sync_interval_minutes"
-                                            label={<span className="font-semibold">{t('platformSettingsPage.form.ntpSyncInterval')}</span>}
-                                        >
-                                            <InputNumber min={1} max={10080} className="w-full" />
-                                        </Form.Item>
-                                    </div>
-                                    <Divider />
-                                    <Space>
-                                        <AppButton
-                                            intent="secondary"
-                                            onClick={handleTestNtpConnectivity}
-                                            loading={ntpTesting}
-                                            disabled={applying}
-                                        >
-                                            {t('platformSettingsPage.actions.testNtp')}
-                                        </AppButton>
-                                        <AppButton
-                                            intent="primary"
-                                            icon={<SaveOutlined />}
-                                            onClick={handleSaveOnly}
-                                            loading={applying}
-                                            disabled={ntpTesting}
-                                        >
-                                            {t('platformSettingsPage.page.saveButton')}
-                                        </AppButton>
-                                    </Space>
-                                </Card>
-                            ),
-                        },
-                    ]}
-                />
+                        }))}
+                    />
+                </Space>
             </Form>
         </div>
     );

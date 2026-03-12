@@ -11,10 +11,8 @@ from core.database import get_db
 from core.dependencies import PermissionChecker
 import modules.models as models
 import modules.schemas as schemas
-from modules.admin.services.notification_templates import resolve_notification_template
 from modules.iam.routers.auth import get_current_user
-from modules.portal.services.notifications import build_recipient_notifications
-from application.portal_app import AuditService
+from application.portal_app import AuditService, build_recipient_notifications, resolve_notification_template
 
 router = APIRouter(
     prefix="/notifications",

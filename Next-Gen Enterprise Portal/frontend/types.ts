@@ -10,6 +10,9 @@ export interface NewsItem {
   author: string;
   image: string;
   is_top?: boolean;
+  show_in_news_feed?: boolean;
+  show_in_news_center_carousel?: boolean;
+  show_in_news_center_latest?: boolean;
 }
 
 export interface Employee {
@@ -71,6 +74,17 @@ export interface Announcement {
   created_at?: string;
   color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple';
   is_urgent?: boolean;
+}
+
+export interface HolidayReminder {
+  id: string;
+  title: string;
+  content: string;
+  holiday_date: string;
+  created_at?: string;
+  cover_image?: string;
+  color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple' | 'red' | 'green' | 'yellow';
+  is_active?: boolean;
 }
 
 export interface Permission {

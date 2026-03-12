@@ -1,21 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  App,
-  Card,
-  Empty,
-  Form,
-  Input,
-  Popconfirm,
-  Segmented,
-  Select,
-  Space,
-  Switch,
-  Tabs,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Empty from 'antd/es/empty';
+import Form from 'antd/es/form';
+import Popconfirm from 'antd/es/popconfirm';
+import Segmented from 'antd/es/segmented';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tag from 'antd/es/tag';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import {
   DeleteOutlined,
   EditOutlined,
@@ -25,7 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 
-import { AppButton, AppForm, AppModal, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
+import { AppButton, AppPageHeader, AppTable } from '@/modules/admin/components/ui';
 import notificationTemplateService, {
   NOTIFICATION_TEMPLATE_ACTIVE_CATEGORY_STORAGE_KEY,
   type NotificationTemplateFormInput,
@@ -44,6 +38,8 @@ const categoryOrder: NotificationTemplateCategory[] = ['email', 'sms', 'im'];
 const templateLocales: NotificationTemplateLocale[] = ['zh-CN', 'en-US'];
 const PLACEHOLDER_RE = /{{\s*([a-zA-Z0-9_]+)\s*}}/g;
 const VARIABLE_NAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
+const NotificationTemplateEditorModal = lazy(() => import('@/modules/admin/components/notification-templates/NotificationTemplateEditorModal'));
+const NotificationTemplatePreviewModal = lazy(() => import('@/modules/admin/components/notification-templates/NotificationTemplatePreviewModal'));
 
 type TemplateFormValues = NotificationTemplateFormInput & {
   default_locale?: NotificationTemplateLocale;
@@ -123,44 +119,6 @@ const getLocalizedTemplateText = (
     return localized;
   }
   return String(fallbackValue || '').trim();
-};
-
-const renderTemplateContentLines = (content: string, maxLines?: number): React.ReactNode => {
-  const allLines = String(content || '').split(/\r?\n/);
-  const lines = typeof maxLines === 'number' && maxLines > 0 ? allLines.slice(0, maxLines) : allLines;
-  /* eslint-disable admin-ui/no-admin-page-visual-utilities -- template source preview needs monospace framing, line separators, and muted line numbers */
-  return (
-    <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      {lines.map((line, index) => (
-        <div
-          key={`${index}-${line}`}
-          className={[
-            'grid grid-cols-[40px,1fr] gap-3 px-4 py-2 text-sm',
-            index !== lines.length - 1 ? 'border-b border-slate-100' : '',
-          ].join(' ')}
-        >
-          <div className="select-none text-right font-mono text-xs text-slate-400">{index + 1}</div>
-          <div className="whitespace-pre-wrap break-words font-mono text-slate-700">{line || ' '}</div>
-        </div>
-      ))}
-    </div>
-  );
-  /* eslint-enable admin-ui/no-admin-page-visual-utilities */
-};
-
-const renderEmailPreviewFrame = (html: string): React.ReactNode => {
-  /* eslint-disable admin-ui/no-admin-page-visual-utilities -- email preview keeps a framed canvas separate from the admin page shell */
-  return (
-    <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-      <iframe
-        title="notification-template-email-preview"
-        sandbox=""
-        srcDoc={html}
-        className="h-[560px] w-full bg-white"
-      />
-    </div>
-  );
-  /* eslint-enable admin-ui/no-admin-page-visual-utilities */
 };
 
 const resolveInitialCategory = (): NotificationTemplateCategory => {
@@ -324,17 +282,6 @@ const mergeVariableKeys = (...groups: string[][]): string[] => {
     });
   });
   return ordered;
-};
-
-const renderVariableTags = (values: string[], emptyLabel: string, color?: string): React.ReactNode => {
-  if (!values.length) {
-    return <Tag>{emptyLabel}</Tag>;
-  }
-  return values.map((value) => (
-    <Tag key={value} color={color}>
-      {value}
-    </Tag>
-  ));
 };
 
 const buildPreviewVariableMap = (template: NotificationTemplateRecord): Record<string, string> => {
@@ -756,21 +703,17 @@ const NotificationTemplates: React.FC = () => {
     [currentTemplateLocale, t],
   );
 
-  const tabItems = categoryOrder.map((category) => ({
-    key: category,
-    label: <span>{t(`notificationTemplates.categories.${category}.title`)}</span>,
-    children: categorizedTemplates[category].length ? (
-      <AppTable<NotificationTemplateRecord>
-        rowKey="id"
-        columns={columns}
-        dataSource={categorizedTemplates[category]}
-        pagination={false}
-        scroll={{ x: 960 }}
-      />
-    ) : (
-      <Empty description={t('notificationTemplates.empty.category')} />
-    ),
-  }));
+  const activeCategoryContent = categorizedTemplates[activeCategory].length ? (
+    <AppTable<NotificationTemplateRecord>
+      rowKey="id"
+      columns={columns}
+      dataSource={categorizedTemplates[activeCategory]}
+      pagination={false}
+      scroll={{ x: 960 }}
+    />
+  ) : (
+    <Empty description={t('notificationTemplates.empty.category')} />
+  );
 
   return (
     <div className="space-y-6">
@@ -796,315 +739,62 @@ const NotificationTemplates: React.FC = () => {
           </div>
         </div>
 
-        <Tabs
-          activeKey={activeCategory}
-          items={tabItems}
-          onChange={(value) => setActiveCategory(value as NotificationTemplateCategory)}
-        />
+        <Space direction="vertical" size={16} className="w-full">
+          <Segmented
+            block
+            size="middle"
+            value={activeCategory}
+            onChange={(value) => setActiveCategory(value as NotificationTemplateCategory)}
+            options={categoryOrder.map((category) => ({
+              label: t(`notificationTemplates.categories.${category}.title`),
+              value: category,
+            }))}
+          />
+          {activeCategoryContent}
+        </Space>
       </Card>
 
-      <AppModal
-        title={editingTemplate ? t('notificationTemplates.modal.editTitle') : t('notificationTemplates.modal.createTitle')}
-        open={modalOpen}
-        onCancel={handleCloseModal}
-        confirmLoading={submitting}
-        width={760}
-        footer={(
-          <Space wrap>
-            <AppButton intent="secondary" onClick={handleCloseModal}>
-              {t('notificationTemplates.actions.cancel')}
-            </AppButton>
-            <AppButton intent="primary" onClick={() => void handleSubmit()} loading={submitting}>
-              {t('notificationTemplates.actions.save')}
-            </AppButton>
-          </Space>
-        )}
-      >
-        <AppForm
-          form={form}
-          layout="vertical"
-          initialValues={{
-            default_locale: currentTemplateLocale,
-            category: activeCategory,
-            is_enabled: true,
-            variables: [],
-            name_i18n: {},
-            description_i18n: {},
-            subject_i18n: {},
-            content_i18n: {},
-          }}
-        >
-          <div className="grid grid-cols-2 gap-x-6">
-            <AppForm.Item
-              name="category"
-              label={t('notificationTemplates.form.category')}
-              rules={[{ required: true, message: t('notificationTemplates.validation.categoryRequired') }]}
-            >
-              <Select options={categoryOptions} disabled={Boolean(editingTemplate?.is_builtin)} />
-            </AppForm.Item>
-            <AppForm.Item
-              name="code"
-              label={t('notificationTemplates.form.code')}
-              rules={[
-                { required: true, message: t('notificationTemplates.validation.codeRequired') },
-                { pattern: /^[a-z0-9][a-z0-9_-]{2,63}$/, message: t('notificationTemplates.validation.codePattern') },
-              ]}
-            >
-              <Input
-                placeholder={t('notificationTemplates.form.codePlaceholder')}
-                disabled={Boolean(editingTemplate?.is_builtin)}
-              />
-            </AppForm.Item>
-          </div>
+      {modalOpen ? (
+        <Suspense fallback={null}>
+          <NotificationTemplateEditorModal
+            open={modalOpen}
+            submitting={submitting}
+            form={form}
+            editingTemplate={editingTemplate}
+            currentTemplateLocale={currentTemplateLocale}
+            activeCategory={activeCategory}
+            categoryOptions={categoryOptions}
+            templateLocales={templateLocales}
+            watchedCategory={watchedCategory}
+            watchedDefaultLocale={watchedDefaultLocale}
+            liveDiagnostics={liveDiagnostics}
+            onCancel={handleCloseModal}
+            onSubmit={() => {
+              void handleSubmit();
+            }}
+          />
+        </Suspense>
+      ) : null}
 
-          <div className="grid grid-cols-[minmax(0,1.4fr),minmax(0,1fr)] gap-x-6">
-            <AppForm.Item
-              name="variables"
-              label={t('notificationTemplates.form.variables')}
-            >
-              <Select
-                mode="tags"
-                tokenSeparators={[',', ' ']}
-                placeholder={t('notificationTemplates.form.variablesPlaceholder')}
-              />
-            </AppForm.Item>
-            <AppForm.Item
-              name="is_enabled"
-              label={t('notificationTemplates.form.enabled')}
-              valuePropName="checked"
-            >
-              <Switch
-                checkedChildren={t('notificationTemplates.status.enabled')}
-                unCheckedChildren={t('notificationTemplates.status.disabled')}
-              />
-            </AppForm.Item>
-          </div>
-
-          <Card size="small" className="admin-card admin-card-subtle mb-4">
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <Text strong>
-                {t('notificationTemplates.form.editorTitle')}
-              </Text>
-              <div className="flex items-center gap-2">
-                <Text type="secondary" className="whitespace-nowrap text-xs">
-                  {t('notificationTemplates.form.defaultLocale')}
-                </Text>
-                <AppForm.Item
-                  name="default_locale"
-                  className="!mb-0 min-w-[160px]"
-                  initialValue={currentTemplateLocale}
-                >
-                  <Select
-                    options={templateLocales.map((locale) => ({
-                      value: locale,
-                      label: t(`notificationTemplates.form.localeTabs.${locale === 'zh-CN' ? 'zhCN' : 'enUS'}`),
-                    }))}
-                    placeholder={t('notificationTemplates.form.defaultLocalePlaceholder')}
-                  />
-                </AppForm.Item>
-              </div>
-            </div>
-
-            <Tabs
-              items={templateLocales.map((locale) => ({
-                key: locale,
-                label: (
-                  <Space size={6}>
-                    <span>{t(`notificationTemplates.form.localeTabs.${locale === 'zh-CN' ? 'zhCN' : 'enUS'}`)}</span>
-                    {watchedDefaultLocale === locale && (
-                      <Tag color="processing">{t('notificationTemplates.form.defaultFlag')}</Tag>
-                    )}
-                  </Space>
-                ),
-                children: (
-                  <div className="grid grid-cols-1 gap-4">
-                    <AppForm.Item
-                      name={['name_i18n', locale]}
-                      label={t('notificationTemplates.form.localizedName')}
-                      extra={<Text type="secondary">{t('notificationTemplates.form.defaultLocaleHint')}</Text>}
-                    >
-                      <Input placeholder={t('notificationTemplates.form.localizedNamePlaceholder')} />
-                    </AppForm.Item>
-
-                    <AppForm.Item
-                      name={['description_i18n', locale]}
-                      label={t('notificationTemplates.form.localizedDescription')}
-                    >
-                      <Input placeholder={t('notificationTemplates.form.localizedDescriptionPlaceholder')} />
-                    </AppForm.Item>
-
-                    {watchedCategory === 'email' && (
-                      <AppForm.Item
-                        name={['subject_i18n', locale]}
-                        label={t('notificationTemplates.form.localizedSubject')}
-                      >
-                        <Input placeholder={t('notificationTemplates.form.localizedSubjectPlaceholder')} />
-                      </AppForm.Item>
-                    )}
-
-                    <AppForm.Item
-                      name={['content_i18n', locale]}
-                      label={(
-                        <span>
-                          {watchedCategory === 'email'
-                            ? t('notificationTemplates.form.localizedHtmlContent')
-                            : t('notificationTemplates.form.localizedContent')}
-                        </span>
-                      )}
-                      extra={t('notificationTemplates.form.localizedFallbackHint')}
-                    >
-                      <Input.TextArea
-                        rows={10}
-                        className="font-mono"
-                        placeholder={
-                          watchedCategory === 'email'
-                            ? t('notificationTemplates.form.localizedHtmlContentPlaceholder')
-                            : t('notificationTemplates.form.localizedContentPlaceholder')
-                        }
-                      />
-                    </AppForm.Item>
-                  </div>
-                ),
-              }))}
-            />
-          </Card>
-
-          <Card size="small" className="admin-card admin-card-subtle">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <Title level={5} className="!mb-0">
-                  {t('notificationTemplates.validation.title')}
-                </Title>
-                <Tag color="blue">
-                  {t('notificationTemplates.validation.placeholderCount', {
-                    count: liveDiagnostics.placeholderVariables.length,
-                  })}
-                </Tag>
-              </div>
-
-              {liveDiagnostics.invalidDeclaredVariables.length > 0 && (
-                <Alert
-                  type="error"
-                  showIcon
-                  message={t('notificationTemplates.validation.invalidVariables')}
-                  description={liveDiagnostics.invalidDeclaredVariables.join(', ')}
-                />
-              )}
-
-              {liveDiagnostics.missingDeclaredVariables.length > 0 && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  message={t('notificationTemplates.validation.missingVariables')}
-                  description={liveDiagnostics.missingDeclaredVariables.join(', ')}
-                />
-              )}
-
-              {liveDiagnostics.unusedDeclaredVariables.length > 0 && (
-                <Alert
-                  type="info"
-                  showIcon
-                  message={t('notificationTemplates.validation.unusedVariables')}
-                  description={liveDiagnostics.unusedDeclaredVariables.join(', ')}
-                />
-              )}
-
-              {!liveDiagnostics.invalidDeclaredVariables.length &&
-                !liveDiagnostics.missingDeclaredVariables.length &&
-                !liveDiagnostics.unusedDeclaredVariables.length && (
-                  <Alert
-                    type="success"
-                    showIcon
-                    message={t('notificationTemplates.validation.ready')}
-                  />
-                )}
-
-              <div>
-                <Text type="secondary">{t('notificationTemplates.validation.declaredVariables')}</Text>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {renderVariableTags(
-                    liveDiagnostics.declaredVariables,
-                    t('notificationTemplates.validation.noDeclaredVariables'),
-                    'blue',
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Text type="secondary">{t('notificationTemplates.validation.placeholderVariables')}</Text>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {renderVariableTags(
-                    liveDiagnostics.placeholderVariables,
-                    t('notificationTemplates.validation.noPlaceholders'),
-                    'geekblue',
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </AppForm>
-      </AppModal>
-
-      <AppModal
-        title={t('notificationTemplates.preview.title')}
-        open={previewModalOpen}
-        onCancel={handleClosePreviewModal}
-        width={860}
-        footer={(
-          <Space wrap>
-            <AppButton intent="secondary" onClick={handleClosePreviewModal}>
-              {t('notificationTemplates.actions.cancel')}
-            </AppButton>
-          </Space>
-        )}
-      >
-        {previewTemplate ? (
-          <Card size="small" className="admin-card admin-card-subtle" loading={previewLoading}>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Title level={5} className="!mb-1">
-                    {getLocalizedTemplateText(previewTemplate.name, previewTemplate.name_i18n, previewLocale)}
-                  </Title>
-                  <Paragraph type="secondary" className="!mb-0">
-                    {getLocalizedTemplateText(
-                      previewTemplate.description,
-                      previewTemplate.description_i18n,
-                      previewLocale,
-                    ) || t('notificationTemplates.emptyDescription')}
-                  </Paragraph>
-                </div>
-                <Segmented<NotificationTemplateLocale>
-                  size="small"
-                  value={previewLocale}
-                  options={templateLocales.map((locale) => ({
-                    label: t(`notificationTemplates.form.localeTabs.${locale === 'zh-CN' ? 'zhCN' : 'enUS'}`),
-                    value: locale,
-                  }))}
-                  onChange={(value) => {
-                    const locale = value as NotificationTemplateLocale;
-                    setPreviewLocale(locale);
-                    void handleRunPreview(previewTemplate, previewVariables, locale);
-                  }}
-                />
-              </div>
-
-              {previewData ? (
-                previewTemplate.category === 'email' && previewData.preview.html_content
-                  ? renderEmailPreviewFrame(previewData.preview.html_content)
-                  : renderTemplateContentLines(previewData.preview.content)
-              ) : (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={t('notificationTemplates.preview.empty')}
-                />
-              )}
-            </div>
-          </Card>
-        ) : (
-          <Empty description={t('notificationTemplates.preview.empty')} />
-        )}
-      </AppModal>
+      {previewModalOpen ? (
+        <Suspense fallback={null}>
+          <NotificationTemplatePreviewModal
+            open={previewModalOpen}
+            previewTemplate={previewTemplate}
+            previewLocale={previewLocale}
+            previewLoading={previewLoading}
+            previewData={previewData}
+            templateLocales={templateLocales}
+            onCancel={handleClosePreviewModal}
+            onChangeLocale={(locale) => {
+              setPreviewLocale(locale);
+              if (previewTemplate) {
+                void handleRunPreview(previewTemplate, previewVariables, locale);
+              }
+            }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };

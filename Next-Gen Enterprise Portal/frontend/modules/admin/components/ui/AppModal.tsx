@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal } from 'antd';
-import type { ModalProps } from 'antd';
+import Modal from 'antd/es/modal';
+import type { ModalProps } from 'antd/es/modal/interface';
 import AppButton from './AppButton';
 import i18n from '@/i18n';
 

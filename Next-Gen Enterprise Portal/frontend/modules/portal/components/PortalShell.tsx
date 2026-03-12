@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState } from 'react';
-import { Spin } from 'antd';
+import Spin from 'antd/es/spin';
 import { AppView } from '@/modules/portal/types/views';
 import { Employee, NewsItem, QuickToolDTO } from '@/types';
 import type { User as AuthUser } from '@/shared/services/auth';

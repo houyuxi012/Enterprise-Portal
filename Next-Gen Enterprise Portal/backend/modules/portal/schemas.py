@@ -46,9 +46,12 @@ class NewsItemBase(BaseModel):
     summary: str
     category: str
     date: date
-    author: str
+    author: Optional[str] = None
     image: str
     is_top: bool = False
+    show_in_news_feed: bool = False
+    show_in_news_center_carousel: bool = False
+    show_in_news_center_latest: bool = False
 
 
 class NewsItemCreate(NewsItemBase):
@@ -98,6 +101,27 @@ class AnnouncementCreate(AnnouncementBase):
 class Announcement(AnnouncementBase):
     id: int
     time: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class HolidayReminderBase(BaseModel):
+    title: str
+    content: str
+    holiday_date: date
+    cover_image: Optional[str] = None
+    color: str = "purple"
+    is_active: bool = True
+
+
+class HolidayReminderCreate(HolidayReminderBase):
+    pass
+
+
+class HolidayReminder(HolidayReminderBase):
+    id: int
     created_at: Optional[datetime] = None
 
     class Config:

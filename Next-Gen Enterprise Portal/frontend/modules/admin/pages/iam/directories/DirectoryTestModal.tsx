@@ -1,5 +1,10 @@
 import React from 'react';
-import { Alert, Card, Descriptions, Modal, Space, Typography } from 'antd';
+import Alert from 'antd/es/alert';
+import Card from 'antd/es/card';
+import Descriptions from 'antd/es/descriptions';
+import Modal from 'antd/es/modal';
+import Space from 'antd/es/space';
+import Typography from 'antd/es/typography';
 import { useTranslation } from 'react-i18next';
 import type { DirectoryTestResponse } from './types';
 

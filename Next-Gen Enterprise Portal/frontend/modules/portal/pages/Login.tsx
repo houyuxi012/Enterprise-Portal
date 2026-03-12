@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { App, Modal } from 'antd';
+import App from 'antd/es/app';
+import Modal from 'antd/es/modal';
 import { Lock, Loader2, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthService, { MfaRequiredError } from '@/services/auth';
@@ -254,6 +255,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 /captcha/i.test(`${detail} ${detailCode}`);
 
             if (detailCode === 'PRIVACY_CONSENT_REQUIRED') {
+                setPrivacyAccepted(false);
                 clearStoredPortalPrivacyConsent();
                 msg = t('loginPortal.privacyConsentRequired', '请先阅读并同意隐私政策');
             } else if (detailCode === 'PRIVACY_POLICY_STALE') {

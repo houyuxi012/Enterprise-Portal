@@ -6,13 +6,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from application.iam_app import LicenseService, generate_file_token, resolve_file_token, storage
-import core.database as database
-import modules.models as models
-from modules.iam.services.privacy_consent import (
+from application.iam_app import (
+    LicenseService,
+    generate_file_token,
     load_privacy_policy_snapshot,
     load_public_privacy_config,
+    resolve_file_token,
+    storage,
 )
+import core.database as database
+import modules.models as models
 
 router = APIRouter(prefix="/public", tags=["public"])
 

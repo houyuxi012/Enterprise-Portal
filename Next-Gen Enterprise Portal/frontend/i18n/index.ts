@@ -1,13 +1,12 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import zhCN from './locales/zh-CN.json';
-import enUS from './locales/en-US.json';
 
 export const I18N_STORAGE_KEY = 'app_locale';
 export const LEGACY_I18N_STORAGE_KEY = 'locale';
 const USER_I18N_STORAGE_PREFIX = 'app_locale_user:';
 export type AppLanguage = 'zh-CN' | 'en-US';
 export type LanguagePreferenceScope = string | number | null | undefined;
+type TranslationMessages = Record<string, unknown>;
 
 export const normalizeLanguage = (candidate?: string | null): AppLanguage => {
   const value = String(candidate || '').trim().toLowerCase();
@@ -81,21 +80,75 @@ export const setLanguagePreference = (language: AppLanguage, scope?: LanguagePre
   window.localStorage.setItem(LEGACY_I18N_STORAGE_KEY, normalizedLanguage);
 };
 
-i18n
+const languageLoaders: Record<AppLanguage, () => Promise<TranslationMessages>> = {
+  'zh-CN': async () => {
+    const module = await import('./locales/zh-CN.json');
+    return module.default as TranslationMessages;
+  },
+  'en-US': async () => {
+    const module = await import('./locales/en-US.json');
+    return module.default as TranslationMessages;
+  },
+};
+
+const loadedLanguages = new Set<AppLanguage>();
+const pendingLanguageLoads = new Map<AppLanguage, Promise<void>>();
+
+const ensureLanguageResources = async (language: AppLanguage): Promise<void> => {
+  if (loadedLanguages.has(language)) {
+    return;
+  }
+  const pending = pendingLanguageLoads.get(language);
+  if (pending) {
+    await pending;
+    return;
+  }
+
+  const loadPromise = languageLoaders[language]().then((messages) => {
+    i18n.addResourceBundle(language, 'translation', messages, true, true);
+    loadedLanguages.add(language);
+  }).finally(() => {
+    pendingLanguageLoads.delete(language);
+  });
+
+  pendingLanguageLoads.set(language, loadPromise);
+  await loadPromise;
+};
+
+const initialLanguage = getInitialLanguage();
+const fallbackLanguage: AppLanguage = 'zh-CN';
+const initialMessages = await languageLoaders[initialLanguage]();
+loadedLanguages.add(initialLanguage);
+
+await i18n
   .use(initReactI18next)
   .init({
     resources: {
-      'zh-CN': { translation: zhCN },
-      'en-US': { translation: enUS },
+      [initialLanguage]: { translation: initialMessages },
     },
-    lng: getInitialLanguage(),
-    fallbackLng: 'zh-CN',
+    lng: initialLanguage,
+    fallbackLng: fallbackLanguage,
     supportedLngs: ['zh-CN', 'en-US'],
+    showSupportNotice: false,
     interpolation: {
       escapeValue: false,
     },
     returnNull: false,
   });
+
+const originalChangeLanguage = i18n.changeLanguage.bind(i18n);
+i18n.changeLanguage = async (language, callback) => {
+  const normalizedLanguage = normalizeLanguage(language);
+  await ensureLanguageResources(normalizedLanguage);
+  if (normalizedLanguage !== fallbackLanguage && !loadedLanguages.has(fallbackLanguage)) {
+    void ensureLanguageResources(fallbackLanguage);
+  }
+  return originalChangeLanguage(normalizedLanguage, callback);
+};
+
+if (initialLanguage !== fallbackLanguage) {
+  void ensureLanguageResources(fallbackLanguage);
+}
 
 setLanguagePreference(normalizeLanguage(i18n.resolvedLanguage || i18n.language));
 

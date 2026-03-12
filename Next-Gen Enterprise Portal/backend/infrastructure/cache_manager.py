@@ -39,7 +39,7 @@ class CacheManager:
             cls._instance.allow_memory_fallback = not cls._instance.strict_mode
             
             # 4) & 5) Lock for thread/coroutine safety (memory + stats)
-            cls._instance._lock = None 
+            cls._instance._lock = asyncio.Lock()
             
             # Metrics
             cls._instance.hits = 0
@@ -51,10 +51,7 @@ class CacheManager:
             }
         return cls._instance
 
-    def _ensure_lock(self):
-        """Ensure lock exists before use (FastAPI single-process safe)"""
-        if self._lock is None:
-            self._lock = asyncio.Lock()
+
 
     async def init(self, redis_url: str = None, 
                    max_connections: int = 100, 
@@ -62,8 +59,7 @@ class CacheManager:
                    socket_connect_timeout: float = 2.0, 
                    health_check_interval: int = 30):
         
-        # Initialize Lock
-        self._ensure_lock()
+
         self.strict_mode = str(os.getenv("CACHE_STRICT_MODE", "true")).lower() != "false"
         self.allow_memory_fallback = not self.strict_mode
 
@@ -144,7 +140,6 @@ class CacheManager:
         return val
 
     async def get(self, key: str, is_json: bool = True) -> Any:
-        self._ensure_lock()
         start = time.perf_counter()
         val = None
         hit = False
@@ -181,7 +176,6 @@ class CacheManager:
                 s["total_ms"] += elapsed
 
     async def mget(self, keys: List[str], is_json: bool = True) -> Dict[str, Any]:
-        self._ensure_lock()
         if not keys:
             return {}
         self._ensure_backend_ready()
@@ -229,7 +223,6 @@ class CacheManager:
                 s["total_ms"] += elapsed
 
     async def set(self, key: str, value: Any, ttl: int = 60, is_json: bool = True):
-        self._ensure_lock()
         start = time.perf_counter()
         self._ensure_backend_ready()
         try:
@@ -263,7 +256,6 @@ class CacheManager:
                 s["total_ms"] += elapsed
 
     async def delete(self, key: str):
-        self._ensure_lock()
         self._ensure_backend_ready()
         try:
             if self.is_redis_available and self.redis:
@@ -279,7 +271,6 @@ class CacheManager:
             logger.error(f"Cache DELETE error: {e}")
 
     async def delete_pattern(self, pattern: str):
-        self._ensure_lock()
         self._ensure_backend_ready()
         try:
             if self.is_redis_available and self.redis:
@@ -309,7 +300,6 @@ class CacheManager:
             logger.error(f"Cache DELETE PATTERN error: {e}")
 
     async def get_stats(self):
-        self._ensure_lock()
         async with self._lock:
             total_ops = self.hits + self.misses
             hit_rate = (self.hits / total_ops) * 100 if total_ops > 0 else 0

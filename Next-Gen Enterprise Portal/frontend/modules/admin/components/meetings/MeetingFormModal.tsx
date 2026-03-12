@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Col, DatePicker, Form, Input, InputNumber, Row, Select, Typography } from 'antd';
+import Col from 'antd/es/grid/col';
+import DatePicker from 'antd/es/date-picker';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import InputNumber from 'antd/es/input-number';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Typography from 'antd/es/typography';
 import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { AppForm, AppModal } from '@/modules/admin/components/ui';

@@ -1,11 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, Button, Drawer, Descriptions, Statistic, Card, Row, Col, DatePicker, Tooltip, Input } from 'antd';
+import Button from 'antd/es/button';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import DatePicker from 'antd/es/date-picker';
+import Descriptions from 'antd/es/descriptions';
+import Drawer from 'antd/es/drawer';
+import Input from 'antd/es/input';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Statistic from 'antd/es/statistic';
+import Table from 'antd/es/table';
+import Tag from 'antd/es/tag';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, SafetyCertificateOutlined, KeyOutlined, DatabaseOutlined, CloudOutlined } from '@ant-design/icons';
 import ApiClient, { type IAMAuditLogItem } from '@/services/api';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
 type AuditLog = IAMAuditLogItem;
+const { Text } = Typography;
 
 interface LogStats {
     loginCount: number;
@@ -284,13 +298,23 @@ const AuditLogs: React.FC = () => {
             </Row>
 
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 items-center">
-                <DatePicker.RangePicker
-                    value={dateRange}
-                    onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-                    className="rounded-xl"
-                    placeholder={[t('iamAudit.filters.startTime'), t('iamAudit.filters.endTime')]}
-                    showTime
-                />
+                <div className="flex items-center gap-2">
+                    <DatePicker
+                        value={dateRange[0]}
+                        onChange={(date) => setDateRange([date, dateRange[1]])}
+                        className="rounded-xl"
+                        placeholder={t('iamAudit.filters.startTime')}
+                        showTime
+                    />
+                    <Text type="secondary">-</Text>
+                    <DatePicker
+                        value={dateRange[1]}
+                        onChange={(date) => setDateRange([dateRange[0], date])}
+                        className="rounded-xl"
+                        placeholder={t('iamAudit.filters.endTime')}
+                        showTime
+                    />
+                </div>
                 <Input
                     placeholder={t('common.placeholders.username')}
                     value={usernameFilter}

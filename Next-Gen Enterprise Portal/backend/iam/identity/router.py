@@ -45,6 +45,14 @@ async def _require_session_security_feature(
 ) -> None:
     await LicenseService.require_feature(db, "session.security")
 
+
+async def _stash_privacy_consent_form(request: Request) -> None:
+    form = await request.form()
+    request.state.privacy_consent_accepted = str(form.get("privacy_consent_accepted") or "").strip()
+    request.state.privacy_policy_version = str(form.get("privacy_policy_version") or "").strip()
+    request.state.privacy_policy_hash = str(form.get("privacy_policy_hash") or "").strip()
+    request.state.privacy_consent_locale = str(form.get("privacy_consent_locale") or "").strip()
+
 @router.post("/portal/token", response_model=TokenResponse)
 async def login_portal(
     request: Request,
@@ -53,6 +61,7 @@ async def login_portal(
     db: AsyncSession = Depends(get_db)
 ):
     """Portal User Login (Audience: portal)"""
+    await _stash_privacy_consent_form(request)
     return await IdentityService.login_portal(request, response, form_data, db)
 
 @router.post("/admin/token", response_model=TokenResponse)
@@ -63,6 +72,7 @@ async def login_admin(
     db: AsyncSession = Depends(get_db)
 ):
     """Admin User Login (Audience: admin) - Requires Admin Privileges"""
+    await _stash_privacy_consent_form(request)
     return await IdentityService.login_admin(request, response, form_data, db)
 
 

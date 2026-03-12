@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Form, Input, Modal, Space, Spin, Typography, theme } from 'antd';
+import Alert from 'antd/es/alert';
+import App from 'antd/es/app';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import Modal from 'antd/es/modal';
+import Space from 'antd/es/space';
+import Spin from 'antd/es/spin';
+import Typography from 'antd/es/typography';
+import theme from 'antd/es/theme';
 import { CheckCircleOutlined, KeyOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 

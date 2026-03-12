@@ -1,6 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { App, Card, Tag, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';

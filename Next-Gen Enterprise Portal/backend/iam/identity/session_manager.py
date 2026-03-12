@@ -102,7 +102,7 @@ async def list_session_keys_for_audience(audience: str) -> list[str]:
         except Exception as e:
             logger.warning("Failed to scan online session keys pattern=%s: %s", pattern, e)
 
-    cache._ensure_lock()  # type: ignore[attr-defined]
+
     async with cache._lock:  # type: ignore[attr-defined]
         for cache_key in cache.memory_cache.keys():
             if isinstance(cache_key, str) and cache_key.startswith(prefix):

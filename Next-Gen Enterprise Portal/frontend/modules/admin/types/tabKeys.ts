@@ -1,6 +1,7 @@
 export const ADMIN_TAB_KEYS = [
   'dashboard',
   'news',
+  'holiday_reminders',
   'announcements',
   'employees',
   'users',

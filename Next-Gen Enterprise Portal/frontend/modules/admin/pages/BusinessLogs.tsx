@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { App, Card, Col, Descriptions, Row, Space, Statistic, Tag, Tooltip, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Descriptions from 'antd/es/descriptions';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Statistic from 'antd/es/statistic';
+import Tag from 'antd/es/tag';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DatabaseOutlined, CloudOutlined, UserOutlined, AuditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';

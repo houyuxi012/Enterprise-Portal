@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -35,8 +36,13 @@ class Department(Base):
     children = relationship("Department", back_populates="parent")
     parent = relationship("Department", remote_side=[id], back_populates="children")
 
+    __table_args__ = (
+        UniqueConstraint("name", "parent_id", name="uq_department_name_parent"),
+    )
+
 
 class SystemLog(Base):
+    """系统日志 — 高容量表，建议按 timestamp 做 PostgreSQL 原生分区并定期归档。"""
     __tablename__ = "system_logs"
 
     id = Column(BigInteger, primary_key=True, index=True)
@@ -54,6 +60,7 @@ class SystemLog(Base):
 
 
 class BusinessLog(Base):
+    """业务审计日志 — 高容量表，建议按 timestamp 做 PostgreSQL 原生分区并定期归档。"""
     __tablename__ = "business_logs"
 
     id = Column(BigInteger, primary_key=True, index=True)
@@ -175,6 +182,7 @@ class AISecurityPolicy(Base):
 
 
 class AIAuditLog(Base):
+    """AI 审计日志 — 高容量表，建议按 ts 做 PostgreSQL 原生分区并定期归档。"""
     __tablename__ = "ai_audit_log"
 
     id = Column(BigInteger, primary_key=True, index=True)

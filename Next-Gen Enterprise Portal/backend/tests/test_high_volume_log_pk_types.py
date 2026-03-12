@@ -12,8 +12,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from iam.audit.models import IAMAuditLog
-from modules.admin.models import AIAuditLog, BusinessLog, SystemLog
-from modules.portal.models import KBChunk, KBQueryLog, NotificationReceipt
+from modules.models import AIAuditLog, BusinessLog, KBChunk, KBQueryLog, NotificationReceipt, SystemLog
 
 
 class HighVolumeLogPrimaryKeyTypeTests(TestCase):

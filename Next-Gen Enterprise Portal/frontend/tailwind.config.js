@@ -17,11 +17,17 @@ export default {
         "./utils/**/*.{ts,tsx}",
         "./widgets/**/*.{ts,tsx}",
         "./builder/**/*.{ts,tsx}",
+        "./router/**/*.{ts,tsx}",
+        "./hooks/**/*.{ts,tsx}",
+        "./i18n/**/*.{ts,tsx}",
+        "./theme/**/*.{ts,tsx}",
     ],
     darkMode: 'class',
     theme: {
         extend: {
-            fontFamily: { sans: ['Inter', 'sans-serif'] },
+            fontFamily: {
+                sans: ['"PingFang SC"', '"Microsoft YaHei"', '"Segoe UI"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+            },
             colors: {
                 fluent: {
                     blue: '#0078d4',
@@ -37,5 +43,7 @@ export default {
             }
         },
     },
-    plugins: [],
+    plugins: [
+        require('@tailwindcss/typography'),
+    ],
 }

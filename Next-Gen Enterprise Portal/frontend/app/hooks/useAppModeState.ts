@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useAdminNavigationState } from '@/modules/admin/hooks/useAdminNavigationState';
 import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
+import { getPreferredAuthPlane, setPreferredAuthPlane, type AuthPlane } from '@/shared/utils/authPlane';
 
 interface UseAppModeStateResult {
+  preferredAuthPlane: AuthPlane;
   isAdminMode: boolean;
   isAdminPath: boolean;
   activeAdminTab: AdminTabKey;
@@ -13,6 +15,7 @@ interface UseAppModeStateResult {
   enableAdminMode: () => void;
   exitAdminMode: () => void;
   forceAdminLicenseTab: () => void;
+  handlePortalLoginSuccess: () => void;
   handleAdminLoginSuccess: () => void;
   handleAdminReloginSuccess: () => void;
 }
@@ -22,18 +25,21 @@ export const useAppModeState = (): UseAppModeStateResult => {
   const { activeAdminTab, setActiveAdminTab, syncAdminTabPath, openAdminHome } = useAdminNavigationState();
 
   const enterAdminMode = useCallback(() => {
+    setPreferredAuthPlane('admin');
     setIsAdminMode(true);
     openAdminHome();
   }, [openAdminHome]);
 
   const enableAdminMode = useCallback(() => {
+    setPreferredAuthPlane('admin');
     setIsAdminMode(true);
   }, []);
 
   const exitAdminMode = useCallback(() => {
+    setPreferredAuthPlane('portal');
     setIsAdminMode(false);
     if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', '/');
+      window.history.replaceState({}, '', '/');
     }
   }, []);
 
@@ -41,20 +47,32 @@ export const useAppModeState = (): UseAppModeStateResult => {
     setActiveAdminTab('license');
   }, [setActiveAdminTab]);
 
+  const handlePortalLoginSuccess = useCallback(() => {
+    setPreferredAuthPlane('portal');
+    setIsAdminMode(false);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
+
   const handleAdminLoginSuccess = useCallback(() => {
+    setPreferredAuthPlane('admin');
     setIsAdminMode(true);
     openAdminHome();
   }, [openAdminHome]);
 
   const handleAdminReloginSuccess = useCallback(() => {
+    setPreferredAuthPlane('admin');
     if (typeof window !== 'undefined') {
       window.location.reload();
     }
   }, []);
 
   const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+  const preferredAuthPlane = getPreferredAuthPlane();
 
   return {
+    preferredAuthPlane,
     isAdminMode,
     isAdminPath,
     activeAdminTab,
@@ -65,6 +83,7 @@ export const useAppModeState = (): UseAppModeStateResult => {
     enableAdminMode,
     exitAdminMode,
     forceAdminLicenseTab,
+    handlePortalLoginSuccess,
     handleAdminLoginSuccess,
     handleAdminReloginSuccess,
   };

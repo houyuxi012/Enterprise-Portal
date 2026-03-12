@@ -17,34 +17,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import core.database as database
 import modules.models as models
 import modules.schemas as schemas
-from modules.admin.services.notification_templates import (
-    build_notification_sample_context,
-    build_sms_test_payload,
-    get_notification_email_branding,
-    get_localized_notification_template_name,
-    get_system_config_map,
-    render_notification_template,
-    resolve_notification_template,
-)
-from modules.iam.services.system_config_security import (
-    SYSTEM_CONFIG_MASKED_PLACEHOLDER,
-    decrypt_sensitive_system_config_value,
-    decrypt_system_config_map,
-    encrypt_sensitive_system_config_value,
-    is_masked_placeholder,
-    is_sensitive_system_config_key,
-    sanitize_system_config_map_for_client,
-)
-from modules.iam.services.email_service import send_email_message
 from application.admin_app import (
     AuditService,
     LicenseService,
     PlatformRuntimeApplyError,
+    SYSTEM_CONFIG_MASKED_PLACEHOLDER,
     apply_platform_runtime,
+    build_notification_sample_context,
+    build_sms_test_payload,
     cache,
     cleanup_logs,
+    decrypt_sensitive_system_config_value,
+    decrypt_system_config_map,
+    encrypt_sensitive_system_config_value,
+    get_localized_notification_template_name,
+    get_notification_email_branding,
+    get_system_config_map,
+    is_masked_placeholder,
+    is_sensitive_system_config_key,
     license_settings,
     optimize_database,
+    render_notification_template,
+    resolve_notification_template,
+    sanitize_system_config_map_for_client,
+    send_email_message,
     storage,
     test_ntp_connectivity,
     update_loki_retention,
@@ -140,6 +136,7 @@ NTP_CONFIG_KEYS = {
     "platform_ntp_server",
     "platform_ntp_port",
     "platform_ntp_sync_interval_minutes",
+    "platform_ntp_manual_time",
 }
 
 CUSTOMIZATION_CONFIG_KEYS = {

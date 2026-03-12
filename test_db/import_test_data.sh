@@ -1,52 +1,50 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Color codes
+set -euo pipefail
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${GREEN}Starting Test Data Import...${NC}"
-COMPOSE_FILE="code/docker-compose.yml"
-COMPOSE_CMD="docker compose -f ${COMPOSE_FILE}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+COMPOSE_FILE="${PROJECT_ROOT}/Next-Gen Enterprise Portal/docker-compose.yml"
+PORTAL_RUNTIME_SECRETS_DIR="${PORTAL_RUNTIME_SECRETS_DIR:-/tmp/ngep-runtime-secrets}"
 
-# Check if docker compose is running
-if ! ${COMPOSE_CMD} ps | grep "Up" > /dev/null; then
-    echo -e "${RED}Error: Docker containers are not running.${NC}"
-    echo "Please run '${COMPOSE_CMD} up -d' first."
+compose() {
+    PORTAL_RUNTIME_SECRETS_DIR="${PORTAL_RUNTIME_SECRETS_DIR}" docker compose -f "${COMPOSE_FILE}" "$@"
+}
+
+run_script() {
+    local script_name="$1"
+    local script_path="${SCRIPT_DIR}/${script_name}"
+
+    if [[ ! -f "${script_path}" ]]; then
+        echo -e "${RED}Script not found: ${script_path}${NC}"
+        exit 1
+    fi
+
+    echo -e "Running ${GREEN}${script_name}${NC}..."
+    compose exec -T backend python3 -c \
+        "import sys; sys.path.insert(0, '/app'); script_name = sys.argv[1]; globals_dict = {'__name__': '__main__', '__file__': f'/app/test_db/{script_name}'}; exec(compile(sys.stdin.read(), globals_dict['__file__'], 'exec'), globals_dict)" \
+        "${script_name}" < "${script_path}"
+    echo -e "${GREEN}${script_name} completed.${NC}"
+}
+
+echo -e "${GREEN}Starting test data import...${NC}"
+echo "Using compose file: ${COMPOSE_FILE}"
+echo "Using PORTAL_RUNTIME_SECRETS_DIR=${PORTAL_RUNTIME_SECRETS_DIR}"
+
+if ! compose ps --status running backend | grep -q "backend"; then
+    echo -e "${RED}Error: backend container is not running.${NC}"
+    echo "Please run 'docker compose -f \"${COMPOSE_FILE}\" up -d backend db redis' first."
     exit 1
 fi
 
-echo "Detected running containers. Executing scripts via backend container..."
-
-# Function to run script inside container
-run_script() {
-    local script_name=$1
-    echo -e "Running ${GREEN}$script_name${NC}..."
-    
-    # We use PYTHONPATH=. to ensure the /app directory (WORKDIR) is included in imports
-    # This allows test_db/script.py to import from models.py in /app
-    ${COMPOSE_CMD} exec -w /app -e PYTHONPATH=/app backend python3 test_db/$script_name
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to run $script_name${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}Success!${NC}"
-}
-
-# 1. Initialize Database (Schema + Basic Data)
 run_script "init_db.py"
-
-# 2. Initialize RBAC (Roles & Permissions)
 run_script "rbac_init.py"
-
-# 3. Seed AI Audit Logs (Mock Data)
 run_script "seed_ai_data.py"
-
-# 4. Seed Knowledge Base (Documents + Query Logs)
 run_script "seed_kb_data.py"
-
-# 5. Seed Todo module demo data
 run_script "seed_todos_data.py"
 
 echo -e "${GREEN}All test data imported successfully!${NC}"

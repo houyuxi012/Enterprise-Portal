@@ -8,13 +8,16 @@ import {
 import dayjs from 'dayjs';
 import TodoService from '@/shared/services/todos';
 import ApiClient, { QuickToolDTO } from '@/shared/services/api';
-import { NewsItem, Announcement, CarouselItem, Employee } from '@/types';
+import { NewsItem, Announcement, CarouselItem, Employee, HolidayReminder } from '@/types';
 import type { User as AuthUser } from '@/shared/services/auth';
 import portalMeetingService, { type PortalTodayMeetingSummary } from '@/modules/portal/services/meetings';
 import { DAILY_QUOTES } from '@/shared/utils/constants';
+import { PartyPopper } from 'lucide-react';
 
 interface DashboardProps {
   onViewAll: () => void;
+  onNavigateToNews?: () => void;
+  onOpenNews?: (news: NewsItem) => void;
   onNavigateToDirectory?: () => void;
   onNavigateToTodos?: () => void;
   onNavigateToMeetings?: () => void;
@@ -50,6 +53,8 @@ const POLL_INTERVAL_MS = 30000;
 
 const Dashboard: React.FC<DashboardProps> = ({
   onViewAll,
+  onNavigateToNews,
+  onOpenNews,
   onNavigateToDirectory,
   onNavigateToTodos,
   onNavigateToMeetings,
@@ -76,6 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [todayMeetingSummary, setTodayMeetingSummary] = useState<PortalTodayMeetingSummary>(
     portalMeetingService.getEmptyTodaySummary(),
   );
+  const [newsFeedWindowStart, setNewsFeedWindowStart] = useState(0);
   const [meetingLicenseBlocked, setMeetingLicenseBlocked] = useState(false);
   const [meetingLicenseBlockedMessage, setMeetingLicenseBlockedMessage] = useState('');
   // Data State
@@ -84,7 +90,17 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [readAnnouncementIds, setReadAnnouncementIds] = useState<Set<number>>(new Set());
   const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
-  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  // Holiday Banner State
+  const [holidayBannerEnabled, setHolidayBannerEnabled] = useState(false);
+  const [holidayInfo, setHolidayInfo] = useState<{
+    name: string;
+    date: string;
+    countdown: number;
+    message: string;
+    color: HolidayReminder['color'];
+    coverImage?: string;
+  } | null>(null);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
 
   const formatAnnouncementTime = (createdAt?: string, fallback?: string) => {
     if (!createdAt) return fallback || '-';
@@ -121,20 +137,36 @@ const Dashboard: React.FC<DashboardProps> = ({
     const fetchData = async () => {
       try {
         const [
-          fetchedTools,
-          fetchedNews,
-          fetchedAnnouncements,
-          fetchedCarousel,
-          todoStatsData,
-          readAnnouncementIdsData,
-        ] = await Promise.all([
+          fetchedToolsResult,
+          fetchedNewsResult,
+          fetchedAnnouncementsResult,
+          fetchedCarouselResult,
+          todoStatsResult,
+          readAnnouncementIdsResult,
+          configResult,
+          holidaysResult,
+        ] = await Promise.allSettled([
           ApiClient.getTools(),
           ApiClient.getNews(),
           ApiClient.getAnnouncements(),
           ApiClient.getCarouselItems(),
           TodoService.getMyTaskStats('active'),
           ApiClient.getAnnouncementReadState(),
+          ApiClient.getCustomizationConfig(),
+          ApiClient.getHolidayReminders(),
         ]);
+
+        const fetchedTools = fetchedToolsResult.status === 'fulfilled' ? fetchedToolsResult.value : [];
+        const fetchedNews = fetchedNewsResult.status === 'fulfilled' ? fetchedNewsResult.value : [];
+        const fetchedAnnouncements = fetchedAnnouncementsResult.status === 'fulfilled' ? fetchedAnnouncementsResult.value : [];
+        const fetchedCarousel = fetchedCarouselResult.status === 'fulfilled' ? fetchedCarouselResult.value : [];
+        const todoStatsData = todoStatsResult.status === 'fulfilled'
+          ? todoStatsResult.value
+          : { total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 };
+        const readAnnouncementIdsData = readAnnouncementIdsResult.status === 'fulfilled' ? readAnnouncementIdsResult.value : [];
+        const configData = configResult.status === 'fulfilled' ? configResult.value : {};
+        const holidaysData = holidaysResult.status === 'fulfilled' ? holidaysResult.value : [];
+
         setTools(fetchedTools);
         setNewsList(fetchedNews);
         setAnnouncements(fetchedAnnouncements);
@@ -148,6 +180,30 @@ const Dashboard: React.FC<DashboardProps> = ({
           low: todoStatsData.low,
           unclassified: todoStatsData.unclassified,
         });
+
+        // Parse Holiday Configuration
+        const isBannerEnabled = configData['enable_holiday_banner'] === 'true';
+        setHolidayBannerEnabled(isBannerEnabled);
+
+        if (isBannerEnabled && holidaysData && holidaysData.length > 0) {
+          const now = new Date();
+          const upcoming = holidaysData
+            .filter(h => h.is_active && new Date(h.holiday_date) >= now)
+            .sort((a, b) => new Date(a.holiday_date).getTime() - new Date(b.holiday_date).getTime())[0];
+
+          if (upcoming) {
+            const diff = new Date(upcoming.holiday_date).getTime() - now.getTime();
+            const countdown = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            setHolidayInfo({
+              name: upcoming.title,
+              date: new Date(upcoming.holiday_date).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' }),
+              countdown,
+              message: upcoming.content || t('dashboardHome.sections.upcomingHolidayDefaultDoc'),
+              color: upcoming.color || 'emerald',
+              coverImage: upcoming.cover_image || undefined,
+            });
+          }
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
       }
@@ -174,6 +230,110 @@ const Dashboard: React.FC<DashboardProps> = ({
     const quoteKey = DAILY_QUOTES[day % DAILY_QUOTES.length];
     return t(quoteKey);
   }, [t]);
+
+  const promotedNewsFeedItems = useMemo(() => {
+    const byDateDesc = [...newsList].sort((a, b) => {
+      const bTime = new Date(b.date).getTime();
+      const aTime = new Date(a.date).getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    });
+    return byDateDesc.filter((item) => item.show_in_news_feed);
+  }, [newsList]);
+
+  const featuredNewsFeedItems = useMemo(() => {
+    if (promotedNewsFeedItems.length <= 3) return promotedNewsFeedItems;
+    return Array.from({ length: 3 }, (_, index) => {
+      const itemIndex = (newsFeedWindowStart + index) % promotedNewsFeedItems.length;
+      return promotedNewsFeedItems[itemIndex];
+    });
+  }, [newsFeedWindowStart, promotedNewsFeedItems]);
+
+  const holidayBannerTheme = useMemo(() => {
+    const color = holidayInfo?.color || 'emerald';
+    const map: Record<HolidayReminder['color'], {
+      cardClass: string;
+      orbClass: string;
+      badgeTextClass: string;
+      countdownClass: string;
+      iconClass: string;
+      imageRingClass: string;
+      buttonClass: string;
+    }> = {
+      purple: {
+        cardClass: 'border-purple-500/20 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-slate-900',
+        orbClass: 'bg-purple-500/5',
+        badgeTextClass: 'text-purple-600',
+        countdownClass: 'bg-purple-600 shadow-purple-600/20',
+        iconClass: 'text-purple-600',
+        imageRingClass: 'border-purple-500/15',
+        buttonClass: 'bg-purple-600 shadow-purple-600/20',
+      },
+      blue: {
+        cardClass: 'border-blue-500/20 bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/10 dark:to-slate-900',
+        orbClass: 'bg-blue-500/5',
+        badgeTextClass: 'text-blue-600',
+        countdownClass: 'bg-blue-600 shadow-blue-600/20',
+        iconClass: 'text-blue-600',
+        imageRingClass: 'border-blue-500/15',
+        buttonClass: 'bg-blue-600 shadow-blue-600/20',
+      },
+      emerald: {
+        cardClass: 'border-emerald-500/20 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/10 dark:to-slate-900',
+        orbClass: 'bg-emerald-500/5',
+        badgeTextClass: 'text-emerald-600',
+        countdownClass: 'bg-emerald-600 shadow-emerald-600/20',
+        iconClass: 'text-emerald-600',
+        imageRingClass: 'border-emerald-500/15',
+        buttonClass: 'bg-emerald-600 shadow-emerald-600/20',
+      },
+      green: {
+        cardClass: 'border-green-500/20 bg-gradient-to-br from-green-50 to-white dark:from-green-900/10 dark:to-slate-900',
+        orbClass: 'bg-green-500/5',
+        badgeTextClass: 'text-green-600',
+        countdownClass: 'bg-green-600 shadow-green-600/20',
+        iconClass: 'text-green-600',
+        imageRingClass: 'border-green-500/15',
+        buttonClass: 'bg-green-600 shadow-green-600/20',
+      },
+      yellow: {
+        cardClass: 'border-amber-500/20 bg-gradient-to-br from-amber-50 to-white dark:from-amber-900/10 dark:to-slate-900',
+        orbClass: 'bg-amber-500/5',
+        badgeTextClass: 'text-amber-600',
+        countdownClass: 'bg-amber-500 shadow-amber-500/20',
+        iconClass: 'text-amber-600',
+        imageRingClass: 'border-amber-500/15',
+        buttonClass: 'bg-amber-500 shadow-amber-500/20',
+      },
+      orange: {
+        cardClass: 'border-orange-500/20 bg-gradient-to-br from-orange-50 to-white dark:from-orange-900/10 dark:to-slate-900',
+        orbClass: 'bg-orange-500/5',
+        badgeTextClass: 'text-orange-600',
+        countdownClass: 'bg-orange-500 shadow-orange-500/20',
+        iconClass: 'text-orange-600',
+        imageRingClass: 'border-orange-500/15',
+        buttonClass: 'bg-orange-500 shadow-orange-500/20',
+      },
+      red: {
+        cardClass: 'border-red-500/20 bg-gradient-to-br from-red-50 to-white dark:from-red-900/10 dark:to-slate-900',
+        orbClass: 'bg-red-500/5',
+        badgeTextClass: 'text-red-600',
+        countdownClass: 'bg-red-600 shadow-red-600/20',
+        iconClass: 'text-red-600',
+        imageRingClass: 'border-red-500/15',
+        buttonClass: 'bg-red-600 shadow-red-600/20',
+      },
+      rose: {
+        cardClass: 'border-rose-500/20 bg-gradient-to-br from-rose-50 to-white dark:from-rose-900/10 dark:to-slate-900',
+        orbClass: 'bg-rose-500/5',
+        badgeTextClass: 'text-rose-600',
+        countdownClass: 'bg-rose-600 shadow-rose-600/20',
+        iconClass: 'text-rose-600',
+        imageRingClass: 'border-rose-500/15',
+        buttonClass: 'bg-rose-600 shadow-rose-600/20',
+      },
+    };
+    return map[color] || map.emerald;
+  }, [holidayInfo]);
 
   const formattedDate = useMemo(() => {
     const locale = i18n.resolvedLanguage?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
@@ -207,6 +367,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     }, 5000);
     return () => clearInterval(timer);
   }, [carouselItems]);
+
+  useEffect(() => {
+    setNewsFeedWindowStart(0);
+  }, [promotedNewsFeedItems.length]);
+
+  useEffect(() => {
+    if (promotedNewsFeedItems.length <= 3) return;
+    const timer = window.setInterval(() => {
+      setNewsFeedWindowStart((prev) => (prev + 1) % promotedNewsFeedItems.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [promotedNewsFeedItems.length]);
 
   const getAliasList = (key: string): string[] => {
     const aliases = t(key, { returnObjects: true }) as unknown;
@@ -277,6 +449,43 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const primaryStats = [
+    {
+      icon: <ListTodo size={18} />,
+      label: t('dashboardHome.cards.todo.label'),
+      val: todoStats.total.toString(),
+      color: 'orange',
+      desc: t('dashboardHome.cards.todo.desc', {
+        emergency: todoStats.emergency,
+        high: todoStats.high,
+        medium: todoStats.medium,
+        low: todoStats.low,
+        unclassifiedPart: todoStats.unclassified > 0
+          ? t('dashboardHome.cards.todo.unclassifiedPart', { count: todoStats.unclassified })
+          : ''
+      }),
+      onClick: onNavigateToTodos
+    },
+    {
+      icon: <Calendar size={18} />,
+      label: t('dashboardHome.cards.meeting.label'),
+      val: meetingLicenseBlocked
+        ? t('dashboardHome.cards.meeting.licenseBlockedShort', '--')
+        : t('dashboardHome.cards.meeting.value', { count: todayMeetingSummary.total }),
+      color: 'purple',
+      desc: todayMeetingDesc,
+      onClick: meetingLicenseBlocked ? undefined : onNavigateToMeetings,
+    },
+  ];
+
+  const sideStat = {
+    icon: <Clock size={18} />,
+    label: t('dashboardHome.cards.workHours.label'),
+    val: t('dashboardHome.cards.workHours.value'),
+    color: 'rose',
+    desc: t('dashboardHome.cards.workHours.desc')
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pt-2 relative">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -311,61 +520,111 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          {
-            icon: <ListTodo size={18} />,
-            label: t('dashboardHome.cards.todo.label'),
-            val: todoStats.total.toString(),
-            color: 'orange',
-            desc: t('dashboardHome.cards.todo.desc', {
-              emergency: todoStats.emergency,
-              high: todoStats.high,
-              medium: todoStats.medium,
-              low: todoStats.low,
-              unclassifiedPart: todoStats.unclassified > 0
-                ? t('dashboardHome.cards.todo.unclassifiedPart', { count: todoStats.unclassified })
-                : ''
-            }),
-            onClick: onNavigateToTodos
-          },
-          {
-            icon: <Calendar size={18} />,
-            label: t('dashboardHome.cards.meeting.label'),
-            val: meetingLicenseBlocked
-              ? t('dashboardHome.cards.meeting.licenseBlockedShort', '--')
-              : t('dashboardHome.cards.meeting.value', { count: todayMeetingSummary.total }),
-            color: 'purple',
-            desc: todayMeetingDesc,
-            onClick: meetingLicenseBlocked ? undefined : onNavigateToMeetings,
-          },
-          {
-            icon: <Clock size={18} />,
-            label: t('dashboardHome.cards.workHours.label'),
-            val: t('dashboardHome.cards.workHours.value'),
-            color: 'rose',
-            desc: t('dashboardHome.cards.workHours.desc')
-          },
-        ].map((stat, i: number) => (
+      {isHolidayModalOpen && holidayInfo && typeof document !== 'undefined' && createPortal((
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
           <div
-            key={i}
-            onClick={stat.onClick}
-            className={`mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40 ${stat.onClick ? 'cursor-pointer' : ''}`}
-          >
-            <div className={`w-9 h-9 bg-${stat.color}-500/10 dark:bg-${stat.color}-500/20 text-${stat.color}-600 dark:text-${stat.color}-400 rounded-xl flex items-center justify-center mb-3 rim-glow group-hover:rotate-6 transition-transform`}>
-              {stat.icon}
-            </div>
-            <h3 className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 mb-0.5">{stat.label}</h3>
-            <div className="flex items-baseline space-x-1">
-              <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.val}</span>
-            </div>
-            <p className="text-[8px] font-bold text-slate-400 mt-1">{stat.desc}</p>
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+            onClick={() => setIsHolidayModalOpen(false)}
+          />
+          <div className={`mica w-full max-w-2xl max-h-[85vh] p-8 md:p-12 rounded-[2.5rem] shadow-2xl overflow-y-auto flex flex-col justify-center items-center text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20 ${holidayBannerTheme.cardClass}`}>
+              <button
+                onClick={() => setIsHolidayModalOpen(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-slate-900/10 hover:bg-slate-900/20 dark:bg-white/10 dark:hover:bg-white/20 text-slate-600 dark:text-white backdrop-blur-md transition"
+              >
+                <X size={24} />
+              </button>
+              
+              {holidayInfo.coverImage ? (
+                <div className={`w-full h-48 sm:h-64 rounded-3xl overflow-hidden shadow-lg mb-8 border bg-white/50 ${holidayBannerTheme.imageRingClass}`}>
+                  <img src={holidayInfo.coverImage} alt={holidayInfo.name} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <PartyPopper size={64} className={`mb-6 ${holidayBannerTheme.iconClass}`} />
+              )}
+
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight mb-2 drop-shadow-md">{holidayInfo.name}</h2>
+              <p className={`text-sm font-black uppercase tracking-widest mb-8 ${holidayBannerTheme.badgeTextClass}`}>{holidayInfo.date}</p>
+              
+              <div className={`flex flex-col items-center justify-center text-white shadow-xl mb-8 shrink-0 rounded-[2rem] px-12 py-6 ${holidayBannerTheme.countdownClass}`}>
+                <span className="text-xs font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.countdown', '倒计时')}</span>
+                <span className="text-5xl font-black leading-none my-2">{holidayInfo.countdown}</span>
+                <span className="text-xs font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.day', '天')}</span>
+              </div>
+              
+              <div className="prose prose-slate dark:prose-invert max-w-none w-full border-t border-slate-200/20 dark:border-slate-700/50 pt-8">
+                <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300">
+                  {holidayInfo.message}
+                </p>
+              </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ), document.body)}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-10">
+          
+          {/* Holiday Card Banner */}
+          {holidayBannerEnabled && holidayInfo && (
+            <div className={`mica p-8 rounded-[2.5rem] border shadow-xl relative overflow-hidden group ${holidayBannerTheme.cardClass}`}>
+              <div className={`absolute -top-12 -right-12 w-48 h-48 rounded-full group-hover:scale-150 transition-transform duration-1000 ${holidayBannerTheme.orbClass}`}></div>
+              <div className={`absolute -bottom-12 -left-12 w-32 h-32 rounded-full group-hover:scale-150 transition-transform duration-1000 ${holidayBannerTheme.orbClass}`}></div>
+              
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div className={`w-24 h-24 text-white rounded-[2rem] flex flex-col items-center justify-center shadow-lg shrink-0 ${holidayBannerTheme.countdownClass}`}>
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.countdown', '倒计时')}</span>
+                  <span className="text-4xl font-black leading-none my-1">{holidayInfo.countdown}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.day', '天')}</span>
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
+                    <PartyPopper size={16} className={holidayBannerTheme.iconClass} />
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${holidayBannerTheme.badgeTextClass}`}>{t('dashboardHome.sections.upcomingHoliday', '即将到来的节日')}</h3>
+                  </div>
+                  <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                    {holidayInfo.name} · {holidayInfo.date}
+                  </h2>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
+                    {holidayInfo.message}
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-4 shrink-0">
+                  {holidayInfo.coverImage ? (
+                    <div className={`hidden lg:block w-44 h-32 shrink-0 overflow-hidden rounded-[2rem] border bg-white/70 shadow-lg ${holidayBannerTheme.imageRingClass}`}>
+                      <img src={holidayInfo.coverImage} alt={holidayInfo.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : null}
+                  <button 
+                    onClick={() => setIsHolidayModalOpen(true)}
+                    className={`px-8 py-3 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl ${holidayBannerTheme.buttonClass}`}
+                  >
+                    {t('dashboardHome.sections.viewDetails', '查看详情')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {primaryStats.map((stat, i: number) => (
+              <div
+                key={i}
+                onClick={stat.onClick}
+                className={`mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40 ${stat.onClick ? 'cursor-pointer' : ''}`}
+              >
+                <div className={`w-9 h-9 bg-${stat.color}-500/10 dark:bg-${stat.color}-500/20 text-${stat.color}-600 dark:text-${stat.color}-400 rounded-xl flex items-center justify-center mb-3 rim-glow group-hover:rotate-6 transition-transform`}>
+                  {stat.icon}
+                </div>
+                <h3 className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 mb-0.5">{stat.label}</h3>
+                <div className="flex items-baseline space-x-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.val}</span>
+                </div>
+                <p className="text-[8px] font-bold text-slate-400 mt-1">{stat.desc}</p>
+              </div>
+            ))}
+          </div>
+
           <section>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{t('dashboardHome.sections.commonApps')}</h2>
@@ -396,12 +655,21 @@ const Dashboard: React.FC<DashboardProps> = ({
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-6">{t('dashboardHome.sections.news')}</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{t('dashboardHome.sections.news')}</h2>
+              <button
+                onClick={onNavigateToNews}
+                className="p-2 mica rounded-full text-slate-400 hover:text-blue-600 transition-colors"
+                aria-label={t('dashboardHome.sections.news')}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
             <div className="space-y-4">
-              {newsList.slice(0, 3).map((news) => (
+              {featuredNewsFeedItems.map((news) => (
                 <div
                   key={news.id}
-                  onClick={() => setSelectedNews(news)}
+                  onClick={() => onOpenNews?.(news)}
                   className="mica group p-4 rounded-[1.75rem] hover:bg-white dark:hover:bg-slate-800 flex flex-col sm:flex-row gap-6 transition-all duration-700 cursor-pointer shadow-sm"
                 >
                   <div className="sm:w-40 h-24 rounded-2xl overflow-hidden shrink-0">
@@ -422,10 +690,26 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ))}
             </div>
+            {featuredNewsFeedItems.length === 0 && (
+              <div className="mica rounded-[1.75rem] px-6 py-10 text-center text-sm font-bold text-slate-400">
+                {t('dashboardHome.empty.newsFeed')}
+              </div>
+            )}
           </section>
         </div>
 
         <div className="lg:col-span-4 space-y-8">
+          <div className="mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40">
+            <div className={`w-9 h-9 bg-${sideStat.color}-500/10 dark:bg-${sideStat.color}-500/20 text-${sideStat.color}-600 dark:text-${sideStat.color}-400 rounded-xl flex items-center justify-center mb-3 rim-glow group-hover:rotate-6 transition-transform`}>
+              {sideStat.icon}
+            </div>
+            <h3 className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 mb-0.5">{sideStat.label}</h3>
+            <div className="flex items-baseline space-x-1">
+              <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{sideStat.val}</span>
+            </div>
+            <p className="text-[8px] font-bold text-slate-400 mt-1">{sideStat.desc}</p>
+          </div>
+
           <div className="mica rounded-[2rem] shadow-xl overflow-hidden border border-white/50">
             <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white/30">
               <div className="flex items-center space-x-2">
@@ -586,49 +870,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         ), document.body)
       }
 
-      {
-        selectedNews && typeof document !== 'undefined' && createPortal((
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-            <div
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
-              onClick={() => setSelectedNews(null)}
-            />
-            <div className="mica w-full max-w-2xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20">
-              <div className="relative h-64 shrink-0">
-                <img src={selectedNews.image} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                <button
-                  onClick={() => setSelectedNews(null)}
-                  className="absolute top-6 right-6 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md transition"
-                >
-                  <X size={24} />
-                </button>
-                <div className="absolute bottom-6 left-8 right-8">
-                  <span className="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white px-2.5 py-1 rounded-full mb-3 inline-block shadow-lg shadow-blue-900/50">
-                    {selectedNews.category}
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">{selectedNews.title}</h2>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-8 bg-white dark:bg-slate-900">
-                <div className="flex items-center space-x-4 mb-6 text-xs text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-4">
-                  <div className="flex items-center"><Calendar size={14} className="mr-2" /> {selectedNews.date}</div>
-                  <div className="flex items-center"><UserCheck size={14} className="mr-2" /> {selectedNews.author}</div>
-                </div>
-                <div className="prose prose-slate dark:prose-invert max-w-none">
-                  <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:float-left first-letter:mr-3 first-letter:mt-[-6px]">
-                    {selectedNews.summary}
-                  </p>
-                  <p className="mt-6 text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {t('dashboardHome.newsDetail.summaryHint')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ), document.body)
-      }
     </div >
   );
 };

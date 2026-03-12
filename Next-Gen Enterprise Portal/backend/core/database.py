@@ -29,12 +29,12 @@ NORMALIZED_DATABASE_URL, DATABASE_CONNECT_ARGS = build_asyncpg_url_and_connect_a
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 # Keep conservative defaults to avoid exhausting PostgreSQL max_connections.
-DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
-DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "15"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "15"))
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 WEB_CONCURRENCY = int(os.getenv("WEB_CONCURRENCY", "1"))
-DB_MAX_CONNECTION_BUDGET = int(os.getenv("DB_MAX_CONNECTION_BUDGET", "80"))
+DB_MAX_CONNECTION_BUDGET = int(os.getenv("DB_MAX_CONNECTION_BUDGET", "120"))
 
 _potential_connections = WEB_CONCURRENCY * (DB_POOL_SIZE + DB_MAX_OVERFLOW)
 if _potential_connections > DB_MAX_CONNECTION_BUDGET:

@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Card, Col, Empty, Input, List, Row, Select, Space, Switch, Tag, Typography } from 'antd';
+import Alert from 'antd/es/alert';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Empty from 'antd/es/empty';
+import Input from 'antd/es/input';
+import List from 'antd/es/list';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { LinkOutlined, SyncOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 

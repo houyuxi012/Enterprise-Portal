@@ -3,7 +3,7 @@ import os
 from uuid import uuid4
 
 import anyio
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from core.runtime_secrets import bootstrap_process_secrets, get_required_env

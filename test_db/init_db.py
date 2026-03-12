@@ -1,7 +1,8 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, insert, select, update
 
@@ -18,6 +19,8 @@ for _candidate in (
 
 from core.database import Base, SessionLocal, engine
 from modules.models import (
+    AdminMeeting,
+    AdminMeetingAttendee,
     AIProvider,
     Announcement,
     Department,
@@ -32,7 +35,8 @@ from modules.models import (
     user_roles,
 )
 from infrastructure.crypto_service import CryptoService
-from utils import get_password_hash
+from core.security import get_password_hash
+from modules.iam.services.rbac_bootstrap import ensure_rbac_baseline
 
 # Data
 EMPLOYEES = [
@@ -123,6 +127,22 @@ NOTIFICATIONS = [
     },
 ]
 
+USER_LOCALES = {
+    "admin": "zh-CN",
+    "sarah": "zh-CN",
+    "marcus": "en-US",
+    "aisha": "en-US",
+    "tom": "zh-CN",
+    "xiaoming": "zh-CN",
+    "yuqing": "zh-CN",
+    "dawei": "zh-CN",
+    "xuemei": "zh-CN",
+    "bowen": "en-US",
+    "tingting": "zh-CN",
+    "wujian": "zh-CN",
+    "lili": "zh-CN",
+}
+
 AI_PROVIDER_PRESETS = [
     {
         "name": "Google Gemini 2.0 Flash (Text)",
@@ -148,7 +168,11 @@ SYSTEM_CONFIG_DEFAULTS = [
     {"key": "browser_title", "value": "Next-Gen Enterprise Portal ｜ Dashboard"},
     {"key": "logo_url", "value": ""},
     {"key": "favicon_url", "value": ""},
+    {"key": "platform_public_base_url", "value": "https://localhost"},
+    {"key": "platform_admin_base_url", "value": "https://localhost/admin"},
     {"key": "privacy_policy", "value": "## 隐私权政策\n\n欢迎使用本系统。我们重视您的隐私。\n\n### 1. 信息收集\n我们收集您的基本信息以提供服务...\n\n### 2. 信息使用\n仅用于企业内部管理..."},
+    {"key": "privacy_policy_version", "value": "v1"},
+    {"key": "privacy_policy_required", "value": "true"},
     {"key": "ai_enabled", "value": "true"},
     {"key": "search_ai_enabled", "value": "true"},
     {"key": "kb_enabled", "value": "true"},
@@ -180,6 +204,79 @@ SYSTEM_CONFIG_DEFAULTS = [
     {"key": "log_retention_iam_days", "value": "180"},
 ]
 
+SEED_TIMEZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _meeting_seed_rows() -> list[dict]:
+    local_now = datetime.now(SEED_TIMEZONE)
+    today = local_now.date()
+
+    def _at_local(day_offset: int, hour: int, minute: int = 0) -> datetime:
+        local_dt = datetime(
+            today.year,
+            today.month,
+            today.day,
+            hour,
+            minute,
+            tzinfo=SEED_TIMEZONE,
+        )
+        return local_dt + timedelta(days=day_offset)
+
+    return [
+        {
+            "meeting_id": "SEED-MTG-001",
+            "subject": "产品版本同步会",
+            "start_time": _at_local(0, 10, 0).astimezone(timezone.utc),
+            "duration_minutes": 45,
+            "meeting_type": "online",
+            "meeting_room": None,
+            "meeting_software": "腾讯会议",
+            "organizer_username": "sarah",
+            "attendee_usernames": ["xiaoming", "yuqing", "aisha"],
+        },
+        {
+            "meeting_id": "SEED-MTG-002",
+            "subject": "客户交付评审",
+            "start_time": _at_local(0, 14, 0).astimezone(timezone.utc),
+            "duration_minutes": 60,
+            "meeting_type": "offline",
+            "meeting_room": "总部 5F-B01",
+            "meeting_software": None,
+            "organizer_username": "xiaoming",
+            "attendee_usernames": ["dawei", "bowen", "xuemei"],
+        },
+        {
+            "meeting_id": "SEED-MTG-003",
+            "subject": "AI 助手运营复盘",
+            "start_time": _at_local(0, 19, 30).astimezone(timezone.utc),
+            "duration_minutes": 30,
+            "meeting_type": "online",
+            "meeting_room": None,
+            "meeting_software": "Microsoft Teams",
+            "organizer_username": "aisha",
+            "attendee_usernames": ["sarah", "bowen", "wujian"],
+        },
+        {
+            "meeting_id": "SEED-MTG-004",
+            "subject": "跨部门经营周会",
+            "start_time": _at_local(1, 10, 30).astimezone(timezone.utc),
+            "duration_minutes": 90,
+            "meeting_type": "offline",
+            "meeting_room": "总部 8F-董事会议室",
+            "meeting_software": None,
+            "organizer_username": "xuemei",
+            "attendee_usernames": ["sarah", "xiaoming", "wujian", "tingting"],
+        },
+    ]
+
+
+def _format_user_label(user: User) -> str:
+    display_name = str(user.name or "").strip()
+    username = str(user.username or "").strip()
+    if display_name and username:
+        return f"{display_name} / {username}"
+    return display_name or username
+
 
 def _build_seed_provider_api_key(existing_key: str | None = None) -> str:
     runtime_key = (os.getenv("GEMINI_API_KEY") or "").strip()
@@ -205,6 +302,7 @@ async def init_db():
                 raise e
 
     async with SessionLocal() as db:
+        _, role_map, _ = await ensure_rbac_baseline(db)
 
         # 1. Seed Departments (Hierarchy)
         print("Checking Departments...")
@@ -269,17 +367,22 @@ async def init_db():
         # 4. Upsert Tools
         print("Upserting Tools...")
         for tool_data in TOOLS:
+            tool_payload = {
+                key: value
+                for key, value in tool_data.items()
+                if key in {"name", "url", "category", "description", "image", "sort_order", "visible_to_departments"}
+            }
             stmt = select(QuickTool).where(QuickTool.name == tool_data["name"])
             result = await db.execute(stmt)
             existing = result.scalars().first()
             
             if existing:
                 # Update
-                for k, v in tool_data.items():
+                for k, v in tool_payload.items():
                     setattr(existing, k, v)
             else:
                 # Insert
-                db.add(QuickTool(**tool_data))
+                db.add(QuickTool(**tool_payload))
 
         # 5. Upsert Announcements
         print("Upserting Announcements...")
@@ -326,12 +429,16 @@ async def init_db():
                 admin_user.email = "admin@houyuxi.com"
             if not admin_user.name:
                 admin_user.name = "Administrator"
+        admin_user.locale = USER_LOCALES.get("admin", admin_user.locale)
 
         # 6.5 Create User accounts for each Employee (Default Password: 123456)
         print("Creating User accounts for employees...")
         portal_default_password_hash = await get_password_hash("123456")
-        user_role_res = await db.execute(select(Role).where(Role.code == "user"))
-        user_role = user_role_res.scalars().first()
+        user_role = None
+        user_role_id = role_map.get("user")
+        if user_role_id is not None:
+            user_role_res = await db.execute(select(Role).where(Role.id == user_role_id))
+            user_role = user_role_res.scalars().first()
 
         for emp_data in EMPLOYEES:
             emp_username = emp_data.get("account")
@@ -349,6 +456,7 @@ async def init_db():
                     is_active=(emp_data.get("status", "Active") == "Active"),
                     name=emp_data.get("name", emp_username),
                     avatar=emp_data.get("avatar", ""),
+                    locale=USER_LOCALES.get(emp_username, "zh-CN"),
                 )
                 db.add(emp_user)
                 await db.flush()
@@ -366,8 +474,93 @@ async def init_db():
                     emp_user.name = emp_data.get("name", emp_username)
                 if not emp_user.avatar:
                     emp_user.avatar = emp_data.get("avatar", "")
-                if not emp_user.email:
-                    emp_user.email = emp_data.get("email", f"{emp_username}@shiku.com")
+                seed_email = emp_data.get("email", f"{emp_username}@shiku.com")
+                if emp_user.email != seed_email:
+                    emp_user.email = seed_email
+                emp_user.locale = USER_LOCALES.get(emp_username, emp_user.locale or "zh-CN")
+
+        # 6.6 Seed meetings for the latest meeting management module
+        print("Upserting Meeting demo data...")
+        meeting_seed_rows = _meeting_seed_rows()
+        user_result = await db.execute(
+            select(User).where(
+                User.username.in_(
+                    sorted(
+                        {
+                            row["organizer_username"]
+                            for row in meeting_seed_rows
+                        }
+                        | {
+                            username
+                            for row in meeting_seed_rows
+                            for username in row["attendee_usernames"]
+                        }
+                    )
+                )
+            )
+        )
+        users_by_username = {str(user.username): user for user in user_result.scalars().all()}
+        meeting_created_by = int(admin_user.id) if admin_user and admin_user.id else None
+
+        for meeting_seed in meeting_seed_rows:
+            organizer_user = users_by_username.get(meeting_seed["organizer_username"])
+            attendee_users = [
+                users_by_username[username]
+                for username in meeting_seed["attendee_usernames"]
+                if username in users_by_username
+            ]
+            if organizer_user is None or not attendee_users:
+                print(f" > Skip meeting seed {meeting_seed['meeting_id']} due to missing users")
+                continue
+
+            existing_meeting_result = await db.execute(
+                select(AdminMeeting).where(AdminMeeting.meeting_id == meeting_seed["meeting_id"])
+            )
+            meeting = existing_meeting_result.scalars().first()
+            attendee_labels = [_format_user_label(user) for user in attendee_users]
+            organizer_label = _format_user_label(organizer_user)
+
+            if meeting is None:
+                meeting = AdminMeeting(
+                    subject=meeting_seed["subject"],
+                    start_time=meeting_seed["start_time"],
+                    duration_minutes=meeting_seed["duration_minutes"],
+                    meeting_type=meeting_seed["meeting_type"],
+                    meeting_room=meeting_seed["meeting_room"],
+                    meeting_software=meeting_seed["meeting_software"],
+                    meeting_id=meeting_seed["meeting_id"],
+                    organizer=organizer_label,
+                    organizer_user_id=organizer_user.id,
+                    attendees=attendee_labels,
+                    source="local",
+                    created_by=meeting_created_by,
+                )
+                db.add(meeting)
+                await db.flush()
+            else:
+                meeting.subject = meeting_seed["subject"]
+                meeting.start_time = meeting_seed["start_time"]
+                meeting.duration_minutes = meeting_seed["duration_minutes"]
+                meeting.meeting_type = meeting_seed["meeting_type"]
+                meeting.meeting_room = meeting_seed["meeting_room"]
+                meeting.meeting_software = meeting_seed["meeting_software"]
+                meeting.organizer = organizer_label
+                meeting.organizer_user_id = organizer_user.id
+                meeting.attendees = attendee_labels
+                meeting.source = "local"
+                if meeting.created_by is None:
+                    meeting.created_by = meeting_created_by
+                await db.execute(
+                    delete(AdminMeetingAttendee).where(AdminMeetingAttendee.meeting_id == meeting.id)
+                )
+
+            for attendee_user in attendee_users:
+                db.add(
+                    AdminMeetingAttendee(
+                        meeting_id=meeting.id,
+                        user_id=attendee_user.id,
+                    )
+                )
 
         # 6.8 Upsert Notifications + Receipts (persistent, per-user)
         print("Upserting Notifications...")

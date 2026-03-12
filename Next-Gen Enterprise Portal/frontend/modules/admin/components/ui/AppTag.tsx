@@ -1,6 +1,6 @@
 import React from 'react';
-import { Tag } from 'antd';
-import type { TagProps } from 'antd';
+import Tag from 'antd/es/tag';
+import type { TagProps } from 'antd/es/tag';
 
 export type TagStatus = 'success' | 'warning' | 'error' | 'info' | 'default' | 'processing';
 

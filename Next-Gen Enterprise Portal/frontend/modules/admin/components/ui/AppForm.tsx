@@ -1,6 +1,6 @@
 import React from 'react';
-import { Form } from 'antd';
-import type { FormProps, FormItemProps } from 'antd';
+import Form from 'antd/es/form';
+import type { FormItemProps, FormProps } from 'antd/es/form';
 
 export interface AppFormProps extends Omit<FormProps, 'layout' | 'children'> {
     /** 表单布局，默认 vertical */

@@ -11,12 +11,11 @@ import modules.models as models
 import modules.schemas as schemas
 from core.dependencies import PermissionChecker
 from fastapi import Request
-from application.admin_app import AIEngine, AuditService
-from modules.admin.services.ai_provider_security import (
+from application.admin_app import (
+    AIEngine,
+    AuditService,
     is_ai_provider_api_key_ciphertext,
     resolve_ai_provider_api_key_for_storage,
-)
-from modules.iam.services.system_config_security import (
     SYSTEM_CONFIG_MASKED_PLACEHOLDER,
     is_masked_placeholder,
 )

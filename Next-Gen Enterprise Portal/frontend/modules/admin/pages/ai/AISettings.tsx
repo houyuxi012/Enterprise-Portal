@@ -1,9 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { App, Avatar, Card, Col, Form, Input, List, Row, Select, Space, Switch, Typography, Upload } from 'antd';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import App from 'antd/es/app';
+import Avatar from 'antd/es/avatar';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import List from 'antd/es/list';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Typography from 'antd/es/typography';
 import { SaveOutlined, UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { AppButton, AppPageHeader } from '@/modules/admin/components/ui';
+
+const UploadTriggerButton = lazy(() => import('@/modules/admin/components/upload/UploadTriggerButton'));
 
 const { Text, Title } = Typography;
 
@@ -157,31 +170,26 @@ const AISettings: React.FC = () => {
                                         placeholder={t('aiSettingsPage.form.placeholders.iconUrl')}
                                         prefix={<UploadOutlined />}
                                     />
-                                    <Upload
-                                        accept="image/png"
-                                        showUploadList={false}
-                                        beforeUpload={(file) => {
-                                            if (file.type !== 'image/png') {
-                                                message.error(t('aiSettingsPage.messages.onlyPng'));
-                                                return Upload.LIST_IGNORE;
-                                            }
-                                            return true;
-                                        }}
-                                        customRequest={async ({ file, onSuccess, onError }) => {
-                                            try {
-                                                const url = await ApiClient.uploadImage(file as File);
-                                                setImageUrl(url);
-                                                form.setFieldValue('ai_icon', url);
-                                                message.success(t('aiSettingsPage.messages.uploadSuccess'));
-                                                onSuccess?.(url);
-                                            } catch (err) {
-                                                message.error(t('aiSettingsPage.messages.uploadFailed'));
-                                                onError?.(err as Error);
-                                            }
-                                        }}
-                                    >
-                                        <AppButton intent="secondary" icon={<UploadOutlined />}>{t('aiSettingsPage.form.uploadPng')}</AppButton>
-                                    </Upload>
+                                    <Suspense fallback={null}>
+                                        <UploadTriggerButton
+                                            accept="image/png"
+                                            buttonLabel={t('aiSettingsPage.form.uploadPng')}
+                                            onSelect={async (file) => {
+                                                if (file.type !== 'image/png') {
+                                                    message.error(t('aiSettingsPage.messages.onlyPng'));
+                                                    return;
+                                                }
+                                                try {
+                                                    const url = await ApiClient.uploadImage(file);
+                                                    setImageUrl(url);
+                                                    form.setFieldValue('ai_icon', url);
+                                                    message.success(t('aiSettingsPage.messages.uploadSuccess'));
+                                                } catch {
+                                                    message.error(t('aiSettingsPage.messages.uploadFailed'));
+                                                }
+                                            }}
+                                        />
+                                    </Suspense>
                                 </Space.Compact>
                             </Form.Item>
                         </Form>

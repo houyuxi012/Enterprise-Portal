@@ -1,24 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Empty,
-  Input,
-  InputNumber,
-  Modal,
-  Row,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
+import Alert from 'antd/es/alert';
+import App from 'antd/es/app';
+import Button from 'antd/es/button';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Empty from 'antd/es/empty';
+import Input from 'antd/es/input';
+import InputNumber from 'antd/es/input-number';
+import Modal from 'antd/es/modal';
+import Row from 'antd/es/grid/row';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Table from 'antd/es/table';
+import Tag from 'antd/es/tag';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CheckCircleOutlined,
@@ -55,7 +52,6 @@ import type {
 } from './types';
 
 const { Text } = Typography;
-const { RangePicker } = DatePicker;
 const DEFAULT_PAGE_SIZE = 10;
 
 const normalizePermission = (code: string): string => {
@@ -781,7 +777,7 @@ const DirectoryListPage: React.FC<DirectoryListPageProps> = ({ onLicenseStateCha
                 { value: 'disabled', label: t('directory.status.disabled') },
               ]}
             />
-            <RangePicker
+            <AppFilterBar.DateRange
               value={updatedAtRange}
               onChange={(value) => {
                 setUpdatedAtRange(value ? [value[0], value[1]] : null);

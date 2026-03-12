@@ -6,6 +6,7 @@ const AdminLayout = lazy(() => import('../layouts/AdminLayout'));
 const {
   dashboard: AdminDashboard,
   news: NewsList,
+  holidayReminders: HolidayReminderList,
   users: UserList,
   tools: ToolList,
   appPermissions: AppPermissions,
@@ -102,6 +103,7 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
   >
     {effectiveAdminTab === 'dashboard' && <AdminDashboard employeeCount={employeesCount} newsCount={newsCount} />}
     {effectiveAdminTab === 'news' && <NewsList />}
+    {effectiveAdminTab === 'holiday_reminders' && <HolidayReminderList />}
     {effectiveAdminTab === 'carousel' && <CarouselList />}
     {effectiveAdminTab === 'announcements' && <AnnouncementList />}
     {effectiveAdminTab === 'employees' && <UserList />}

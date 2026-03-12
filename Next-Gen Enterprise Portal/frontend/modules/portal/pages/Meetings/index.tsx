@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, DatePicker, Drawer, Empty, Form, Input, InputNumber, Modal, Select, Skeleton, Tag } from 'antd';
+import Alert from 'antd/es/alert';
+import App from 'antd/es/app';
+import Button from 'antd/es/button';
+import DatePicker from 'antd/es/date-picker';
+import Drawer from 'antd/es/drawer';
+import Empty from 'antd/es/empty';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import InputNumber from 'antd/es/input-number';
+import Modal from 'antd/es/modal';
+import Select from 'antd/es/select';
+import Skeleton from 'antd/es/skeleton';
+import Tag from 'antd/es/tag';
 import { ArrowLeft, CalendarClock, Clock3, MapPin, Monitor, Plus, Search } from 'lucide-react';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';

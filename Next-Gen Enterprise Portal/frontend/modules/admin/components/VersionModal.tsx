@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Tag, Button, message } from 'antd';
+import App from 'antd/es/app';
+import Button from 'antd/es/button';
+import Modal from 'antd/es/modal';
+import Tag from 'antd/es/tag';
 import { Copy, Check, Server, GitBranch, Clock, Package } from 'lucide-react';
 import { SystemVersion } from '@/types';
 import ApiClient from '@/shared/services/api';
@@ -13,6 +16,7 @@ interface VersionModalProps {
 
 const VersionModal: React.FC<VersionModalProps> = ({ open, onClose }) => {
     const { t, i18n } = useTranslation();
+    const { message } = App.useApp();
     const [versionInfo, setVersionInfo] = useState<SystemVersion | null>(null);
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);

@@ -4,7 +4,7 @@
 
 /* Custom Styles Migrated from index.html */
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
     @apply bg-fluent-bg text-slate-900 overflow-x-hidden transition-colors duration-500;
 }
 .dark body {
@@ -56,6 +56,19 @@ body {
     transform-origin: top center;
 }
 
+.portal-news-card {
+    transition:
+        box-shadow 0.35s ease,
+        border-color 0.35s ease,
+        background-color 0.35s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .portal-news-card:hover {
+        animation: portal-news-card-bob 2s ease-in-out infinite;
+    }
+}
+
 @keyframes bell-shake {
     0%, 100% { transform: rotate(0deg); }
     10% { transform: rotate(-16deg); }
@@ -69,6 +82,11 @@ body {
     90% { transform: rotate(-1deg); }
 }
 
+@keyframes portal-news-card-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
 /* Markdown Styles */
 .prose p { margin-bottom: 0.5em; }
 .prose p:last-child { margin-bottom: 0; }
@@ -77,9 +95,7 @@ body {
 .prose strong { font-weight: 700; }
 .prose a { text-decoration: underline; }
 
-/* Overlay text color: force Tooltip / Popover / Popconfirm content to black */
-.ant-tooltip .ant-tooltip-inner,
-.ant-tooltip .ant-tooltip-inner *,
+/* Overlay text color: keep Popover/Popconfirm as white cards */
 .ant-popover .ant-popover-title,
 .ant-popover .ant-popover-title *,
 .ant-popover .ant-popover-inner-content,
@@ -177,6 +193,18 @@ body {
 
 .app-btn-icon-only.ant-btn {
     min-width: 32px;
+}
+
+/* 悬浮操作栏：text 按钮图标与文字统一黑色 */
+.app-btn.ant-btn-text:not(.ant-btn-dangerous) {
+    color: #1f2937;
+}
+.app-btn.ant-btn-text:not(.ant-btn-dangerous):hover {
+    color: #111827;
+    background: rgba(0, 0, 0, 0.04);
+}
+.app-btn-icon-only.ant-btn-text:not(.ant-btn-dangerous) .anticon {
+    color: #1f2937;
 }
 
 .app-table .ant-table {

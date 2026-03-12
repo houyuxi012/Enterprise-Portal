@@ -22,6 +22,8 @@ from application.iam_app import (
     IdentityProviderError,
     IdentityService as IAMIdentityService,
     ProviderIdentityService,
+    SessionStateStoreError,
+    consume_mfa_privacy_claims,
     send_email_otp,
     verify_email_otp,
 )
@@ -29,8 +31,6 @@ import modules.models as models
 import modules.schemas as schemas
 from core import security
 from iam.deps import get_db, get_current_identity, verify_admin_aud
-from iam.identity.service import SessionStateStoreError
-from modules.iam.services.privacy_consent import consume_mfa_privacy_claims
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +362,7 @@ async def verify_mfa_challenge(
     Verify TOTP code during login MFA challenge.
     Accepts mfa_token (from step-1 login) + totp_code, issues real session token.
     """
-    from jose import jwt, JWTError
+    import jwt; from jwt.exceptions import PyJWTError as JWTError
 
     # Decode the mfa_token
     try:
@@ -789,7 +789,7 @@ async def send_email_mfa_code(
     """Send email OTP for MFA challenge during login (or resend)."""
     user: models.User | None = None
     if mfa_token:
-        from jose import JWTError, jwt
+        import jwt; from jwt.exceptions import PyJWTError as JWTError
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
 
@@ -1205,7 +1205,7 @@ async def webauthn_authenticate_options(
     # Determine user
     if mfa_token:
         # During login MFA challenge
-        from jose import jwt, JWTError
+        import jwt; from jwt.exceptions import PyJWTError as JWTError
         try:
             token_data = jwt.decode(
                 mfa_token,

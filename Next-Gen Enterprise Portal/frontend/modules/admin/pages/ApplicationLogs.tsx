@@ -1,6 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { App, Card, Descriptions, Space, Tag, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Descriptions from 'antd/es/descriptions';
+import Space from 'antd/es/space';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { ReloadOutlined, BugOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';

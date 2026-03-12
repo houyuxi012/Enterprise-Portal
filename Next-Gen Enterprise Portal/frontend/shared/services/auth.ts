@@ -1,7 +1,6 @@
 import axios from 'axios';
-
-
-const API_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_BASE_URL as API_URL } from './apiBase';
+import { getPreferredAuthPlane, setPreferredAuthPlane } from '@/shared/utils/authPlane';
 
 export interface User {
     id: number;
@@ -70,11 +69,53 @@ const resolveErrorCode = (error: unknown): string => {
     return '';
 };
 
+const resolveExtraHeaderValue = (
+    extraHeaders: Record<string, string> | undefined,
+    headerName: string,
+): string => {
+    if (!extraHeaders) {
+        return '';
+    }
+
+    const matchedEntry = Object.entries(extraHeaders).find(
+        ([key]) => key.toLowerCase() === headerName.toLowerCase(),
+    );
+    return String(matchedEntry?.[1] ?? '').trim();
+};
+
+const appendPrivacyConsentParams = (
+    params: URLSearchParams,
+    extraHeaders?: Record<string, string>,
+): void => {
+    const consentAccepted = resolveExtraHeaderValue(extraHeaders, 'X-Privacy-Consent-Accepted');
+    if (!consentAccepted) {
+        return;
+    }
+
+    params.set('privacy_consent_accepted', consentAccepted);
+
+    const policyVersion = resolveExtraHeaderValue(extraHeaders, 'X-Privacy-Policy-Version');
+    const policyHash = resolveExtraHeaderValue(extraHeaders, 'X-Privacy-Policy-Hash');
+    const consentLocale = resolveExtraHeaderValue(extraHeaders, 'X-Privacy-Consent-Locale');
+
+    if (policyVersion) {
+        params.set('privacy_policy_version', policyVersion);
+    }
+    if (policyHash) {
+        params.set('privacy_policy_hash', policyHash);
+    }
+    if (consentLocale) {
+        params.set('privacy_consent_locale', consentLocale);
+    }
+};
+
 class AuthService {
     async login(username: string, password: string, type: 'portal' | 'admin' = 'portal', extraHeaders?: Record<string, string>): Promise<User> {
+        setPreferredAuthPlane(type);
         const params = new URLSearchParams();
         params.append('username', username);
         params.append('password', password);
+        appendPrivacyConsentParams(params, extraHeaders);
         const captchaId = extraHeaders?.['X-Captcha-ID'] || extraHeaders?.['x-captcha-id'];
         const captchaCode = extraHeaders?.['X-Captcha-Code'] || extraHeaders?.['x-captcha-code'];
         if (captchaId) {
@@ -173,6 +214,7 @@ class AuthService {
     }
 
     async logout(redirectUrl: string = '/') {
+        setPreferredAuthPlane(redirectUrl.startsWith('/admin') ? 'admin' : 'portal');
         try {
             await axios.post(`${API_URL}/iam/auth/logout`, {}, { withCredentials: true });
         } catch (e) {
@@ -182,11 +224,7 @@ class AuthService {
     }
 
     async getCurrentUser(type?: 'portal' | 'admin'): Promise<User> {
-        const runtimeType =
-            type ||
-            (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
-                ? 'admin'
-                : 'portal');
+        const runtimeType = type || getPreferredAuthPlane();
 
         const response = await axios.get<User>(`${API_URL}/iam/auth/me`, {
             withCredentials: true,

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Drawer } from 'antd';
-import type { DrawerProps } from 'antd';
+import Drawer from 'antd/es/drawer';
+import type { DrawerProps } from 'antd/es/drawer';
 import AppButton from './AppButton';
 import i18n from '@/i18n';
 

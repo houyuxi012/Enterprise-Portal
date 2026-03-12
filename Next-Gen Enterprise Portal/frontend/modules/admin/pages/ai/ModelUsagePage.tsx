@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { App, Card, Form, InputNumber, Progress, Select, Space, Switch, Tag, Typography } from 'antd';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Form from 'antd/es/form';
+import InputNumber from 'antd/es/input-number';
+import Progress from 'antd/es/progress';
+import Select from 'antd/es/select';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tag from 'antd/es/tag';
+import Typography from 'antd/es/typography';
 import { EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';

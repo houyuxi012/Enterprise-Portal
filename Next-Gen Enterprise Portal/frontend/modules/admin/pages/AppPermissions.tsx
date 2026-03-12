@@ -1,26 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { App, Avatar, Card, Col, Empty, Row, Space, Switch, Tooltip, Tree, TreeSelect, Typography } from 'antd';
-import type { DataNode } from 'antd/es/tree';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import App from 'antd/es/app';
+import Avatar from 'antd/es/avatar';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Switch from 'antd/es/switch';
+import Tooltip from 'antd/es/tooltip';
+import Typography from 'antd/es/typography';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, SafetyCertificateOutlined, TeamOutlined, GlobalOutlined, LockOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
+import type { DataNode } from 'antd/es/tree';
+import { EditOutlined, TeamOutlined, InfoCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient, { type QuickToolDTO, type QuickToolUpsertPayload } from '@/services/api';
 import type { Department } from '@/types';
 import {
     AppButton,
-    AppModal,
     AppTable,
     AppPageHeader,
     AppTag,
 } from '@/modules/admin/components/ui';
 
 const { Text } = Typography;
+const AppPermissionsConfigModal = lazy(() => import('@/modules/admin/components/app-permissions/AppPermissionsConfigModal'));
+const DepartmentTreeCard = lazy(() => import('@/modules/admin/components/tree/DepartmentTreeCard'));
 
-type DepartmentSelectNode = {
-    title: string;
+type DepartmentOption = {
+    label: string;
     value: string;
-    key: number;
-    children: DepartmentSelectNode[];
 };
 
 const parseVisibleDepartments = (raw?: string | null): { parsed: boolean; list: string[] } => {
@@ -80,15 +87,18 @@ const AppPermissions: React.FC = () => {
         }));
     };
 
-    // Transform for TreeSelect (Modal)
-    const transformDeptsToSelect = (depts: Department[]): DepartmentSelectNode[] => {
-        return depts.map(dept => ({
-            title: dept.name,
-            value: dept.name, // Use name as value
-            key: dept.id,
-            children: dept.children ? transformDeptsToSelect(dept.children) : [],
-        }));
+    // Flatten departments for modal selection
+    const flattenDeptOptions = (depts: Department[], parentPath = ''): DepartmentOption[] => {
+        return depts.flatMap((dept) => {
+            const label = parentPath ? `${parentPath} / ${dept.name}` : dept.name;
+            return [
+                { label, value: dept.name },
+                ...(dept.children ? flattenDeptOptions(dept.children, label) : []),
+            ];
+        });
     };
+
+    const deptSelectOptions = useMemo(() => flattenDeptOptions(departments), [departments]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -273,36 +283,30 @@ const AppPermissions: React.FC = () => {
             <Row gutter={24}>
                 {/* Left: Dept Tree */}
                 <Col xs={24} lg={6}>
-                    <Card
-                        title={
-                            <Space>
-                                <TeamOutlined />
-                                <span>{t('appPermissions.sidebar.departments')}</span>
-                            </Space>
-                        }
-                        className="admin-card h-full mb-6 lg:mb-0"
-                        styles={{ body: { padding: '12px 0 12px 12px' } }}
-                    >
-                        <div className="max-h-[600px] overflow-y-auto pr-2">
-                            {deptTreeData.length > 0 ? (
-                                <Tree
-                                    treeData={deptTreeData}
-                                    onSelect={(selectedKeys) => {
-                                        if (selectedKeys.length > 0) {
-                                            setSelectedDeptName(selectedKeys[0] as string);
-                                        } else {
-                                            setSelectedDeptName(null);
-                                        }
-                                    }}
-                                    selectedKeys={selectedDeptName ? [selectedDeptName] : []}
-                                    blockNode
-                                    defaultExpandAll
-                                />
-                            ) : (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('appPermissions.sidebar.empty')} />
-                            )}
-                        </div>
-                    </Card>
+                    <Suspense fallback={null}>
+                        <DepartmentTreeCard
+                            title={
+                                <Space>
+                                    <TeamOutlined />
+                                    <span>{t('appPermissions.sidebar.departments')}</span>
+                                </Space>
+                            }
+                            className="admin-card h-full mb-6 lg:mb-0"
+                            bodyStyle={{ padding: '12px 0 12px 12px' }}
+                            treeData={deptTreeData}
+                            selectedKeys={selectedDeptName ? [selectedDeptName] : []}
+                            defaultExpandAll
+                            onSelect={(selectedKeys) => {
+                                if (selectedKeys.length > 0) {
+                                    setSelectedDeptName(selectedKeys[0] as string);
+                                } else {
+                                    setSelectedDeptName(null);
+                                }
+                            }}
+                            emptyDescription={t('appPermissions.sidebar.empty')}
+                            scrollClassName="max-h-[600px] overflow-y-auto pr-2"
+                        />
+                    </Suspense>
                 </Col>
 
                 {/* Right: Table */}
@@ -325,44 +329,20 @@ const AppPermissions: React.FC = () => {
                 </Col>
             </Row>
 
-            <AppModal
-                title={
-                    <Space size="small">
-                        <SafetyCertificateOutlined />
-                        <span>{t('appPermissions.modal.title', { name: currentTool?.name || '-' })}</span>
-                    </Space>
-                }
-                open={isModalOpen}
-                onOk={handleSave}
-                onCancel={() => setIsModalOpen(false)}
-                confirmLoading={saving}
-                width={600}
-            >
-                <div className="py-4">
-                    <Card size="small" className="admin-card-subtle mb-4">
-                        <Space size="small">
-                            <InfoCircleOutlined />
-                            <Text type="secondary">
-                                {t('appPermissions.modal.publicHintPrefix')}<Text strong>{t('appPermissions.modal.publicHintBold')}</Text>{t('appPermissions.modal.publicHintSuffix')}
-                            </Text>
-                        </Space>
-                    </Card>
-                    <Text type="secondary">{t('appPermissions.modal.selectDepartments')}</Text>
-                    <TreeSelect
-                        style={{ width: '100%' }}
-                        value={selectedDepts}
-                        dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
-                        treeData={transformDeptsToSelect(departments)}
-                        placeholder={t('appPermissions.modal.departmentPlaceholder')}
-                        treeDefaultExpandAll
-                        multiple
-                        treeCheckable
-                        showCheckedStrategy={TreeSelect.SHOW_PARENT}
-                        onChange={(newValue) => setSelectedDepts(newValue as string[])}
-                        allowClear
+            <Suspense fallback={null}>
+                {isModalOpen && (
+                    <AppPermissionsConfigModal
+                        open={isModalOpen}
+                        toolName={currentTool?.name || '-'}
+                        saving={saving}
+                        departmentOptions={deptSelectOptions}
+                        selectedDepartments={selectedDepts}
+                        onChange={setSelectedDepts}
+                        onOk={handleSave}
+                        onCancel={() => setIsModalOpen(false)}
                     />
-                </div>
-            </AppModal>
+                )}
+            </Suspense>
         </div>
     );
 };

@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Card, Space, Typography } from 'antd';
+import App from 'antd/es/app';
+import Avatar from 'antd/es/avatar';
+import Card from 'antd/es/card';
+import Space from 'antd/es/space';
+import Typography from 'antd/es/typography';
 import { DisconnectOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';

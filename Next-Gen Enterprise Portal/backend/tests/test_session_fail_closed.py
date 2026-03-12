@@ -157,7 +157,7 @@ class SessionFailClosedTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch("jose.jwt.decode", return_value={"sub": "admin", "uid": 11, "provider": "admin"}),
+            patch("jwt.decode", return_value={"sub": "admin", "uid": 11, "provider": "admin"}),
             patch.object(mfa_router, "_get_enabled_mfa_methods", AsyncMock(return_value=["totp"])),
             patch.object(mfa_router, "consume_mfa_privacy_claims", AsyncMock(return_value=None)),
             patch("pyotp.TOTP.verify", return_value=True),

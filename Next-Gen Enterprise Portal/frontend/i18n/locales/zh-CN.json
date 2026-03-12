@@ -283,7 +283,7 @@
     }
   },
   "portalTodos": {
-    "title": "待办管理",
+    "title": "待办事项",
     "subtitle": "Smart Task Orchestrator",
     "progressLabel": "完成进度",
     "createTask": "新建任务",
@@ -664,7 +664,7 @@
     "hint": "接口预留完成后，可在此处配置平台凭据与同步规则。"
   },
   "adminTodos": {
-    "title": "待办管理",
+    "title": "待办事项",
     "subtitle": "全员待办任务监控与调度",
     "filters": {
       "userPlaceholder": "选择指派用户",
@@ -740,8 +740,9 @@
       "aiSecurity": "安全策略",
       "kbManage": "知识库",
       "content": "内容管理",
-      "todos": "待办管理",
+      "todos": "待办事项",
       "news": "新闻资讯",
+      "holidayReminders": "节日管理",
       "announcements": "实时公告",
       "carousel": "轮播管理",
       "meetingManagement": "会议管理",
@@ -1036,7 +1037,14 @@
       "tabPolicy": "政策",
       "tabCulture": "文化",
       "readMore": "阅读全文",
-      "empty": "暂无此类资讯"
+      "empty": "暂无此类资讯",
+      "backToList": "返回列表",
+      "byline": "企业内部编辑部",
+      "readTime": "阅读时间: 5 min",
+      "like": "点赞",
+      "share": "分享",
+      "bookmark": "收藏文章",
+      "detailHint": "以上为新闻概要。如需了解更多信息，请联系相关部门。"
     },
     "directory": {
       "title": "团队通讯录",
@@ -1550,7 +1558,10 @@
     "page": {
       "title": "资讯内容管理",
       "subtitle": "发布和编辑企业新闻动态",
-      "publishButton": "发布资讯"
+      "publishButton": "发布资讯",
+      "carouselQuota": "资讯中心轮播已占用 {{count}}/{{limit}}",
+      "carouselFull": "轮播位已满",
+      "carouselAvailable": "轮播位可用"
     },
     "filters": {
       "searchPlaceholder": "搜索标题..."
@@ -1571,6 +1582,11 @@
       "coverAlt": "封面图",
       "title": "标题",
       "topBadge": "置顶",
+      "promotionBadges": {
+        "show_in_news_feed": "资讯动态",
+        "show_in_news_center_carousel": "资讯轮播",
+        "show_in_news_center_latest": "最新动态"
+      },
       "category": "分类",
       "publishDate": "发布日期",
       "actions": "操作",
@@ -1598,7 +1614,12 @@
     "form": {
       "uploadCover": "上传封面",
       "topPromotion": "置顶推广",
-      "topPromotionHint": "开启后，该资讯将优先显示在首页轮播或置顶位置。",
+      "topPromotionHint": "勾选后，该资讯将进入对应的资讯曝光位。",
+      "promotionTargets": {
+        "show_in_news_feed": "显示在资讯动态",
+        "show_in_news_center_carousel": "显示在资讯中心轮播",
+        "show_in_news_center_latest": "置顶到资讯中心最新动态前几条"
+      },
       "title": "资讯标题",
       "category": "所属分类",
       "publishDate": "发布日期",
@@ -1617,7 +1638,8 @@
         "titleRequired": "请输入标题",
         "categoryRequired": "请选择分类",
         "dateRequired": "请选择日期",
-        "summaryRequired": "请输入摘要"
+        "summaryRequired": "请输入摘要",
+        "carouselLimitReached": "资讯中心轮播最多只能勾选 4 条新闻。"
       }
     }
   },
@@ -1757,6 +1779,74 @@
       "yellow": "黄色",
       "red": "红色",
       "green": "绿色"
+    }
+  },
+  "holidayReminderList": {
+    "page": {
+      "title": "节日管理",
+      "subtitle": "管理首页节日卡片展示内容，仅展示启用且日期不早于今天的最近一个节日",
+      "addButton": "新增节日"
+    },
+    "messages": {
+      "loadFailed": "加载节日管理数据失败",
+      "deleteSuccess": "节日已删除",
+      "deleteFailed": "删除节日失败",
+      "updateSuccess": "节日已更新",
+      "createSuccess": "节日已创建",
+      "unknownError": "未知错误",
+      "actionFailed": "操作失败: {{reason}}"
+    },
+    "table": {
+      "title": "节日名称",
+      "date": "节日日期",
+      "content": "展示文案",
+      "cover": "节日封面",
+      "color": "主题色",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "actions": "操作",
+      "empty": "暂无节日管理数据"
+    },
+    "status": {
+      "active": "启用",
+      "inactive": "停用"
+    },
+    "confirm": {
+      "deleteTitle": "确定删除该节日?"
+    },
+    "modal": {
+      "createTitle": "新增节日",
+      "editTitle": "编辑节日"
+    },
+    "form": {
+      "title": "节日名称",
+      "content": "展示文案",
+      "date": "节日日期",
+      "cover": "节日封面",
+      "color": "主题色",
+      "active": "启用状态",
+      "validation": {
+        "titleRequired": "请输入节日名称",
+        "contentRequired": "请输入展示文案",
+        "dateRequired": "请选择节日日期",
+        "colorRequired": "请选择主题色"
+      },
+      "placeholders": {
+        "title": "请输入节日名称",
+        "content": "请输入前台节日卡片展示文案",
+        "cover": "请输入节日封面图片 URL（可选，前台卡片使用）",
+        "color": "请选择主题色"
+      }
+    },
+    "colors": {
+      "purple": "紫色",
+      "blue": "蓝色",
+      "emerald": "青绿",
+      "green": "绿色",
+      "yellow": "黄色",
+      "orange": "橙色",
+      "red": "红色",
+      "rose": "玫瑰"
     }
   },
   "modelConfig": {
@@ -2453,6 +2543,9 @@
     "states": {
       "noCarousel": "暂无轮播图"
     },
+    "empty": {
+      "newsFeed": "暂无勾选为“资讯动态”的资讯。"
+    },
     "modal": {
       "announcementTitle": "企业公告"
     },
@@ -2922,7 +3015,9 @@
         "faviconUrl": "https://example.com/favicon.ico",
         "footerText": "© 侯钰熙. All Rights Reserved.",
         "privacyPolicy": "在此输入隐私政策内容..."
-      }
+      },
+      "enableHolidayBanner": "开启首页节日倒计时横幅",
+      "enableHolidayBannerHelp": "开启后，门户首页将自动呈现最近一个未过期的节假日倒计时卡片。"
     }
   },
   "passwordPolicyPage": {

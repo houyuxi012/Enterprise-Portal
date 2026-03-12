@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { AppRouteGuardsProps } from '@/router/AppRouteGuards';
+import type { AuthPlane } from '@/shared/utils/authPlane';
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
@@ -10,16 +11,16 @@ interface UseAppGuardPropsOptions {
   isAuthenticated: boolean;
   isAdminMode: boolean;
   isAdminPath: boolean;
+  preferredAuthPlane: AuthPlane;
   portalLicenseBlocked: boolean;
   portalLicenseBlockedMessage: string;
   t: TranslateFn;
+  handlePortalLoginSuccess: () => void;
   handleAdminLoginSuccess: () => void;
   handleAdminReloginSuccess: () => void;
   renderAdmin: () => ReactNode;
   renderPortal: () => ReactNode;
 }
-
-const NOOP = () => {};
 
 export const useAppGuardProps = ({
   isLoading,
@@ -27,9 +28,11 @@ export const useAppGuardProps = ({
   isAuthenticated,
   isAdminMode,
   isAdminPath,
+  preferredAuthPlane,
   portalLicenseBlocked,
   portalLicenseBlockedMessage,
   t,
+  handlePortalLoginSuccess,
   handleAdminLoginSuccess,
   handleAdminReloginSuccess,
   renderAdmin,
@@ -42,11 +45,12 @@ export const useAppGuardProps = ({
       isAuthenticated,
       isAdminMode,
       isAdminPath,
+      preferredAuthPlane,
       portalLicenseBlocked,
       portalLicenseBlockedMessage,
       t,
       onAdminLoginSuccess: handleAdminLoginSuccess,
-      onPortalLoginSuccess: NOOP,
+      onPortalLoginSuccess: handlePortalLoginSuccess,
       onAdminReloginSuccess: handleAdminReloginSuccess,
       renderAdmin,
       renderPortal,
@@ -57,9 +61,11 @@ export const useAppGuardProps = ({
       isAuthenticated,
       isAdminMode,
       isAdminPath,
+      preferredAuthPlane,
       portalLicenseBlocked,
       portalLicenseBlockedMessage,
       t,
+      handlePortalLoginSuccess,
       handleAdminLoginSuccess,
       handleAdminReloginSuccess,
       renderAdmin,

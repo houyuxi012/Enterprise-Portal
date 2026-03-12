@@ -1,5 +1,8 @@
 import React, { useEffect } from 'react';
-import { Form, Input, Modal, Select } from 'antd';
+import Form from 'antd/es/form';
+import Input from 'antd/es/input';
+import Modal from 'antd/es/modal';
+import Select from 'antd/es/select';
 import { useTranslation } from 'react-i18next';
 import type { DirectoryCreateStarterValues } from './types';
 

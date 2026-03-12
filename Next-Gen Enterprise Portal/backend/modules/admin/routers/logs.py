@@ -20,10 +20,8 @@ from application.admin_app import (
     LicenseService,
     LogQuery,
     get_log_repository,
-    invalidate_forwarding_cache,
-)
-from modules.admin.services.log_forwarding_security import (
     has_log_forwarding_secret,
+    invalidate_forwarding_cache,
     resolve_log_forwarding_secret_for_storage,
 )
 from pydantic import BaseModel, Field

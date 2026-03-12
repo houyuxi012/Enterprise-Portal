@@ -1,17 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, App, Card, Col, Input, Row, Space, Upload } from 'antd';
-import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import Alert from 'antd/es/alert';
+import App from 'antd/es/app';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Input from 'antd/es/input';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ApiClient from '@/services/api';
 import { AppButton, AppForm, AppPageHeader } from '@/modules/admin/components/ui';
+import Switch from 'antd/es/switch';
+
+const UploadTriggerButton = lazy(() => import('@/modules/admin/components/upload/UploadTriggerButton'));
 
 const SYSTEM_BRANDING_KEYS = [
     'app_name',
     'browser_title',
     'logo_url',
     'favicon_url',
+    'favicon_url',
     'footer_text',
     'privacy_policy',
+    'enable_holiday_banner',
 ] as const;
 
 type BrandingKey = typeof SYSTEM_BRANDING_KEYS[number];
@@ -57,7 +68,12 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
         const fetchConfig = async () => {
             try {
                 const config = await ApiClient.getCustomizationConfig();
-                form.setFieldsValue(config);
+                // Convert string 'true' to boolean true for Switch component
+                const formattedConfig = { ...config } as Record<string, any>;
+                if (formattedConfig.enable_holiday_banner !== undefined) {
+                    formattedConfig.enable_holiday_banner = formattedConfig.enable_holiday_banner === 'true';
+                }
+                form.setFieldsValue(formattedConfig as BrandingFormValues);
             } catch (error: unknown) {
                 message.error(resolveApiErrorMessage(error, t('systemSettingsPage.messages.loadFailed')));
             }
@@ -74,7 +90,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
         try {
             const payload = SYSTEM_BRANDING_KEYS.reduce((acc, key) => {
                 const value = values[key];
-                if (typeof value === 'string') {
+                if (typeof value === 'boolean') {
+                    acc[key] = value ? 'true' : 'false';
+                } else if (typeof value === 'string') {
                     acc[key] = value;
                 }
                 return acc;
@@ -159,24 +177,24 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     </AppForm.Item>
                                 </Col>
                                 <Col xs={24} md={6}>
-                                    <Upload
-                                    showUploadList={false}
-                                    beforeUpload={async (file) => {
-                                        try {
-                                            setLoading(true);
-                                            const url = await ApiClient.uploadImage(file);
-                                            form.setFieldValue('logo_url', url);
-                                            message.success(t('systemSettingsPage.messages.uploadSuccess'));
-                                        } catch (error) {
-                                            message.error(t('systemSettingsPage.messages.uploadFailed'));
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                        return false;
-                                    }}
-                                >
-                                    <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
-                                    </Upload>
+                                    <Suspense fallback={null}>
+                                        <UploadTriggerButton
+                                            loading={loading}
+                                            onSelect={async (file) => {
+                                                try {
+                                                    setLoading(true);
+                                                    const url = await ApiClient.uploadImage(file);
+                                                    form.setFieldValue('logo_url', url);
+                                                    message.success(t('systemSettingsPage.messages.uploadSuccess'));
+                                                } catch {
+                                                    message.error(t('systemSettingsPage.messages.uploadFailed'));
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            }}
+                                            buttonLabel={t('systemSettingsPage.actions.localUpload')}
+                                        />
+                                    </Suspense>
                                 </Col>
                             </Row>
 
@@ -191,24 +209,24 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     </AppForm.Item>
                                 </Col>
                                 <Col xs={24} md={6}>
-                                    <Upload
-                                    showUploadList={false}
-                                    beforeUpload={async (file) => {
-                                        try {
-                                            setLoading(true);
-                                            const url = await ApiClient.uploadImage(file);
-                                            form.setFieldValue('favicon_url', url);
-                                            message.success(t('systemSettingsPage.messages.uploadSuccess'));
-                                        } catch (error) {
-                                            message.error(t('systemSettingsPage.messages.uploadFailed'));
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                        return false;
-                                    }}
-                                >
-                                    <AppButton intent="secondary" icon={<UploadOutlined />}>{t('systemSettingsPage.actions.localUpload')}</AppButton>
-                                    </Upload>
+                                    <Suspense fallback={null}>
+                                        <UploadTriggerButton
+                                            loading={loading}
+                                            onSelect={async (file) => {
+                                                try {
+                                                    setLoading(true);
+                                                    const url = await ApiClient.uploadImage(file);
+                                                    form.setFieldValue('favicon_url', url);
+                                                    message.success(t('systemSettingsPage.messages.uploadSuccess'));
+                                                } catch {
+                                                    message.error(t('systemSettingsPage.messages.uploadFailed'));
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            }}
+                                            buttonLabel={t('systemSettingsPage.actions.localUpload')}
+                                        />
+                                    </Suspense>
                                 </Col>
                             </Row>
 
@@ -217,6 +235,17 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             label={t('systemSettingsPage.form.footerText')}
                         >
                             <Input placeholder={t('systemSettingsPage.form.placeholders.footerText')} />
+                            </AppForm.Item>
+                        </Card>
+
+                        <Card className="admin-card" title={t('systemSettingsPage.sections.features', '功能启停')}>
+                            <AppForm.Item
+                                name="enable_holiday_banner"
+                                label={t('systemSettingsPage.form.enableHolidayBanner')}
+                                help={t('systemSettingsPage.form.enableHolidayBannerHelp')}
+                                valuePropName="checked"
+                            >
+                                <Switch />
                             </AppForm.Item>
                         </Card>
 

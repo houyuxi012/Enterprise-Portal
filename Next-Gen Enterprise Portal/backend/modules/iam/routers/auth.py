@@ -7,7 +7,7 @@ from core import security
 import modules.schemas as schemas
 from sqlalchemy import select
 from datetime import timedelta
-from jose import JWTError, jwt
+import jwt
 from application.iam_app import AuditService, IdentityService
 
 router = APIRouter(prefix="/auth", tags=["auth"], deprecated=True)

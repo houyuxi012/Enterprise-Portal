@@ -6,6 +6,8 @@ import base64
 import shutil
 from abc import ABC, abstractmethod
 from typing import Optional, BinaryIO, Dict, Any, Generator
+
+import anyio
 from minio import Minio
 import logging
 from core.runtime_secrets import get_env, get_required_env
@@ -144,7 +146,7 @@ class MinioStorageProvider(StorageProvider):
         self.access_key = get_required_env("MINIO_ACCESS_KEY")
         self.secret_key = get_required_env("MINIO_SECRET_KEY")
         self.bucket = get_required_env("MINIO_BUCKET_NAME")
-        self.secure = os.getenv("MINIO_SECURE", "False").lower() == "true"
+        self.secure = os.getenv("MINIO_SECURE", "True").lower() == "true"
         
         # Initialize MinIO Client
         self.client = Minio(
@@ -154,21 +156,23 @@ class MinioStorageProvider(StorageProvider):
             secure=self.secure
         )
         
-        # Ensure bucket exists
-        if not self.client.bucket_exists(self.bucket):
-            try:
+        # Ensure bucket exists without crashing process startup if MinIO is not ready yet.
+        try:
+            if not self.client.bucket_exists(self.bucket):
                 self.client.make_bucket(self.bucket)
-            except Exception as e:
-                logger.warning(f"Could not check/create bucket: {e}")
+        except Exception as e:
+            logger.warning(f"Could not check/create bucket: {e}")
 
     async def upload(self, file_data: BinaryIO, filename: str, content_type: str, length: int) -> str:
-        # Sync call
-        self.client.put_object(
-            self.bucket,
-            filename,
-            file_data,
-            length=length,
-            content_type=content_type
+        # Sync MinIO SDK call – run in thread to avoid blocking the event loop.
+        await anyio.to_thread.run_sync(
+            lambda: self.client.put_object(
+                self.bucket,
+                filename,
+                file_data,
+                length=length,
+                content_type=content_type,
+            )
         )
         return filename
 
@@ -188,6 +192,11 @@ class MinioStorageProvider(StorageProvider):
         Returns ``(response, content_type, content_length)``.
         The caller MUST call ``response.close()`` / ``response.release_conn()``
         when finished.
+
+        NOTE: This is a synchronous method intentionally – the returned stream
+        is consumed by FastAPI's ``StreamingResponse`` which handles the I/O
+        asynchronously.  Callers that need a fully async path should wrap this
+        call with ``anyio.to_thread.run_sync``.
         """
         try:
             response = self.client.get_object(self.bucket, filename)
@@ -199,7 +208,9 @@ class MinioStorageProvider(StorageProvider):
             return None, None, 0
 
     async def delete(self, filename: str):
-        self.client.remove_object(self.bucket, filename)
+        await anyio.to_thread.run_sync(
+            lambda: self.client.remove_object(self.bucket, filename)
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get MinIO storage stats using Admin API for real disk capacity"""

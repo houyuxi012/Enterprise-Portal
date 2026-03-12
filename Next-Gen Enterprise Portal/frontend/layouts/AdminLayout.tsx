@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Layout, Menu, theme, Avatar, Dropdown, Modal, Tooltip } from 'antd';
+import Alert from 'antd/es/alert';
+import Avatar from 'antd/es/avatar';
+import Dropdown from 'antd/es/dropdown';
+import Layout from 'antd/es/layout';
+import Menu from 'antd/es/menu';
+import Modal from 'antd/es/modal';
+import theme from 'antd/es/theme';
+import Tooltip from 'antd/es/tooltip';
 import {
     DashboardOutlined,
     UserOutlined,
@@ -173,6 +180,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                 {
                     key: 'news',
                     label: t('adminLayout.menu.news'),
+                },
+                {
+                    key: 'holiday_reminders',
+                    label: t('adminLayout.menu.holidayReminders'),
                 },
                 {
                     key: 'announcements',

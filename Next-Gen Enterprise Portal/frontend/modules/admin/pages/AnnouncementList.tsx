@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import {
-    App,
-    Input,
-    Select,
-    Popconfirm,
-    Switch,
-    AutoComplete,
-    Tooltip,
-    Card,
-    Col,
-    Row,
-    Space,
-    Typography,
-} from 'antd';
+import App from 'antd/es/app';
+import Input from 'antd/es/input';
+import Select from 'antd/es/select';
+import Popconfirm from 'antd/es/popconfirm';
+import Switch from 'antd/es/switch';
+import AutoComplete from 'antd/es/auto-complete';
+import Tooltip from 'antd/es/tooltip';
+import Card from 'antd/es/card';
+import Col from 'antd/es/grid/col';
+import Row from 'antd/es/grid/row';
+import Space from 'antd/es/space';
+import Typography from 'antd/es/typography';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Announcement } from '@/types';

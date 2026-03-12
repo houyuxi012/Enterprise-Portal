@@ -1,5 +1,5 @@
 import React from 'react';
-import { Segmented } from 'antd';
+import Segmented from 'antd/es/segmented';
 import { useTranslation } from 'react-i18next';
 import { AppLanguage, LanguagePreferenceScope, normalizeLanguage, setLanguagePreference } from '@/i18n';
 
