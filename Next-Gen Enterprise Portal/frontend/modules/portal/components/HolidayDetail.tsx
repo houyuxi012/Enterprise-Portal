@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, CalendarDays, Target, Sparkles, MessageSquare, Award } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Target, Sparkles, MessageSquare, Award, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
@@ -172,17 +172,30 @@ const HolidayDetail: React.FC<HolidayDetailProps> = ({ holiday, onBack }) => {
     return null;
   })();
   const achievementMarkdown = String(localContent.achievement_card_markdown || '').trim();
-  const achievementIconKey = String(parsedAchievementCard?.icon || 'award').toLowerCase() as keyof typeof ACHIEVEMENT_ICONS;
-  const AchievementIcon = ACHIEVEMENT_ICONS[achievementIconKey] || Award;
-  const achievementEyebrow = String(parsedAchievementCard?.eyebrow || '环保成就').trim();
-  const achievementValue = String(parsedAchievementCard?.stat || localContent.achievement_value || holiday.countdown || '').trim() || '0';
-  const achievementCaption = String(parsedAchievementCard?.stat_caption || localContent.achievement_label || '').trim();
-  const progressLeftLabel = String(parsedAchievementCard?.progress_left_label || localContent.target_label || '').trim();
-  const progressRightLabel = String(parsedAchievementCard?.progress_right_label || localContent.target_value || '').trim();
-  const targetProgress = Math.max(
-    0,
-    Math.min(100, Number((parsedAchievementCard?.progress ?? localContent.target_progress ?? 0)) || 0),
-  );
+  const hasAchievementConfig = Boolean(parsedAchievementCard || achievementMarkdown);
+  const achievementIconKey = hasAchievementConfig
+    ? String(parsedAchievementCard?.icon || 'award').toLowerCase() as keyof typeof ACHIEVEMENT_ICONS
+    : null;
+  const AchievementIcon = achievementIconKey ? (ACHIEVEMENT_ICONS[achievementIconKey] || Award) : null;
+  const achievementEyebrow = hasAchievementConfig
+    ? String(parsedAchievementCard?.eyebrow || '').trim()
+    : '';
+  const achievementValue = hasAchievementConfig
+    ? String(parsedAchievementCard?.stat || '').trim()
+    : '';
+  const achievementCaption = hasAchievementConfig
+    ? String(parsedAchievementCard?.stat_caption || '').trim()
+    : '';
+  const progressLeftLabel = hasAchievementConfig
+    ? String(parsedAchievementCard?.progress_left_label || '').trim()
+    : '';
+  const progressRightLabel = hasAchievementConfig
+    ? String(parsedAchievementCard?.progress_right_label || '').trim()
+    : '';
+  const targetProgress = hasAchievementConfig
+    ? Math.max(0, Math.min(100, Number(parsedAchievementCard?.progress ?? 0) || 0))
+    : 0;
+  const showProgress = hasAchievementConfig && (progressLeftLabel || progressRightLabel || targetProgress > 0);
   const theme = HOLIDAY_THEME_MAP[holiday.color] || HOLIDAY_THEME_MAP.emerald;
 
   return (
@@ -281,11 +294,17 @@ const HolidayDetail: React.FC<HolidayDetailProps> = ({ holiday, onBack }) => {
           <div className="mica p-8 rounded-[2.5rem] border border-white/50 shadow-xl">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6">活动负责人</h3>
             <div className="flex items-center space-x-4 mb-8">
-              <img
-                src={ownerAvatar || 'https://i.pravatar.cc/150?u=admin'}
-                className="w-14 h-14 rounded-2xl object-cover shadow-lg"
-                referrerPolicy="no-referrer"
-              />
+              {ownerAvatar ? (
+                <img
+                  src={ownerAvatar}
+                  className="w-14 h-14 rounded-2xl object-cover shadow-lg"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-slate-200/70 dark:bg-slate-700/60 shadow-lg flex items-center justify-center text-slate-400">
+                  <User size={18} />
+                </div>
+              )}
               <div>
                 <p className="text-base font-black text-slate-900 dark:text-white leading-none">{ownerName}</p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{ownerRole}</p>
@@ -297,34 +316,46 @@ const HolidayDetail: React.FC<HolidayDetailProps> = ({ holiday, onBack }) => {
             </button>
           </div>
 
-          <div className="mica p-8 rounded-[2.5rem] border border-white/50 shadow-xl text-white" style={{ backgroundColor: theme.achievementBg }}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[10px] font-black uppercase tracking-widest opacity-80">{achievementEyebrow}</h3>
-              <AchievementIcon size={20} style={{ color: theme.achievementIcon }} />
-            </div>
-            <p className="text-3xl font-black tracking-tighter mb-2">{achievementValue}</p>
-            {achievementCaption ? (
-              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{achievementCaption}</p>
-            ) : null}
-            <div className="mt-8 pt-8 border-t border-white/10">
-              {(progressLeftLabel || progressRightLabel) ? (
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
-                  <span>{progressLeftLabel}</span>
-                  <span>{progressRightLabel}</span>
-                </div>
-              ) : null}
-              <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-white" style={{ width: `${targetProgress}%` }}></div>
+          {hasAchievementConfig ? (
+            <div className="mica p-8 rounded-[2.5rem] border border-white/50 shadow-xl text-white" style={{ backgroundColor: theme.achievementBg }}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-80">{achievementEyebrow}</h3>
+                {AchievementIcon ? (
+                  <AchievementIcon size={20} style={{ color: theme.achievementIcon }} />
+                ) : null}
               </div>
-              {achievementMarkdown ? (
-                <div className="prose prose-invert prose-p:my-2 prose-strong:text-white prose-headings:text-white prose-li:text-white/90 max-w-none mt-6 text-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {achievementMarkdown}
-                  </ReactMarkdown>
+              {achievementValue ? (
+                <p className="text-3xl font-black tracking-tighter mb-2">{achievementValue}</p>
+              ) : null}
+              {achievementCaption ? (
+                <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{achievementCaption}</p>
+              ) : null}
+              {(showProgress || achievementMarkdown) ? (
+                <div className="mt-8 pt-8 border-t border-white/10">
+                  {showProgress ? (
+                    <>
+                      {(progressLeftLabel || progressRightLabel) ? (
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                          <span>{progressLeftLabel}</span>
+                          <span>{progressRightLabel}</span>
+                        </div>
+                      ) : null}
+                      <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-white" style={{ width: `${targetProgress}%` }}></div>
+                      </div>
+                    </>
+                  ) : null}
+                  {achievementMarkdown ? (
+                    <div className="prose prose-invert prose-p:my-2 prose-strong:text-white prose-headings:text-white prose-li:text-white/90 max-w-none mt-6 text-sm">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {achievementMarkdown}
+                      </ReactMarkdown>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>

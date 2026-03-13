@@ -1,16 +1,16 @@
 {
   "product": "Next-Gen Enterprise Portal",
   "product_id": "HYX-NGEP",
-  "version": "1.1.0-beta.20260313132206",
+  "version": "1.1.0-beta.20260313152147",
   "semver": "1.1.0",
   "channel": "beta",
-  "git_sha": "6b0647b-dirty",
+  "git_sha": "8c22516-dirty",
   "git_ref": "main",
   "dirty": true,
-  "build_time": "2026-03-13T13:22:06Z",
+  "build_time": "2026-03-13T15:21:47Z",
   "build_number": "0",
-  "build_id": "20260313132206",
-  "release_id": "R20260313-20260313132206",
+  "build_id": "20260313152147",
+  "release_id": "R20260313-20260313152147",
   "api_version": "v1",
   "db_schema_version": "20260312_0026"
 }

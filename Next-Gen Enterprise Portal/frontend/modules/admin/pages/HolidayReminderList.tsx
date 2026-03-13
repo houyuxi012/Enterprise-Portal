@@ -134,6 +134,15 @@ const HolidayReminderList: React.FC = () => {
     void fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const ownerId = form.getFieldValue(['local_content_config', 'owner_employee_id']);
+    const ownerAvatar = String(form.getFieldValue(['local_content_config', 'owner_avatar']) || '').trim();
+    if (ownerId && !ownerAvatar) {
+      syncOwnerFromEmployee(ownerId);
+    }
+  }, [employees, isModalOpen]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -228,6 +237,7 @@ const HolidayReminderList: React.FC = () => {
     setLocalCoverImage(String(defaultLocalContent.cover_image || '').trim());
     setSelectedActivityMode((item.activity_mode as HolidayActivityMode) || 'off');
     setAchievementEditorMode('json');
+    syncOwnerFromEmployee(defaultLocalContent.owner_employee_id);
     setIsModalOpen(true);
   };
 
@@ -506,6 +516,12 @@ const HolidayReminderList: React.FC = () => {
     const account = String(employee.account || '').trim();
     const department = String(employee.department || '').trim();
     const role = String(employee.role || department || '').trim();
+    const avatar = String(
+      employee.avatar
+      || (employee as { avatar_url?: string }).avatar_url
+      || (employee as { avatarUrl?: string }).avatarUrl
+      || '',
+    ).trim();
     const label = [name, account ? `(${account})` : '', department ? `· ${department}` : '']
       .filter(Boolean)
       .join(' ');
@@ -515,9 +531,28 @@ const HolidayReminderList: React.FC = () => {
       employee,
       role,
       name,
-      avatar: String(employee.avatar || '').trim(),
+      avatar,
     };
   });
+
+  const syncOwnerFromEmployee = (ownerId?: string | null) => {
+    const normalized = String(ownerId || '').trim();
+    if (!normalized) return;
+    const selected = employeeOptions.find((option) => option.value === normalized);
+    if (!selected) return;
+    form.setFieldValue(
+      ['local_content_config', 'owner_name'],
+      selected.name || '',
+    );
+    form.setFieldValue(
+      ['local_content_config', 'owner_role'],
+      selected.role || '',
+    );
+    form.setFieldValue(
+      ['local_content_config', 'owner_avatar'],
+      selected.avatar || '',
+    );
+  };
 
   const isLocalMode = selectedActivityMode === 'local';
   const stepItems = [
