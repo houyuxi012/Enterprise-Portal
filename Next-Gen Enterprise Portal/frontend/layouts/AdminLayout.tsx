@@ -27,6 +27,7 @@ import {
     BookOutlined,
     CheckSquareOutlined,
     CalendarOutlined,
+    DeploymentUnitOutlined,
 } from '@ant-design/icons';
 import AuthService from '../services/auth';
 import { useAuth } from '../contexts/AuthContext';
@@ -218,6 +219,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
                         </Tooltip>
                     ) : t('adminLayout.menu.meetingSync', '三方同步'),
                     disabled: meetingManagementLicenseBlocked,
+                },
+            ],
+        },
+        {
+            key: 'sub_process',
+            label: t('adminLayout.menu.processCenter'),
+            icon: <DeploymentUnitOutlined />,
+            children: [
+                {
+                    key: 'process_monitoring',
+                    label: t('adminLayout.menu.processMonitoring'),
+                },
+                {
+                    key: 'process_integration',
+                    label: t('adminLayout.menu.processIntegration'),
                 },
             ],
         },

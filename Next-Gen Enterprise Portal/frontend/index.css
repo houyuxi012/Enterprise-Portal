@@ -12,14 +12,16 @@ body {
 }
 
 /* Mica Effect */
-.mica {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(40px) saturate(150%);
-    @apply border border-white/40;
-}
-.dark .mica {
-    background: rgba(20, 20, 20, 0.6);
-    @apply border border-white/5;
+@layer components {
+    .mica {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(40px) saturate(150%);
+        @apply border border-white/40;
+    }
+    .dark .mica {
+        background: rgba(20, 20, 20, 0.6);
+        @apply border border-white/5;
+    }
 }
 
 /* Rim Lighting / Inner Glow */

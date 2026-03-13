@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Newspaper, Users, FolderOpen, Settings, LogOut, 
   Search, Bell, Grid, X, ArrowRight, Globe, Sparkles, Loader2,
   CheckCircle2, Info, AlertCircle, Clock, ChevronRight, ShieldCheck,
-  FolderClosed, HelpCircle, User, Calendar
+  FolderClosed, HelpCircle, User
 } from 'lucide-react';
 import { AppView, Notification } from '../types';
 import { QUICK_TOOLS, MOCK_NEWS, MOCK_EMPLOYEES, MOCK_NOTIFICATIONS } from '../constants';
@@ -35,7 +35,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, globalSearch, set
     { id: AppView.DASHBOARD, label: '概览', icon: <LayoutDashboard size={18} /> },
     { id: AppView.NEWS, label: '资讯', icon: <Newspaper size={18} /> },
     { id: AppView.DIRECTORY, label: '团队', icon: <Users size={18} /> },
-    { id: AppView.HOLIDAYS, label: '节日', icon: <Calendar size={18} /> },
     { id: AppView.RESOURCES, label: '资源', icon: <FolderClosed size={18} /> },
     { id: AppView.TOOLS, label: '工具', icon: <Grid size={18} /> },
   ], []);

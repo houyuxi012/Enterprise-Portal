@@ -3,7 +3,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
-import HolidayManagement from './src/components/HolidayManagement';
 import AIAssistant from './components/AIAssistant';
 import Login from './components/Login';
 import { AppView, Employee, NewsItem, TodoTask } from './types';
@@ -16,7 +15,7 @@ import {
   Mail, Filter, Search, User, Monitor, Moon, Sun, Laptop, ArrowLeft,
   ChevronRight, ChevronLeft, Share2, Edit3, Camera, Briefcase, Clock, Award, Phone, 
   MapPin, MessageSquare, CalendarDays, Sparkles, Globe, SearchCode, 
-  Loader2, ExternalLink, Zap, X, CheckCircle2, CircleDashed, RotateCcw, Activity,
+  Loader2, ExternalLink, Zap, X, CheckCircle2, CircleDashed, RotateCcw, 
   LayoutGrid, FileText, Folder, Download, Star, ShieldCheck, MoreVertical, 
   Lock, Grid, List, Hash, Heart, Bookmark, Command, Info, UserPlus,
   Target, Rocket, HeartHandshake, History, Flag, Users2, Building2,
@@ -43,9 +42,7 @@ const App: React.FC = () => {
   const [newTask, setNewTask] = useState({
     title: '',
     priority: 'medium' as TodoTask['priority'],
-    source: 'OA系统',
-    type: '审批流',
-    requester: 'Alex',
+    category: '工作',
     dueDate: new Date().toISOString().split('T')[0]
   });
   const [isAiPolishing, setIsAiPolishing] = useState(false);
@@ -53,10 +50,10 @@ const App: React.FC = () => {
   // Filtered Tasks
   const filteredTasks = useMemo(() => {
     if (activeCategory === '全部') return tasks;
-    return tasks.filter(t => t.source === activeCategory);
+    return tasks.filter(t => t.category === activeCategory);
   }, [tasks, activeCategory]);
 
-  const categories = ['全部', 'OA系统', 'HRM系统', 'CRM系统', 'Jira项目管理', '法务系统'];
+  const categories = ['全部', '工作', '个人', '会议', '财务', '学习'];
 
   // States for Detail Views
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -73,6 +70,7 @@ const App: React.FC = () => {
   const [leaveAiCheck, setLeaveAiCheck] = useState<string | null>(null);
   const [newsCarouselIndex, setNewsCarouselIndex] = useState(0);
   const [newsViewMode, setNewsViewMode] = useState<'grid' | 'list'>('grid');
+  const [showHolidayDetail, setShowHolidayDetail] = useState(false);
 
   useEffect(() => {
     if (currentView === AppView.NEWS) {
@@ -133,7 +131,7 @@ const App: React.FC = () => {
   };
 
   const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: t.status === '已完成' ? '待审批' : '已完成' } : t));
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -143,7 +141,7 @@ const App: React.FC = () => {
     const task: TodoTask = {
       id: Math.random().toString(36).substr(2, 9),
       ...newTask,
-      status: '待审批'
+      completed: false
     };
     
     setTasks([task, ...tasks]);
@@ -151,9 +149,7 @@ const App: React.FC = () => {
     setNewTask({
       title: '',
       priority: 'medium',
-      source: activeCategory !== '全部' ? activeCategory : 'OA系统',
-      type: '审批流',
-      requester: 'Alex',
+      category: activeCategory !== '全部' ? activeCategory : '工作',
       dueDate: new Date().toISOString().split('T')[0]
     });
   };
@@ -171,22 +167,22 @@ const App: React.FC = () => {
   };
 
   const renderTodoView = () => {
-    const pendingCount = tasks.filter(t => t.status === '待审批').length;
+    const completedCount = tasks.filter(t => t.completed).length;
     const totalCount = tasks.length;
-    const progress = Math.round(((totalCount - pendingCount) / totalCount) * 100) || 0;
+    const progress = Math.round((completedCount / totalCount) * 100) || 0;
 
     return (
-      <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative pb-32">
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative pb-32">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
            <div>
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">流程中心</h1>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Enterprise Workflow Hub</p>
+              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">待办管理</h1>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Smart Task Orchestrator</p>
            </div>
            
            <div className="mica p-4 lg:px-6 lg:py-3 rounded-3xl border border-white/50 flex items-center space-x-4 shadow-xl self-start md:self-center">
               <div className="text-right">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">处理进度</p>
+                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">完成进度</p>
                  <p className="text-2xl font-black text-indigo-600 leading-none">{progress}%</p>
               </div>
               <div className="relative w-12 h-12 flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
@@ -208,7 +204,7 @@ const App: React.FC = () => {
                        strokeDashoffset={113 - (113 * progress) / 100}
                     />
                  </svg>
-                 <Activity size={14} className="absolute text-indigo-600" />
+                 <CheckCircle size={14} className="absolute text-indigo-600" />
               </div>
            </div>
         </div>
@@ -217,7 +213,7 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between gap-4 px-2">
           <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 flex-1">
              {categories.map(cat => {
-               const count = cat === '全部' ? tasks.length : tasks.filter(t => t.source === cat).length;
+               const count = cat === '全部' ? tasks.length : tasks.filter(t => t.category === cat).length;
                const isActive = activeCategory === cat;
                return (
                  <button 
@@ -239,10 +235,11 @@ const App: React.FC = () => {
           </div>
           
           <button 
+            onClick={() => setIsAddTaskModalOpen(true)}
             className="hidden md:flex items-center space-x-2 px-6 py-2.5 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"
           >
-            <ExternalLink size={14} />
-            <span>进入 OA 系统</span>
+            <Plus size={14} />
+            <span>新建任务</span>
           </button>
         </div>
 
@@ -252,86 +249,67 @@ const App: React.FC = () => {
              filteredTasks.map((task) => (
                 <div 
                   key={task.id} 
-                  className={`mica p-6 rounded-[2.5rem] border border-white/50 flex flex-col md:flex-row md:items-center gap-6 transition-all group animate-in fade-in slide-in-from-left-4 duration-500 hover:scale-[1.01] hover:shadow-2xl ${task.status === '已完成' ? 'opacity-60' : ''}`}
+                  className={`mica p-5 rounded-[2rem] border border-white/50 flex items-center space-x-6 transition-all group animate-in fade-in slide-in-from-left-4 duration-500 ${task.completed ? 'opacity-60 grayscale' : 'hover:scale-[1.01] hover:shadow-2xl'}`}
                 >
-                   <div className="flex-1 space-y-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-[9px] font-black uppercase tracking-widest rounded-lg border border-indigo-100 dark:border-indigo-800/20">
-                          {task.source}
-                        </span>
-                        <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 text-slate-500 text-[9px] font-black uppercase tracking-widest rounded-lg border border-white/50">
-                          {task.type}
-                        </span>
-                        <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${
-                          task.status === '待审批' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                          task.status === '处理中' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                          task.status === '已完成' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          'bg-rose-50 text-rose-600 border-rose-100'
+                   <button 
+                      onClick={() => toggleTask(task.id)}
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-500'}`}
+                   >
+                      {task.completed && <CheckCircle size={18} />}
+                   </button>
+                   <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest ${
+                          task.category === '工作' ? 'bg-blue-100 text-blue-600' :
+                          task.category === '会议' ? 'bg-purple-100 text-purple-600' :
+                          task.category === '财务' ? 'bg-emerald-100 text-emerald-600' :
+                          'bg-slate-100 text-slate-400'
                         }`}>
-                          {task.status}
+                          {task.category}
                         </span>
+                        <p className={`text-sm font-black text-slate-900 dark:text-white leading-tight ${task.completed ? 'line-through text-slate-400' : ''}`}>{task.title}</p>
                       </div>
-                      
-                      <h3 className={`text-lg font-black text-slate-900 dark:text-white leading-tight ${task.status === '已完成' ? 'line-through text-slate-400' : ''}`}>
-                        {task.title}
-                      </h3>
-
-                      <div className="flex flex-wrap items-center gap-6">
-                         <div className="flex items-center space-x-2">
-                            <img src={`https://i.pravatar.cc/100?u=${task.requester}`} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
-                            <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">申请人</p>
-                               <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{task.requester}</p>
-                            </div>
-                         </div>
-                         <div className="flex items-center space-x-3">
-                            <div className="w-px h-6 bg-slate-100 dark:bg-white/5"></div>
-                            <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">截止日期</p>
-                               <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{task.dueDate}</p>
-                            </div>
-                         </div>
-                         <div className="flex items-center space-x-3">
-                            <div className="w-px h-6 bg-slate-100 dark:bg-white/5"></div>
-                            <div>
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">优先级</p>
-                               <p className={`text-[11px] font-black uppercase ${
-                                  task.priority === 'high' ? 'text-rose-600' : 
-                                  task.priority === 'medium' ? 'text-amber-600' : 'text-blue-600'
-                               }`}>{task.priority}</p>
-                            </div>
-                         </div>
+                      <div className="flex items-center space-x-3">
+                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center">
+                            <Clock size={10} className="mr-1" /> {task.dueDate}
+                         </span>
+                         <span className="text-slate-200">|</span>
+                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            task.priority === 'high' ? 'bg-rose-50 text-rose-600' : 
+                            task.priority === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                         }`}>
+                            {task.priority} Priority
+                         </span>
                       </div>
                    </div>
-
-                   <div className="flex items-center space-x-3 md:flex-col md:space-x-0 md:space-y-3">
-                      <button className="flex-1 md:w-32 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all">
-                        立即处理
-                      </button>
-                      <button className="flex-1 md:w-32 py-3 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-white/50 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
-                        查看详情
-                      </button>
-                   </div>
+                   <button 
+                      onClick={() => deleteTask(task.id)}
+                      className="p-3 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                   >
+                      <Trash2 size={18} />
+                   </button>
                 </div>
              ))
            ) : (
-             <div className="flex flex-col items-center justify-center py-20 mica rounded-[3rem] border border-white/50">
-                <div className="w-20 h-20 bg-slate-50 dark:bg-white/5 rounded-[2rem] flex items-center justify-center mb-6">
-                   <Activity size={40} className="text-slate-200" />
-                </div>
-                <p className="text-lg font-black text-slate-900 dark:text-white">暂无待处理流程</p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">您的工作流已全部处理完毕</p>
-             </div>
+              <div className="text-center py-20 mica rounded-organic border border-dashed border-slate-200">
+                 <ListTodo size={48} className="mx-auto text-slate-200 mb-4" />
+                 <p className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                   {activeCategory === '全部' ? '目前没有待办任务' : `${activeCategory} 分类下暂无任务`}
+                 </p>
+              </div>
            )}
         </div>
 
         {/* Floating Action Button - Positioned fixed with high Z-index */}
         <button 
-          onClick={() => window.open('https://oa.shiku.com', '_blank')}
+          onClick={() => {
+            setNewTask({ ...newTask, category: activeCategory !== '全部' ? activeCategory : '工作' });
+            setIsAddTaskModalOpen(true);
+          }}
           className="fixed bottom-10 right-8 w-16 h-16 bg-indigo-600 text-white rounded-[2rem] shadow-2xl shadow-indigo-500/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-[60] group border border-white/20"
         >
            <div className="absolute inset-0 bg-indigo-400 rounded-[2rem] animate-ping opacity-20"></div>
-           <ExternalLink size={32} className="relative group-hover:rotate-12 transition-transform duration-500" />
+           <Plus size={32} className="relative group-hover:rotate-90 transition-transform duration-500" />
         </button>
 
         {/* New Task Modal */}
@@ -418,15 +396,15 @@ const App: React.FC = () => {
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">所属系统</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">任务分类</label>
                       <div className="flex flex-wrap gap-2">
                          {categories.filter(c => c !== '全部').map(cat => (
                            <button
                              key={cat}
                              type="button"
-                             onClick={() => setNewTask({...newTask, source: cat})}
+                             onClick={() => setNewTask({...newTask, category: cat})}
                              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
-                               newTask.source === cat 
+                               newTask.category === cat 
                                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-200 shadow-sm' 
                                  : 'bg-white dark:bg-white/5 text-slate-400 border-white/50 dark:border-white/5 hover:border-slate-200'
                              }`}
@@ -437,34 +415,14 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">流程类型</label>
-                       <div className="flex flex-wrap gap-2">
-                          {['审批流', '任务流', '工单', '通知'].map(type => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => setNewTask({...newTask, type})}
-                              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
-                                newTask.type === type 
-                                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-200 shadow-sm' 
-                                  : 'bg-white dark:bg-white/5 text-slate-400 border-white/50 dark:border-white/5 hover:border-slate-200'
-                              }`}
-                            >
-                               {type}
-                            </button>
-                          ))}
-                       </div>
-                    </div>
-
                    <div className="pt-6">
                       <button 
                         type="submit"
                         disabled={!newTask.title.trim()}
                         className="w-full bg-indigo-600 text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3 disabled:opacity-50"
                       >
-                         <Activity size={18} />
-                         <span>创建流程任务</span>
+                         <CheckCircle2 size={18} />
+                         <span>创建待办任务</span>
                       </button>
                    </div>
                 </form>
@@ -1264,20 +1222,136 @@ ${item.summary}
     );
   };
 
+  const renderHolidayDetail = () => {
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
+        <button 
+          onClick={() => setShowHolidayDetail(false)}
+          className="flex items-center space-x-2 text-slate-400 hover:text-indigo-600 transition-colors mb-8 group"
+        >
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="text-[10px] font-black uppercase tracking-widest">返回概览</span>
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-8 space-y-12">
+            <div className="relative h-[400px] rounded-[3rem] overflow-hidden shadow-2xl">
+              <img 
+                src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=2000" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900 via-transparent to-transparent"></div>
+              <div className="absolute bottom-10 left-10">
+                <div className="flex items-center space-x-3 mb-4">
+                  <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md text-white text-[10px] font-black rounded-full uppercase tracking-widest border border-white/20">节日专题</span>
+                  <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">3月12日 · 植树节</span>
+                </div>
+                <h1 className="text-5xl font-black text-white tracking-tighter leading-none">种下一棵树，<br />收获一片绿</h1>
+              </div>
+            </div>
+
+            <div className="mica p-10 rounded-[3rem] border border-white/50 space-y-8">
+              <div className="prose prose-slate dark:prose-invert max-w-none">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-6">关于植树节 (Arbor Day)</h2>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                  植树节是按照法律规定宣传保护树木，并动员群众参加造林为活动内容的节日。按时间长短可分为植树日、植树周和植树月，共称为植树节。通过这种活动，激发人们爱林造林的热情，意识到环保的重要性。
+                </p>
+                
+                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-4">公司活动安排</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-3xl border border-emerald-100 dark:border-emerald-800/20">
+                    <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/20">
+                      <CalendarDays size={20} />
+                    </div>
+                    <h4 className="font-black text-slate-900 dark:text-white mb-2">线上环保知识竞赛</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">参与答题赢取环保积分，兑换精美周边。</p>
+                  </div>
+                  <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-3xl border border-emerald-100 dark:border-emerald-800/20">
+                    <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/20">
+                      <Target size={20} />
+                    </div>
+                    <h4 className="font-black text-slate-900 dark:text-white mb-2">“云植树”认领计划</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">在公司内网认领属于你的虚拟树苗，我们将以你的名义在沙漠地区种下真树。</p>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-slate-900 rounded-[2rem] text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <Sparkles size={120} />
+                  </div>
+                  <h3 className="text-xl font-black mb-4 relative z-10">环保小贴士</h3>
+                  <ul className="space-y-3 text-slate-300 text-sm relative z-10">
+                    <li className="flex items-start space-x-3">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-1.5 shrink-0"></div>
+                      <span>减少一次性纸杯的使用，自带水杯。</span>
+                    </li>
+                    <li className="flex items-start space-x-3">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-1.5 shrink-0"></div>
+                      <span>双面打印文档，节约纸张。</span>
+                    </li>
+                    <li className="flex items-start space-x-3">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-1.5 shrink-0"></div>
+                      <span>下班记得关闭显示器和不必要的电源。</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 space-y-8">
+            <div className="mica p-8 rounded-[2.5rem] border border-white/50 shadow-xl">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6">活动负责人</h3>
+              <div className="flex items-center space-x-4 mb-8">
+                <img src="https://i.pravatar.cc/150?u=admin" className="w-14 h-14 rounded-2xl object-cover shadow-lg" />
+                <div>
+                  <p className="text-base font-black text-slate-900 dark:text-white leading-none">行政部 - 小林</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Admin Specialist</p>
+                </div>
+              </div>
+              <button className="w-full py-4 bg-slate-100 dark:bg-white/5 hover:bg-indigo-600 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center space-x-2">
+                <MessageSquare size={14} />
+                <span>咨询详情</span>
+              </button>
+            </div>
+
+            <div className="mica p-8 rounded-[2.5rem] border border-white/50 shadow-xl bg-emerald-600 text-white">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-80">环保成就</h3>
+                <Award size={20} className="text-amber-400" />
+              </div>
+              <p className="text-3xl font-black tracking-tighter mb-2">1,240 棵</p>
+              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">去年公司全体员工累计种植树木数量</p>
+              <div className="mt-8 pt-8 border-t border-white/10">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                  <span>今年目标</span>
+                  <span>1,500 棵</span>
+                </div>
+                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-white w-[82%]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderView = () => {
     if (selectedNews) return renderNewsDetail(selectedNews);
+    if (showHolidayDetail) return renderHolidayDetail();
 
     switch (currentView) {
       case AppView.DASHBOARD:
         return <Dashboard 
           onViewAll={() => setCurrentView(AppView.TOOLS)} 
           onGoToTodo={() => setCurrentView(AppView.TODO)} 
-          onShowHolidayDetail={() => setCurrentView(AppView.HOLIDAYS)}
+          onShowHolidayDetail={() => setShowHolidayDetail(true)}
         />;
       case AppView.NEWS:
         return renderNewsCenter();
-      case AppView.HOLIDAYS:
-        return <HolidayManagement />;
       case AppView.DIRECTORY:
         if (selectedEmployee) return renderEmployeeDetail(selectedEmployee);
         return (

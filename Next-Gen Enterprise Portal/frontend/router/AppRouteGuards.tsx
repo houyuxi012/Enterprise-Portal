@@ -48,6 +48,7 @@ const AppRouteGuards: React.FC<AppRouteGuardsProps> = ({
   renderPortal,
 }) => {
   const shouldUseAdminLogin = isAdminPath && preferredAuthPlane === 'admin';
+  const shouldRenderAdminShell = isAdminMode && isAdminPath && preferredAuthPlane === 'admin';
 
   if (isLoading && !isInitialized) {
     return <FullScreenLoading />;
@@ -68,7 +69,7 @@ const AppRouteGuards: React.FC<AppRouteGuardsProps> = ({
     );
   }
 
-  if (isAdminMode) {
+  if (shouldRenderAdminShell) {
     return (
       <Suspense fallback={<FullScreenLoading />}>
         {renderAdmin()}

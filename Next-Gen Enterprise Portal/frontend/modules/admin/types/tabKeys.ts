@@ -11,6 +11,8 @@ export const ADMIN_TAB_KEYS = [
   'app_permissions',
   'meeting_local',
   'meeting_sync',
+  'process_monitoring',
+  'process_integration',
   'settings',
   'platform_settings',
   'ops_management',

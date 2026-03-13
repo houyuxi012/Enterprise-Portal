@@ -13,8 +13,7 @@ export enum AppView {
   ABOUT = 'about',
   LEAVE_REQUEST = 'leave_request',
   TODO = 'todo',
-  PROFILE = 'profile',
-  HOLIDAYS = 'holidays'
+  PROFILE = 'profile'
 }
 
 export interface TodoTask {
@@ -22,19 +21,8 @@ export interface TodoTask {
   title: string;
   dueDate: string;
   priority: 'high' | 'medium' | 'low';
-  source: string; // e.g., 'OA系统', 'CRM系统', 'ERP系统'
-  status: '待审批' | '处理中' | '已完成' | '已驳回';
-  requester: string;
-  type: string; // e.g., '请假申请', '合同审核', '费用报销'
-}
-
-export interface Holiday {
-  id: string;
-  name: string;
-  date: string;
-  endDate?: string;
-  type: '法定节假日' | '公司福利假' | '调休工作日';
-  description?: string;
+  completed: boolean;
+  category: string;
 }
 
 export interface NewsItem {

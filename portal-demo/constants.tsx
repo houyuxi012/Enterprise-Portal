@@ -5,7 +5,7 @@ import {
   FileText, Calendar, CreditCard, LifeBuoy, ShieldCheck, Mail, 
   Globe, MessageSquare, PieChart, HardDrive, CheckSquare
 } from 'lucide-react';
-import { QuickTool, NewsItem, Employee, Notification, Announcement, TodoTask, Holiday } from './types';
+import { QuickTool, NewsItem, Employee, Notification, Announcement, TodoTask } from './types';
 
 export const QUICK_TOOLS: QuickTool[] = [
   { id: 'todo', name: '待办任务', icon: <CheckSquare size={20} />, url: '#', color: 'bg-indigo-100 text-indigo-600', category: '生产力', description: '管理您的日常工作清单' },
@@ -18,46 +18,10 @@ export const QUICK_TOOLS: QuickTool[] = [
 ];
 
 export const MOCK_TASKS: TodoTask[] = [
-  { 
-    id: 't1', 
-    title: '关于 Q3 季度市场推广预算的审批申请', 
-    dueDate: '2024-06-15', 
-    priority: 'high', 
-    source: 'OA系统',
-    status: '待审批',
-    requester: '陈莎莎',
-    type: '费用报销'
-  },
-  { 
-    id: 't2', 
-    title: '核心交易系统数据库升级方案评审', 
-    dueDate: '2024-06-12', 
-    priority: 'medium', 
-    source: 'Jira项目管理',
-    status: '已完成',
-    requester: '马库斯',
-    type: '技术评审'
-  },
-  { 
-    id: 't3', 
-    title: '2024年度员工健康体检供应商合同审核', 
-    dueDate: '2024-06-20', 
-    priority: 'low', 
-    source: '法务系统',
-    status: '处理中',
-    requester: '王汤姆',
-    type: '合同审核'
-  },
-  { 
-    id: 't4', 
-    title: '新入职员工“艾莎”的转正申请审批', 
-    dueDate: '2024-06-10', 
-    priority: 'high', 
-    source: 'HRM系统',
-    status: '待审批',
-    requester: '艾莎',
-    type: '人事申请'
-  },
+  { id: 't1', title: '完成 Q3 季度预算审核', dueDate: '2024-06-15', priority: 'high', completed: false, category: '财务' },
+  { id: 't2', title: '准备周三的设计复盘会议 PPT', dueDate: '2024-06-12', priority: 'medium', completed: true, category: '设计' },
+  { id: 't3', title: '更新团队内部 Wiki 知识库', dueDate: '2024-06-20', priority: 'low', completed: false, category: '行政' },
+  { id: 't4', title: '回复所有待办的招聘面试邮件', dueDate: '2024-06-10', priority: 'high', completed: false, category: '人事' },
 ];
 
 export const MOCK_NEWS: NewsItem[] = [
@@ -145,17 +109,4 @@ export const MOCK_ANNOUNCEMENTS: Announcement[] = [
   { id: 'a3', tag: '行政', title: '端午节放假安排通知', content: '端午节放假时间为 6月8日至6月10日，共3天。请大家妥善安排工作。', time: '1小时前', color: 'emerald', isUrgent: true },
   { id: 'a4', tag: '招聘', title: '伯乐奖：推荐人才入职立奖', content: '公司急招高级前端工程师，内部推荐成功入职并过试用期可获得 5000 元奖金。', time: '3小时前', color: 'purple' },
   { id: 'a5', tag: 'IT', title: 'VPN 全面升级至 2.0 版本', content: '为了提供更稳定的远程办公体验，VPN 系统已升级。请及时下载新客户端。', time: '昨日', color: 'rose' },
-];
-
-export const MOCK_HOLIDAYS: Holiday[] = [
-  { id: 'h1', name: '元旦', date: '2024-01-01', type: '法定节假日', description: '新年伊始，万象更新。' },
-  { id: 'h2', name: '春节', date: '2024-02-10', endDate: '2024-02-17', type: '法定节假日', description: '阖家团圆，共贺新春。' },
-  { id: 'h3', name: '清明节', date: '2024-04-04', endDate: '2024-04-06', type: '法定节假日', description: '慎终追远，缅怀先人。' },
-  { id: 'h4', name: '劳动节', date: '2024-05-01', endDate: '2024-05-05', type: '法定节假日', description: '致敬劳动者。' },
-  { id: 'h5', name: '端午节', date: '2024-06-08', endDate: '2024-06-10', type: '法定节假日', description: '粽叶飘香，龙舟竞渡。' },
-  { id: 'h6', name: '中秋节', date: '2024-09-15', endDate: '2024-09-17', type: '法定节假日', description: '月满中秋，情系家园。' },
-  { id: 'h7', name: '国庆节', date: '2024-10-01', endDate: '2024-10-07', type: '法定节假日', description: '欢度国庆，盛世中华。' },
-  { id: 'h8', name: '公司周年庆', date: '2024-11-11', type: '公司福利假', description: '庆祝 ShiKu Home 成立周年。' },
-  { id: 'h9', name: '春节调休', date: '2024-02-04', type: '调休工作日', description: '春节假期调休。' },
-  { id: 'h10', name: '春节调休', date: '2024-02-18', type: '调休工作日', description: '春节假期调休。' },
 ];

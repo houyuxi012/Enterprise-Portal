@@ -335,6 +335,49 @@
       }
     }
   },
+  "portalProcessCenter": {
+    "title": "Process Center",
+    "subtitle": "Enterprise Workflow Hub",
+    "progressLabel": "Progress",
+    "loading": "Loading workflow tasks...",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "canceled": "Canceled"
+    },
+    "priority": {
+      "emergency": "Emergency",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "status": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "canceled": "Canceled"
+    },
+    "meta": {
+      "requester": "Requester",
+      "dueDate": "Due Date",
+      "priority": "Priority",
+      "system": "System",
+      "unassigned": "Unassigned",
+      "noDueDate": "Not Set"
+    },
+    "actions": {
+      "openTodoCenter": "Open Todo Items",
+      "handleNow": "Handle Now",
+      "viewTask": "View Task",
+      "viewDetails": "View Details"
+    },
+    "empty": {
+      "title": "No workflows pending",
+      "description": "Your workflow queue is fully processed"
+    }
+  },
   "portalMeetings": {
     "title": "Meetings Today",
     "subtitle": "Review today's meetings with live auto-sync when new meetings are created in the admin console.",
@@ -750,6 +793,9 @@
       "meetingSync": "Third-Party Sync",
       "meetingManagementLicenseRequired": "Meeting management license feature is required",
       "apps": "App Center",
+      "processCenter": "Process Center",
+      "processMonitoring": "Process Monitoring",
+      "processIntegration": "Process Integration",
       "tools": "App Management",
       "appPermissions": "App Permissions",
       "users": "User Center",
@@ -806,6 +852,28 @@
       "licenseReadOnly": "License has expired. System is currently in read-only mode."
     },
     "footerDefault": "© 2025 Hou Yuxi. All Rights Reserved."
+  },
+  "processMonitoring": {
+    "page": {
+      "title": "Process Monitoring",
+      "subtitle": "Reserved for workflow runtime monitoring, node status, and alerting."
+    },
+    "empty": {
+      "title": "Process monitoring is reserved",
+      "description": "This page is reserved for future process instance monitoring, runtime status, and alert integration.",
+      "hint": "It can later connect to BPM, approval engines, or internal orchestration services."
+    }
+  },
+  "processIntegration": {
+    "page": {
+      "title": "Process Integration",
+      "subtitle": "Reserved for workflow platform integration, credentials, and callback wiring."
+    },
+    "empty": {
+      "title": "Process integration is reserved",
+      "description": "This page is reserved for future third-party workflow platform integration, webhooks, and sync rules.",
+      "hint": "Use this area later for connection settings, connectivity tests, and integration audit trails."
+    }
   },
   "navbar": {
     "time": {
@@ -1779,6 +1847,10 @@
       "deleteFailed": "Failed to delete holiday",
       "updateSuccess": "Holiday updated",
       "createSuccess": "Holiday created",
+      "enableSuccess": "Holiday enabled",
+      "disableSuccess": "Holiday disabled",
+      "uploadSuccess": "Background image uploaded",
+      "uploadFailed": "Failed to upload background image",
       "unknownError": "Unknown error",
       "actionFailed": "Operation failed: {{reason}}"
     },
@@ -1787,6 +1859,7 @@
       "date": "Holiday Date",
       "content": "Display Copy",
       "cover": "Holiday Cover",
+      "toggle": "Enable / Disable",
       "color": "Theme Color",
       "status": "Status",
       "createdAt": "Created At",
@@ -1804,24 +1877,116 @@
       "createTitle": "Create Holiday",
       "editTitle": "Edit Holiday"
     },
+    "steps": {
+      "basic": "Basic Info",
+      "activity": "Holiday Activity",
+      "localContent": "Local Content",
+      "localCardShort": "Activity Card",
+      "localDetailShort": "Detail Config",
+      "localManageShort": "Ops Config",
+      "localCard": "Local Content - Activity Card",
+      "localDetail": "Local Content - Detail",
+      "localManage": "Owner, button, and achievement card"
+    },
+    "stepsDesc": {
+      "basic": "Holiday title, copy, and date",
+      "activity": "Entry behavior and open mode"
+    },
+    "activityModes": {
+      "off": "Off",
+      "external": "External Link",
+      "local": "Local Content"
+    },
+    "activityModeHelp": {
+      "off": "Hide the holiday activity button on the portal.",
+      "external": "Open an external URL when the holiday activity button is clicked.",
+      "local": "Open the current local holiday activity detail page when the button is clicked."
+    },
     "form": {
+      "section": {
+        "achievementCard": "Achievement Card Configuration"
+      },
       "title": "Holiday Name",
       "content": "Display Copy",
       "date": "Holiday Date",
       "cover": "Holiday Cover",
       "color": "Theme Color",
       "active": "Active",
+      "activityMode": "Holiday Activity",
+      "activityUrl": "Activity URL",
       "validation": {
         "titleRequired": "Please enter a holiday name",
         "contentRequired": "Please enter display copy",
         "dateRequired": "Please select a holiday date",
-        "colorRequired": "Please select a theme color"
+        "colorRequired": "Please select a theme color",
+        "activityModeRequired": "Please select a holiday activity configuration",
+        "activityUrlRequired": "Please enter an activity URL",
+        "activityUrlInvalid": "Please enter a valid URL",
+        "achievementCardJsonInvalid": "Achievement card JSON is invalid",
+        "localCoverImageRequired": "Please upload a cover image for the holiday activity",
+        "localIntroTitleRequired": "Please enter the main title for the holiday activity",
+        "localIntroContentRequired": "Please enter the intro content for the holiday activity"
       },
       "placeholders": {
         "title": "Enter holiday name",
         "content": "Enter the copy displayed on the portal holiday card",
         "cover": "Enter holiday cover image URL (optional, used by the portal card)",
-        "color": "Select a theme color"
+        "color": "Select a theme color",
+        "activityUrl": "Enter an external activity URL",
+        "localHeroTitle": "Enter the hero title. Use line breaks if needed. Leave empty to use the holiday name",
+        "localSectionTitle": "Enter the body section title. Leave empty to use the holiday name",
+        "localCoverImage": "Please upload the hero cover image for the holiday detail page",
+        "localIntroTitle": "Enter the main title for the holiday activity",
+        "localIntroContent": "Enter the introduction content for the holiday activity",
+        "localActivityOneTitle": "Enter activity section 1 title",
+        "localActivityOneDesc": "Enter activity section 1 description",
+        "localActivityTwoTitle": "Enter activity section 2 title",
+        "localActivityTwoDesc": "Enter activity section 2 description",
+        "localTipsTitle": "Enter the tips section title",
+        "localTipsItems": "One tip per line",
+        "localOwnerName": "Select a local user as owner",
+        "localOwnerDisplayName": "Auto-filled from the selected local user, editable",
+        "localOwnerRole": "Enter the owner role description",
+        "localContactButtonText": "Enter button text",
+        "localAchievementCardJson": "{\n  \"eyebrow\": \"Impact\",\n  \"icon\": \"award\",\n  \"stat\": \"9\",\n  \"stat_caption\": \"Total green score\",\n  \"progress_left_label\": \"10\",\n  \"progress_right_label\": \"60\",\n  \"progress\": 15\n}",
+        "localAchievementCardMarkdown": "Use **Markdown** to describe the achievement summary or supporting notes.",
+        "localAchievementValue": "For example: 1,240 trees",
+        "localAchievementLabel": "Enter the achievement description",
+        "localTargetLabel": "Enter the target label",
+        "localTargetValue": "For example: 1,500 trees",
+        "localTargetProgress": "Enter progress percentage (0-100)"
+      },
+      "help": {
+        "localCoverImage": "After upload, this image will be used as the hero background on the portal holiday detail page.",
+        "localCoverImageOnlyUpload": "Only local uploads are supported for the background image. External links are not used.",
+        "localCoverImageReady": "Local background image uploaded. The portal will use it directly.",
+        "achievementCardGroup": "Manage the right-side achievement card structure and descriptive copy in a single configuration group.",
+        "achievementCardJson": "Use JSON to configure the achievement card title, icon, key stat, and progress. Supported fields: eyebrow, icon, stat, stat_caption, progress_left_label, progress_right_label, progress.",
+        "achievementCardMarkdown": "Use Markdown to configure the descriptive text under the card, including line breaks, bold text, and lists."
+      },
+      "local": {
+        "heroTitle": "Hero Title",
+        "sectionTitle": "Body Section Title",
+        "coverImage": "Activity Cover Image",
+        "introTitle": "Main Activity Title",
+        "introContent": "Intro Content",
+        "activityOneTitle": "Activity Section 1 Title",
+        "activityOneDesc": "Activity Section 1 Description",
+        "activityTwoTitle": "Activity Section 2 Title",
+        "activityTwoDesc": "Activity Section 2 Description",
+        "tipsTitle": "Tips Section Title",
+        "tipsItems": "Tips Content",
+        "ownerName": "Activity Owner",
+        "ownerNameDisplay": "Display Name",
+        "ownerRole": "Owner Role",
+        "contactButtonText": "Button Text",
+        "achievementCardJson": "Achievement Card JSON",
+        "achievementCardMarkdown": "Achievement Card Markdown",
+        "achievementValue": "Achievement Value",
+        "achievementLabel": "Achievement Description",
+        "targetLabel": "Target Label",
+        "targetValue": "Target Value",
+        "targetProgress": "Target Progress"
       }
     },
     "colors": {
@@ -2508,16 +2673,17 @@
         "licenseBlockedShort": "--"
       },
       "workHours": {
-        "label": "Work Hours",
-        "value": "32h",
-        "desc": "Remaining target 8h"
+        "label": "Flow Center",
+        "value": "{{count}}",
+        "desc": "Pending {{pending}} · In Progress {{inProgress}}"
       }
     },
     "sections": {
       "commonApps": "Common Apps",
       "clickToEnter": "Click to open",
       "news": "News",
-      "announcements": "Live Announcements"
+      "announcements": "Live Announcements",
+      "viewDetails": "Holiday Events"
     },
     "status": {
       "urgent": "Urgent",

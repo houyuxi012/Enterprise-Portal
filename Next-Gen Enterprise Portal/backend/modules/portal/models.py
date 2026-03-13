@@ -10,6 +10,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -92,6 +93,9 @@ class HolidayReminder(Base):
     cover_image = Column(String(512), nullable=True)
     color = Column(String(32), nullable=False, default="purple")
     is_active = Column(Boolean, default=True, nullable=False, index=True)
+    activity_mode = Column(String(32), nullable=False, default="off", index=True)
+    activity_url = Column(String(1024), nullable=True)
+    local_content_config = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
 

@@ -26,6 +26,8 @@ const {
   directories: DirectoryListPage,
   meetingLocal: MeetingLocalManagement,
   meetingSync: MeetingThirdPartySync,
+  processMonitoring: ProcessMonitoring,
+  processIntegration: ProcessIntegration,
   roles: RoleList,
   organizations: OrganizationList,
   businessLogs: BusinessLogs,
@@ -116,6 +118,8 @@ const AdminRouterManager: React.FC<AdminRouterManagerProps> = ({
     )}
     {effectiveAdminTab === 'meeting_local' && <MeetingLocalManagement />}
     {effectiveAdminTab === 'meeting_sync' && <MeetingThirdPartySync />}
+    {effectiveAdminTab === 'process_monitoring' && <ProcessMonitoring />}
+    {effectiveAdminTab === 'process_integration' && <ProcessIntegration />}
     {effectiveAdminTab === 'roles' && <RoleList />}
     {effectiveAdminTab === 'tools' && <ToolList />}
     {effectiveAdminTab === 'app_permissions' && <AppPermissions />}

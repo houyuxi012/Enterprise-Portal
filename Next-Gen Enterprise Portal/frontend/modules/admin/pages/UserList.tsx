@@ -655,80 +655,82 @@ const UserList: React.FC = () => {
 
                 {/* Right Content: Filter & Table */}
                 <Col xs={24} lg={18}>
-                    {/* Filter Bar */}
-                    <AppFilterBar className="mb-4 justify-between gap-3">
-                        <AppFilterBar.Search
-                            placeholder={t('userList.filters.searchPlaceholder')}
-                            style={{ maxWidth: 360 }}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                        />
+                    <div className="space-y-4">
+                        {/* Filter Bar */}
+                        <AppFilterBar className="justify-between gap-3">
+                            <AppFilterBar.Search
+                                placeholder={t('userList.filters.searchPlaceholder')}
+                                style={{ maxWidth: 360 }}
+                                value={searchText}
+                                onChange={e => setSearchText(e.target.value)}
+                            />
 
-                        {selectedRowKeys.length > 0 && (
-                            <AppFilterBar.Action>
-                                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                                    <Text className="!mb-0 text-xs !text-slate-900">
-                                        {t('userList.batch.selected', { count: selectedRowKeys.length })}
-                                    </Text>
-                                    <div className="flex items-center gap-1">
-                                        <Tooltip title={t('userList.batch.moveOrg')} color="#1f1f1f" styles={actionTooltipStyles}>
-                                            <AppButton
-                                                intent="tertiary"
-                                                size="sm"
-                                                icon={<FolderOutlined />}
-                                                iconOnly
-                                                aria-label={t('userList.batch.moveOrg')}
-                                                onClick={handleOpenBatchMoveModal}
-                                            />
-                                        </Tooltip>
-                                        <Tooltip title={t('userList.batch.resetPwdButton')} color="#1f1f1f" styles={actionTooltipStyles}>
-                                            <AppButton
-                                                intent="tertiary"
-                                                size="sm"
-                                                icon={<KeyOutlined />}
-                                                iconOnly
-                                                aria-label={t('userList.batch.resetPwdButton')}
-                                                onClick={handleBatchResetPassword}
-                                            />
-                                        </Tooltip>
-                                        <Tooltip title={t('userList.batch.resetMfaButton', '重置 MFA')} color="#1f1f1f" styles={actionTooltipStyles}>
-                                            <AppButton
-                                                intent="tertiary"
-                                                size="sm"
-                                                icon={<SafetyOutlined />}
-                                                iconOnly
-                                                aria-label={t('userList.batch.resetMfaButton', '重置 MFA')}
-                                                onClick={handleBatchResetMfa}
-                                            />
-                                        </Tooltip>
-                                        <Tooltip title={t('common.buttons.delete')} color="#1f1f1f" styles={actionTooltipStyles}>
-                                            <AppButton
-                                                intent="danger"
-                                                size="sm"
-                                                icon={<DeleteOutlined />}
-                                                iconOnly
-                                                aria-label={t('common.buttons.delete')}
-                                                onClick={handleBatchDelete}
-                                            />
-                                        </Tooltip>
+                            {selectedRowKeys.length > 0 && (
+                                <AppFilterBar.Action>
+                                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                                        <Text className="!mb-0 text-xs !text-slate-900">
+                                            {t('userList.batch.selected', { count: selectedRowKeys.length })}
+                                        </Text>
+                                        <div className="flex items-center gap-1">
+                                            <Tooltip title={t('userList.batch.moveOrg')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                                <AppButton
+                                                    intent="tertiary"
+                                                    size="sm"
+                                                    icon={<FolderOutlined />}
+                                                    iconOnly
+                                                    aria-label={t('userList.batch.moveOrg')}
+                                                    onClick={handleOpenBatchMoveModal}
+                                                />
+                                            </Tooltip>
+                                            <Tooltip title={t('userList.batch.resetPwdButton')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                                <AppButton
+                                                    intent="tertiary"
+                                                    size="sm"
+                                                    icon={<KeyOutlined />}
+                                                    iconOnly
+                                                    aria-label={t('userList.batch.resetPwdButton')}
+                                                    onClick={handleBatchResetPassword}
+                                                />
+                                            </Tooltip>
+                                            <Tooltip title={t('userList.batch.resetMfaButton', '重置 MFA')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                                <AppButton
+                                                    intent="tertiary"
+                                                    size="sm"
+                                                    icon={<SafetyOutlined />}
+                                                    iconOnly
+                                                    aria-label={t('userList.batch.resetMfaButton', '重置 MFA')}
+                                                    onClick={handleBatchResetMfa}
+                                                />
+                                            </Tooltip>
+                                            <Tooltip title={t('common.buttons.delete')} color="#1f1f1f" styles={actionTooltipStyles}>
+                                                <AppButton
+                                                    intent="danger"
+                                                    size="sm"
+                                                    icon={<DeleteOutlined />}
+                                                    iconOnly
+                                                    aria-label={t('common.buttons.delete')}
+                                                    onClick={handleBatchDelete}
+                                                />
+                                            </Tooltip>
+                                        </div>
                                     </div>
-                                </div>
-                            </AppFilterBar.Action>
-                        )}
-                    </AppFilterBar>
+                                </AppFilterBar.Action>
+                            )}
+                        </AppFilterBar>
 
-                    {/* Data Table */}
-                    <Card className="admin-card overflow-hidden">
-                        <AppTable
-                            rowSelection={rowSelection}
-                            columns={columns}
-                            dataSource={filteredData}
-                            rowKey="id" // Employee ID is string in types, but number in backend? Need to be careful. Types say string.
-                            loading={loading}
-                            emptyText={t('userList.table.empty')}
-                            pageSize={10}
-                        />
-                    </Card>
+                        {/* Data Table */}
+                        <Card className="admin-card overflow-hidden">
+                            <AppTable
+                                rowSelection={rowSelection}
+                                columns={columns}
+                                dataSource={filteredData}
+                                rowKey="id" // Employee ID is string in types, but number in backend? Need to be careful. Types say string.
+                                loading={loading}
+                                emptyText={t('userList.table.empty')}
+                                pageSize={10}
+                            />
+                        </Card>
+                    </div>
                 </Col>
             </Row>
 

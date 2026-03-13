@@ -41,6 +41,10 @@ const normalizeDetail = (rawDetail: unknown): { code?: string; message?: string 
 };
 
 const inferRedirectTarget = (requestUrl?: string): '/admin/login' | '/login' => {
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (currentPath.startsWith('/admin')) return '/admin/login';
+  if (currentPath === '/' || currentPath.startsWith('/login')) return '/login';
+
   const url = String(requestUrl || '');
   if (url.includes('/admin/')) return '/admin/login';
   if (url.includes('/app/')) return '/login';

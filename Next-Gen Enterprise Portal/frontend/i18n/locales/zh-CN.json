@@ -335,6 +335,49 @@
       }
     }
   },
+  "portalProcessCenter": {
+    "title": "流程中心",
+    "subtitle": "Enterprise Workflow Hub",
+    "progressLabel": "处理进度",
+    "loading": "加载流程任务中...",
+    "filters": {
+      "all": "全部",
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "canceled": "已取消"
+    },
+    "priority": {
+      "emergency": "紧急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "status": {
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "canceled": "已取消"
+    },
+    "meta": {
+      "requester": "申请人",
+      "dueDate": "截止日期",
+      "priority": "优先级",
+      "system": "系统",
+      "unassigned": "未指派",
+      "noDueDate": "未设置"
+    },
+    "actions": {
+      "openTodoCenter": "进入待办事项",
+      "handleNow": "立即处理",
+      "viewTask": "查看任务",
+      "viewDetails": "节日活动"
+    },
+    "empty": {
+      "title": "暂无待处理流程",
+      "description": "您的工作流已全部处理完毕"
+    }
+  },
   "portalMeetings": {
     "title": "今日会议",
     "subtitle": "查看今日会议安排，支持自动刷新，后台新增后将自动同步到当前列表。",
@@ -750,6 +793,9 @@
       "meetingSync": "三方同步",
       "meetingManagementLicenseRequired": "需要会议管理功能授权",
       "apps": "应用中心",
+      "processCenter": "流程中心",
+      "processMonitoring": "流程监控",
+      "processIntegration": "流程接入",
       "tools": "应用管理",
       "appPermissions": "应用权限",
       "users": "用户中心",
@@ -806,6 +852,28 @@
       "licenseReadOnly": "授权已到期，系统当前为只读模式。"
     },
     "footerDefault": "© 2025 侯钰熙. All Rights Reserved."
+  },
+  "processMonitoring": {
+    "page": {
+      "title": "流程监控",
+      "subtitle": "预留流程运行监控、节点状态与异常告警入口。"
+    },
+    "empty": {
+      "title": "流程监控功能预留中",
+      "description": "当前先保留流程监控页面入口，后续会在这里接入流程实例、运行态和告警数据。",
+      "hint": "可在未来对接 BPM、审批引擎或内部流程编排服务。"
+    }
+  },
+  "processIntegration": {
+    "page": {
+      "title": "流程接入",
+      "subtitle": "预留流程平台接入、凭据配置与回调链路入口。"
+    },
+    "empty": {
+      "title": "流程接入功能预留中",
+      "description": "当前先保留流程接入页面入口，后续会在这里接入第三方流程平台、Webhook 和同步规则。",
+      "hint": "建议后续在这里收口接入参数、测试联通性和审计日志。"
+    }
   },
   "navbar": {
     "time": {
@@ -1793,6 +1861,10 @@
       "deleteFailed": "删除节日失败",
       "updateSuccess": "节日已更新",
       "createSuccess": "节日已创建",
+      "enableSuccess": "节日已启用",
+      "disableSuccess": "节日已停用",
+      "uploadSuccess": "背景图片上传成功",
+      "uploadFailed": "背景图片上传失败",
       "unknownError": "未知错误",
       "actionFailed": "操作失败: {{reason}}"
     },
@@ -1801,6 +1873,7 @@
       "date": "节日日期",
       "content": "展示文案",
       "cover": "节日封面",
+      "toggle": "启停该节日",
       "color": "主题色",
       "status": "状态",
       "createdAt": "创建时间",
@@ -1818,24 +1891,116 @@
       "createTitle": "新增节日",
       "editTitle": "编辑节日"
     },
+    "steps": {
+      "basic": "基础信息",
+      "activity": "节日活动配置",
+      "localContent": "本地内容配置",
+      "localCardShort": "活动卡片",
+      "localDetailShort": "详情配置",
+      "localManageShort": "运营配置",
+      "localCard": "本地内容-活动卡片配置",
+      "localDetail": "本地内容-详情配置",
+      "localManage": "活动负责人、按钮与成就卡片"
+    },
+    "stepsDesc": {
+      "basic": "节日名称、文案与日期",
+      "activity": "活动入口与打开方式"
+    },
+    "activityModes": {
+      "off": "关闭",
+      "external": "外部链接",
+      "local": "本地内容"
+    },
+    "activityModeHelp": {
+      "off": "前台节日活动按钮隐藏。",
+      "external": "点击节日活动按钮后跳转到外部链接。",
+      "local": "点击节日活动按钮后打开当前节日活动详情页。"
+    },
     "form": {
+      "section": {
+        "achievementCard": "成就卡片配置"
+      },
       "title": "节日名称",
       "content": "展示文案",
       "date": "节日日期",
       "cover": "节日封面",
       "color": "主题色",
       "active": "启用状态",
+      "activityMode": "节日活动",
+      "activityUrl": "活动链接 URL",
       "validation": {
         "titleRequired": "请输入节日名称",
         "contentRequired": "请输入展示文案",
         "dateRequired": "请选择节日日期",
-        "colorRequired": "请选择主题色"
+        "colorRequired": "请选择主题色",
+        "activityModeRequired": "请选择节日活动配置",
+        "activityUrlRequired": "请输入活动链接 URL",
+        "activityUrlInvalid": "请输入有效的 URL",
+        "achievementCardJsonInvalid": "成就卡片 JSON 格式无效",
+        "localCoverImageRequired": "请上传节日活动封面图片",
+        "localIntroTitleRequired": "请输入节日活动主标题",
+        "localIntroContentRequired": "请输入节日活动介绍内容"
       },
       "placeholders": {
         "title": "请输入节日名称",
         "content": "请输入前台节日卡片展示文案",
         "cover": "请输入节日封面图片 URL（可选，前台卡片使用）",
-        "color": "请选择主题色"
+        "color": "请选择主题色",
+        "activityUrl": "请输入外部活动链接 URL",
+        "localHeroTitle": "请输入头图大标题，可用回车分行，留空则使用节日名称",
+        "localSectionTitle": "请输入正文区标题，留空则使用节日名称",
+        "localCoverImage": "请上传节日活动详情页封面图片",
+        "localIntroTitle": "请输入节日活动主标题",
+        "localIntroContent": "请输入节日活动介绍内容",
+        "localActivityOneTitle": "请输入活动安排 1 标题",
+        "localActivityOneDesc": "请输入活动安排 1 描述",
+        "localActivityTwoTitle": "请输入活动安排 2 标题",
+        "localActivityTwoDesc": "请输入活动安排 2 描述",
+        "localTipsTitle": "请输入环保/节日提示标题",
+        "localTipsItems": "每行一条提示内容",
+        "localOwnerName": "请选择本地用户负责人",
+        "localOwnerDisplayName": "选择本地用户后自动带出，可手动调整",
+        "localOwnerRole": "请输入负责人角色说明",
+        "localContactButtonText": "请输入按钮文案",
+        "localAchievementCardJson": "{\n  \"eyebrow\": \"环保成就\",\n  \"icon\": \"award\",\n  \"stat\": \"9\",\n  \"stat_caption\": \"累计环保积分\",\n  \"progress_left_label\": \"10\",\n  \"progress_right_label\": \"60\",\n  \"progress\": 15\n}",
+        "localAchievementCardMarkdown": "可使用 **Markdown** 描述成就说明、阶段总结或补充说明。",
+        "localAchievementValue": "例如：1,240 棵",
+        "localAchievementLabel": "请输入成就说明",
+        "localTargetLabel": "请输入目标标签",
+        "localTargetValue": "例如：1,500 棵",
+        "localTargetProgress": "请输入进度百分比（0-100）"
+      },
+      "help": {
+        "localCoverImage": "上传后将作为前台节日详情页头图背景图片使用。",
+        "localCoverImageOnlyUpload": "仅支持本地上传背景图片，不读取外部链接。",
+        "localCoverImageReady": "已上传本地背景图片，前台将直接使用。",
+        "achievementCardGroup": "在一个配置组里维护右侧成就卡片的结构数据和说明文案。",
+        "achievementCardJson": "使用 JSON 配置右侧成就卡片的标题、图标、数值和进度。支持字段：eyebrow、icon、stat、stat_caption、progress_left_label、progress_right_label、progress。",
+        "achievementCardMarkdown": "使用 Markdown 配置卡片说明文案，支持换行、粗体、列表等基础格式。"
+      },
+      "local": {
+        "heroTitle": "节日主标题",
+        "sectionTitle": "正文区标题",
+        "coverImage": "活动封面图片",
+        "introTitle": "活动主标题",
+        "introContent": "活动介绍内容",
+        "activityOneTitle": "活动安排 1 标题",
+        "activityOneDesc": "活动安排 1 描述",
+        "activityTwoTitle": "活动安排 2 标题",
+        "activityTwoDesc": "活动安排 2 描述",
+        "tipsTitle": "提示标题",
+        "tipsItems": "提示内容",
+        "ownerName": "活动负责人",
+        "ownerNameDisplay": "负责人显示名称",
+        "ownerRole": "负责人说明",
+        "contactButtonText": "按钮文案",
+        "achievementCardJson": "成就卡片 JSON",
+        "achievementCardMarkdown": "成就卡片 Markdown",
+        "achievementValue": "成就数值",
+        "achievementLabel": "成就说明",
+        "targetLabel": "目标标签",
+        "targetValue": "目标数值",
+        "targetProgress": "目标进度"
       }
     },
     "colors": {
@@ -2522,16 +2687,17 @@
         "licenseBlockedShort": "--"
       },
       "workHours": {
-        "label": "工时完成",
-        "value": "32h",
-        "desc": "剩余目标 8h"
+        "label": "流程中心",
+        "value": "{{count}}条",
+        "desc": "待处理 {{pending}} · 进行中 {{inProgress}}"
       }
     },
     "sections": {
       "commonApps": "常用应用",
       "clickToEnter": "点击进入系统",
       "news": "资讯动态",
-      "announcements": "实时公告"
+      "announcements": "实时公告",
+      "viewDetails": "节日活动"
     },
     "status": {
       "urgent": "紧急",

@@ -20,7 +20,9 @@ interface DashboardProps {
   onOpenNews?: (news: NewsItem) => void;
   onNavigateToDirectory?: () => void;
   onNavigateToTodos?: () => void;
+  onNavigateToProcessCenter?: () => void;
   onNavigateToMeetings?: () => void;
+  onOpenHolidayDetail?: (holidayInfo: any) => void;
   employees?: Employee[];
   currentUser?: AuthUser | null;
 }
@@ -57,7 +59,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   onOpenNews,
   onNavigateToDirectory,
   onNavigateToTodos,
+  onNavigateToProcessCenter,
   onNavigateToMeetings,
+  onOpenHolidayDetail,
   employees = [],
   currentUser,
 }) => {
@@ -77,7 +81,18 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [t]);
 
   const username = currentUser?.username || t('dashboardHome.userFallback');
-  const [todoStats, setTodoStats] = useState({ total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 });
+  const [todoStats, setTodoStats] = useState({
+    total: 0,
+    emergency: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    unclassified: 0,
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+    canceled: 0,
+  });
   const [todayMeetingSummary, setTodayMeetingSummary] = useState<PortalTodayMeetingSummary>(
     portalMeetingService.getEmptyTodaySummary(),
   );
@@ -99,6 +114,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     message: string;
     color: HolidayReminder['color'];
     coverImage?: string;
+    activity_mode?: HolidayReminder['activity_mode'];
+    activity_url?: HolidayReminder['activity_url'];
+    local_content_config?: HolidayReminder['local_content_config'];
   } | null>(null);
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
 
@@ -143,7 +161,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           fetchedCarouselResult,
           todoStatsResult,
           readAnnouncementIdsResult,
-          configResult,
           holidaysResult,
         ] = await Promise.allSettled([
           ApiClient.getTools(),
@@ -152,7 +169,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           ApiClient.getCarouselItems(),
           TodoService.getMyTaskStats('active'),
           ApiClient.getAnnouncementReadState(),
-          ApiClient.getCustomizationConfig(),
           ApiClient.getHolidayReminders(),
         ]);
 
@@ -164,7 +180,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           ? todoStatsResult.value
           : { total: 0, emergency: 0, high: 0, medium: 0, low: 0, unclassified: 0 };
         const readAnnouncementIdsData = readAnnouncementIdsResult.status === 'fulfilled' ? readAnnouncementIdsResult.value : [];
-        const configData = configResult.status === 'fulfilled' ? configResult.value : {};
         const holidaysData = holidaysResult.status === 'fulfilled' ? holidaysResult.value : [];
 
         setTools(fetchedTools);
@@ -179,13 +194,16 @@ const Dashboard: React.FC<DashboardProps> = ({
           medium: todoStatsData.medium,
           low: todoStatsData.low,
           unclassified: todoStatsData.unclassified,
+          ...todoStatsData,
+          pending: (todoStatsData as any)?.pending || 0,
+          in_progress: (todoStatsData as any)?.in_progress || 0,
+          completed: (todoStatsData as any)?.completed || 0,
+          canceled: (todoStatsData as any)?.canceled || 0,
         });
 
-        // Parse Holiday Configuration
-        const isBannerEnabled = configData['enable_holiday_banner'] === 'true';
-        setHolidayBannerEnabled(isBannerEnabled);
+        setHolidayBannerEnabled(true);
 
-        if (isBannerEnabled && holidaysData && holidaysData.length > 0) {
+        if (holidaysData && holidaysData.length > 0) {
           const now = new Date();
           const upcoming = holidaysData
             .filter(h => h.is_active && new Date(h.holiday_date) >= now)
@@ -201,8 +219,15 @@ const Dashboard: React.FC<DashboardProps> = ({
               message: upcoming.content || t('dashboardHome.sections.upcomingHolidayDefaultDoc'),
               color: upcoming.color || 'emerald',
               coverImage: upcoming.cover_image || undefined,
+              activity_mode: upcoming.activity_mode || 'off',
+              activity_url: upcoming.activity_url || undefined,
+              local_content_config: upcoming.local_content_config || undefined,
             });
+          } else {
+            setHolidayInfo(null);
           }
+        } else {
+          setHolidayInfo(null);
         }
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
@@ -481,9 +506,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   const sideStat = {
     icon: <Clock size={18} />,
     label: t('dashboardHome.cards.workHours.label'),
-    val: t('dashboardHome.cards.workHours.value'),
+    val: t('dashboardHome.cards.workHours.value', { count: todoStats.total }),
     color: 'rose',
-    desc: t('dashboardHome.cards.workHours.desc')
+    desc: t('dashboardHome.cards.workHours.desc', {
+      pending: todoStats.pending,
+      inProgress: todoStats.in_progress,
+    }),
+    onClick: onNavigateToProcessCenter,
   };
 
   return (
@@ -520,46 +549,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {isHolidayModalOpen && holidayInfo && typeof document !== 'undefined' && createPortal((
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
-            onClick={() => setIsHolidayModalOpen(false)}
-          />
-          <div className={`mica w-full max-w-2xl max-h-[85vh] p-8 md:p-12 rounded-[2.5rem] shadow-2xl overflow-y-auto flex flex-col justify-center items-center text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 border border-white/10 ring-1 ring-white/20 ${holidayBannerTheme.cardClass}`}>
-              <button
-                onClick={() => setIsHolidayModalOpen(false)}
-                className="absolute top-6 right-6 p-2 rounded-full bg-slate-900/10 hover:bg-slate-900/20 dark:bg-white/10 dark:hover:bg-white/20 text-slate-600 dark:text-white backdrop-blur-md transition"
-              >
-                <X size={24} />
-              </button>
-              
-              {holidayInfo.coverImage ? (
-                <div className={`w-full h-48 sm:h-64 rounded-3xl overflow-hidden shadow-lg mb-8 border bg-white/50 ${holidayBannerTheme.imageRingClass}`}>
-                  <img src={holidayInfo.coverImage} alt={holidayInfo.name} className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <PartyPopper size={64} className={`mb-6 ${holidayBannerTheme.iconClass}`} />
-              )}
-
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight mb-2 drop-shadow-md">{holidayInfo.name}</h2>
-              <p className={`text-sm font-black uppercase tracking-widest mb-8 ${holidayBannerTheme.badgeTextClass}`}>{holidayInfo.date}</p>
-              
-              <div className={`flex flex-col items-center justify-center text-white shadow-xl mb-8 shrink-0 rounded-[2rem] px-12 py-6 ${holidayBannerTheme.countdownClass}`}>
-                <span className="text-xs font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.countdown', '倒计时')}</span>
-                <span className="text-5xl font-black leading-none my-2">{holidayInfo.countdown}</span>
-                <span className="text-xs font-black uppercase tracking-widest opacity-80">{t('dashboardHome.sections.day', '天')}</span>
-              </div>
-              
-              <div className="prose prose-slate dark:prose-invert max-w-none w-full border-t border-slate-200/20 dark:border-slate-700/50 pt-8">
-                <p className="text-lg leading-relaxed font-medium text-slate-700 dark:text-slate-300">
-                  {holidayInfo.message}
-                </p>
-              </div>
-          </div>
-        </div>
-      ), document.body)}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-10">
           
@@ -590,17 +579,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-4 shrink-0">
-                  {holidayInfo.coverImage ? (
-                    <div className={`hidden lg:block w-44 h-32 shrink-0 overflow-hidden rounded-[2rem] border bg-white/70 shadow-lg ${holidayBannerTheme.imageRingClass}`}>
-                      <img src={holidayInfo.coverImage} alt={holidayInfo.name} className="w-full h-full object-cover" />
-                    </div>
-                  ) : null}
-                  <button 
-                    onClick={() => setIsHolidayModalOpen(true)}
-                    className={`px-8 py-3 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl ${holidayBannerTheme.buttonClass}`}
-                  >
-                    {t('dashboardHome.sections.viewDetails', '查看详情')}
-                  </button>
+                  {holidayInfo.activity_mode !== 'off' && (
+                    <button
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        onOpenHolidayDetail?.(holidayInfo);
+                      }}
+                      className={`px-8 py-3 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl ${holidayBannerTheme.buttonClass}`}
+                    >
+                      {t('dashboardHome.sections.viewDetails', '查看详情')}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -699,7 +688,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="lg:col-span-4 space-y-8">
-          <div className="mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40">
+          <div
+            onClick={sideStat.onClick}
+            className={`mica group p-4 rounded-3xl hover:scale-[1.02] transition-all duration-500 shadow-lg shadow-slate-200/40 dark:shadow-none border border-white/40 ${sideStat.onClick ? 'cursor-pointer' : ''}`}
+          >
             <div className={`w-9 h-9 bg-${sideStat.color}-500/10 dark:bg-${sideStat.color}-500/20 text-${sideStat.color}-600 dark:text-${sideStat.color}-400 rounded-xl flex items-center justify-center mb-3 rim-glow group-hover:rotate-6 transition-transform`}>
               {sideStat.icon}
             </div>
@@ -800,8 +792,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {
-        isAnnouncementsModalOpen && typeof document !== 'undefined' && createPortal((
+      {isAnnouncementsModalOpen && typeof document !== 'undefined' && createPortal((
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
             <div
               className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"

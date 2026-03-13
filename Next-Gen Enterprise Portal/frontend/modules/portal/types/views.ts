@@ -7,8 +7,10 @@ export enum AppView {
   TOOLS = 'tools',
   SEARCH_RESULTS = 'search_results',
   TODOS = 'todos',
+  PROCESS_CENTER = 'process_center',
   MEETINGS = 'meetings',
   SECURITY = 'security',
+  HOLIDAY_DETAIL = 'holiday_detail',
 }
 
 export const PORTAL_PRIMARY_NAV_VIEWS = [

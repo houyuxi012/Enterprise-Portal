@@ -6,6 +6,7 @@ const portalModuleRouteKeys = [
   'login',
   'security',
   'todos',
+  'processCenter',
   'meetings',
 ] as const;
 
@@ -16,5 +17,6 @@ export const portalModuleRoutes: PortalModuleRoutes = {
   login: lazy(() => import('./pages/Login')),
   security: lazy(() => import('./pages/PortalSecurity')),
   todos: lazy(() => import('./pages/Todos')),
+  processCenter: lazy(() => import('./pages/ProcessCenter')),
   meetings: lazy(() => import('./pages/Meetings')),
 };

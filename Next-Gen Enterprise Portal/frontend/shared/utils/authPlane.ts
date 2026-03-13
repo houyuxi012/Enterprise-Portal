@@ -22,6 +22,11 @@ export const getPreferredAuthPlane = (pathname?: string): AuthPlane => {
     return explicitPlane;
   }
 
+  const storedPlane = window.sessionStorage.getItem(AUTH_PLANE_STORAGE_KEY);
+  if (isAuthPlane(storedPlane)) {
+    return storedPlane;
+  }
+
   if (effectivePath.startsWith('/admin')) {
     return 'admin';
   }

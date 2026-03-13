@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdminNavigationState } from '@/modules/admin/hooks/useAdminNavigationState';
 import type { AdminTabKey } from '@/modules/admin/types/tabKeys';
 import { getPreferredAuthPlane, setPreferredAuthPlane, type AuthPlane } from '@/shared/utils/authPlane';
@@ -23,6 +23,14 @@ interface UseAppModeStateResult {
 export const useAppModeState = (): UseAppModeStateResult => {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const { activeAdminTab, setActiveAdminTab, syncAdminTabPath, openAdminHome } = useAdminNavigationState();
+  const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+  const preferredAuthPlane = getPreferredAuthPlane();
+
+  useEffect(() => {
+    if (!isAdminPath || preferredAuthPlane !== 'admin') {
+      setIsAdminMode(false);
+    }
+  }, [isAdminPath, preferredAuthPlane]);
 
   const enterAdminMode = useCallback(() => {
     setPreferredAuthPlane('admin');
@@ -67,9 +75,6 @@ export const useAppModeState = (): UseAppModeStateResult => {
       window.location.reload();
     }
   }, []);
-
-  const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
-  const preferredAuthPlane = getPreferredAuthPlane();
 
   return {
     preferredAuthPlane,

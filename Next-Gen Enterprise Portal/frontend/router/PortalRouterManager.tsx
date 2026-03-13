@@ -11,7 +11,13 @@ import { hasAdminAccess } from '@/shared/utils/adminAccess';
 import { AvatarWithFallback } from '../shared/components';
 
 const Dashboard = lazy(() => import('../modules/portal/components/Dashboard'));
-const { meetings: MeetingsPage, todos: TodoList, security: PortalSecurity } = moduleRouteRegistry.portal;
+const HolidayDetail = lazy(() => import('../modules/portal/components/HolidayDetail'));
+const {
+  meetings: MeetingsPage,
+  todos: TodoList,
+  processCenter: ProcessCenterPage,
+  security: PortalSecurity,
+} = moduleRouteRegistry.portal;
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -66,6 +72,7 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
   onEnterAdminMode,
 }) => {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
   const [newsCarouselIndex, setNewsCarouselIndex] = useState(0);
   const [newsViewMode, setNewsViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -126,9 +133,34 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
           }}
           onNavigateToDirectory={() => setCurrentView(AppView.DIRECTORY)}
           onNavigateToTodos={() => setCurrentView(AppView.TODOS)}
+          onNavigateToProcessCenter={() => setCurrentView(AppView.PROCESS_CENTER)}
           onNavigateToMeetings={() => setCurrentView(AppView.MEETINGS)}
+          onOpenHolidayDetail={(holidayInfo) => {
+            const activityMode = holidayInfo?.activity_mode || 'off';
+            if (activityMode === 'external' && holidayInfo?.activity_url) {
+              window.open(holidayInfo.activity_url, '_blank', 'noopener,noreferrer');
+              return;
+            }
+            if (activityMode === 'local') {
+              setSelectedHoliday(holidayInfo);
+              setCurrentView(AppView.HOLIDAY_DETAIL);
+              return;
+            }
+            setSelectedHoliday(holidayInfo);
+            setCurrentView(AppView.HOLIDAY_DETAIL);
+          }}
           employees={employees}
           currentUser={currentUser}
+        />
+      );
+    case AppView.HOLIDAY_DETAIL:
+      return (
+        <HolidayDetail
+           holiday={selectedHoliday}
+           onBack={() => {
+             setSelectedHoliday(null);
+             setCurrentView(AppView.DASHBOARD);
+           }}
         />
       );
     case AppView.MEETINGS:
@@ -810,6 +842,8 @@ const PortalRouterManager: React.FC<PortalRouterManagerProps> = ({
       );
     case AppView.TODOS:
       return <TodoList />;
+    case AppView.PROCESS_CENTER:
+      return <ProcessCenterPage onOpenTodoCenter={() => setCurrentView(AppView.TODOS)} />;
     case AppView.SECURITY:
       return <PortalSecurity />;
     default:

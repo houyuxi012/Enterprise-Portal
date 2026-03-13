@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
-from typing import List
+from datetime import date, datetime
+from typing import Any, List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import asc, desc, select
@@ -20,6 +22,85 @@ router = APIRouter(
     prefix="/holiday-reminders",
     tags=["holiday-reminders"],
 )
+
+
+def _normalize_holiday_activity_payload(payload: dict) -> dict:
+    activity_mode = str(payload.get("activity_mode") or "off").strip().lower()
+    if activity_mode not in {"off", "external", "local"}:
+        raise HTTPException(status_code=400, detail="节日活动配置无效。")
+
+    payload["activity_mode"] = activity_mode
+
+    if activity_mode == "off":
+        payload["activity_url"] = None
+        payload["local_content_config"] = None
+        return payload
+
+    if activity_mode == "external":
+        activity_url = str(payload.get("activity_url") or "").strip()
+        if not activity_url:
+            raise HTTPException(status_code=400, detail="外部链接不能为空。")
+        payload["activity_url"] = activity_url
+        payload["local_content_config"] = None
+        return payload
+
+    local_content_config = payload.get("local_content_config")
+    if local_content_config is None:
+        local_content_config = {}
+    if isinstance(local_content_config, str):
+        local_content_config = local_content_config.strip()
+        if local_content_config:
+            try:
+                local_content_config = json.loads(local_content_config)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=400, detail="节日活动本地内容格式无效。") from exc
+        else:
+            local_content_config = {}
+    if not isinstance(local_content_config, dict):
+        raise HTTPException(status_code=400, detail="节日活动本地内容格式无效。")
+
+    payload["local_content_config"] = local_content_config
+    payload["activity_url"] = None
+    return payload
+
+
+def _parse_holiday_date(raw_value: Any) -> date:
+    if isinstance(raw_value, date) and not isinstance(raw_value, datetime):
+        return raw_value
+    if isinstance(raw_value, datetime):
+        return raw_value.date()
+    if isinstance(raw_value, str):
+        value = raw_value.strip()
+        if not value:
+            raise HTTPException(status_code=400, detail="节日日期不能为空。")
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="节日日期格式无效。") from exc
+    raise HTTPException(status_code=400, detail="节日日期格式无效。")
+
+
+def _normalize_holiday_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="节日名称不能为空。")
+
+    content = str(payload.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="展示文案不能为空。")
+
+    normalized_payload: dict[str, Any] = {
+        "title": title,
+        "content": content,
+        "holiday_date": _parse_holiday_date(payload.get("holiday_date")),
+        "cover_image": str(payload.get("cover_image") or "").strip() or None,
+        "color": str(payload.get("color") or "purple").strip() or "purple",
+        "is_active": bool(payload.get("is_active", True)),
+        "activity_mode": payload.get("activity_mode"),
+        "activity_url": payload.get("activity_url"),
+        "local_content_config": payload.get("local_content_config"),
+    }
+    return _normalize_holiday_activity_payload(normalized_payload)
 
 
 @router.get("/", response_model=List[schemas.HolidayReminder])
@@ -45,11 +126,12 @@ async def read_holiday_reminders(
 async def create_holiday_reminder(
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: schemas.HolidayReminderCreate,
+    payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    reminder = models.HolidayReminder(**payload.model_dump())
+    reminder_payload = _normalize_holiday_payload(payload)
+    reminder = models.HolidayReminder(**reminder_payload)
     db.add(reminder)
     await db.commit()
     await db.refresh(reminder)
@@ -74,7 +156,7 @@ async def create_holiday_reminder(
 )
 async def update_holiday_reminder(
     reminder_id: int,
-    payload: schemas.HolidayReminderCreate,
+    payload: dict[str, Any],
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -87,7 +169,8 @@ async def update_holiday_reminder(
     if not reminder:
         raise HTTPException(status_code=404, detail="Holiday reminder not found")
 
-    for key, value in payload.model_dump().items():
+    normalized_payload = _normalize_holiday_payload(payload)
+    for key, value in normalized_payload.items():
         setattr(reminder, key, value)
 
     await db.commit()

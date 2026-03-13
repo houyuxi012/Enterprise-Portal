@@ -85,6 +85,9 @@ export interface HolidayReminder {
   cover_image?: string;
   color: 'orange' | 'blue' | 'rose' | 'emerald' | 'purple' | 'red' | 'green' | 'yellow';
   is_active?: boolean;
+  activity_mode?: 'off' | 'external' | 'local';
+  activity_url?: string | null;
+  local_content_config?: Record<string, unknown> | null;
 }
 
 export interface Permission {

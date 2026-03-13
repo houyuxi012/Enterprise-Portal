@@ -114,6 +114,9 @@ class HolidayReminderBase(BaseModel):
     cover_image: Optional[str] = None
     color: str = "purple"
     is_active: bool = True
+    activity_mode: Literal["off", "external", "local"] = "off"
+    activity_url: Optional[str] = None
+    local_content_config: Optional[dict] = None
 
 
 class HolidayReminderCreate(HolidayReminderBase):

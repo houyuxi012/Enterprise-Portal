@@ -126,6 +126,9 @@ export interface HolidayReminderUpsertPayload {
   cover_image?: string | null;
   color?: string;
   is_active?: boolean;
+  activity_mode?: 'off' | 'external' | 'local';
+  activity_url?: string | null;
+  local_content_config?: Record<string, unknown> | null;
 }
 
 export interface ResetPasswordResponse {
